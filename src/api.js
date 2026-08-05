@@ -1244,67 +1244,73 @@ export const api = {
       jsonOptions("POST", data)
     ),
 
-dailyLeadStatus: () =>
-  request("/api/daily-leads/status"),
+  /* ------------------------------------------------------------------------ */
+  /* Telnyx browser dialer and call recordings                                */
+  /* ------------------------------------------------------------------------ */
 
-saveDailyLeadConfig: (data) =>
-  request(
-    "/api/daily-leads/config",
-    jsonOptions("PUT", data)
-  ),
+  telnyxDiagnostics: () =>
+    request("/api/telnyx/diagnostics"),
 
-runDailyLeadAutomation: ({
-  force = false,
-} = {}) =>
-  request(
-    "/api/daily-leads/run",
-    {
-      ...jsonOptions("POST", {
-        force,
-      }),
-      timeoutMs: 600_000,
-    }
-  ),
+  telnyxSession: () =>
+    request("/api/telnyx/session", {
+      timeoutMs: 60_000,
+    }),
 
-salesDashboard: () =>
-  request("/api/sales/dashboard"),
+  telnyxDialers: () =>
+    request("/api/telnyx/dialers"),
 
-ownerOverview: () =>
-  request("/api/owner/overview"),
+  provisionTelnyxDialers: () =>
+    request("/api/telnyx/dialers/provision", {
+      method: "POST",
+      timeoutMs: 180_000,
+    }),
 
-dialers: () =>
-  request("/api/dialers"),
+  createTelnyxCall: (data) =>
+    request(
+      "/api/telnyx/calls",
+      jsonOptions("POST", data)
+    ),
 
-saveDialer: (data) =>
-  request(
-    "/api/dialers",
-    jsonOptions("POST", data)
-  ),
+  telnyxCalls: (filters = {}) =>
+    request(
+      withQuery("/api/telnyx/calls", filters)
+    ),
 
-deleteDialer: (id) =>
-  request(
-    `/api/dialers/${encode(id)}`,
-    {
-      method: "DELETE",
-    }
-  ),
+  telnyxCall: (callId) =>
+    request(
+      `/api/telnyx/calls/${encode(callId)}`
+    ),
 
-senders: () =>
-  request("/api/senders"),
+  linkTelnyxCall: (callId, data) =>
+    request(
+      `/api/telnyx/calls/${encode(callId)}/link`,
+      jsonOptions("PATCH", data)
+    ),
 
-saveSender: (data) =>
-  request(
-    "/api/senders",
-    jsonOptions("POST", data)
-  ),
+  updateTelnyxCallState: (callId, data) =>
+    request(
+      `/api/telnyx/calls/${encode(callId)}/state`,
+      jsonOptions("PATCH", data)
+    ),
 
-deleteSender: (id) =>
-  request(
-    `/api/senders/${encode(id)}`,
-    {
-      method: "DELETE",
-    }
-  ),
+  completeTelnyxCall: (callId, data = {}) =>
+    request(
+      `/api/telnyx/calls/${encode(callId)}/complete`,
+      jsonOptions("PATCH", data)
+    ),
+
+  telnyxRecordingUrl: (callId) =>
+    buildUrl(
+      `/api/telnyx/recordings/${encode(callId)}`
+    ),
+
+  telnyxContactPolicy: (lead = {}) =>
+    request(
+      withQuery("/api/telnyx/contact-policy", {
+        lead: JSON.stringify(lead),
+      })
+    ),
+
   /* ------------------------------------------------------------------------ */
   /* Application settings                                                     */
   /* ------------------------------------------------------------------------ */
