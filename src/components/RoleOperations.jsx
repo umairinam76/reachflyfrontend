@@ -7,7 +7,7 @@ import {
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../api";
 import TeamCommunication from "./TeamCommunication";
-import "./RoleOperations.css";
+import "../styles.css";
 
 const DEFAULT_CONFIG = {
   enabled: true,
