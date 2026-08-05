@@ -27,8 +27,8 @@ import SeoLanding from "./pages/SeoLanding";
 /*
  * Authentication pages
  */
-import Login from "./pages/Login";
-import Signup from "./pages/Signup";
+import Login from "./pages/Login.jsx";
+import Signup from "./pages/Signup.jsx";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 
