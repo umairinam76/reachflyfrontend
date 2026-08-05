@@ -1,0 +1,10 @@
+{
+  "name": "ReachFly.Ai",
+  "short_name": "ReachFly",
+  "description": "AI marketing, lead scraping and auto-reach CRM.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fbfbff",
+  "theme_color": "#7b42ff",
+  "icons": [{ "src": "/favicon.svg", "sizes": "64x64", "type": "image/svg+xml" }]
+}
