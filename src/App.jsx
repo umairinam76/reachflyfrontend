@@ -60,6 +60,7 @@ import ProfileSettingsPage from "../src/pages/ProfileSettingsPage";
 import AttendancePage from "../src/pages/AttendancePage";
 import CallerDashboard from "../src/pages/CallerDashboardPage";
 import ManagerResourceBoard from "../src/pages/ManagerResourceBoard";
+import TelnyxAIAgentPage from "../src/pages/TelnyxAIAgentPage";
 
 /**
  * Routes rendered inside AuthProvider.
@@ -374,6 +375,15 @@ function AppRoutes() {
             />
 
             <Route
+              path="voice-agent"
+              element={
+                <VoiceAgentRoute>
+                  <TelnyxAIAgentPage />
+                </VoiceAgentRoute>
+              }
+            />
+
+            <Route
               path="team-management"
               element={
                 <WorkspaceManagementRoute>
@@ -676,6 +686,90 @@ function WorkspaceManagementRoute({
     >
       {children}
     </RoleAccess>
+  );
+}
+
+/**
+ * Telnyx AI voice-agent route.
+ *
+ * The feature is available to owner/admin/manager roles and individual
+ * accounts, but is intentionally hidden and blocked for AH Growth.
+ */
+function VoiceAgentRoute({
+  children,
+}) {
+  const {
+    user,
+    initializing,
+  } = useAuth();
+
+  if (initializing) {
+    return (
+      <div className="route-loading-state">
+        Loading voice agent…
+      </div>
+    );
+  }
+
+  const role = normalizeRole(
+    user?.workspaceRole ||
+      user?.role ||
+      "caller"
+  );
+  const accountType = String(
+    user?.accountType ||
+      user?.workspaceType ||
+      ""
+  )
+    .trim()
+    .toLowerCase();
+  const allowedRole = [
+    "owner",
+    "admin",
+    "manager",
+  ].includes(role);
+  const individual =
+    accountType === "individual";
+
+  if (
+    isAhGrowthWorkspace(user) ||
+    (!allowedRole && !individual)
+  ) {
+    return (
+      <Navigate
+        to="/app/dashboard"
+        replace
+      />
+    );
+  }
+
+  return children;
+}
+
+function isAhGrowthWorkspace(user) {
+  const values = [
+    user?.workspaceId,
+    user?.companyId,
+    user?.workspaceSlug,
+    user?.companySlug,
+    user?.workspaceName,
+    user?.companyName,
+  ]
+    .filter(Boolean)
+    .map((value) =>
+      String(value)
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "_")
+        .replace(/-/g, "_")
+    );
+
+  return (
+    values.includes("ah_growth_workspace") ||
+    values.includes("ah_growth") ||
+    values.some((value) =>
+      value.startsWith("ah_growth_")
+    )
   );
 }
 

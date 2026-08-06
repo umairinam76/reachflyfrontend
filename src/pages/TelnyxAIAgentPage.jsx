@@ -1,0 +1,1626 @@
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+
+import {
+  Navigate,
+} from "react-router-dom";
+
+import {
+  useAuth,
+} from "../auth/AuthContext";
+
+import {
+  apiRequest,
+  onWorkspaceSocket,
+} from "../lib/workspace-platform-client.js";
+
+import "../styles/telnyx-ai-agent.css";
+
+const DEFAULT_FORM = {
+  name: "",
+  description:
+    "ReachFly outbound qualification and meeting-booking agent.",
+  companyName: "",
+  voice: "Telnyx.NaturalHD.astra",
+  model: "",
+  greeting:
+    "Hi, this is the automated sales assistant calling from {{company_name}}. Is now an okay time for a quick question?",
+  disclosure:
+    "Clearly identify yourself as an automated AI sales assistant and identify the company at the beginning of the call.",
+  persona:
+    "Warm, confident, concise, curious, respectful, and conversational. Use short sentences and natural pauses. Never claim to be human.",
+  offer: "",
+  idealCustomer: "",
+  qualificationQuestions: "",
+  objectionHandling: "",
+  meetingGoal:
+    "Book a short discovery meeting only after the lead explicitly confirms the date and time.",
+  bookingInstructions: "",
+  calendarOwnerEmail: "",
+  bookingTimezone: "America/New_York",
+  meetingDurationMinutes: 30,
+  voicemailMessage: "",
+  fromNumber: "",
+  defaultLeadTimezone: "America/New_York",
+  callingWindowStartHour: 9,
+  callingWindowEndHour: 17,
+  dailyCallLimit: 25,
+  concurrency: 1,
+  maxAttempts: 3,
+  maxCallSeconds: 600,
+  ringTimeoutSeconds: 45,
+  recordingEnabled: false,
+  enabled: true,
+  complianceConfirmed: false,
+};
+
+const TABS = [
+  ["setup", "Agent setup"],
+  ["leads", "Lead queue"],
+  ["calls", "Calls"],
+  ["meetings", "Meetings"],
+];
+
+const LIVE_CALL_STATES = new Set([
+  "creating",
+  "queued",
+  "initiated",
+  "ringing",
+  "answered",
+  "assistant_active",
+  "active",
+]);
+
+export default function TelnyxAIAgentPage() {
+  const { user } = useAuth();
+  const refreshTimerRef = useRef(null);
+  const mountedRef = useRef(true);
+
+  const [dashboard, setDashboard] = useState(null);
+  const [voices, setVoices] = useState([]);
+  const [form, setForm] = useState(DEFAULT_FORM);
+  const [activeTab, setActiveTab] = useState("setup");
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [assigning, setAssigning] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [busyCallId, setBusyCallId] = useState("");
+  const [selectedLeadIds, setSelectedLeadIds] = useState([]);
+  const [leadSearch, setLeadSearch] = useState("");
+  const [leadStatus, setLeadStatus] = useState("all");
+  const [queueStatus, setQueueStatus] = useState("all");
+  const [campaignLimit, setCampaignLimit] = useState(10);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [accessDenied, setAccessDenied] = useState(false);
+
+  const loadDashboard = useCallback(
+    async ({ silent = false } = {}) => {
+      if (!silent) {
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
+
+      try {
+        const response = await apiRequest(
+          "/telnyx/ai-agent/dashboard",
+          {
+            timeoutMs: 20_000,
+          }
+        );
+
+        if (!mountedRef.current) return;
+        setDashboard(response);
+        setAccessDenied(false);
+        setForm((current) =>
+          normalizeAgentForm({
+            ...current,
+            ...(response.agent || {}),
+            companyName:
+              response.agent?.companyName ||
+              response.workspace?.name ||
+              current.companyName,
+            fromNumber:
+              response.agent?.fromNumber ||
+              response.diagnostics?.selectedFromNumber ||
+              current.fromNumber,
+          })
+        );
+      } catch (requestError) {
+        if (!mountedRef.current) return;
+        if ([403, 404].includes(Number(requestError?.status))) {
+          setAccessDenied(true);
+        } else {
+          setError(
+            requestError?.message ||
+              "The Telnyx voice-agent workspace could not be loaded."
+          );
+        }
+      } finally {
+        if (mountedRef.current) {
+          setLoading(false);
+          setRefreshing(false);
+        }
+      }
+    },
+    []
+  );
+
+  const loadVoices = useCallback(async () => {
+    try {
+      const response = await apiRequest(
+        "/telnyx/ai-agent/voices",
+        {
+          timeoutMs: 30_000,
+        }
+      );
+      if (!mountedRef.current) return;
+      setVoices(
+        Array.isArray(response?.voices)
+          ? response.voices
+          : []
+      );
+    } catch (requestError) {
+      if (!mountedRef.current) return;
+      setError(
+        requestError?.message ||
+          "Telnyx voice options could not be loaded."
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    void Promise.all([
+      loadDashboard(),
+      loadVoices(),
+    ]);
+
+    return () => {
+      mountedRef.current = false;
+      window.clearTimeout(refreshTimerRef.current);
+    };
+  }, [loadDashboard, loadVoices]);
+
+  useEffect(() => {
+    const scheduleSilentRefresh = () => {
+      window.clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = window.setTimeout(() => {
+        void loadDashboard({ silent: true });
+      }, 250);
+    };
+
+    const events = [
+      "telnyx-ai-agent:updated",
+      "telnyx-ai-agent:call-updated",
+      "telnyx-ai-agent:meeting-booked",
+      "lead:updated",
+    ];
+    const unsubscribers = events.map((eventName) =>
+      onWorkspaceSocket(eventName, scheduleSilentRefresh)
+    );
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void loadDashboard({ silent: true });
+      }
+    };
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibility
+    );
+
+    return () => {
+      unsubscribers.forEach((unsubscribe) =>
+        unsubscribe?.()
+      );
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibility
+      );
+    };
+  }, [loadDashboard]);
+
+  const assignableLeads = useMemo(() => {
+    const value = leadSearch.trim().toLowerCase();
+    const leads = Array.isArray(dashboard?.assignableLeads)
+      ? dashboard.assignableLeads
+      : [];
+
+    return leads.filter((lead) => {
+      if (
+        leadStatus !== "all" &&
+        normalizeStatus(lead.status) !== leadStatus
+      ) {
+        return false;
+      }
+      if (!value) return true;
+      return [
+        lead.name,
+        lead.phone,
+        lead.email,
+        lead.website,
+        lead.campaignName,
+        lead.address,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(value);
+    });
+  }, [dashboard?.assignableLeads, leadSearch, leadStatus]);
+
+  const queue = useMemo(() => {
+    const records = Array.isArray(dashboard?.queue)
+      ? dashboard.queue
+      : [];
+    if (queueStatus === "all") return records;
+    return records.filter(
+      (item) =>
+        normalizeStatus(item.status) === queueStatus
+    );
+  }, [dashboard?.queue, queueStatus]);
+
+  const calls = Array.isArray(dashboard?.calls)
+    ? dashboard.calls
+    : [];
+  const meetings = Array.isArray(dashboard?.meetings)
+    ? dashboard.meetings
+    : [];
+  const diagnostics = dashboard?.diagnostics || {};
+  const agent = dashboard?.agent || null;
+
+  const allVisibleSelected =
+    assignableLeads.length > 0 &&
+    assignableLeads.every((lead) =>
+      selectedLeadIds.includes(lead.assignmentId)
+    );
+
+  function updateForm(key, value) {
+    setForm((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  }
+
+  function toggleLead(id) {
+    setSelectedLeadIds((current) =>
+      current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [...current, id]
+    );
+  }
+
+  function toggleAllVisible() {
+    const visibleIds = assignableLeads.map(
+      (lead) => lead.assignmentId
+    );
+    setSelectedLeadIds((current) => {
+      if (allVisibleSelected) {
+        return current.filter(
+          (id) => !visibleIds.includes(id)
+        );
+      }
+      return [...new Set([...current, ...visibleIds])];
+    });
+  }
+
+  async function saveAgent() {
+    setSaving(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await apiRequest(
+        "/telnyx/ai-agent",
+        {
+          method: "PUT",
+          body: normalizeAgentForm(form),
+          timeoutMs: 45_000,
+        }
+      );
+      setDashboard((current) => ({
+        ...(current || {}),
+        agent: response.agent,
+      }));
+      setForm((current) =>
+        normalizeAgentForm({
+          ...current,
+          ...response.agent,
+        })
+      );
+      setSuccess(
+        "The ReachFly voice agent was saved and synchronized with Telnyx."
+      );
+      await loadDashboard({ silent: true });
+    } catch (requestError) {
+      setError(
+        requestError?.message ||
+          "The voice agent could not be saved."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function assignSelectedLeads() {
+    if (!selectedLeadIds.length) {
+      setError("Select at least one lead first.");
+      return;
+    }
+
+    setAssigning(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await apiRequest(
+        "/telnyx/ai-agent/leads/assign",
+        {
+          method: "POST",
+          body: {
+            assignmentIds: selectedLeadIds,
+            defaultTimezone:
+              form.defaultLeadTimezone,
+            maxAttempts: form.maxAttempts,
+          },
+          timeoutMs: 30_000,
+        }
+      );
+      setSelectedLeadIds([]);
+      setSuccess(
+        `${response.queued || 0} lead${
+          response.queued === 1 ? "" : "s"
+        } added to the AI-agent queue.${
+          response.skipped?.length
+            ? ` ${response.skipped.length} skipped.`
+            : ""
+        }`
+      );
+      await loadDashboard({ silent: true });
+    } catch (requestError) {
+      setError(
+        requestError?.message ||
+          "The selected leads could not be assigned."
+      );
+    } finally {
+      setAssigning(false);
+    }
+  }
+
+  async function startCampaign() {
+    setStarting(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await apiRequest(
+        "/telnyx/ai-agent/campaigns/start",
+        {
+          method: "POST",
+          body: {
+            limit: Number(campaignLimit),
+            concurrency: Number(form.concurrency),
+            dailyCallLimit: Number(form.dailyCallLimit),
+            fromNumber: form.fromNumber,
+          },
+          timeoutMs: 60_000,
+        }
+      );
+      setSuccess(
+        `${response.started || 0} call${
+          response.started === 1 ? "" : "s"
+        } started.${
+          response.deferred
+            ? ` ${response.deferred} deferred by policy.`
+            : ""
+        }${
+          response.failed
+            ? ` ${response.failed} failed.`
+            : ""
+        }`
+      );
+      setActiveTab("calls");
+      await loadDashboard({ silent: true });
+    } catch (requestError) {
+      setError(
+        requestError?.message ||
+          "The AI calling campaign could not start."
+      );
+    } finally {
+      setStarting(false);
+    }
+  }
+
+  async function cancelCall(callId) {
+    setBusyCallId(callId);
+    setError("");
+    try {
+      await apiRequest(
+        `/telnyx/ai-agent/calls/${encodeURIComponent(
+          callId
+        )}/cancel`,
+        {
+          method: "POST",
+          timeoutMs: 20_000,
+        }
+      );
+      setSuccess("The AI-agent call was cancelled.");
+      await loadDashboard({ silent: true });
+    } catch (requestError) {
+      setError(
+        requestError?.message ||
+          "The call could not be cancelled."
+      );
+    } finally {
+      setBusyCallId("");
+    }
+  }
+
+  if (accessDenied) {
+    return <Navigate to="/app/dashboard" replace />;
+  }
+
+  if (loading && !dashboard) {
+    return (
+      <main className="rf-agent-page">
+        <section className="rf-agent-loading">
+          <span className="rf-agent-spinner" />
+          <b>Loading Telnyx voice agent…</b>
+          <small>
+            Checking workspace access, configuration and lead queue.
+          </small>
+        </section>
+      </main>
+    );
+  }
+
+  return (
+    <main className="rf-agent-page">
+      <header className="rf-agent-header">
+        <div>
+          <span className="eyebrow">Telnyx AI voice</span>
+          <h1>Outbound voice agent</h1>
+          <p>
+            Qualify leads, record outcomes and book confirmed meetings with a
+            workspace-scoped Telnyx AI assistant.
+          </p>
+        </div>
+
+        <div className="rf-agent-header-actions">
+          <span
+            className={`rf-agent-live-pill ${
+              diagnostics.configured ? "ready" : "warning"
+            }`}
+          >
+            <i />
+            {diagnostics.configured
+              ? "Telnyx configured"
+              : "Configuration required"}
+          </span>
+
+          <button
+            type="button"
+            className="btn light"
+            disabled={refreshing}
+            onClick={() => void loadDashboard({ silent: true })}
+          >
+            {refreshing ? "Refreshing…" : "Refresh"}
+          </button>
+        </div>
+      </header>
+
+      {error ? (
+        <div className="rf-agent-alert error">
+          <span>{error}</span>
+          <button type="button" onClick={() => setError("")}>
+            ×
+          </button>
+        </div>
+      ) : null}
+
+      {success ? (
+        <div className="rf-agent-alert success">
+          <span>{success}</span>
+          <button type="button" onClick={() => setSuccess("")}>
+            ×
+          </button>
+        </div>
+      ) : null}
+
+      <section className="rf-agent-metrics">
+        <Metric
+          label="Ready leads"
+          value={dashboard?.summary?.assignableLeads || 0}
+          text="Leads with callable numbers"
+        />
+        <Metric
+          label="Queued"
+          value={dashboard?.summary?.queuedLeads || 0}
+          text="Awaiting an approved call window"
+        />
+        <Metric
+          label="Live calls"
+          value={dashboard?.summary?.activeCalls || 0}
+          text="Current AI conversations"
+        />
+        <Metric
+          label="Upcoming meetings"
+          value={dashboard?.summary?.meetingsUpcoming || 0}
+          text="Confirmed by leads"
+        />
+      </section>
+
+      <section className="rf-agent-provider-card">
+        <div>
+          <span className="rf-agent-provider-logo">T</span>
+          <div>
+            <b>Telnyx voice infrastructure</b>
+            <small>
+              Assistant {diagnostics.assistantId || "not linked"}
+            </small>
+          </div>
+        </div>
+
+        <dl>
+          <div>
+            <dt>Call Control application</dt>
+            <dd>{diagnostics.callControlApplicationId || "Missing"}</dd>
+          </div>
+          <div>
+            <dt>Outbound caller ID</dt>
+            <dd>{diagnostics.selectedFromNumber || "Missing"}</dd>
+          </div>
+          <div>
+            <dt>Webhook</dt>
+            <dd title={diagnostics.webhookUrl}>
+              {shorten(diagnostics.webhookUrl, 52) || "Missing"}
+            </dd>
+          </div>
+          <div>
+            <dt>Workspace</dt>
+            <dd>{dashboard?.workspace?.name || user?.companyName}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <nav className="rf-agent-tabs" aria-label="Voice-agent sections">
+        {TABS.map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            className={activeTab === value ? "active" : ""}
+            onClick={() => setActiveTab(value)}
+          >
+            {label}
+            {value === "leads" && dashboard?.summary?.queuedLeads ? (
+              <b>{dashboard.summary.queuedLeads}</b>
+            ) : null}
+          </button>
+        ))}
+      </nav>
+
+      {activeTab === "setup" ? (
+        <AgentSetup
+          form={form}
+          voices={voices}
+          diagnostics={diagnostics}
+          saving={saving}
+          onChange={updateForm}
+          onSave={() => void saveAgent()}
+        />
+      ) : null}
+
+      {activeTab === "leads" ? (
+        <LeadQueue
+          agent={agent}
+          leads={assignableLeads}
+          queue={queue}
+          selectedLeadIds={selectedLeadIds}
+          allVisibleSelected={allVisibleSelected}
+          search={leadSearch}
+          leadStatus={leadStatus}
+          queueStatus={queueStatus}
+          campaignLimit={campaignLimit}
+          assigning={assigning}
+          starting={starting}
+          onSearch={setLeadSearch}
+          onLeadStatus={setLeadStatus}
+          onQueueStatus={setQueueStatus}
+          onCampaignLimit={setCampaignLimit}
+          onToggleLead={toggleLead}
+          onToggleAll={toggleAllVisible}
+          onAssign={() => void assignSelectedLeads()}
+          onStart={() => void startCampaign()}
+        />
+      ) : null}
+
+      {activeTab === "calls" ? (
+        <CallsPanel
+          calls={calls}
+          busyCallId={busyCallId}
+          onCancel={(id) => void cancelCall(id)}
+        />
+      ) : null}
+
+      {activeTab === "meetings" ? (
+        <MeetingsPanel meetings={meetings} />
+      ) : null}
+    </main>
+  );
+}
+
+function AgentSetup({
+  form,
+  voices,
+  diagnostics,
+  saving,
+  onChange,
+  onSave,
+}) {
+  const numberOptions = Array.isArray(diagnostics.fromNumbers)
+    ? diagnostics.fromNumbers
+    : [];
+
+  return (
+    <section className="rf-agent-setup-grid">
+      <article className="rf-agent-card rf-agent-form-card">
+        <div className="rf-agent-card-heading">
+          <div>
+            <span>Identity and voice</span>
+            <h2>Make the agent natural, clear and on-brand</h2>
+          </div>
+          <span className="rf-agent-section-number">01</span>
+        </div>
+
+        <div className="rf-agent-field-grid two">
+          <Field
+            label="Agent name"
+            value={form.name}
+            onChange={(value) => onChange("name", value)}
+            placeholder="Codesync Growth Assistant"
+          />
+          <Field
+            label="Company name"
+            value={form.companyName}
+            onChange={(value) => onChange("companyName", value)}
+            placeholder="Codesync Labs"
+          />
+        </div>
+
+        <label className="rf-agent-field">
+          <span>Telnyx voice</span>
+          <select
+            value={form.voice}
+            onChange={(event) =>
+              onChange("voice", event.target.value)
+            }
+          >
+            {!voices.length ? (
+              <option value={form.voice}>{form.voice}</option>
+            ) : null}
+            {voices.map((voice) => (
+              <option key={voice.id} value={voice.id}>
+                {voice.label || voice.id}
+              </option>
+            ))}
+          </select>
+          <small>
+            NaturalHD is a strong starting point; available voices are loaded
+            directly from Telnyx.
+          </small>
+        </label>
+
+        <TextArea
+          label="Opening greeting"
+          value={form.greeting}
+          onChange={(value) => onChange("greeting", value)}
+          rows={3}
+        />
+
+        <TextArea
+          label="Voice and personality"
+          value={form.persona}
+          onChange={(value) => onChange("persona", value)}
+          rows={4}
+        />
+
+        <TextArea
+          label="AI disclosure rule"
+          value={form.disclosure}
+          onChange={(value) => onChange("disclosure", value)}
+          rows={3}
+        />
+      </article>
+
+      <article className="rf-agent-card rf-agent-form-card">
+        <div className="rf-agent-card-heading">
+          <div>
+            <span>Sales playbook</span>
+            <h2>Tell the agent what a good conversation looks like</h2>
+          </div>
+          <span className="rf-agent-section-number">02</span>
+        </div>
+
+        <TextArea
+          label="Offer or service"
+          value={form.offer}
+          onChange={(value) => onChange("offer", value)}
+          placeholder="What Codesync Labs sells, primary value and approved claims."
+          rows={4}
+        />
+
+        <TextArea
+          label="Ideal customer"
+          value={form.idealCustomer}
+          onChange={(value) => onChange("idealCustomer", value)}
+          placeholder="Industries, company size, roles, problems and exclusions."
+          rows={4}
+        />
+
+        <TextArea
+          label="Qualification questions"
+          value={form.qualificationQuestions}
+          onChange={(value) =>
+            onChange("qualificationQuestions", value)
+          }
+          placeholder="Ask about current process, pain, urgency, budget range and decision process—one question at a time."
+          rows={5}
+        />
+
+        <TextArea
+          label="Objection handling"
+          value={form.objectionHandling}
+          onChange={(value) =>
+            onChange("objectionHandling", value)
+          }
+          placeholder="Approved answers for price, timing, existing vendor and send-me-information objections."
+          rows={5}
+        />
+      </article>
+
+      <article className="rf-agent-card rf-agent-form-card">
+        <div className="rf-agent-card-heading">
+          <div>
+            <span>Meeting booking</span>
+            <h2>Book only confirmed appointments</h2>
+          </div>
+          <span className="rf-agent-section-number">03</span>
+        </div>
+
+        <TextArea
+          label="Meeting goal"
+          value={form.meetingGoal}
+          onChange={(value) => onChange("meetingGoal", value)}
+          rows={3}
+        />
+
+        <TextArea
+          label="Booking instructions"
+          value={form.bookingInstructions}
+          onChange={(value) =>
+            onChange("bookingInstructions", value)
+          }
+          placeholder="Available days/hours, who attends, required information, and when to offer a human follow-up."
+          rows={5}
+        />
+
+        <div className="rf-agent-field-grid two">
+          <Field
+            label="Meeting owner email"
+            type="email"
+            value={form.calendarOwnerEmail}
+            onChange={(value) =>
+              onChange("calendarOwnerEmail", value)
+            }
+            placeholder="sales@codesynclabs.com"
+          />
+          <Field
+            label="Booking timezone"
+            value={form.bookingTimezone}
+            onChange={(value) =>
+              onChange("bookingTimezone", value)
+            }
+            placeholder="America/New_York"
+          />
+          <NumberField
+            label="Meeting duration"
+            value={form.meetingDurationMinutes}
+            min={10}
+            max={180}
+            suffix="minutes"
+            onChange={(value) =>
+              onChange("meetingDurationMinutes", value)
+            }
+          />
+          <Field
+            label="Default lead timezone"
+            value={form.defaultLeadTimezone}
+            onChange={(value) =>
+              onChange("defaultLeadTimezone", value)
+            }
+            placeholder="America/New_York"
+          />
+        </div>
+      </article>
+
+      <article className="rf-agent-card rf-agent-form-card">
+        <div className="rf-agent-card-heading">
+          <div>
+            <span>Calling controls</span>
+            <h2>Keep volume and timing controlled</h2>
+          </div>
+          <span className="rf-agent-section-number">04</span>
+        </div>
+
+        <label className="rf-agent-field">
+          <span>Outbound Telnyx number</span>
+          {numberOptions.length ? (
+            <select
+              value={form.fromNumber}
+              onChange={(event) =>
+                onChange("fromNumber", event.target.value)
+              }
+            >
+              <option value="">Use server default</option>
+              {numberOptions.map((number) => (
+                <option key={number} value={number}>
+                  {formatPhone(number)}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              value={form.fromNumber}
+              onChange={(event) =>
+                onChange("fromNumber", event.target.value)
+              }
+              placeholder="+1…"
+            />
+          )}
+          <small>
+            Use a number assigned to the Telnyx Call Control application for
+            the AI agent.
+          </small>
+        </label>
+
+        <div className="rf-agent-field-grid three">
+          <NumberField
+            label="Daily call limit"
+            value={form.dailyCallLimit}
+            min={1}
+            max={5000}
+            onChange={(value) =>
+              onChange("dailyCallLimit", value)
+            }
+          />
+          <NumberField
+            label="Concurrent calls"
+            value={form.concurrency}
+            min={1}
+            max={5}
+            onChange={(value) =>
+              onChange("concurrency", value)
+            }
+          />
+          <NumberField
+            label="Maximum attempts"
+            value={form.maxAttempts}
+            min={1}
+            max={10}
+            onChange={(value) =>
+              onChange("maxAttempts", value)
+            }
+          />
+          <NumberField
+            label="Call window starts"
+            value={form.callingWindowStartHour}
+            min={8}
+            max={20}
+            suffix=":00"
+            onChange={(value) =>
+              onChange("callingWindowStartHour", value)
+            }
+          />
+          <NumberField
+            label="Call window ends"
+            value={form.callingWindowEndHour}
+            min={9}
+            max={21}
+            suffix=":00"
+            onChange={(value) =>
+              onChange("callingWindowEndHour", value)
+            }
+          />
+          <NumberField
+            label="Max call length"
+            value={form.maxCallSeconds}
+            min={60}
+            max={3600}
+            suffix="seconds"
+            onChange={(value) =>
+              onChange("maxCallSeconds", value)
+            }
+          />
+        </div>
+
+        <label className="rf-agent-check-row">
+          <input
+            type="checkbox"
+            checked={form.recordingEnabled}
+            onChange={(event) =>
+              onChange("recordingEnabled", event.target.checked)
+            }
+          />
+          <span>
+            <b>Enable call recording</b>
+            <small>
+              Turn this on only after the workspace has approved disclosure,
+              consent, access and retention rules.
+            </small>
+          </span>
+        </label>
+
+        <label className="rf-agent-check-row important">
+          <input
+            type="checkbox"
+            checked={form.complianceConfirmed}
+            onChange={(event) =>
+              onChange(
+                "complianceConfirmed",
+                event.target.checked
+              )
+            }
+          />
+          <span>
+            <b>Calling and suppression policy approved</b>
+            <small>
+              I confirm that the selected leads, calling windows, consent
+              basis, DNC process, caller ID and recording policy have been
+              reviewed for this campaign.
+            </small>
+          </span>
+        </label>
+
+        <label className="rf-agent-toggle-row">
+          <span>
+            <b>Agent enabled</b>
+            <small>
+              Disabling prevents new campaigns from starting.
+            </small>
+          </span>
+          <input
+            type="checkbox"
+            checked={form.enabled}
+            onChange={(event) =>
+              onChange("enabled", event.target.checked)
+            }
+          />
+        </label>
+
+        <button
+          type="button"
+          className="btn primary full rf-agent-save"
+          disabled={saving || !form.complianceConfirmed}
+          onClick={onSave}
+        >
+          {saving
+            ? "Saving and syncing with Telnyx…"
+            : "Save voice agent"}
+        </button>
+      </article>
+    </section>
+  );
+}
+
+function LeadQueue({
+  agent,
+  leads,
+  queue,
+  selectedLeadIds,
+  allVisibleSelected,
+  search,
+  leadStatus,
+  queueStatus,
+  campaignLimit,
+  assigning,
+  starting,
+  onSearch,
+  onLeadStatus,
+  onQueueStatus,
+  onCampaignLimit,
+  onToggleLead,
+  onToggleAll,
+  onAssign,
+  onStart,
+}) {
+  return (
+    <section className="rf-agent-leads-layout">
+      <article className="rf-agent-card rf-agent-lead-picker">
+        <div className="rf-agent-card-heading compact">
+          <div>
+            <span>Available CRM leads</span>
+            <h2>Select leads for the agent</h2>
+          </div>
+          <b className="rf-agent-count">
+            {selectedLeadIds.length} selected
+          </b>
+        </div>
+
+        <div className="rf-agent-toolbar">
+          <input
+            value={search}
+            onChange={(event) => onSearch(event.target.value)}
+            placeholder="Search business, phone, email or campaign…"
+          />
+          <select
+            value={leadStatus}
+            onChange={(event) => onLeadStatus(event.target.value)}
+          >
+            <option value="all">All statuses</option>
+            <option value="new">New</option>
+            <option value="assigned">Assigned</option>
+            <option value="ready">Ready</option>
+            <option value="follow_up">Follow-up</option>
+            <option value="qualified">Qualified</option>
+          </select>
+          <button type="button" className="btn light" onClick={onToggleAll}>
+            {allVisibleSelected ? "Clear visible" : "Select visible"}
+          </button>
+        </div>
+
+        <div className="rf-agent-table-wrap">
+          <table className="rf-agent-table">
+            <thead>
+              <tr>
+                <th aria-label="Select" />
+                <th>Lead</th>
+                <th>Campaign</th>
+                <th>Status</th>
+                <th>AI queue</th>
+              </tr>
+            </thead>
+            <tbody>
+              {leads.length ? (
+                leads.map((lead) => (
+                  <tr
+                    key={lead.assignmentId}
+                    className={lead.doNotCall ? "disabled" : ""}
+                  >
+                    <td>
+                      <input
+                        type="checkbox"
+                        disabled={lead.doNotCall || !lead.phone}
+                        checked={selectedLeadIds.includes(
+                          lead.assignmentId
+                        )}
+                        onChange={() =>
+                          onToggleLead(lead.assignmentId)
+                        }
+                      />
+                    </td>
+                    <td>
+                      <b>{lead.name}</b>
+                      <small>{formatPhone(lead.phone)}</small>
+                      {lead.email ? <small>{lead.email}</small> : null}
+                    </td>
+                    <td>{lead.campaignName || "Uncategorized"}</td>
+                    <td>
+                      <StatusBadge value={lead.status} />
+                    </td>
+                    <td>
+                      {lead.doNotCall ? (
+                        <StatusBadge value="do_not_call" />
+                      ) : lead.aiAgentStatus ? (
+                        <StatusBadge value={lead.aiAgentStatus} />
+                      ) : (
+                        <span className="rf-agent-muted">Not queued</span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} className="rf-agent-empty-cell">
+                    No matching callable leads were found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <button
+          type="button"
+          className="btn primary full"
+          disabled={
+            assigning ||
+            !selectedLeadIds.length ||
+            !agent?.telnyxAssistantId
+          }
+          onClick={onAssign}
+        >
+          {assigning
+            ? "Adding leads…"
+            : `Assign ${selectedLeadIds.length || "selected"} lead${
+                selectedLeadIds.length === 1 ? "" : "s"
+              } to agent`}
+        </button>
+      </article>
+
+      <article className="rf-agent-card rf-agent-queue-card">
+        <div className="rf-agent-card-heading compact">
+          <div>
+            <span>Controlled queue</span>
+            <h2>Start approved outbound calls</h2>
+          </div>
+        </div>
+
+        <div className="rf-agent-campaign-controls">
+          <label>
+            <span>Queue status</span>
+            <select
+              value={queueStatus}
+              onChange={(event) => onQueueStatus(event.target.value)}
+            >
+              <option value="all">All</option>
+              <option value="queued">Queued</option>
+              <option value="deferred">Deferred</option>
+              <option value="in_progress">In progress</option>
+              <option value="completed">Completed</option>
+              <option value="meeting_booked">Meeting booked</option>
+              <option value="failed">Failed</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Calls to start now</span>
+            <input
+              type="number"
+              min="1"
+              max="100"
+              value={campaignLimit}
+              onChange={(event) =>
+                onCampaignLimit(Number(event.target.value))
+              }
+            />
+          </label>
+
+          <button
+            type="button"
+            className="btn primary"
+            disabled={
+              starting ||
+              !agent?.telnyxAssistantId ||
+              !queue.some(
+                (item) => normalizeStatus(item.status) === "queued"
+              )
+            }
+            onClick={onStart}
+          >
+            {starting ? "Starting calls…" : "Start calling"}
+          </button>
+        </div>
+
+        <div className="rf-agent-queue-list">
+          {queue.length ? (
+            queue.map((item) => (
+              <article key={item.id} className="rf-agent-queue-item">
+                <div>
+                  <b>{item.leadName || item.lead?.name}</b>
+                  <small>
+                    {formatPhone(item.phone || item.lead?.phone)} · {item.campaignName || "Lead"}
+                  </small>
+                </div>
+                <div className="rf-agent-queue-meta">
+                  <StatusBadge value={item.status} />
+                  <small>
+                    Attempt {item.attemptCount || 0}/{item.maxAttempts || 3}
+                  </small>
+                  {item.nextAttemptAt ? (
+                    <small>{formatDateTime(item.nextAttemptAt)}</small>
+                  ) : null}
+                </div>
+              </article>
+            ))
+          ) : (
+            <EmptyState
+              title="No leads in this queue"
+              text="Select CRM leads on the left and assign them to the voice agent."
+            />
+          )}
+        </div>
+      </article>
+    </section>
+  );
+}
+
+function CallsPanel({ calls, busyCallId, onCancel }) {
+  return (
+    <section className="rf-agent-card">
+      <div className="rf-agent-card-heading compact">
+        <div>
+          <span>Conversation activity</span>
+          <h2>AI-agent calls</h2>
+        </div>
+        <b className="rf-agent-count">{calls.length} records</b>
+      </div>
+
+      <div className="rf-agent-table-wrap">
+        <table className="rf-agent-table calls">
+          <thead>
+            <tr>
+              <th>Lead</th>
+              <th>Status</th>
+              <th>Outcome</th>
+              <th>Started</th>
+              <th>Duration</th>
+              <th>Details</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {calls.length ? (
+              calls.map((call) => {
+                const live = LIVE_CALL_STATES.has(
+                  normalizeStatus(call.status)
+                );
+                return (
+                  <tr key={call.id}>
+                    <td>
+                      <b>{call.leadName || "Unknown lead"}</b>
+                      <small>{formatPhone(call.toNumber)}</small>
+                    </td>
+                    <td><StatusBadge value={call.status} /></td>
+                    <td>
+                      {call.outcome ? (
+                        <StatusBadge value={call.outcome} />
+                      ) : (
+                        <span className="rf-agent-muted">Pending</span>
+                      )}
+                    </td>
+                    <td>{formatDateTime(call.createdAt)}</td>
+                    <td>{formatDuration(call.durationSeconds)}</td>
+                    <td>
+                      <details className="rf-agent-call-details">
+                        <summary>View</summary>
+                        <dl>
+                          <div>
+                            <dt>Call control ID</dt>
+                            <dd>{call.callControlId || "—"}</dd>
+                          </div>
+                          <div>
+                            <dt>Conversation</dt>
+                            <dd>{call.conversationId || "—"}</dd>
+                          </div>
+                          <div>
+                            <dt>Notes</dt>
+                            <dd>{call.notes || call.error || "—"}</dd>
+                          </div>
+                          <div>
+                            <dt>Hangup</dt>
+                            <dd>{call.hangupCause || "—"}</dd>
+                          </div>
+                        </dl>
+                      </details>
+                    </td>
+                    <td>
+                      {live ? (
+                        <button
+                          type="button"
+                          className="btn danger small"
+                          disabled={busyCallId === call.id}
+                          onClick={() => onCancel(call.id)}
+                        >
+                          {busyCallId === call.id ? "Ending…" : "End"}
+                        </button>
+                      ) : null}
+                    </td>
+                  </tr>
+                );
+              })
+            ) : (
+              <tr>
+                <td colSpan={7} className="rf-agent-empty-cell">
+                  No AI-agent calls have been made yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function MeetingsPanel({ meetings }) {
+  return (
+    <section className="rf-agent-meeting-grid">
+      {meetings.length ? (
+        meetings.map((meeting) => (
+          <article className="rf-agent-meeting-card" key={meeting.id}>
+            <header>
+              <div className="rf-agent-calendar-date">
+                <b>{formatDay(meeting.startAt)}</b>
+                <span>{formatMonth(meeting.startAt)}</span>
+              </div>
+              <div>
+                <span className="eyebrow">Confirmed meeting</span>
+                <h3>{meeting.leadName || meeting.attendeeName || "Lead"}</h3>
+                <p>{formatDateTime(meeting.startAt)}</p>
+              </div>
+              <StatusBadge value={meeting.status} />
+            </header>
+            <dl>
+              <div>
+                <dt>Timezone</dt>
+                <dd>{meeting.timezone || "—"}</dd>
+              </div>
+              <div>
+                <dt>Duration</dt>
+                <dd>{meeting.durationMinutes || 30} minutes</dd>
+              </div>
+              <div>
+                <dt>Email</dt>
+                <dd>{meeting.attendeeEmail || "Not supplied"}</dd>
+              </div>
+              <div>
+                <dt>Phone</dt>
+                <dd>{formatPhone(meeting.attendeePhone)}</dd>
+              </div>
+            </dl>
+            {meeting.notes ? <p className="rf-agent-meeting-notes">{meeting.notes}</p> : null}
+          </article>
+        ))
+      ) : (
+        <div className="rf-agent-card">
+          <EmptyState
+            title="No meetings booked yet"
+            text="Confirmed appointments created by the Telnyx assistant will appear here in real time."
+          />
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Metric({ label, value, text }) {
+  return (
+    <article className="rf-agent-metric">
+      <span>{label}</span>
+      <b>{value}</b>
+      <small>{text}</small>
+    </article>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+  type = "text",
+  placeholder = "",
+}) {
+  return (
+    <label className="rf-agent-field">
+      <span>{label}</span>
+      <input
+        type={type}
+        value={value || ""}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+      />
+    </label>
+  );
+}
+
+function NumberField({
+  label,
+  value,
+  onChange,
+  min,
+  max,
+  suffix = "",
+}) {
+  return (
+    <label className="rf-agent-field">
+      <span>{label}</span>
+      <div className="rf-agent-number-input">
+        <input
+          type="number"
+          min={min}
+          max={max}
+          value={value}
+          onChange={(event) => onChange(Number(event.target.value))}
+        />
+        {suffix ? <small>{suffix}</small> : null}
+      </div>
+    </label>
+  );
+}
+
+function TextArea({
+  label,
+  value,
+  onChange,
+  rows = 4,
+  placeholder = "",
+}) {
+  return (
+    <label className="rf-agent-field">
+      <span>{label}</span>
+      <textarea
+        rows={rows}
+        value={value || ""}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+      />
+    </label>
+  );
+}
+
+function StatusBadge({ value }) {
+  const normalized = normalizeStatus(value || "unknown");
+  return (
+    <span className={`rf-agent-status ${statusTone(normalized)}`}>
+      {formatLabel(normalized)}
+    </span>
+  );
+}
+
+function EmptyState({ title, text }) {
+  return (
+    <div className="rf-agent-empty">
+      <span>RF</span>
+      <b>{title}</b>
+      <p>{text}</p>
+    </div>
+  );
+}
+
+function normalizeAgentForm(value = {}) {
+  return {
+    ...DEFAULT_FORM,
+    ...value,
+    meetingDurationMinutes: safeNumber(
+      value.meetingDurationMinutes,
+      30
+    ),
+    callingWindowStartHour: safeNumber(
+      value.callingWindowStartHour,
+      9
+    ),
+    callingWindowEndHour: safeNumber(
+      value.callingWindowEndHour,
+      17
+    ),
+    dailyCallLimit: safeNumber(value.dailyCallLimit, 25),
+    concurrency: safeNumber(value.concurrency, 1),
+    maxAttempts: safeNumber(value.maxAttempts, 3),
+    maxCallSeconds: safeNumber(value.maxCallSeconds, 600),
+    ringTimeoutSeconds: safeNumber(
+      value.ringTimeoutSeconds,
+      45
+    ),
+    recordingEnabled: value.recordingEnabled === true,
+    complianceConfirmed: value.complianceConfirmed === true,
+    enabled: value.enabled !== false,
+  };
+}
+
+function safeNumber(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function normalizeStatus(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_")
+    .replace(/-/g, "_");
+}
+
+function formatLabel(value) {
+  return String(value || "Unknown")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function statusTone(value) {
+  if (
+    [
+      "completed",
+      "qualified",
+      "meeting_booked",
+      "confirmed",
+      "assistant_active",
+      "answered",
+      "ready",
+    ].includes(value)
+  ) {
+    return "green";
+  }
+  if (
+    [
+      "queued",
+      "ringing",
+      "initiated",
+      "in_progress",
+      "callback",
+      "follow_up",
+      "deferred",
+    ].includes(value)
+  ) {
+    return "amber";
+  }
+  if (
+    [
+      "failed",
+      "cancelled",
+      "do_not_call",
+      "invalid_number",
+      "not_interested",
+    ].includes(value)
+  ) {
+    return "red";
+  }
+  return "gray";
+}
+
+function formatPhone(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (digits.length === 11 && digits.startsWith("1")) {
+    return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+  }
+  return value || "—";
+}
+
+function formatDateTime(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function formatDuration(seconds) {
+  const total = Math.max(0, Number(seconds || 0));
+  if (!total) return "—";
+  const minutes = Math.floor(total / 60);
+  const remainder = Math.floor(total % 60);
+  return `${minutes}:${String(remainder).padStart(2, "0")}`;
+}
+
+function formatDay(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "—"
+    : date.toLocaleDateString(undefined, { day: "2-digit" });
+}
+
+function formatMonth(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "—"
+    : date.toLocaleDateString(undefined, { month: "short" });
+}
+
+function shorten(value, length) {
+  const text = String(value || "");
+  return text.length > length
+    ? `${text.slice(0, length - 1)}…`
+    : text;
+}

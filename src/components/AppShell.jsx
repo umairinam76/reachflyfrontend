@@ -146,6 +146,63 @@ export default function AppShell() {
     isManager ||
     isCaller;
 
+  const isIndividualAccount =
+    String(
+      user?.accountType ||
+        user?.workspaceType ||
+        ""
+    )
+      .trim()
+      .toLowerCase() ===
+    "individual";
+
+  const isAhGrowthWorkspace =
+    useMemo(
+      () => {
+        const values = [
+          user?.workspaceId,
+          user?.companyId,
+          user?.workspaceSlug,
+          user?.companySlug,
+          user?.workspaceName,
+          user?.companyName,
+        ]
+          .filter(Boolean)
+          .map((value) =>
+            String(value)
+              .trim()
+              .toLowerCase()
+              .replace(/\s+/g, "_")
+              .replace(/-/g, "_")
+          );
+
+        return (
+          values.includes(
+            "ah_growth_workspace"
+          ) ||
+          values.includes("ah_growth") ||
+          values.some((value) =>
+            value.startsWith(
+              "ah_growth_"
+            )
+          )
+        );
+      },
+      [
+        user?.workspaceId,
+        user?.companyId,
+        user?.workspaceSlug,
+        user?.companySlug,
+        user?.workspaceName,
+        user?.companyName,
+      ]
+    );
+
+  const canUseVoiceAgent =
+    !isAhGrowthWorkspace &&
+    (canManageWorkspace ||
+      isIndividualAccount);
+
   useEffect(() => {
     if (!user?.id) {
       setCounters(
@@ -704,6 +761,16 @@ export default function AppShell() {
 
         items: [
           {
+            label: "Voice agent",
+            to: "/app/voice-agent",
+            icon: Zap,
+            matchPrefix:
+              "/app/voice-agent",
+            visible:
+              canUseVoiceAgent,
+          },
+
+          {
             label: "ReachFly AI",
             to: "/app/ai",
             icon: Target,
@@ -778,6 +845,7 @@ export default function AppShell() {
       canViewAllAnalytics,
       canViewContacts,
       canViewInbox,
+      canUseVoiceAgent,
       counters,
       isCaller,
       isManager,
