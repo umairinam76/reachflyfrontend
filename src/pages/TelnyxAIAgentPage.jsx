@@ -19,7 +19,7 @@ import {
   onWorkspaceSocket,
 } from "../lib/workspace-platform-client.js";
 
-import "../styles/telnyx-ai-agent.css";
+import "../styles.css";
 
 const DEFAULT_FORM = {
   name: "",
