@@ -5,53 +5,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { apiRequest } from "../lib/workspace-platform-client.js";
-import "../styles.css";
-
-const api = {
-  telnyxSession() {
-    return apiRequest("/telnyx/session");
-  },
-
-  createTelnyxCall(body) {
-    return apiRequest("/telnyx/calls", { method: "POST", body });
-  },
-
-  linkTelnyxCall(callId, body) {
-    return apiRequest(`/telnyx/calls/${encodeURIComponent(callId)}/link`, {
-      method: "PATCH",
-      body,
-    });
-  },
-
-  updateTelnyxCallState(callId, body) {
-    return apiRequest(`/telnyx/calls/${encodeURIComponent(callId)}/state`, {
-      method: "PATCH",
-      body,
-    });
-  },
-
-  completeTelnyxCall(callId, body) {
-    return apiRequest(`/telnyx/calls/${encodeURIComponent(callId)}/complete`, {
-      method: "PATCH",
-      body,
-    });
-  },
-
-  callerQueueCallStart(assignmentId, body) {
-    return apiRequest(`/caller-queue/${encodeURIComponent(assignmentId)}/call/start`, {
-      method: "POST",
-      body,
-    });
-  },
-
-  callerQueueCallComplete(assignmentId, body) {
-    return apiRequest(`/caller-queue/${encodeURIComponent(assignmentId)}/call/complete`, {
-      method: "POST",
-      body,
-    });
-  },
-};
+import { api } from "../api";
+import "./TelnyxDialer.css";
 
 const ACTIVE_STATES = new Set([
   "active",
@@ -83,6 +38,119 @@ const FINAL_STATES = new Set([
 const CONNECTION_TIMEOUT_MS = 20_000;
 const CALL_SETUP_TIMEOUT_SECONDS = 60;
 
+/*
+ * The Telnyx SDK is loaded from its official browser bundle instead of using
+ * import("@telnyx/webrtc"). This keeps Vite/Rolldown from requiring the npm
+ * package during the build.
+ */
+const TELNYX_WEBRTC_SCRIPT_ID = "reachfly-telnyx-webrtc-sdk";
+const TELNYX_WEBRTC_CDN_URL =
+  "https://unpkg.com/@telnyx/webrtc@2.26.1/lib/bundle.js";
+
+let telnyxWebRtcLoaderPromise = null;
+
+function getLoadedTelnyxRTC() {
+  return (
+    globalThis.TelnyxWebRTC?.TelnyxRTC ||
+    globalThis.TelnyxRTC ||
+    null
+  );
+}
+
+function loadTelnyxRTC() {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return Promise.reject(
+      new Error("Telnyx WebRTC can only be initialized in a browser.")
+    );
+  }
+
+  const loadedConstructor = getLoadedTelnyxRTC();
+
+  if (loadedConstructor) {
+    return Promise.resolve(loadedConstructor);
+  }
+
+  if (telnyxWebRtcLoaderPromise) {
+    return telnyxWebRtcLoaderPromise;
+  }
+
+  telnyxWebRtcLoaderPromise = new Promise((resolve, reject) => {
+    const rejectLoad = (message) => {
+      telnyxWebRtcLoaderPromise = null;
+      reject(new Error(message));
+    };
+
+    const resolveLoadedSdk = () => {
+      const TelnyxRTC = getLoadedTelnyxRTC();
+
+      if (!TelnyxRTC) {
+        rejectLoad(
+          "The Telnyx WebRTC script loaded, but TelnyxRTC was not exposed by the browser bundle."
+        );
+        return;
+      }
+
+      resolve(TelnyxRTC);
+    };
+
+    const existingScript = document.getElementById(
+      TELNYX_WEBRTC_SCRIPT_ID
+    );
+
+    if (existingScript) {
+      if (existingScript.dataset.loaded === "true") {
+        resolveLoadedSdk();
+        return;
+      }
+
+      existingScript.addEventListener("load", resolveLoadedSdk, {
+        once: true,
+      });
+
+      existingScript.addEventListener(
+        "error",
+        () =>
+          rejectLoad(
+            "The Telnyx WebRTC browser library could not be loaded."
+          ),
+        { once: true }
+      );
+
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.id = TELNYX_WEBRTC_SCRIPT_ID;
+    script.src = TELNYX_WEBRTC_CDN_URL;
+    script.async = true;
+    script.crossOrigin = "anonymous";
+
+    script.addEventListener(
+      "load",
+      () => {
+        script.dataset.loaded = "true";
+        resolveLoadedSdk();
+      },
+      { once: true }
+    );
+
+    script.addEventListener(
+      "error",
+      () => {
+        script.remove();
+        rejectLoad(
+          "The Telnyx WebRTC browser library could not be loaded. Allow https://unpkg.com in your Content-Security-Policy and verify network access."
+        );
+      },
+      { once: true }
+    );
+
+    document.head.appendChild(script);
+  });
+
+  return telnyxWebRtcLoaderPromise;
+}
+
 export default function TelnyxDialer({
   lead,
   assignmentId = "",
@@ -99,7 +167,6 @@ export default function TelnyxDialer({
   const remoteAudioRef = useRef(null);
 
   const connectionPromiseRef = useRef(null);
-  const sessionRef = useRef(null);
   const ringbackRef = useRef(null);
 
   const localCallIdRef = useRef("");
@@ -1166,13 +1233,10 @@ export default function TelnyxDialer({
           setStatus("connecting");
 
           const [
-            { TelnyxRTC },
+            TelnyxRTC,
             session,
           ] = await Promise.all([
-            import(
-              "@telnyx/webrtc"
-            ),
-
+            loadTelnyxRTC(),
             api.telnyxSession(),
           ]);
 
@@ -1181,8 +1245,6 @@ export default function TelnyxDialer({
               "Telnyx did not return a browser login token."
             );
           }
-
-          sessionRef.current = session;
 
           const client =
             new TelnyxRTC({
@@ -1365,6 +1427,14 @@ export default function TelnyxDialer({
         return;
       }
 
+      if (!recordingConsent) {
+        setError(
+          "Confirm that the approved recording disclosure has been given and consent obtained where required."
+        );
+
+        return;
+      }
+
       if (
         callInProgress ||
         busy
@@ -1391,15 +1461,6 @@ export default function TelnyxDialer({
         const client =
           await connect();
 
-        const shouldRecord =
-          sessionRef.current?.recordingEnabled === true;
-
-        if (shouldRecord && !recordingConsent) {
-          throw new Error(
-            "Confirm that the approved recording disclosure has been given and consent obtained where required."
-          );
-        }
-
         await ensureRemoteAudio();
 
         const created =
@@ -1416,8 +1477,7 @@ export default function TelnyxDialer({
             assignmentId:
               resolvedAssignmentId,
 
-            recordingConsent:
-              shouldRecord && recordingConsent,
+            recordingConsent: true,
 
             recordingDisclosureVersion:
               "v1",
@@ -1448,8 +1508,7 @@ export default function TelnyxDialer({
 
               provider: "telnyx",
               toNumber: phone,
-              recordingConsent:
-                shouldRecord && recordingConsent,
+              recordingConsent: true,
             }
           );
 
@@ -1468,7 +1527,6 @@ export default function TelnyxDialer({
             destinationNumber: phone,
 
             callerNumber:
-              sessionRef.current?.callerIdNumber ||
               createdCall.fromNumber ||
               undefined,
 
