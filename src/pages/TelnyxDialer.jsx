@@ -6,7 +6,7 @@ import {
   useState,
 } from "react";
 import { api } from "../api";
-import "./TelnyxDialer.css";
+import "../styles.css";
 
 const ACTIVE_STATES = new Set([
   "active",
