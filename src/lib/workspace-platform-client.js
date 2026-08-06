@@ -96,9 +96,9 @@ function resolveSocketBaseUrl() {
     );
 
   /*
-   * Prefer the API origin whenever an explicitly configured socket URL is
-   * insecure on an HTTPS page. This prevents a stale value such as
-   * ws://52.44.71.169:8787 from causing a browser Mixed Content failure.
+   * Prefer the secure API origin whenever an explicitly configured socket
+   * URL is insecure on an HTTPS page. This prevents Mixed Content failures
+   * caused by stale HTTP or WebSocket environment values.
    */
   let candidate =
     configured || apiOrigin;
