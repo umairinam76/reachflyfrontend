@@ -37241,3 +37241,204 @@ body.audit-drawer-open {
     transition-duration: 0.01ms;
   }
 }
+
+/* =========================================================
+   ReachFly Attendance Camera Enhancements
+   Append to apps/web/src/styles.css
+   ========================================================= */
+
+.attendance-page {
+  --attendance-primary: #6d4aff;
+  --attendance-primary-soft: #f1edff;
+  --attendance-border: #e1e4ec;
+  --attendance-text: #171a2d;
+  --attendance-muted: #687086;
+  --attendance-success: #167a43;
+  --attendance-danger: #b93246;
+  width: 100%;
+  max-width: 1500px;
+  margin: 0 auto;
+}
+
+.attendance-camera-card {
+  min-width: 0;
+}
+
+.attendance-camera-card .text-muted {
+  margin: 6px 0 0;
+  color: var(--attendance-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.attendance-camera-selector {
+  display: grid;
+  gap: 7px;
+  margin: 0 0 14px;
+}
+
+.attendance-camera-selector > span {
+  color: #444b60;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.attendance-camera-selector select {
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 12px;
+  border: 1px solid var(--attendance-border);
+  border-radius: 11px;
+  color: var(--attendance-text);
+  background: #fff;
+}
+
+.attendance-camera-selector select:focus {
+  outline: none;
+  border-color: var(--attendance-primary);
+  box-shadow: 0 0 0 4px rgba(109, 74, 255, 0.1);
+}
+
+.attendance-camera-frame {
+  position: relative;
+  min-height: 310px;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border: 1px solid #dfe2eb;
+  border-radius: 16px;
+  background: #12131a;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 12px 30px rgba(20, 23, 39, 0.1);
+}
+
+.attendance-camera-frame video,
+.attendance-camera-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.attendance-camera-placeholder,
+.attendance-camera-loading {
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.attendance-camera-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 11px 0 0;
+  color: var(--attendance-muted);
+}
+
+.attendance-camera-meta small {
+  font-size: 0.74rem;
+  line-height: 1.4;
+}
+
+.attendance-camera-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.attendance-camera-actions .btn {
+  min-height: 42px;
+}
+
+.attendance-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 1px solid #dce0e9;
+  border-radius: 999px;
+  color: #61687a;
+  font-size: 0.75rem;
+  font-weight: 800;
+  white-space: nowrap;
+  background: #f5f6f9;
+}
+
+.attendance-status.active {
+  color: #176b3d;
+  border-color: #b9e5c9;
+  background: #edf9f2;
+}
+
+.attendance-status.complete {
+  color: #4b5265;
+  border-color: #d9dde6;
+  background: #f0f2f6;
+}
+
+.attendance-page .error-banner,
+.attendance-page .success-banner {
+  display: grid;
+  gap: 4px;
+  padding: 13px 15px;
+  border: 1px solid;
+  border-radius: 12px;
+}
+
+.attendance-page .error-banner {
+  color: #9f3042;
+  border-color: #efc3ca;
+  background: #fff1f3;
+}
+
+.attendance-page .success-banner {
+  color: #176b3d;
+  border-color: #b9e5c9;
+  background: #edf9f2;
+}
+
+.attendance-page .error-banner strong,
+.attendance-page .success-banner strong {
+  font-size: 0.86rem;
+}
+
+.attendance-page .error-banner span,
+.attendance-page .success-banner span {
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.attendance-page .error-banner small,
+.attendance-page .success-banner small {
+  opacity: 0.8;
+  font-size: 0.7rem;
+  overflow-wrap: anywhere;
+}
+
+.attendance-page .btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 700px) {
+  .attendance-camera-frame {
+    min-height: 250px;
+  }
+
+  .attendance-camera-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .attendance-camera-actions .btn {
+    width: 100%;
+  }
+
+  .attendance-camera-meta {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
