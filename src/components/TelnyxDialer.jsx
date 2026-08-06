@@ -19,6 +19,7 @@ const RINGING_STATES = new Set([
   "new",
   "requesting",
   "trying",
+  "initiated",
   "calling",
   "early",
   "ringing",
@@ -34,46 +35,26 @@ const FINAL_STATES = new Set([
   "failed",
 ]);
 
+const CONNECTION_TIMEOUT_MS = 20_000;
+const CALL_SETUP_TIMEOUT_SECONDS = 60;
+
 export default function TelnyxDialer({
   lead,
   assignmentId = "",
   campaignId = "",
-
-  /**
-   * Called immediately whenever the caller-queue assignment changes.
-   *
-   * Example:
-   * - assigned -> calling
-   * - calling -> contacted
-   * - calling -> no_answer
-   */
   onAssignmentChange,
-
-  /**
-   * Called after both the Telnyx call and caller-queue call are completed.
-   *
-   * The parent should remove the completed record and load the next lead.
-   */
   onCallComplete,
-
-  /**
-   * Optional callback for opening the next eligible lead automatically.
-   */
   onOpenNextLead,
-
-  /**
-   * Automatically proceed to the next lead after call completion.
-   */
   autoAdvance = true,
-
-  /**
-   * Delay before moving to the next lead, allowing the caller to see
-   * the final call status briefly.
-   */
   autoAdvanceDelayMs = 900,
 }) {
   const clientRef = useRef(null);
   const callRef = useRef(null);
+  const microphoneStreamRef = useRef(null);
+  const remoteAudioRef = useRef(null);
+
+  const connectionPromiseRef = useRef(null);
+  const ringbackRef = useRef(null);
 
   const localCallIdRef = useRef("");
   const providerCallIdRef = useRef("");
@@ -107,22 +88,30 @@ export default function TelnyxDialer({
   const [busy, setBusy] =
     useState(false);
 
-  const [recordingConsent, setRecordingConsent] =
-    useState(false);
+  const [
+    recordingConsent,
+    setRecordingConsent,
+  ] = useState(false);
 
   const [elapsed, setElapsed] =
     useState(0);
 
-  const [currentAssignment, setCurrentAssignment] =
-    useState(null);
+  const [
+    currentAssignment,
+    setCurrentAssignment,
+  ] = useState(null);
 
   const [lastOutcome, setLastOutcome] =
     useState("");
 
+  const [
+    microphonePermission,
+    setMicrophonePermission,
+  ] = useState("unknown");
+
   const resolvedAssignmentId =
     assignmentId ||
     lead?.assignmentId ||
-    lead?.id ||
     "";
 
   const resolvedCampaignId =
@@ -148,77 +137,9 @@ export default function TelnyxDialer({
   const callInProgress =
     Boolean(callRef.current) ||
     RINGING_STATES.has(status) ||
-    ACTIVE_STATES.has(status);
-
-  /**
-   * Reset the dialer when the selected lead changes.
-   */
-  useEffect(() => {
-    setError("");
-    setMessage("");
-    setElapsed(0);
-    setMuted(false);
-    setLastOutcome("");
-    setCurrentAssignment(null);
-
-    localCallIdRef.current = "";
-    providerCallIdRef.current = "";
-    queueCallStartedRef.current = false;
-    startedAtRef.current = 0;
-    answeredAtRef.current = 0;
-    finalizingRef.current = false;
-
-    finalStateRef.current = {
-      cause: "",
-      sipCode: 0,
-      state: "",
-    };
-  }, [
-    resolvedAssignmentId,
-    lead?.id,
-  ]);
-
-  /**
-   * Display a live duration after the call is answered.
-   */
-  useEffect(() => {
-    if (
-      !startedAtRef.current ||
-      !ACTIVE_STATES.has(status)
-    ) {
-      return undefined;
-    }
-
-    const updateElapsed = () => {
-      if (!mountedRef.current) {
-        return;
-      }
-
-      setElapsed(
-        Math.max(
-          0,
-          Math.floor(
-            (
-              Date.now() -
-              startedAtRef.current
-            ) / 1000
-          )
-        )
-      );
-    };
-
-    updateElapsed();
-
-    const timer =
-      window.setInterval(
-        updateElapsed,
-        1000
-      );
-
-    return () => {
-      window.clearInterval(timer);
-    };
-  }, [status]);
+    ACTIVE_STATES.has(status) ||
+    status === "connecting" ||
+    status === "ending";
 
   const updateAssignmentState =
     useCallback(
@@ -227,19 +148,325 @@ export default function TelnyxDialer({
           return;
         }
 
-        setCurrentAssignment(
-          assignment
-        );
-
-        onAssignmentChange?.(
-          assignment
-        );
+        setCurrentAssignment(assignment);
+        onAssignmentChange?.(assignment);
       },
       [onAssignmentChange]
     );
 
+  const stopMicrophone =
+    useCallback(() => {
+      const stream =
+        microphoneStreamRef.current;
+
+      if (stream) {
+        for (const track of stream.getTracks()) {
+          try {
+            track.stop();
+          } catch {
+            // Ignore media cleanup errors.
+          }
+        }
+      }
+
+      microphoneStreamRef.current = null;
+    }, []);
+
+  const stopRingback =
+    useCallback(() => {
+      const ringback =
+        ringbackRef.current;
+
+      if (!ringback) {
+        return;
+      }
+
+      ringback.stopped = true;
+
+      if (ringback.timer) {
+        window.clearTimeout(
+          ringback.timer
+        );
+      }
+
+      try {
+        ringback.oscillator?.stop?.();
+      } catch {
+        // Oscillator may already be stopped.
+      }
+
+      try {
+        ringback.context?.close?.();
+      } catch {
+        // Ignore audio-context cleanup errors.
+      }
+
+      ringbackRef.current = null;
+    }, []);
+
+  const startRingback =
+    useCallback(() => {
+      if (
+        ringbackRef.current ||
+        typeof window === "undefined"
+      ) {
+        return;
+      }
+
+      const AudioContextClass =
+        window.AudioContext ||
+        window.webkitAudioContext;
+
+      if (!AudioContextClass) {
+        return;
+      }
+
+      try {
+        const context =
+          new AudioContextClass();
+
+        const ringback = {
+          context,
+          oscillator: null,
+          timer: null,
+          stopped: false,
+        };
+
+        ringbackRef.current = ringback;
+
+        const playTone = () => {
+          if (
+            ringback.stopped ||
+            ringbackRef.current !==
+              ringback
+          ) {
+            return;
+          }
+
+          const oscillator =
+            context.createOscillator();
+
+          const gain =
+            context.createGain();
+
+          oscillator.type = "sine";
+          oscillator.frequency.value =
+            440;
+
+          gain.gain.setValueAtTime(
+            0.0001,
+            context.currentTime
+          );
+
+          gain.gain.exponentialRampToValueAtTime(
+            0.08,
+            context.currentTime +
+              0.03
+          );
+
+          gain.gain.setValueAtTime(
+            0.08,
+            context.currentTime +
+              0.85
+          );
+
+          gain.gain.exponentialRampToValueAtTime(
+            0.0001,
+            context.currentTime +
+              0.95
+          );
+
+          oscillator.connect(gain);
+          gain.connect(
+            context.destination
+          );
+
+          oscillator.start();
+          oscillator.stop(
+            context.currentTime + 1
+          );
+
+          ringback.oscillator =
+            oscillator;
+
+          ringback.timer =
+            window.setTimeout(
+              playTone,
+              3000
+            );
+        };
+
+        void context
+          .resume()
+          .then(playTone)
+          .catch(() => {
+            stopRingback();
+          });
+      } catch {
+        stopRingback();
+      }
+    }, [stopRingback]);
+
+  const ensureRemoteAudio =
+    useCallback(async () => {
+      const element =
+        remoteAudioRef.current;
+
+      if (!element) {
+        return;
+      }
+
+      element.autoplay = true;
+      element.playsInline = true;
+      element.muted = false;
+      element.volume = 1;
+
+      try {
+        await element.play();
+      } catch {
+        /*
+         * play() may reject before Telnyx has attached
+         * the remote MediaStream. A later call-update
+         * event will attempt playback again.
+         */
+      }
+    }, []);
+
+  const requestMicrophone =
+    useCallback(async () => {
+      if (
+        typeof window === "undefined" ||
+        !window.isSecureContext ||
+        !navigator.mediaDevices ||
+        typeof navigator.mediaDevices
+          .getUserMedia !== "function"
+      ) {
+        const mediaError =
+          new Error(
+            "Microphone access requires HTTPS. Open ReachFly using an HTTPS URL, not http://10.11.22.21:5173."
+          );
+
+        mediaError.code =
+          "INSECURE_MEDIA_CONTEXT";
+
+        throw mediaError;
+      }
+
+      if (
+        microphoneStreamRef.current
+      ) {
+        const activeTracks =
+          microphoneStreamRef.current
+            .getAudioTracks()
+            .filter(
+              (track) =>
+                track.readyState ===
+                "live"
+            );
+
+        if (activeTracks.length) {
+          setMicrophonePermission(
+            "granted"
+          );
+
+          return microphoneStreamRef.current;
+        }
+      }
+
+      setMicrophonePermission(
+        "requesting"
+      );
+
+      try {
+        const stream =
+          await navigator.mediaDevices.getUserMedia(
+            {
+              audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+              },
+
+              video: false,
+            }
+          );
+
+        const audioTracks =
+          stream.getAudioTracks();
+
+        if (!audioTracks.length) {
+          for (const track of stream.getTracks()) {
+            track.stop();
+          }
+
+          throw new Error(
+            "No microphone audio track was returned."
+          );
+        }
+
+        microphoneStreamRef.current =
+          stream;
+
+        setMicrophonePermission(
+          "granted"
+        );
+
+        return stream;
+      } catch (requestError) {
+        setMicrophonePermission(
+          "denied"
+        );
+
+        if (
+          requestError?.name ===
+            "NotAllowedError" ||
+          requestError?.name ===
+            "SecurityError"
+        ) {
+          throw new Error(
+            "Microphone permission was denied. Allow microphone access in the browser site settings and try again."
+          );
+        }
+
+        if (
+          requestError?.name ===
+            "NotFoundError" ||
+          requestError?.name ===
+            "DevicesNotFoundError"
+        ) {
+          throw new Error(
+            "No microphone was found. Connect a microphone and try again."
+          );
+        }
+
+        if (
+          requestError?.name ===
+            "NotReadableError" ||
+          requestError?.name ===
+            "TrackStartError"
+        ) {
+          throw new Error(
+            "The microphone is already being used by another application or browser tab."
+          );
+        }
+
+        if (
+          requestError?.name ===
+            "OverconstrainedError"
+        ) {
+          throw new Error(
+            "The selected microphone does not support the requested audio settings."
+          );
+        }
+
+        throw requestError;
+      }
+    }, []);
+
   const resetActiveCall =
     useCallback(() => {
+      stopRingback();
+
       callRef.current = null;
       localCallIdRef.current = "";
       providerCallIdRef.current = "";
@@ -258,51 +485,113 @@ export default function TelnyxDialer({
 
       setElapsed(0);
       setMuted(false);
-    }, []);
+    }, [stopRingback]);
 
   const disconnect =
-    useCallback(() => {
+    useCallback(async () => {
+      stopRingback();
+
       try {
-        callRef.current?.hangup?.();
+        await Promise.resolve(
+          callRef.current?.hangup?.()
+        );
       } catch {
-        // Ignore cleanup errors.
+        // Ignore active-call cleanup errors.
       }
 
       try {
-        clientRef.current?.disconnect?.();
+        await Promise.resolve(
+          clientRef.current?.disconnect?.()
+        );
       } catch {
-        // Ignore cleanup errors.
+        // Ignore SDK cleanup errors.
       }
 
       callRef.current = null;
       clientRef.current = null;
+      connectionPromiseRef.current =
+        null;
+
+      stopMicrophone();
 
       localCallIdRef.current = "";
       providerCallIdRef.current = "";
+      queueCallStartedRef.current =
+        false;
 
       startedAtRef.current = 0;
       answeredAtRef.current = 0;
 
-      queueCallStartedRef.current =
-        false;
-
       if (mountedRef.current) {
         setStatus("disconnected");
       }
-    }, []);
+    }, [
+      stopMicrophone,
+      stopRingback,
+    ]);
 
   useEffect(() => {
     mountedRef.current = true;
 
     return () => {
       mountedRef.current = false;
-      disconnect();
+      void disconnect();
     };
   }, [disconnect]);
 
-  /**
-   * Move to the next eligible caller-queue lead.
-   */
+  useEffect(() => {
+    setError("");
+    setMessage("");
+    setElapsed(0);
+    setMuted(false);
+    setLastOutcome("");
+    setCurrentAssignment(null);
+
+    resetActiveCall();
+  }, [
+    lead?.id,
+    resolvedAssignmentId,
+    resetActiveCall,
+  ]);
+
+  useEffect(() => {
+    if (
+      !startedAtRef.current ||
+      !ACTIVE_STATES.has(status)
+    ) {
+      return undefined;
+    }
+
+    const updateElapsed = () => {
+      if (!mountedRef.current) {
+        return;
+      }
+
+      setElapsed(
+        Math.max(
+          0,
+          Math.floor(
+            (Date.now() -
+              startedAtRef.current) /
+              1000
+          )
+        )
+      );
+    };
+
+    updateElapsed();
+
+    const timer =
+      window.setInterval(
+        updateElapsed,
+        1000
+      );
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [status]);
+
   const advanceToNextLead =
     useCallback(
       async ({
@@ -357,13 +646,6 @@ export default function TelnyxDialer({
       ]
     );
 
-  /**
-   * Completes:
-   *
-   * 1. The local ReachFly Telnyx call record.
-   * 2. The server-authoritative caller queue assignment.
-   * 3. The parent screen refresh/auto-navigation.
-   */
   const finalizeCall =
     useCallback(
       async ({
@@ -372,6 +654,8 @@ export default function TelnyxDialer({
         sipCode = 0,
         forceOutcome = "",
       } = {}) => {
+        stopRingback();
+
         const localCallId =
           localCallIdRef.current;
 
@@ -379,7 +663,11 @@ export default function TelnyxDialer({
           resetActiveCall();
 
           if (mountedRef.current) {
-            setStatus("ready");
+            setStatus(
+              clientRef.current
+                ? "ready"
+                : "disconnected"
+            );
           }
 
           return;
@@ -401,10 +689,9 @@ export default function TelnyxDialer({
             ? Math.max(
                 0,
                 Math.floor(
-                  (
-                    Date.now() -
-                    startedAtRef.current
-                  ) / 1000
+                  (Date.now() -
+                    startedAtRef.current) /
+                    1000
                 )
               )
             : 0;
@@ -431,9 +718,9 @@ export default function TelnyxDialer({
             sipCode:
               Number(
                 sipCode ||
-                finalStateRef.current
-                  .sipCode ||
-                0
+                  finalStateRef.current
+                    .sipCode ||
+                  0
               ),
 
             wasAnswered,
@@ -447,9 +734,6 @@ export default function TelnyxDialer({
           null;
 
         try {
-          /**
-           * Complete the ReachFly Telnyx call record.
-           */
           const telnyxResult =
             await api
               .completeTelnyxCall(
@@ -462,9 +746,7 @@ export default function TelnyxDialer({
                       : "completed",
 
                   outcome,
-                  disposition:
-                    outcome,
-
+                  disposition: outcome,
                   durationSeconds,
 
                   cause:
@@ -475,16 +757,17 @@ export default function TelnyxDialer({
                   sipCode:
                     Number(
                       sipCode ||
-                      finalStateRef.current
-                        .sipCode ||
-                      0
+                        finalStateRef
+                          .current
+                          .sipCode ||
+                        0
                     ),
                 }
               )
               .catch(
                 (requestError) => {
                   console.error(
-                    "[TelnyxDialer] Could not complete Telnyx call record:",
+                    "[TelnyxDialer] Could not complete call record:",
                     requestError
                   );
 
@@ -496,12 +779,6 @@ export default function TelnyxDialer({
             telnyxResult?.call ||
             null;
 
-          /**
-           * Complete the caller queue assignment.
-           *
-           * This is the important request that removes the lead from the
-           * active/current queue and places it into the correct next bucket.
-           */
           if (
             resolvedAssignmentId &&
             queueCallStartedRef.current
@@ -513,16 +790,15 @@ export default function TelnyxDialer({
                   callId:
                     localCallId,
 
+                  provider:
+                    "telnyx",
+
                   providerCallId:
                     providerCallIdRef.current,
 
                   outcome,
-
-                  status:
-                    outcome,
-
+                  status: outcome,
                   durationSeconds,
-
                   answered:
                     wasAnswered,
 
@@ -534,26 +810,30 @@ export default function TelnyxDialer({
                   sipCode:
                     Number(
                       sipCode ||
-                      finalStateRef.current
-                        .sipCode ||
-                      0
+                        finalStateRef
+                          .current
+                          .sipCode ||
+                        0
                     ),
 
                   notes:
                     buildAutomaticCallNote({
                       outcome,
                       durationSeconds,
+
                       cause:
                         cause ||
-                        finalStateRef.current
+                        finalStateRef
+                          .current
                           .cause,
+
                       sipCode:
                         Number(
                           sipCode ||
-                          finalStateRef
-                            .current
-                            .sipCode ||
-                          0
+                            finalStateRef
+                              .current
+                              .sipCode ||
+                            0
                         ),
                     }),
                 }
@@ -573,21 +853,11 @@ export default function TelnyxDialer({
           );
 
           if (mountedRef.current) {
-            setLastOutcome(
-              outcome
-            );
-
-            setStatus(
-              outcome ===
-              "contacted"
-                ? "completed"
-                : outcome
-            );
+            setLastOutcome(outcome);
+            setStatus(outcome);
 
             setMessage(
-              getOutcomeMessage(
-                outcome
-              )
+              getOutcomeMessage(outcome)
             );
           }
 
@@ -600,11 +870,12 @@ export default function TelnyxDialer({
             outcome,
           });
 
-          if (
-            mountedRef.current &&
-            clientRef.current
-          ) {
-            setStatus("ready");
+          if (mountedRef.current) {
+            setStatus(
+              clientRef.current
+                ? "ready"
+                : "disconnected"
+            );
           }
         } catch (requestError) {
           console.error(
@@ -615,7 +886,7 @@ export default function TelnyxDialer({
           if (mountedRef.current) {
             setError(
               requestError?.message ||
-                "The call ended, but the lead queue could not be updated."
+                "The call ended, but its lead record could not be updated."
             );
 
             setStatus(
@@ -631,6 +902,7 @@ export default function TelnyxDialer({
         advanceToNextLead,
         resetActiveCall,
         resolvedAssignmentId,
+        stopRingback,
         updateAssignmentState,
       ]
     );
@@ -700,14 +972,59 @@ export default function TelnyxDialer({
           );
         }
 
+        if (
+          RINGING_STATES.has(
+            nextState
+          )
+        ) {
+          startRingback();
+
+          setMessage(
+            `Ringing ${
+              lead?.business ||
+              lead?.name ||
+              phone
+            }…`
+          );
+        }
+
+        if (
+          ACTIVE_STATES.has(
+            nextState
+          )
+        ) {
+          stopRingback();
+
+          if (
+            !answeredAtRef.current
+          ) {
+            answeredAtRef.current =
+              Date.now();
+          }
+
+          if (
+            !startedAtRef.current
+          ) {
+            startedAtRef.current =
+              Date.now();
+          }
+
+          setMessage(
+            `Connected to ${
+              lead?.business ||
+              lead?.name ||
+              phone
+            }.`
+          );
+
+          await ensureRemoteAudio();
+        }
+
         const localCallId =
           localCallIdRef.current;
 
         if (localCallId) {
-          /**
-           * Link the browser SDK call IDs with the local ReachFly record.
-           */
-          api
+          void api
             .linkTelnyxCall(
               localCallId,
               {
@@ -723,26 +1040,23 @@ export default function TelnyxDialer({
                   ids.callSessionId ||
                   "",
 
-                state:
-                  nextState,
+                state: nextState,
               }
             )
             .catch(
               (requestError) => {
                 console.warn(
-                  "[TelnyxDialer] Call-link update failed:",
+                  "[TelnyxDialer] Call ID linking failed:",
                   requestError
                 );
               }
             );
 
-          api
+          void api
             .updateTelnyxCallState(
               localCallId,
               {
-                state:
-                  nextState,
-
+                state: nextState,
                 cause,
                 sipCode,
               }
@@ -750,7 +1064,7 @@ export default function TelnyxDialer({
             .catch(
               (requestError) => {
                 console.warn(
-                  "[TelnyxDialer] Client-state update failed:",
+                  "[TelnyxDialer] Call state update failed:",
                   requestError
                 );
               }
@@ -758,152 +1072,232 @@ export default function TelnyxDialer({
         }
 
         if (
-          ACTIVE_STATES.has(
-            nextState
-          )
-        ) {
-          if (
-            !answeredAtRef.current
-          ) {
-            answeredAtRef.current =
-              Date.now();
-          }
-
-          if (
-            !startedAtRef.current
-          ) {
-            startedAtRef.current =
-              Date.now();
-          }
-        }
-
-        if (
           FINAL_STATES.has(
             nextState
           )
         ) {
+          stopRingback();
+
           await finalizeCall({
-            state:
-              nextState,
+            state: nextState,
             cause,
             sipCode,
           });
         }
       },
-      [finalizeCall]
+      [
+        ensureRemoteAudio,
+        finalizeCall,
+        lead?.business,
+        lead?.name,
+        phone,
+        startRingback,
+        stopRingback,
+      ]
     );
 
   const connect =
     useCallback(async () => {
-      if (clientRef.current) {
+      if (
+        clientRef.current &&
+        status === "ready"
+      ) {
         return clientRef.current;
       }
 
-      setBusy(true);
-      setError("");
-      setMessage("");
-      setStatus("connecting");
+      if (
+        connectionPromiseRef.current
+      ) {
+        return connectionPromiseRef.current;
+      }
 
-      try {
-        const [
-          { TelnyxRTC },
-          session,
-        ] = await Promise.all([
-          import(
-            "@telnyx/webrtc"
-          ),
-
-          api.telnyxSession(),
-        ]);
-
-        if (!session?.loginToken) {
-          throw new Error(
-            "Telnyx did not return a browser login token."
+      const connectionPromise =
+        (async () => {
+          setError("");
+          setMessage(
+            "Connecting to Telnyx…"
           );
-        }
+          setStatus("connecting");
 
-        const client =
-          new TelnyxRTC({
-            login_token:
-              session.loginToken,
+          const [
+            { TelnyxRTC },
+            session,
+          ] = await Promise.all([
+            import(
+              "@telnyx/webrtc"
+            ),
 
-            debug:
-              false,
+            api.telnyxSession(),
+          ]);
 
-            enableCallReports:
-              true,
-          });
-
-        client.remoteElement =
-          "reachfly-telnyx-remote-audio";
-
-        client.on(
-          "telnyx.ready",
-          () => {
-            if (
-              mountedRef.current
-            ) {
-              setStatus("ready");
-              setError("");
-            }
+          if (!session?.loginToken) {
+            throw new Error(
+              "Telnyx did not return a browser login token."
+            );
           }
-        );
 
-        client.on(
-          "telnyx.error",
-          (event) => {
-            const message =
-              event?.message ||
-              event?.error?.message ||
-              "Telnyx dialer error.";
+          const client =
+            new TelnyxRTC({
+              login_token:
+                session.loginToken,
 
-            console.error(
-              "[TelnyxDialer] Telnyx error:",
-              event
+              debug:
+                import.meta.env.DEV,
+
+              enableCallReports: true,
+
+              mediaPermissionsRecovery: {
+                enabled: true,
+              },
+            });
+
+          const remoteAudio =
+            remoteAudioRef.current;
+
+          if (remoteAudio) {
+            client.remoteElement =
+              remoteAudio;
+          } else {
+            client.remoteElement =
+              "reachfly-telnyx-remote-audio";
+          }
+
+          const readyPromise =
+            new Promise(
+              (resolve, reject) => {
+                let settled = false;
+
+                const timeout =
+                  window.setTimeout(
+                    () => {
+                      if (settled) {
+                        return;
+                      }
+
+                      settled = true;
+
+                      reject(
+                        new Error(
+                          "Telnyx connection timed out. Check the network, WebRTC connection and Telnyx credentials."
+                        )
+                      );
+                    },
+                    CONNECTION_TIMEOUT_MS
+                  );
+
+                const resolveReady =
+                  () => {
+                    if (settled) {
+                      return;
+                    }
+
+                    settled = true;
+                    window.clearTimeout(
+                      timeout
+                    );
+
+                    resolve(client);
+                  };
+
+                const rejectReady =
+                  (event) => {
+                    if (settled) {
+                      return;
+                    }
+
+                    settled = true;
+                    window.clearTimeout(
+                      timeout
+                    );
+
+                    reject(
+                      new Error(
+                        getTelnyxErrorMessage(
+                          event
+                        )
+                      )
+                    );
+                  };
+
+                client.on(
+                  "telnyx.ready",
+                  resolveReady
+                );
+
+                client.on(
+                  "telnyx.error",
+                  rejectReady
+                );
+              }
             );
 
-            if (
-              mountedRef.current
-            ) {
-              setError(message);
-              setStatus("failed");
+          client.on(
+            "telnyx.notification",
+            handleCallNotification
+          );
+
+          client.on(
+            "telnyx.error",
+            (event) => {
+              console.error(
+                "[TelnyxDialer] Telnyx error:",
+                event
+              );
+
+              if (mountedRef.current) {
+                setError(
+                  getTelnyxErrorMessage(
+                    event
+                  )
+                );
+              }
             }
+          );
+
+          clientRef.current = client;
+
+          await Promise.resolve(
+            client.connect()
+          );
+
+          await readyPromise;
+
+          if (mountedRef.current) {
+            setStatus("ready");
+            setMessage(
+              "Telnyx dialer is ready."
+            );
           }
-        );
 
-        client.on(
-          "telnyx.notification",
-          handleCallNotification
-        );
+          return client;
+        })();
 
-        clientRef.current =
-          client;
+      connectionPromiseRef.current =
+        connectionPromise;
 
-        await Promise.resolve(
-          client.connect()
-        );
-
-        return client;
+      try {
+        return await connectionPromise;
       } catch (requestError) {
+        clientRef.current = null;
+
         if (mountedRef.current) {
           setStatus("failed");
 
           setError(
             requestError?.message ||
-              "Could not connect the Telnyx dialer."
+              "Could not connect to the Telnyx dialer."
           );
         }
 
-        clientRef.current =
-          null;
-
         throw requestError;
       } finally {
-        if (mountedRef.current) {
-          setBusy(false);
-        }
+        connectionPromiseRef.current =
+          null;
       }
-    }, [handleCallNotification]);
+    }, [
+      handleCallNotification,
+      status,
+    ]);
 
   const startCall =
     useCallback(async () => {
@@ -915,9 +1309,7 @@ export default function TelnyxDialer({
         return;
       }
 
-      if (
-        !resolvedAssignmentId
-      ) {
+      if (!resolvedAssignmentId) {
         setError(
           "This lead does not have a caller-queue assignment ID."
         );
@@ -925,9 +1317,7 @@ export default function TelnyxDialer({
         return;
       }
 
-      if (
-        !recordingConsent
-      ) {
+      if (!recordingConsent) {
         setError(
           "Confirm that the approved recording disclosure has been given and consent obtained where required."
         );
@@ -944,24 +1334,28 @@ export default function TelnyxDialer({
 
       setBusy(true);
       setError("");
-      setMessage("");
+      setMessage(
+        "Requesting microphone access…"
+      );
       setLastOutcome("");
-      setStatus("connecting");
+      setStatus("requesting");
 
       try {
+        /*
+         * This deliberately runs inside the button click,
+         * allowing the browser to display its permission prompt.
+         */
+        const microphoneStream =
+          await requestMicrophone();
+
         const client =
           await connect();
 
-        /**
-         * First create a ReachFly Telnyx call record.
-         *
-         * This gives us a stable callId that is also recorded in the caller
-         * queue timeline.
-         */
+        await ensureRemoteAudio();
+
         const created =
           await api.createTelnyxCall({
-            toNumber:
-              phone,
+            toNumber: phone,
 
             leadId:
               lead?.id ||
@@ -973,8 +1367,7 @@ export default function TelnyxDialer({
             assignmentId:
               resolvedAssignmentId,
 
-            recordingConsent:
-              true,
+            recordingConsent: true,
 
             recordingDisclosureVersion:
               "v1",
@@ -992,24 +1385,10 @@ export default function TelnyxDialer({
         localCallIdRef.current =
           createdCall.id;
 
-        startedAtRef.current =
-          0;
-
-        answeredAtRef.current =
-          0;
-
+        startedAtRef.current = 0;
+        answeredAtRef.current = 0;
         setElapsed(0);
 
-        /**
-         * Immediately update the caller queue.
-         *
-         * The response you shared contains:
-         *
-         * status: "calling"
-         * queueStatus: "in_call"
-         *
-         * We now apply that response to the visible UI immediately.
-         */
         const queueStartResult =
           await api.callerQueueCallStart(
             resolvedAssignmentId,
@@ -1017,14 +1396,9 @@ export default function TelnyxDialer({
               callId:
                 createdCall.id,
 
-              provider:
-                "telnyx",
-
-              toNumber:
-                phone,
-
-              recordingConsent:
-                true,
+              provider: "telnyx",
+              toNumber: phone,
+              recordingConsent: true,
             }
           );
 
@@ -1035,10 +1409,12 @@ export default function TelnyxDialer({
           queueStartResult?.assignment
         );
 
+        const remoteAudio =
+          remoteAudioRef.current;
+
         const telnyxCall =
           client.newCall({
-            destinationNumber:
-              phone,
+            destinationNumber: phone,
 
             callerNumber:
               createdCall.fromNumber ||
@@ -1048,19 +1424,19 @@ export default function TelnyxDialer({
               createdCall.callerName ||
               "ReachFly",
 
-            audio: {
-              echoCancellation:
-                true,
+            audio: true,
 
-              noiseSuppression:
-                true,
+            localStream:
+              microphoneStream,
 
-              autoGainControl:
-                true,
-            },
+            remoteElement:
+              remoteAudio ||
+              "reachfly-telnyx-remote-audio",
 
-            trickleIce:
-              true,
+            trickleIce: true,
+
+            timeoutSecs:
+              CALL_SETUP_TIMEOUT_SECONDS,
 
             customHeaders:
               created.customHeaders ||
@@ -1085,23 +1461,22 @@ export default function TelnyxDialer({
             phone
           }…`
         );
+
+        startRingback();
       } catch (requestError) {
         console.error(
           "[TelnyxDialer] Start call failed:",
           requestError
         );
 
-        /**
-         * Do not leave the assignment stuck in calling/in_call when browser
-         * call creation fails after the queue-start request succeeded.
-         */
+        stopRingback();
+
         if (
           localCallIdRef.current &&
           queueCallStartedRef.current
         ) {
           await finalizeCall({
-            state:
-              "failed",
+            state: "failed",
 
             cause:
               requestError?.message ||
@@ -1114,12 +1489,15 @@ export default function TelnyxDialer({
           resetActiveCall();
         }
 
+        stopMicrophone();
+
         if (mountedRef.current) {
           setStatus("failed");
 
           setError(
-            requestError?.message ||
-              "The call could not be started."
+            getTelnyxErrorMessage(
+              requestError
+            )
           );
         }
       } finally {
@@ -1131,13 +1509,20 @@ export default function TelnyxDialer({
       busy,
       callInProgress,
       connect,
+      ensureRemoteAudio,
       finalizeCall,
-      lead,
+      lead?.business,
+      lead?.id,
+      lead?.name,
       phone,
       recordingConsent,
+      requestMicrophone,
       resetActiveCall,
       resolvedAssignmentId,
       resolvedCampaignId,
+      startRingback,
+      stopMicrophone,
+      stopRingback,
       updateAssignmentState,
     ]);
 
@@ -1153,16 +1538,13 @@ export default function TelnyxDialer({
       setBusy(true);
       setError("");
       setStatus("ending");
+      stopRingback();
 
       try {
         await Promise.resolve(
           call.hangup?.()
         );
 
-        /**
-         * Telnyx normally sends a final callUpdate event. This fallback
-         * prevents the UI from remaining stuck if that notification is lost.
-         */
         window.setTimeout(
           () => {
             if (
@@ -1170,25 +1552,17 @@ export default function TelnyxDialer({
               !finalizingRef.current
             ) {
               void finalizeCall({
-                state:
-                  "hangup",
-
+                state: "hangup",
                 cause:
                   "Caller ended call",
               });
             }
           },
-          1200
+          1500
         );
       } catch (requestError) {
-        setError(
-          requestError?.message ||
-            "The call could not be ended."
-        );
-
         await finalizeCall({
-          state:
-            "hangup",
+          state: "hangup",
 
           cause:
             requestError?.message ||
@@ -1199,7 +1573,10 @@ export default function TelnyxDialer({
           setBusy(false);
         }
       }
-    }, [finalizeCall]);
+    }, [
+      finalizeCall,
+      stopRingback,
+    ]);
 
   const toggleMute =
     useCallback(() => {
@@ -1213,8 +1590,26 @@ export default function TelnyxDialer({
       try {
         if (muted) {
           call.unmuteAudio?.();
+
+          for (
+            const track
+            of microphoneStreamRef
+              .current?.getAudioTracks?.() ||
+              []
+          ) {
+            track.enabled = true;
+          }
         } else {
           call.muteAudio?.();
+
+          for (
+            const track
+            of microphoneStreamRef
+              .current?.getAudioTracks?.() ||
+              []
+          ) {
+            track.enabled = false;
+          }
         }
 
         setMuted(
@@ -1235,8 +1630,7 @@ export default function TelnyxDialer({
     "";
 
   const queueStatus =
-    currentAssignment
-      ?.queueStatus ||
+    currentAssignment?.queueStatus ||
     lead?.queueStatus ||
     "";
 
@@ -1244,6 +1638,7 @@ export default function TelnyxDialer({
     <section className="cardish rf-telnyx-dialer">
       <audio
         id="reachfly-telnyx-remote-audio"
+        ref={remoteAudioRef}
         autoPlay
         playsInline
       />
@@ -1262,9 +1657,7 @@ export default function TelnyxDialer({
           <p>
             Status:{" "}
             <b>
-              {formatLabel(
-                status
-              )}
+              {formatLabel(status)}
             </b>
 
             {elapsed
@@ -1272,6 +1665,13 @@ export default function TelnyxDialer({
                   elapsed
                 )}`
               : ""}
+          </p>
+
+          <p className="text-xs text-muted">
+            Microphone:{" "}
+            {formatLabel(
+              microphonePermission
+            )}
           </p>
 
           {assignmentStatus ? (
@@ -1299,6 +1699,14 @@ export default function TelnyxDialer({
         </span>
       </div>
 
+      {!window.isSecureContext ? (
+        <p className="error-banner">
+          Browser calling requires HTTPS.
+          This page is currently opened
+          through an insecure HTTP address.
+        </p>
+      ) : null}
+
       {error ? (
         <p className="error-banner">
           {error}
@@ -1313,9 +1721,7 @@ export default function TelnyxDialer({
 
       {lastOutcome ? (
         <div className="rf-telnyx-result">
-          <span>
-            Latest outcome
-          </span>
+          <span>Latest outcome</span>
 
           <b>
             {formatLabel(
@@ -1331,12 +1737,9 @@ export default function TelnyxDialer({
           checked={
             recordingConsent
           }
-          onChange={(
-            event
-          ) =>
+          onChange={(event) =>
             setRecordingConsent(
-              event.target
-                .checked
+              event.target.checked
             )
           }
           disabled={
@@ -1345,7 +1748,9 @@ export default function TelnyxDialer({
           }
         />
 
-        Approved recording disclosure has been given and consent obtained where required.
+        Approved recording disclosure
+        has been given and consent
+        obtained where required.
       </label>
 
       <div className="flex flex-gap flex-wrap mt16">
@@ -1353,13 +1758,12 @@ export default function TelnyxDialer({
           <button
             className="btn primary"
             type="button"
-            onClick={
-              startCall
-            }
+            onClick={startCall}
             disabled={
               busy ||
               !phone ||
-              !resolvedAssignmentId
+              !resolvedAssignmentId ||
+              !window.isSecureContext
             }
           >
             {busy
@@ -1374,9 +1778,7 @@ export default function TelnyxDialer({
               onClick={
                 toggleMute
               }
-              disabled={
-                busy
-              }
+              disabled={busy}
             >
               {muted
                 ? "Unmute"
@@ -1386,15 +1788,10 @@ export default function TelnyxDialer({
             <button
               className="btn danger"
               type="button"
-              onClick={
-                hangup
-              }
-              disabled={
-                busy
-              }
+              onClick={hangup}
+              disabled={busy}
             >
-              {status ===
-              "ending"
+              {status === "ending"
                 ? "Ending…"
                 : "End call"}
             </button>
@@ -1404,10 +1801,6 @@ export default function TelnyxDialer({
     </section>
   );
 }
-
-/* ==========================================================================
-   Helpers
-   ========================================================================== */
 
 function normalizePhone(value) {
   const phone =
@@ -1419,23 +1812,15 @@ function normalizePhone(value) {
     return "";
   }
 
-  if (
-    phone.startsWith("+")
-  ) {
+  if (phone.startsWith("+")) {
     return phone;
   }
 
-  if (
-    phone.startsWith("00")
-  ) {
-    return `+${phone.slice(
-      2
-    )}`;
+  if (phone.startsWith("00")) {
+    return `+${phone.slice(2)}`;
   }
 
-  if (
-    phone.length === 10
-  ) {
+  if (phone.length === 10) {
     return `+1${phone}`;
   }
 
@@ -1446,16 +1831,28 @@ function normalizePhone(value) {
     return `+${phone}`;
   }
 
-  return phone;
+  return `+${phone}`;
 }
 
 function normalizeCallState(value) {
-  return String(
-    value || ""
-  )
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, "_");
+  const state =
+    String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[\s-]+/g, "_");
+
+  if (
+    state === "trying" ||
+    state === "new"
+  ) {
+    return "initiated";
+  }
+
+  if (state === "early") {
+    return "ringing";
+  }
+
+  return state;
 }
 
 function inferCallOutcome({
@@ -1478,9 +1875,7 @@ function inferCallOutcome({
 
   if (
     code === 486 ||
-    normalizedCause.includes(
-      "busy"
-    )
+    normalizedCause.includes("busy")
   ) {
     return "busy";
   }
@@ -1493,7 +1888,7 @@ function inferCallOutcome({
       604,
     ].includes(code) ||
     normalizedCause.includes(
-      "invalid number"
+      "invalid"
     ) ||
     normalizedCause.includes(
       "unallocated"
@@ -1536,13 +1931,47 @@ function inferCallOutcome({
     normalizedCause.includes(
       "cancel"
     ) ||
-    normalizedState ===
-      "failed"
+    normalizedState === "failed"
   ) {
     return "no_answer";
   }
 
   return "no_answer";
+}
+
+function getTelnyxErrorMessage(
+  value
+) {
+  const code =
+    value?.code ||
+    value?.error?.code ||
+    value?.data?.code ||
+    "";
+
+  if (
+    String(code) === "42001"
+  ) {
+    return "Microphone permission was denied. Enable microphone access in the browser and operating-system settings.";
+  }
+
+  if (
+    String(code) === "42002"
+  ) {
+    return "No usable microphone was found.";
+  }
+
+  if (
+    String(code) === "42003"
+  ) {
+    return "Telnyx could not access the microphone.";
+  }
+
+  return (
+    value?.message ||
+    value?.error?.message ||
+    value?.data?.message ||
+    "The Telnyx call could not be started."
+  );
 }
 
 function buildAutomaticCallNote({
@@ -1594,15 +2023,6 @@ function getOutcomeMessage(outcome) {
 
     invalid_number:
       "The phone number was invalid. The lead has been closed.",
-
-    qualified:
-      "The lead has been qualified.",
-
-    meeting_booked:
-      "A meeting has been booked.",
-
-    converted:
-      "The lead has been converted.",
   };
 
   return (
@@ -1615,30 +2035,24 @@ function getOutcomeMessage(outcome) {
 
 function getStatusBadge(status) {
   if (
-    ACTIVE_STATES.has(
-      status
-    ) ||
-    status ===
-      "completed"
+    ACTIVE_STATES.has(status) ||
+    status === "completed" ||
+    status === "contacted"
   ) {
     return "green";
   }
 
   if (
-    RINGING_STATES.has(
-      status
-    ) ||
-    status ===
-      "connecting" ||
-    status ===
-      "ending"
+    RINGING_STATES.has(status) ||
+    status === "connecting" ||
+    status === "requesting" ||
+    status === "ending"
   ) {
     return "amber";
   }
 
   if (
-    status ===
-      "failed" ||
+    status === "failed" ||
     status ===
       "completion_failed" ||
     status ===
@@ -1664,9 +2078,8 @@ function formatDuration(seconds) {
 
   const minutes =
     Math.floor(
-      (
-        safeSeconds % 3600
-      ) / 60
+      (safeSeconds % 3600) /
+        60
     );
 
   const remainder =
@@ -1689,15 +2102,9 @@ function formatDuration(seconds) {
 
   return `${String(
     minutes
-  ).padStart(
-    2,
-    "0"
-  )}:${String(
+  ).padStart(2, "0")}:${String(
     remainder
-  ).padStart(
-    2,
-    "0"
-  )}`;
+  ).padStart(2, "0")}`;
 }
 
 function formatLabel(value) {
@@ -1713,18 +2120,13 @@ function formatLabel(value) {
 }
 
 function delay(milliseconds) {
-  return new Promise(
-    (resolve) => {
-      window.setTimeout(
-        resolve,
-        Math.max(
-          0,
-          Number(
-            milliseconds ||
-            0
-          )
-        )
-      );
-    }
-  );
+  return new Promise((resolve) => {
+    window.setTimeout(
+      resolve,
+      Math.max(
+        0,
+        Number(milliseconds || 0)
+      )
+    );
+  });
 }
