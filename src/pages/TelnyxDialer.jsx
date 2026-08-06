@@ -515,7 +515,7 @@ export default function TelnyxDialer({
     ]);
 
   const ensureRemoteAudio =
-    useCallback(async () => {
+    useCallback(() => {
       const element =
         remoteAudioRef.current;
 
@@ -528,14 +528,25 @@ export default function TelnyxDialer({
       element.muted = false;
       element.volume = 1;
 
+      /*
+       * Do not await play() before Telnyx attaches a MediaStream.
+       *
+       * In Chromium, play() on an empty media element can remain pending.
+       * Awaiting it would freeze startCall() after the SDK becomes ready,
+       * before POST /api/telnyx/calls and client.newCall() are executed.
+       */
       try {
-        await element.play();
+        const playback =
+          element.play();
+
+        playback?.catch?.(() => {
+          /*
+           * This is expected before the remote stream is attached. The
+           * call-update handler invokes this again when media is available.
+           */
+        });
       } catch {
-        /*
-         * play() may reject before Telnyx has attached
-         * the remote MediaStream. A later call-update
-         * event will attempt playback again.
-         */
+        // A later call-update event will retry playback.
       }
     }, []);
 
@@ -1224,7 +1235,7 @@ export default function TelnyxDialer({
             }.`
           );
 
-          await ensureRemoteAudio();
+          ensureRemoteAudio();
         }
 
         const localCallId =
@@ -1593,13 +1604,37 @@ export default function TelnyxDialer({
          * This deliberately runs inside the button click,
          * allowing the browser to display its permission prompt.
          */
+        console.info(
+          "[TelnyxDialer] start:requesting-microphone"
+        );
+
         const microphoneStream =
           await requestMicrophone();
+
+        console.info(
+          "[TelnyxDialer] start:microphone-ready"
+        );
 
         const client =
           await connect();
 
-        await ensureRemoteAudio();
+        console.info(
+          "[TelnyxDialer] start:sdk-ready"
+        );
+
+        /*
+         * Prepare the element, but never block call startup waiting for
+         * playback before Telnyx has attached the remote MediaStream.
+         */
+        ensureRemoteAudio();
+
+        setMessage(
+          "Creating call record…"
+        );
+
+        console.info(
+          "[TelnyxDialer] start:creating-call-record"
+        );
 
         const created =
           await api.createTelnyxCall({
@@ -1621,6 +1656,15 @@ export default function TelnyxDialer({
               "v1",
           });
 
+        console.info(
+          "[TelnyxDialer] start:call-record-created",
+          {
+            callId:
+              created?.call?.id ||
+              "",
+          }
+        );
+
         const createdCall =
           created?.call;
 
@@ -1636,6 +1680,14 @@ export default function TelnyxDialer({
         startedAtRef.current = 0;
         answeredAtRef.current = 0;
         setElapsed(0);
+
+        setMessage(
+          "Starting queue call…"
+        );
+
+        console.info(
+          "[TelnyxDialer] start:queue-call-start"
+        );
 
         const queueStartResult =
           await api.callerQueueCallStart(
@@ -1659,6 +1711,32 @@ export default function TelnyxDialer({
 
         const remoteAudio =
           remoteAudioRef.current;
+
+        setMessage(
+          `Calling ${
+            lead?.business ||
+            lead?.name ||
+            phone
+          }…`
+        );
+
+        /*
+         * Start local ringback before invoking newCall so the caller receives
+         * immediate audible feedback. Telnyx call notifications keep it
+         * running during trying/ringing and stop it on active/final states.
+         */
+        void startRingback();
+
+        console.info(
+          "[TelnyxDialer] start:calling-newCall",
+          {
+            destinationNumber:
+              phone,
+            callerNumber:
+              createdCall.fromNumber ||
+              "",
+          }
+        );
 
         const telnyxCall =
           client.newCall({
@@ -1710,15 +1788,17 @@ export default function TelnyxDialer({
 
         setStatus("calling");
 
-        setMessage(
-          `Calling ${
-            lead?.business ||
-            lead?.name ||
-            phone
-          }…`
+        console.info(
+          "[TelnyxDialer] start:newCall-created",
+          {
+            callId:
+              telnyxCall.id ||
+              "",
+            state:
+              telnyxCall.state ||
+              "",
+          }
         );
-
-        startRingback();
       } catch (requestError) {
         console.error(
           "[TelnyxDialer] Start call failed:",
