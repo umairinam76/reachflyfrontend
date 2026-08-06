@@ -33864,3 +33864,391 @@ body.audit-drawer-open {
   border-color: #dc2626;
   color: #fff;
 }
+
+
+/* =========================================================
+   Telnyx Dialer
+   Safe to paste into the main application stylesheet.
+   All component-specific rules are scoped to .rf-telnyx-dialer.
+   ========================================================= */
+
+.rf-telnyx-dialer {
+  --rf-dialer-bg: #ffffff;
+  --rf-dialer-border: #e2e8f0;
+  --rf-dialer-text: #0f172a;
+  --rf-dialer-muted: #64748b;
+  --rf-dialer-primary: #2563eb;
+  --rf-dialer-primary-hover: #1d4ed8;
+  --rf-dialer-danger: #dc2626;
+  --rf-dialer-danger-hover: #b91c1c;
+  --rf-dialer-success: #15803d;
+  --rf-dialer-success-bg: #f0fdf4;
+  --rf-dialer-success-border: #bbf7d0;
+  --rf-dialer-error: #b91c1c;
+  --rf-dialer-error-bg: #fef2f2;
+  --rf-dialer-error-border: #fecaca;
+  --rf-dialer-radius: 18px;
+
+  width: 100%;
+  box-sizing: border-box;
+  padding: 22px;
+  color: var(--rf-dialer-text);
+  background: var(--rf-dialer-bg);
+  border: 1px solid var(--rf-dialer-border);
+  border-radius: var(--rf-dialer-radius);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+
+.rf-telnyx-dialer,
+.rf-telnyx-dialer * {
+  box-sizing: border-box;
+}
+
+.rf-telnyx-dialer > audio {
+  display: none;
+}
+
+.rf-telnyx-dialer .section-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.rf-telnyx-dialer .section-title-row > div {
+  min-width: 0;
+}
+
+.rf-telnyx-dialer .eyebrow {
+  display: inline-block;
+  margin-bottom: 7px;
+  color: var(--rf-dialer-primary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.rf-telnyx-dialer h3 {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--rf-dialer-text);
+  font-size: clamp(1.15rem, 2vw, 1.5rem);
+  font-weight: 750;
+  line-height: 1.25;
+}
+
+.rf-telnyx-dialer p {
+  margin: 8px 0 0;
+  color: var(--rf-dialer-muted);
+  line-height: 1.55;
+}
+
+.rf-telnyx-dialer p b {
+  color: var(--rf-dialer-text);
+  font-weight: 700;
+}
+
+.rf-telnyx-dialer .text-xs {
+  font-size: 0.78rem;
+}
+
+.rf-telnyx-dialer .text-muted {
+  color: var(--rf-dialer-muted);
+}
+
+.rf-telnyx-dialer .badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 6px 11px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.025em;
+  white-space: nowrap;
+}
+
+.rf-telnyx-dialer .badge-green {
+  color: #166534;
+  background: #dcfce7;
+  border-color: #bbf7d0;
+}
+
+.rf-telnyx-dialer .badge-amber {
+  color: #92400e;
+  background: #fef3c7;
+  border-color: #fde68a;
+}
+
+.rf-telnyx-dialer .badge-red {
+  color: #991b1b;
+  background: #fee2e2;
+  border-color: #fecaca;
+}
+
+.rf-telnyx-dialer .badge-gray {
+  color: #475569;
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+}
+
+.rf-telnyx-dialer .error-banner,
+.rf-telnyx-dialer .success-banner {
+  display: block;
+  width: 100%;
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  border: 1px solid;
+  border-radius: 12px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.rf-telnyx-dialer .error-banner {
+  color: var(--rf-dialer-error);
+  background: var(--rf-dialer-error-bg);
+  border-color: var(--rf-dialer-error-border);
+}
+
+.rf-telnyx-dialer .success-banner {
+  color: var(--rf-dialer-success);
+  background: var(--rf-dialer-success-bg);
+  border-color: var(--rf-dialer-success-border);
+}
+
+.rf-telnyx-dialer .rf-telnyx-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 16px;
+  padding: 12px 14px;
+  color: #334155;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+.rf-telnyx-dialer .rf-telnyx-result span {
+  color: var(--rf-dialer-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.rf-telnyx-dialer .rf-telnyx-result b {
+  color: var(--rf-dialer-text);
+  font-size: 0.9rem;
+}
+
+.rf-telnyx-dialer .rf-assignment-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 18px;
+  padding: 13px 14px;
+  color: #334155;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.5;
+  cursor: pointer;
+  user-select: none;
+}
+
+.rf-telnyx-dialer .rf-assignment-option:has(input:focus-visible) {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+}
+
+.rf-telnyx-dialer .rf-assignment-option input {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
+  margin: 2px 0 0;
+  accent-color: var(--rf-dialer-primary);
+  cursor: pointer;
+}
+
+.rf-telnyx-dialer .rf-assignment-option:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.66;
+}
+
+.rf-telnyx-dialer .flex {
+  display: flex;
+}
+
+.rf-telnyx-dialer .flex-gap {
+  gap: 10px;
+}
+
+.rf-telnyx-dialer .flex-wrap {
+  flex-wrap: wrap;
+}
+
+.rf-telnyx-dialer .mt16 {
+  margin-top: 16px;
+}
+
+.rf-telnyx-dialer .btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 10px 17px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 750;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease,
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+}
+
+.rf-telnyx-dialer .btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.rf-telnyx-dialer .btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.rf-telnyx-dialer .btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+
+.rf-telnyx-dialer .btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+  box-shadow: none;
+}
+
+.rf-telnyx-dialer .btn.primary {
+  color: #ffffff;
+  background: var(--rf-dialer-primary);
+  border-color: var(--rf-dialer-primary);
+  box-shadow: 0 7px 18px rgba(37, 99, 235, 0.2);
+}
+
+.rf-telnyx-dialer .btn.primary:hover:not(:disabled) {
+  background: var(--rf-dialer-primary-hover);
+  border-color: var(--rf-dialer-primary-hover);
+  box-shadow: 0 9px 22px rgba(37, 99, 235, 0.26);
+}
+
+.rf-telnyx-dialer .btn.light {
+  color: #1e293b;
+  background: #ffffff;
+  border-color: #cbd5e1;
+}
+
+.rf-telnyx-dialer .btn.light:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.rf-telnyx-dialer .btn.danger {
+  color: #ffffff;
+  background: var(--rf-dialer-danger);
+  border-color: var(--rf-dialer-danger);
+  box-shadow: 0 7px 18px rgba(220, 38, 38, 0.18);
+}
+
+.rf-telnyx-dialer .btn.danger:hover:not(:disabled) {
+  background: var(--rf-dialer-danger-hover);
+  border-color: var(--rf-dialer-danger-hover);
+}
+
+@media (max-width: 640px) {
+  .rf-telnyx-dialer {
+    padding: 17px;
+    border-radius: 14px;
+  }
+
+  .rf-telnyx-dialer .section-title-row {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .rf-telnyx-dialer .badge {
+    align-self: flex-start;
+  }
+
+  .rf-telnyx-dialer .flex.mt16 {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .rf-telnyx-dialer .btn {
+    width: 100%;
+  }
+
+  .rf-telnyx-dialer .rf-telnyx-result {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rf-telnyx-dialer .btn {
+    transition: none;
+  }
+}
+
+/* Optional dark-mode support. Remove this block if your app handles dark mode globally. */
+@media (prefers-color-scheme: dark) {
+  .rf-telnyx-dialer {
+    --rf-dialer-bg: #0f172a;
+    --rf-dialer-border: #273449;
+    --rf-dialer-text: #f8fafc;
+    --rf-dialer-muted: #94a3b8;
+
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.24);
+  }
+
+  .rf-telnyx-dialer .rf-telnyx-result,
+  .rf-telnyx-dialer .rf-assignment-option {
+    color: #cbd5e1;
+    background: #111c31;
+    border-color: #334155;
+  }
+
+  .rf-telnyx-dialer .btn.light {
+    color: #e2e8f0;
+    background: #172033;
+    border-color: #475569;
+  }
+
+  .rf-telnyx-dialer .btn.light:hover:not(:disabled) {
+    background: #1e293b;
+    border-color: #64748b;
+  }
+
+  .rf-telnyx-dialer .badge-gray {
+    color: #cbd5e1;
+    background: #1e293b;
+    border-color: #334155;
+  }
+}
