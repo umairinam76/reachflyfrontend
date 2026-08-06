@@ -5,8 +5,53 @@ import {
   useRef,
   useState,
 } from "react";
-import { api } from "../api";
+import { apiRequest } from "../lib/workspace-platform-client.js";
 import "./TelnyxDialer.css";
+
+const api = {
+  telnyxSession() {
+    return apiRequest("/telnyx/session");
+  },
+
+  createTelnyxCall(body) {
+    return apiRequest("/telnyx/calls", { method: "POST", body });
+  },
+
+  linkTelnyxCall(callId, body) {
+    return apiRequest(`/telnyx/calls/${encodeURIComponent(callId)}/link`, {
+      method: "PATCH",
+      body,
+    });
+  },
+
+  updateTelnyxCallState(callId, body) {
+    return apiRequest(`/telnyx/calls/${encodeURIComponent(callId)}/state`, {
+      method: "PATCH",
+      body,
+    });
+  },
+
+  completeTelnyxCall(callId, body) {
+    return apiRequest(`/telnyx/calls/${encodeURIComponent(callId)}/complete`, {
+      method: "PATCH",
+      body,
+    });
+  },
+
+  callerQueueCallStart(assignmentId, body) {
+    return apiRequest(`/caller-queue/${encodeURIComponent(assignmentId)}/call/start`, {
+      method: "POST",
+      body,
+    });
+  },
+
+  callerQueueCallComplete(assignmentId, body) {
+    return apiRequest(`/caller-queue/${encodeURIComponent(assignmentId)}/call/complete`, {
+      method: "POST",
+      body,
+    });
+  },
+};
 
 const ACTIVE_STATES = new Set([
   "active",
@@ -54,6 +99,7 @@ export default function TelnyxDialer({
   const remoteAudioRef = useRef(null);
 
   const connectionPromiseRef = useRef(null);
+  const sessionRef = useRef(null);
   const ringbackRef = useRef(null);
 
   const localCallIdRef = useRef("");
@@ -1136,6 +1182,8 @@ export default function TelnyxDialer({
             );
           }
 
+          sessionRef.current = session;
+
           const client =
             new TelnyxRTC({
               login_token:
@@ -1317,14 +1365,6 @@ export default function TelnyxDialer({
         return;
       }
 
-      if (!recordingConsent) {
-        setError(
-          "Confirm that the approved recording disclosure has been given and consent obtained where required."
-        );
-
-        return;
-      }
-
       if (
         callInProgress ||
         busy
@@ -1351,6 +1391,15 @@ export default function TelnyxDialer({
         const client =
           await connect();
 
+        const shouldRecord =
+          sessionRef.current?.recordingEnabled === true;
+
+        if (shouldRecord && !recordingConsent) {
+          throw new Error(
+            "Confirm that the approved recording disclosure has been given and consent obtained where required."
+          );
+        }
+
         await ensureRemoteAudio();
 
         const created =
@@ -1367,7 +1416,8 @@ export default function TelnyxDialer({
             assignmentId:
               resolvedAssignmentId,
 
-            recordingConsent: true,
+            recordingConsent:
+              shouldRecord && recordingConsent,
 
             recordingDisclosureVersion:
               "v1",
@@ -1398,7 +1448,8 @@ export default function TelnyxDialer({
 
               provider: "telnyx",
               toNumber: phone,
-              recordingConsent: true,
+              recordingConsent:
+                shouldRecord && recordingConsent,
             }
           );
 
@@ -1417,6 +1468,7 @@ export default function TelnyxDialer({
             destinationNumber: phone,
 
             callerNumber:
+              sessionRef.current?.callerIdNumber ||
               createdCall.fromNumber ||
               undefined,
 

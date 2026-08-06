@@ -1021,8 +1021,12 @@ function normalizeMiniAudit({
   audit,
   lead,
 }) {
+  const container = audit || {};
   const source =
-    audit || {};
+    container.report ||
+    container.content ||
+    container.result ||
+    container;
 
   const snapshotSource =
     source.businessSnapshot ||
@@ -1063,14 +1067,19 @@ function normalizeMiniAudit({
 
   return {
     id:
+      container.id ||
       source.id ||
       source.auditId ||
       "",
     status:
+      container.status ||
       source.status ||
       lead?.miniAuditStatus ||
       "",
     generatedAt:
+      container.generatedAt ||
+      container.completedAt ||
+      container.updatedAt ||
       source.generatedAt ||
       source.completedAt ||
       source.updatedAt ||
@@ -1083,6 +1092,7 @@ function normalizeMiniAudit({
     workspaceName:
       source.workspaceName ||
       source.brandName ||
+      container.brand?.name ||
       workspace.name ||
       source.parentAccountName ||
       "ReachFly AI",

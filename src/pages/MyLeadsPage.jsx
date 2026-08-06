@@ -405,54 +405,24 @@ export default function MyLeadsPage() {
   async function callLead(
     assignment
   ) {
-    const lead =
-      assignment.lead ||
-      {};
+    const lead = assignment.lead || {};
 
     if (!lead.phone) {
       setError(
         "This lead does not have a phone number."
       );
-
       return;
     }
 
-    setSaving(true);
     setError("");
 
-    try {
-      const response =
-        await request(
-          `/caller-queue/${encodeURIComponent(
-            assignment.id
-          )}/call/start`,
-          {
-            method:
-              "POST",
-          }
-        );
-
-      replaceAssignment(
-        response.assignment
-      );
-
-      window.location.href =
-        `tel:${String(
-          lead.phone
-        ).replace(
-          /[^+\d]/g,
-          ""
-        )}`;
-    } catch (
-      requestError
-    ) {
-      setError(
-        requestError?.message ||
-        "The call could not be started."
-      );
-    } finally {
-      setSaving(false);
-    }
+    navigate(
+      `/app/call-workspace?assignmentId=${encodeURIComponent(
+        assignment.id
+      )}&leadId=${encodeURIComponent(
+        assignment.leadId || lead.id || ""
+      )}`
+    );
   }
 
   async function saveOutcome() {

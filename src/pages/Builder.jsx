@@ -3496,13 +3496,13 @@ function CallLeadDrawer({
       setCallMiniLoading(true);
       auditApi(`/lead-audits?website=${encodeURIComponent(lead.website)}`)
         .then(async (data) => {
-          const existing = (data.reports || []).find((report) => report.kind === "mini" && report.status === "completed");
+          const existing = (data.reports || []).find((report) => report.kind === "mini" && ["complete", "completed"].includes(report.status));
           if (existing) return existing;
           return auditApi("/lead-audits/mini", { method: "POST", body: { lead, niche: form?.niche || lead.category || "", location: form?.location || lead.address || "", brand: workspace } });
         })
         .then(async (report) => {
           let current = report;
-          for (let attempt = 0; attempt < 40 && current?.id && !["completed", "failed"].includes(current.status); attempt += 1) {
+          for (let attempt = 0; attempt < 40 && current?.id && !["complete", "completed", "failed"].includes(current.status); attempt += 1) {
             await new Promise((resolve) => window.setTimeout(resolve, 1500));
             current = await auditApi(`/lead-audits/${encodeURIComponent(current.id)}`);
           }
