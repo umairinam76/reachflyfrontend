@@ -6,7 +6,7 @@ import {
   useState,
 } from "react";
 import { apiRequest } from "../lib/workspace-platform-client.js";
-import "./TelnyxDialer.css";
+import "../styles.css";
 
 const api = {
   telnyxSession() {
