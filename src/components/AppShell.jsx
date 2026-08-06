@@ -606,6 +606,18 @@ export default function AppShell() {
 
         items: [
           {
+            label: "Resource board",
+            to: "/app/resource-board",
+            icon: LayoutDashboard,
+            matchPrefixes: [
+              "/app/resource-board",
+              "/app/team-management",
+            ],
+            visible:
+              canManageWorkspace,
+          },
+
+          {
             label:
               canManageWorkspace
                 ? "Team operations"
@@ -616,7 +628,6 @@ export default function AppShell() {
             matchPrefixes: [
               "/app/role-operations",
               "/app/operations",
-              "/app/team-management",
               "/app/team",
             ],
             visible: true,
