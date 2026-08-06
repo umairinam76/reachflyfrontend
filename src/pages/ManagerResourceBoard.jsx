@@ -21,12 +21,13 @@ import {
 } from "../lib/workspace-platform-client.js";
 
 import "../styles.css";
-// import "../styles/manager-resource-board.css";
+import "../styles/manager-resource-board.css";
 
 const BOARD_CACHE_KEY =
   "reachfly:manager-resource-board:v1";
 const BOARD_CACHE_TTL_MS = 5 * 60 * 1000;
-const BOARD_REFRESH_MS = 20_000;
+const VISIBILITY_REFRESH_MIN_MS = 60_000;
+const SOCKET_REFRESH_DEBOUNCE_MS = 250;
 
 const LEAD_STATUSES = [
   ["all", "All lead statuses"],
@@ -79,6 +80,12 @@ export default function ManagerResourceBoard() {
     readBoardCache(user?.id)
   );
   const refreshTimerRef = useRef(null);
+  const loadPromiseRef = useRef(null);
+  const mountedRef = useRef(false);
+  const initialLoadStartedRef = useRef(false);
+  const lastLoadedAtRef = useRef(
+    Number(initialCacheRef.current?.savedAt || 0)
+  );
 
   const [board, setBoard] = useState(
     () => initialCacheRef.current?.board || null
@@ -110,39 +117,123 @@ export default function ManagerResourceBoard() {
     "manager",
   ].includes(role);
 
+  useEffect(() => {
+    mountedRef.current = true;
+
+    return () => {
+      mountedRef.current = false;
+      window.clearTimeout(
+        refreshTimerRef.current
+      );
+    };
+  }, []);
+
   const loadBoard = useCallback(
-    async ({ silent = false } = {}) => {
+    async ({
+      silent = false,
+      showIndicator = !silent,
+      force = false,
+      reportError = !silent,
+    } = {}) => {
+      if (!user?.id) {
+        return null;
+      }
+
+      /*
+       * Reuse the active request. This prevents socket events,
+       * visibility changes and button clicks from starting multiple
+       * overlapping board requests.
+       */
+      if (
+        loadPromiseRef.current &&
+        !force
+      ) {
+        return loadPromiseRef.current;
+      }
+
       if (!silent) {
         setLoading(true);
-      } else {
+      }
+
+      if (showIndicator) {
         setRefreshing(true);
       }
 
-      setError("");
+      if (reportError) {
+        setError("");
+      }
+
+      const requestPromise =
+        (async () => {
+          try {
+            const response =
+              await apiRequest(
+                "/resource-board",
+                {
+                  timeoutMs: 15_000,
+                }
+              );
+
+            if (!mountedRef.current) {
+              return response;
+            }
+
+            setBoard(response);
+            lastLoadedAtRef.current =
+              Date.now();
+            writeBoardCache(
+              user.id,
+              response
+            );
+
+            return response;
+          } catch (requestError) {
+            if (
+              mountedRef.current &&
+              reportError
+            ) {
+              setError(
+                requestError?.message ||
+                  "The manager resource board could not be loaded."
+              );
+            }
+
+            return null;
+          } finally {
+            if (mountedRef.current) {
+              if (!silent) {
+                setLoading(false);
+              }
+
+              if (showIndicator) {
+                setRefreshing(false);
+              }
+            }
+          }
+        })();
+
+      loadPromiseRef.current =
+        requestPromise;
 
       try {
-        const response = await apiRequest(
-          "/resource-board",
-          {
-            timeoutMs: 15_000,
-          }
-        );
-
-        setBoard(response);
-        writeBoardCache(user?.id, response);
-      } catch (requestError) {
-        setError(
-          requestError?.message ||
-            "The manager resource board could not be loaded."
-        );
+        return await requestPromise;
       } finally {
-        setLoading(false);
-        setRefreshing(false);
+        if (
+          loadPromiseRef.current ===
+          requestPromise
+        ) {
+          loadPromiseRef.current = null;
+        }
       }
     },
     [user?.id]
   );
 
+  /*
+   * Load once when the manager opens the page. The previous version
+   * depended on `board`; every successful request changed `board`,
+   * which ran this effect again and created a continuous refresh loop.
+   */
   useEffect(() => {
     if (!canManage) {
       navigate("/app/dashboard", {
@@ -151,21 +242,47 @@ export default function ManagerResourceBoard() {
       return undefined;
     }
 
-    void loadBoard({
-      silent: Boolean(board),
-    });
+    if (!initialLoadStartedRef.current) {
+      initialLoadStartedRef.current =
+        true;
 
-    const intervalId = window.setInterval(
-      () => {
-        void loadBoard({ silent: true });
-      },
-      BOARD_REFRESH_MS
-    );
+      void loadBoard({
+        silent: Boolean(
+          initialCacheRef.current?.board
+        ),
+        showIndicator: false,
+        reportError: true,
+      });
+    }
 
+    /*
+     * Refresh stale data when the user returns to the browser tab.
+     * This updates React state only; it never reloads the page.
+     */
     const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        void loadBoard({ silent: true });
+      if (
+        document.visibilityState !==
+        "visible"
+      ) {
+        return;
       }
+
+      const age =
+        Date.now() -
+        lastLoadedAtRef.current;
+
+      if (
+        age <
+        VISIBILITY_REFRESH_MIN_MS
+      ) {
+        return;
+      }
+
+      void loadBoard({
+        silent: true,
+        showIndicator: false,
+        reportError: false,
+      });
     };
 
     document.addEventListener(
@@ -174,19 +291,21 @@ export default function ManagerResourceBoard() {
     );
 
     return () => {
-      window.clearInterval(intervalId);
       document.removeEventListener(
         "visibilitychange",
         onVisibilityChange
       );
     };
   }, [
-    board,
     canManage,
     loadBoard,
     navigate,
   ]);
 
+  /*
+   * Socket events keep the board current without polling or refreshing
+   * the browser page. Closely spaced events are combined into one fetch.
+   */
   useEffect(() => {
     if (!canManage) {
       return undefined;
@@ -199,8 +318,12 @@ export default function ManagerResourceBoard() {
 
       refreshTimerRef.current =
         window.setTimeout(() => {
-          void loadBoard({ silent: true });
-        }, 180);
+          void loadBoard({
+            silent: true,
+            showIndicator: false,
+            reportError: false,
+          });
+        }, SOCKET_REFRESH_DEBOUNCE_MS);
     };
 
     const events = [
@@ -227,6 +350,7 @@ export default function ManagerResourceBoard() {
       window.clearTimeout(
         refreshTimerRef.current
       );
+
       subscriptions.forEach(
         (unsubscribe) => unsubscribe()
       );
@@ -730,9 +854,16 @@ export default function ManagerResourceBoard() {
             type="button"
             className="btn light"
             onClick={() =>
-              void loadBoard()
+              void loadBoard({
+                silent: true,
+                showIndicator: true,
+                force: true,
+                reportError: true,
+              })
             }
-            disabled={refreshing}
+            disabled={
+              loading || refreshing
+            }
           >
             {refreshing
               ? "Refreshing…"
