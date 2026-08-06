@@ -6,28 +6,157 @@ const DEFAULT_API_TIMEOUT_MS = 130_000;
 const DEFAULT_UPLOAD_TIMEOUT_MS = 180_000;
 const DEFAULT_DOWNLOAD_TIMEOUT_MS = 180_000;
 
-const RAW_API_URL = String(
-  import.meta.env.VITE_API_URL ||
-    "http://localhost:8787/api"
-)
-  .trim()
-  .replace(/\/+$/, "");
+const PRODUCTION_API_BASE_URL =
+  "https://api.reachflyai.com/api";
 
-export const API_BASE_URL = /\/api$/i.test(
-  RAW_API_URL
-)
-  ? RAW_API_URL
-  : `${RAW_API_URL}/api`;
+function cleanBaseUrl(value) {
+  return String(value || "")
+    .trim()
+    .replace(/\/+$/, "");
+}
 
-const RAW_SOCKET_URL = String(
-  import.meta.env.VITE_SOCKET_URL ||
-    API_BASE_URL.replace(/\/api$/i, "")
-)
-  .trim()
-  .replace(/\/+$/, "");
+function isBrowserHttps() {
+  return (
+    typeof window !== "undefined" &&
+    window.location.protocol === "https:"
+  );
+}
+
+function isLocalHostname(hostname) {
+  const value = String(
+    hostname || ""
+  ).toLowerCase();
+
+  return (
+    value === "localhost" ||
+    value === "127.0.0.1" ||
+    value === "::1" ||
+    value.endsWith(".localhost")
+  );
+}
+
+function resolveApiBaseUrl() {
+  const configured =
+    cleanBaseUrl(
+      import.meta.env.VITE_API_URL
+    );
+
+  const fallback =
+    typeof window !== "undefined" &&
+    isLocalHostname(
+      window.location.hostname
+    )
+      ? "http://localhost:8787/api"
+      : PRODUCTION_API_BASE_URL;
+
+  const candidate =
+    configured || fallback;
+
+  try {
+    const url = new URL(
+      candidate,
+      typeof window !== "undefined"
+        ? window.location.origin
+        : PRODUCTION_API_BASE_URL
+    );
+
+    /*
+     * Never let the production HTTPS application call an HTTP API.
+     * A local HTTP URL remains valid while developing on localhost.
+     */
+    if (
+      isBrowserHttps() &&
+      url.protocol === "http:" &&
+      !isLocalHostname(url.hostname)
+    ) {
+      return PRODUCTION_API_BASE_URL;
+    }
+
+    const normalized =
+      cleanBaseUrl(url.toString());
+
+    return /\/api$/i.test(normalized)
+      ? normalized
+      : `${normalized}/api`;
+  } catch {
+    return fallback;
+  }
+}
+
+function resolveSocketBaseUrl() {
+  const configured =
+    cleanBaseUrl(
+      import.meta.env.VITE_SOCKET_URL
+    );
+
+  const apiOrigin =
+    API_BASE_URL.replace(
+      /\/api$/i,
+      ""
+    );
+
+  /*
+   * Prefer the API origin whenever an explicitly configured socket URL is
+   * insecure on an HTTPS page. This prevents a stale value such as
+   * ws://52.44.71.169:8787 from causing a browser Mixed Content failure.
+   */
+  let candidate =
+    configured || apiOrigin;
+
+  try {
+    let url = new URL(
+      candidate,
+      typeof window !== "undefined"
+        ? window.location.origin
+        : apiOrigin
+    );
+
+    if (
+      isBrowserHttps() &&
+      ["http:", "ws:"].includes(
+        url.protocol
+      )
+    ) {
+      const secureApiUrl =
+        new URL(apiOrigin);
+
+      if (
+        ["https:", "wss:"].includes(
+          secureApiUrl.protocol
+        )
+      ) {
+        url = secureApiUrl;
+      } else {
+        url.protocol =
+          url.protocol === "ws:"
+            ? "wss:"
+            : "https:";
+      }
+    }
+
+    if (url.protocol === "ws:") {
+      url.protocol = "http:";
+    }
+
+    if (url.protocol === "wss:") {
+      url.protocol = "https:";
+    }
+
+    /*
+     * socket.io-client expects an HTTP(S) origin. It upgrades that connection
+     * to WS/WSS automatically.
+     */
+    return url.origin;
+  } catch {
+    return cleanBaseUrl(apiOrigin);
+  }
+}
+
+export const API_BASE_URL =
+  resolveApiBaseUrl();
 
 export const SOCKET_BASE_URL =
-  RAW_SOCKET_URL;
+  resolveSocketBaseUrl();
 
 let workspaceSocket = null;
 let socketConnectingPromise = null;
@@ -526,11 +655,19 @@ export function getWorkspaceSocket() {
   workspaceSocket = io(
     SOCKET_BASE_URL,
     {
+      path: "/socket.io",
       autoConnect: false,
+
+      /*
+       * socket.io-client receives an HTTPS origin above and automatically
+       * opens WSS in production. Polling remains available as a fallback.
+       */
       transports: [
         "websocket",
         "polling",
       ],
+      upgrade: true,
+      rememberUpgrade: true,
       withCredentials: true,
       reconnection: true,
       reconnectionAttempts:
@@ -571,6 +708,18 @@ export function getWorkspaceSocket() {
       );
     }
   );
+
+  if (import.meta.env.DEV) {
+    console.info(
+      "[workspace-platform-client] endpoints",
+      {
+        apiBaseUrl:
+          API_BASE_URL,
+        socketBaseUrl:
+          SOCKET_BASE_URL,
+      }
+    );
+  }
 
   workspaceSocket.on(
     "connect_error",

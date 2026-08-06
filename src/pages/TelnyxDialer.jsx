@@ -6,7 +6,7 @@ import {
   useState,
 } from "react";
 import { api } from "../api";
-import "../styles.css";
+import "./TelnyxDialer.css";
 
 const ACTIVE_STATES = new Set([
   "active",
@@ -168,6 +168,7 @@ export default function TelnyxDialer({
 
   const connectionPromiseRef = useRef(null);
   const ringbackRef = useRef(null);
+  const audioContextRef = useRef(null);
 
   const localCallIdRef = useRef("");
   const providerCallIdRef = useRef("");
@@ -285,6 +286,84 @@ export default function TelnyxDialer({
       microphoneStreamRef.current = null;
     }, []);
 
+  const getAudioContext =
+    useCallback(() => {
+      if (typeof window === "undefined") {
+        return null;
+      }
+
+      const AudioContextClass =
+        window.AudioContext ||
+        window.webkitAudioContext;
+
+      if (!AudioContextClass) {
+        return null;
+      }
+
+      if (
+        !audioContextRef.current ||
+        audioContextRef.current.state === "closed"
+      ) {
+        audioContextRef.current =
+          new AudioContextClass();
+      }
+
+      return audioContextRef.current;
+    }, []);
+
+  /*
+   * Browsers may reject AudioContext.resume() when it runs after network
+   * requests because the original button-click activation has expired.
+   * Call this before the first await in startCall().
+   */
+  const unlockAudio =
+    useCallback(async () => {
+      const context =
+        getAudioContext();
+
+      if (!context) {
+        return false;
+      }
+
+      try {
+        if (context.state === "suspended") {
+          await context.resume();
+        }
+
+        /*
+         * Play an inaudible oscillator immediately so Chrome/Safari regard
+         * the audio context as user-activated for later ringback playback.
+         */
+        const oscillator =
+          context.createOscillator();
+
+        const gain =
+          context.createGain();
+
+        gain.gain.setValueAtTime(
+          0.00001,
+          context.currentTime
+        );
+
+        oscillator.connect(gain);
+        gain.connect(context.destination);
+
+        oscillator.start();
+        oscillator.stop(
+          context.currentTime + 0.02
+        );
+
+        return context.state === "running";
+      } catch (audioError) {
+        console.warn(
+          "[TelnyxDialer] Could not unlock browser audio:",
+          audioError
+        );
+
+        return false;
+      }
+    }, [getAudioContext]);
+
   const stopRingback =
     useCallback(() => {
       const ringback =
@@ -305,20 +384,18 @@ export default function TelnyxDialer({
       try {
         ringback.oscillator?.stop?.();
       } catch {
-        // Oscillator may already be stopped.
+        // The oscillator may already have ended.
       }
 
-      try {
-        ringback.context?.close?.();
-      } catch {
-        // Ignore audio-context cleanup errors.
-      }
-
+      /*
+       * Keep the AudioContext alive. Closing it would require another browser
+       * user gesture before the next call can play ringback.
+       */
       ringbackRef.current = null;
     }, []);
 
   const startRingback =
-    useCallback(() => {
+    useCallback(async () => {
       if (
         ringbackRef.current ||
         typeof window === "undefined"
@@ -326,17 +403,17 @@ export default function TelnyxDialer({
         return;
       }
 
-      const AudioContextClass =
-        window.AudioContext ||
-        window.webkitAudioContext;
+      const context =
+        getAudioContext();
 
-      if (!AudioContextClass) {
+      if (!context) {
         return;
       }
 
       try {
-        const context =
-          new AudioContextClass();
+        if (context.state === "suspended") {
+          await context.resume();
+        }
 
         const ringback = {
           context,
@@ -347,78 +424,95 @@ export default function TelnyxDialer({
 
         ringbackRef.current = ringback;
 
+        /*
+         * US-style ringback: 440 Hz + 480 Hz, two seconds on and four seconds
+         * off. The tone is local UI feedback and stops as soon as Telnyx
+         * reports an active/final call state.
+         */
         const playTone = () => {
           if (
             ringback.stopped ||
-            ringbackRef.current !==
-              ringback
+            ringbackRef.current !== ringback
           ) {
             return;
           }
 
-          const oscillator =
-            context.createOscillator();
-
           const gain =
             context.createGain();
 
-          oscillator.type = "sine";
-          oscillator.frequency.value =
-            440;
+          const oscillatorA =
+            context.createOscillator();
+
+          const oscillatorB =
+            context.createOscillator();
+
+          oscillatorA.type = "sine";
+          oscillatorB.type = "sine";
+          oscillatorA.frequency.value = 440;
+          oscillatorB.frequency.value = 480;
+
+          const now = context.currentTime;
 
           gain.gain.setValueAtTime(
             0.0001,
-            context.currentTime
+            now
           );
 
           gain.gain.exponentialRampToValueAtTime(
-            0.08,
-            context.currentTime +
-              0.03
+            0.06,
+            now + 0.03
           );
 
           gain.gain.setValueAtTime(
-            0.08,
-            context.currentTime +
-              0.85
+            0.06,
+            now + 1.90
           );
 
           gain.gain.exponentialRampToValueAtTime(
             0.0001,
-            context.currentTime +
-              0.95
+            now + 2.0
           );
 
-          oscillator.connect(gain);
-          gain.connect(
-            context.destination
-          );
+          oscillatorA.connect(gain);
+          oscillatorB.connect(gain);
+          gain.connect(context.destination);
 
-          oscillator.start();
-          oscillator.stop(
-            context.currentTime + 1
-          );
+          oscillatorA.start(now);
+          oscillatorB.start(now);
+          oscillatorA.stop(now + 2.02);
+          oscillatorB.stop(now + 2.02);
 
-          ringback.oscillator =
-            oscillator;
+          ringback.oscillator = {
+            stop() {
+              try {
+                oscillatorA.stop();
+              } catch {}
+              try {
+                oscillatorB.stop();
+              } catch {}
+            },
+          };
 
           ringback.timer =
             window.setTimeout(
               playTone,
-              3000
+              6000
             );
         };
 
-        void context
-          .resume()
-          .then(playTone)
-          .catch(() => {
-            stopRingback();
-          });
-      } catch {
+        playTone();
+      } catch (audioError) {
+        console.warn(
+          "[TelnyxDialer] Ringback audio could not start:",
+          audioError
+        );
+
         stopRingback();
       }
-    }, [stopRingback]);
+    }, [
+      getAudioContext,
+      stopRingback,
+    ]);
 
   const ensureRemoteAudio =
     useCallback(async () => {
@@ -1364,6 +1458,36 @@ export default function TelnyxDialer({
             }
           );
 
+          client.on(
+            "telnyx.warning",
+            (event) => {
+              console.warn(
+                "[TelnyxDialer] Telnyx warning:",
+                event
+              );
+            }
+          );
+
+          client.on(
+            "telnyx.socket.error",
+            (event) => {
+              console.error(
+                "[TelnyxDialer] Telnyx signaling socket error:",
+                event
+              );
+            }
+          );
+
+          client.on(
+            "telnyx.socket.close",
+            (event) => {
+              console.warn(
+                "[TelnyxDialer] Telnyx signaling socket closed:",
+                event
+              );
+            }
+          );
+
           clientRef.current = client;
 
           await Promise.resolve(
@@ -1451,6 +1575,20 @@ export default function TelnyxDialer({
       setStatus("requesting");
 
       try {
+        /*
+         * Unlock output audio synchronously from the button click. Without
+         * this, browsers may silently block locally generated ringback after
+         * the session/API requests finish.
+         */
+        const audioUnlocked =
+          await unlockAudio();
+
+        if (!audioUnlocked) {
+          console.warn(
+            "[TelnyxDialer] Browser output audio was not unlocked. Ringback may be silent."
+          );
+        }
+
         /*
          * This deliberately runs inside the button click,
          * allowing the browser to display its permission prompt.
@@ -1551,6 +1689,14 @@ export default function TelnyxDialer({
             customHeaders:
               created.customHeaders ||
               [],
+
+            /*
+             * Current Telnyx SDKs dispatch call-scoped notifications before
+             * the client-level fallback. Register here so ringing/active/
+             * hangup states always reach this component.
+             */
+            onNotification:
+              handleCallNotification,
           });
 
         if (!telnyxCall) {
@@ -1630,9 +1776,11 @@ export default function TelnyxDialer({
       resetActiveCall,
       resolvedAssignmentId,
       resolvedCampaignId,
+      handleCallNotification,
       startRingback,
       stopMicrophone,
       stopRingback,
+      unlockAudio,
       updateAssignmentState,
     ]);
 
