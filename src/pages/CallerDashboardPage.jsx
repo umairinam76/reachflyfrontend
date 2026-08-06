@@ -1,6 +1,8 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -14,11 +16,401 @@ import {
 } from "../auth/AuthContext";
 
 import {
-  api,
-} from "../api";
+  apiRequest,
+  onWorkspaceSocket,
+} from "../lib/workspace-platform-client.js";
 
 import "../styles.css";
-// import "./attendance.css";
+
+const DASHBOARD_CACHE_VERSION = 3;
+const DASHBOARD_CACHE_TTL_MS =
+  10 * 60 * 1000;
+
+const TEAM_CACHE_VERSION = 3;
+const TEAM_CACHE_TTL_MS =
+  10 * 60 * 1000;
+const TEAM_MESSAGE_LIMIT = 150;
+
+function getDashboardCacheKey(
+  userId
+) {
+  return [
+    "reachfly",
+    "caller-dashboard",
+    DASHBOARD_CACHE_VERSION,
+    userId || "anonymous",
+  ].join(":");
+}
+
+function readDashboardCache(
+  userId
+) {
+  if (
+    typeof window === "undefined"
+  ) {
+    return null;
+  }
+
+  try {
+    const raw =
+      window.sessionStorage.getItem(
+        getDashboardCacheKey(
+          userId
+        )
+      );
+
+    if (!raw) {
+      return null;
+    }
+
+    const parsed =
+      JSON.parse(raw);
+
+    if (
+      !parsed ||
+      Date.now() -
+        Number(
+          parsed.updatedAt || 0
+        ) >
+        DASHBOARD_CACHE_TTL_MS
+    ) {
+      return null;
+    }
+
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeDashboardCache(
+  userId,
+  {
+    dashboard,
+    attendance,
+  }
+) {
+  if (
+    typeof window === "undefined"
+  ) {
+    return;
+  }
+
+  try {
+    window.sessionStorage.setItem(
+      getDashboardCacheKey(
+        userId
+      ),
+      JSON.stringify({
+        updatedAt: Date.now(),
+        dashboard:
+          dashboard || null,
+        attendance:
+          attendance || null,
+      })
+    );
+  } catch {
+    // Cache failures must not block the dashboard.
+  }
+}
+
+function getTeamCacheKey(userId) {
+  return [
+    "reachfly",
+    "team-communication",
+    TEAM_CACHE_VERSION,
+    userId || "anonymous",
+  ].join(":");
+}
+
+function readTeamCache(userId) {
+  if (
+    typeof window === "undefined"
+  ) {
+    return null;
+  }
+
+  try {
+    const raw =
+      window.sessionStorage.getItem(
+        getTeamCacheKey(
+          userId
+        )
+      );
+
+    if (!raw) {
+      return null;
+    }
+
+    const parsed =
+      JSON.parse(raw);
+
+    if (
+      !parsed ||
+      Date.now() -
+        Number(
+          parsed.updatedAt || 0
+        ) >
+        TEAM_CACHE_TTL_MS
+    ) {
+      return null;
+    }
+
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeTeamCache(
+  userId,
+  value
+) {
+  if (
+    typeof window === "undefined"
+  ) {
+    return;
+  }
+
+  try {
+    window.sessionStorage.setItem(
+      getTeamCacheKey(
+        userId
+      ),
+      JSON.stringify({
+        updatedAt: Date.now(),
+        channels:
+          Array.isArray(
+            value?.channels
+          )
+            ? value.channels
+            : [],
+        tasks:
+          Array.isArray(
+            value?.tasks
+          )
+            ? value.tasks
+            : [],
+        presence:
+          value?.presence &&
+          typeof value.presence ===
+            "object"
+            ? value.presence
+            : {},
+        profiles:
+          value?.profiles &&
+          typeof value.profiles ===
+            "object"
+            ? value.profiles
+            : {},
+        activeId:
+          value?.activeId || "",
+        messagesByChannel:
+          value?.messagesByChannel &&
+          typeof value
+            .messagesByChannel ===
+            "object"
+            ? value.messagesByChannel
+            : {},
+      })
+    );
+  } catch {
+    // Cache failures must not block login.
+  }
+}
+
+async function warmTeamCommunicationCache(
+  userId
+) {
+  if (!userId) {
+    return;
+  }
+
+  const existing =
+    readTeamCache(userId);
+
+  if (
+    existing &&
+    Date.now() -
+      Number(
+        existing.updatedAt || 0
+      ) <
+      30_000
+  ) {
+    return;
+  }
+
+  const [
+    channelsResult,
+    tasksResult,
+    presenceResult,
+  ] = await Promise.allSettled([
+    apiRequest(
+      "/team-communication/channels",
+      {
+        timeoutMs: 10_000,
+      }
+    ),
+    apiRequest(
+      "/team-communication/tasks",
+      {
+        timeoutMs: 10_000,
+      }
+    ),
+    apiRequest(
+      "/team-communication/presence",
+      {
+        timeoutMs: 10_000,
+      }
+    ),
+  ]);
+
+  const channels =
+    channelsResult.status ===
+      "fulfilled" &&
+    Array.isArray(
+      channelsResult.value
+        ?.channels
+    )
+      ? channelsResult.value
+          .channels
+      : existing?.channels ||
+        [];
+
+  const tasks =
+    tasksResult.status ===
+      "fulfilled" &&
+    Array.isArray(
+      tasksResult.value?.tasks
+    )
+      ? tasksResult.value.tasks
+      : existing?.tasks || [];
+
+  const presence = {
+    ...(existing?.presence ||
+      {}),
+  };
+
+  const profiles = {
+    ...(existing?.profiles ||
+      {}),
+  };
+
+  if (
+    presenceResult.status ===
+    "fulfilled"
+  ) {
+    for (
+      const item of
+      presenceResult.value
+        ?.members || []
+    ) {
+      const memberId =
+        item?.userId ||
+        item?.id;
+
+      if (!memberId) {
+        continue;
+      }
+
+      const normalized = {
+        ...item,
+        id:
+          item.id ||
+          memberId,
+        userId:
+          item.userId ||
+          memberId,
+        status:
+          item.status ||
+          item.availabilityStatus ||
+          "offline",
+      };
+
+      presence[memberId] =
+        normalized;
+
+      profiles[memberId] =
+        normalized;
+    }
+  }
+
+  const activeId =
+    existing?.activeId &&
+    channels.some(
+      (channel) =>
+        channel.id ===
+        existing.activeId
+    )
+      ? existing.activeId
+      : channels[0]?.id ||
+        "";
+
+  const messagesByChannel = {
+    ...(existing
+      ?.messagesByChannel ||
+      {}),
+  };
+
+  writeTeamCache(
+    userId,
+    {
+      channels,
+      tasks,
+      presence,
+      profiles,
+      activeId,
+      messagesByChannel,
+    }
+  );
+
+  if (!activeId) {
+    return;
+  }
+
+  try {
+    const messageResponse =
+      await apiRequest(
+        `/team-communication/channels/${encodeURIComponent(
+          activeId
+        )}/messages`,
+        {
+          query: {
+            limit:
+              TEAM_MESSAGE_LIMIT,
+          },
+          timeoutMs: 10_000,
+        }
+      );
+
+    messagesByChannel[
+      activeId
+    ] =
+      Array.isArray(
+        messageResponse
+          ?.messages
+      )
+        ? messageResponse.messages
+            .slice(
+              -TEAM_MESSAGE_LIMIT
+            )
+        : [];
+
+    writeTeamCache(
+      userId,
+      {
+        channels,
+        tasks,
+        presence,
+        profiles,
+        activeId,
+        messagesByChannel,
+      }
+    );
+  } catch {
+    // The cached channel list is still useful if messages time out.
+  }
+}
 
 export default function CallerDashboard() {
   const {
@@ -29,20 +421,69 @@ export default function CallerDashboard() {
   const navigate =
     useNavigate();
 
+  const initialCacheRef =
+    useRef(
+      readDashboardCache(
+        user?.id
+      )
+    );
+
+  const loadSequenceRef =
+    useRef(0);
+
+  const socketTimerRef =
+    useRef(null);
+
+  const attendanceRef =
+    useRef(
+      initialCacheRef.current
+        ?.attendance || null
+    );
+
   const [
     dashboard,
     setDashboard,
-  ] = useState(null);
+  ] = useState(
+    () =>
+      initialCacheRef.current
+        ?.dashboard || null
+  );
 
   const [
     attendance,
     setAttendance,
-  ] = useState(null);
+  ] = useState(
+    () =>
+      initialCacheRef.current
+        ?.attendance || null
+  );
 
   const [
     loading,
     setLoading,
-  ] = useState(true);
+  ] = useState(
+    () =>
+      !initialCacheRef.current
+  );
+
+  const [
+    refreshing,
+    setRefreshing,
+  ] = useState(false);
+
+  const [
+    error,
+    setError,
+  ] = useState("");
+
+  const [
+    lastUpdatedAt,
+    setLastUpdatedAt,
+  ] = useState(
+    () =>
+      initialCacheRef.current
+        ?.updatedAt || 0
+  );
 
   useEffect(() => {
     if (
@@ -62,132 +503,314 @@ export default function CallerDashboard() {
     user,
   ]);
 
-  useEffect(() => {
-    let active = true;
+  const load =
+    useCallback(
+      async ({
+        silent = false,
+      } = {}) => {
+        const sequence =
+          ++loadSequenceRef.current;
 
-    async function load() {
-      try {
-        const token =
-          api.getToken();
+        if (!silent) {
+          setLoading(true);
+        } else {
+          setRefreshing(true);
+        }
 
-        const requestJson =
-          async (
-            path
-          ) => {
-            const response =
-              await fetch(
-                `${getApiBaseUrl()}${path}`,
-                {
-                  headers: {
-                    Accept:
-                      "application/json",
-
-                    ...(token
-                      ? {
-                          Authorization:
-                            `Bearer ${token}`,
-                        }
-                      : {}),
-                  },
-                }
-              );
-
-            const data =
-              await response
-                .json()
-                .catch(
-                  () => null
-                );
-
-            if (!response.ok) {
-              throw new Error(
-                data?.error ||
-                data?.message ||
-                `Request failed with status ${response.status}.`
-              );
-            }
-
-            return data;
-          };
-
-        const attendanceRequest =
-          fetch(
-            `${getApiBaseUrl()}/attendance/today`,
-            {
-              headers: {
-                ...(token
-                  ? {
-                      Authorization:
-                        `Bearer ${token}`,
-                    }
-                  : {}),
-              },
-            }
-          )
-            .then(
-              (response) =>
-                response.json()
-            )
-            .catch(
-              () => null
-            );
+        setError("");
 
         const [
-          dashboardResponse,
-          assignmentsResponse,
-          queueResponse,
-          attendanceResponse,
-        ] = await Promise.all([
-          api.salesDashboard().catch(() => ({})),
-          requestJson("/sales/assignments").catch(() => ({ assignments: [] })),
-          api.callerQueue
-            ? api.callerQueue({ bucket: "all", limit: 1000 }).catch(() => ({}))
-            : Promise.resolve({}),
-          attendanceRequest,
-        ]);
+          dashboardResult,
+          assignmentsResult,
+          queueResult,
+          attendanceResult,
+        ] =
+          await Promise.allSettled([
+            apiRequest(
+              "/sales/dashboard",
+              {
+                timeoutMs:
+                  12_000,
+              }
+            ),
+            apiRequest(
+              "/sales/assignments",
+              {
+                timeoutMs:
+                  12_000,
+              }
+            ),
+            apiRequest(
+              "/caller-queue",
+              {
+                query: {
+                  bucket: "all",
+                  limit: 200,
+                },
+                timeoutMs:
+                  12_000,
+              }
+            ),
+            apiRequest(
+              "/attendance/today",
+              {
+                timeoutMs:
+                  10_000,
+              }
+            ),
+          ]);
 
-        if (!active) {
+        if (
+          sequence !==
+          loadSequenceRef.current
+        ) {
           return;
         }
 
-        const normalizedDashboard =
+        const dashboardResponse =
+          dashboardResult.status ===
+          "fulfilled"
+            ? dashboardResult.value
+            : {};
+
+        const assignmentsResponse =
+          assignmentsResult.status ===
+          "fulfilled"
+            ? assignmentsResult.value
+            : {
+                assignments: [],
+              };
+
+        const queueResponse =
+          queueResult.status ===
+          "fulfilled"
+            ? queueResult.value
+            : {
+                records: [],
+                counts: {},
+              };
+
+        const nextDashboard =
           normalizeCallerDashboard(
             dashboardResponse,
-            assignmentsResponse
+            assignmentsResponse,
+            queueResponse
           );
 
+        const nextAttendance =
+          attendanceResult.status ===
+          "fulfilled"
+            ? attendanceResult
+                .value
+                ?.attendance ||
+              null
+            : attendanceRef.current;
+
+        const coreResults = [
+          dashboardResult,
+          assignmentsResult,
+          queueResult,
+        ];
+
+        const allCoreFailed =
+          coreResults.every(
+            (result) =>
+              result.status ===
+              "rejected"
+          );
+
+        if (allCoreFailed) {
+          const firstFailure =
+            coreResults.find(
+              (result) =>
+                result.status ===
+                "rejected"
+            );
+
+          setError(
+            firstFailure?.reason
+              ?.message ||
+              "The caller dashboard could not be loaded."
+          );
+        }
+
         setDashboard(
-          normalizedDashboard
+          nextDashboard
         );
 
-        setAttendance(
-          attendanceResponse
-            ?.attendance ||
-            null
-        );
-      } finally {
-        if (active) {
-          setLoading(false);
+        if (
+          attendanceResult.status ===
+          "fulfilled"
+        ) {
+          attendanceRef.current =
+            nextAttendance;
+
+          setAttendance(
+            nextAttendance
+          );
         }
-      }
+
+        const updatedAt =
+          Date.now();
+
+        setLastUpdatedAt(
+          updatedAt
+        );
+
+        writeDashboardCache(
+          user?.id,
+          {
+            dashboard:
+              nextDashboard,
+            attendance:
+              nextAttendance,
+          }
+        );
+
+        setLoading(false);
+        setRefreshing(false);
+      },
+      [
+        user?.id,
+      ]
+    );
+
+  useEffect(() => {
+    const cached =
+      readDashboardCache(
+        user?.id
+      );
+
+    if (cached) {
+      setDashboard(
+        cached.dashboard ||
+          null
+      );
+      attendanceRef.current =
+        cached.attendance ||
+        null;
+
+      setAttendance(
+        attendanceRef.current
+      );
+      setLastUpdatedAt(
+        cached.updatedAt || 0
+      );
+      setLoading(false);
     }
 
-    void load();
+    void load({
+      silent:
+        Boolean(cached),
+    });
+  }, [
+    load,
+    user?.id,
+  ]);
+
+  useEffect(() => {
+    const refreshWhenVisible =
+      () => {
+        if (
+          document.visibilityState ===
+          "visible"
+        ) {
+          void load({
+            silent: true,
+          });
+        }
+      };
 
     const timer =
       window.setInterval(
-        load,
-        15_000
+        refreshWhenVisible,
+        30_000
       );
 
-    return () => {
-      active = false;
+    window.addEventListener(
+      "focus",
+      refreshWhenVisible
+    );
 
+    document.addEventListener(
+      "visibilitychange",
+      refreshWhenVisible
+    );
+
+    return () => {
       window.clearInterval(
         timer
       );
+
+      window.removeEventListener(
+        "focus",
+        refreshWhenVisible
+      );
+
+      document.removeEventListener(
+        "visibilitychange",
+        refreshWhenVisible
+      );
     };
-  }, []);
+  }, [
+    load,
+  ]);
+
+  useEffect(() => {
+    const scheduleRefresh =
+      () => {
+        window.clearTimeout(
+          socketTimerRef.current
+        );
+
+        socketTimerRef.current =
+          window.setTimeout(() => {
+            void load({
+              silent: true,
+            });
+          }, 250);
+      };
+
+    const subscriptions = [
+      onWorkspaceSocket(
+        "lead:updated",
+        scheduleRefresh
+      ),
+      onWorkspaceSocket(
+        "lead:call-updated",
+        scheduleRefresh
+      ),
+      onWorkspaceSocket(
+        "team:task-created",
+        scheduleRefresh
+      ),
+      onWorkspaceSocket(
+        "team:task-updated",
+        scheduleRefresh
+      ),
+    ];
+
+    return () => {
+      window.clearTimeout(
+        socketTimerRef.current
+      );
+
+      subscriptions.forEach(
+        (unsubscribe) =>
+          unsubscribe()
+      );
+    };
+  }, [
+    load,
+  ]);
+
+  useEffect(() => {
+    void warmTeamCommunicationCache(
+      user?.id
+    );
+  }, [
+    user?.id,
+  ]);
 
   const metrics =
     useMemo(
@@ -284,6 +907,17 @@ export default function CallerDashboard() {
       ]
     );
 
+  const recentAssignments =
+    useMemo(
+      () =>
+        getRecentAssignments(
+          dashboard
+        ),
+      [
+        dashboard,
+      ]
+    );
+
   if (!isCaller) {
     return null;
   }
@@ -304,9 +938,36 @@ export default function CallerDashboard() {
             Work assigned leads, complete calls,
             manage follow-ups, and track attendance.
           </p>
+
+          {lastUpdatedAt ? (
+            <small className="text-muted">
+              Updated{" "}
+              {formatDashboardTime(
+                lastUpdatedAt
+              )}
+              {refreshing
+                ? " · Refreshing…"
+                : ""}
+            </small>
+          ) : null}
         </div>
 
-        <div className="flex flex-gap">
+        <div className="flex flex-gap flex-wrap">
+          <button
+            type="button"
+            className="btn light"
+            disabled={refreshing}
+            onClick={() =>
+              void load({
+                silent: true,
+              })
+            }
+          >
+            {refreshing
+              ? "Refreshing…"
+              : "Refresh"}
+          </button>
+
           <Link
             to="/app/attendance"
             className="btn light"
@@ -323,6 +984,12 @@ export default function CallerDashboard() {
         </div>
       </header>
 
+      {error ? (
+        <div className="error-banner mb16">
+          {error}
+        </div>
+      ) : null}
+
       <section className="grid4 mb24">
         {cards.map(
           (card) => (
@@ -333,7 +1000,8 @@ export default function CallerDashboard() {
               className="metric-card"
             >
               <div className="metric-num sm">
-                {loading
+                {loading &&
+                !dashboard
                   ? "…"
                   : card.value}
               </div>
@@ -350,7 +1018,7 @@ export default function CallerDashboard() {
         )}
       </section>
 
-      <section className="grid2">
+      <section className="grid2 mb24">
         <article className="card">
           <span className="eyebrow">
             Next actions
@@ -415,6 +1083,33 @@ export default function CallerDashboard() {
             Attendance requires a live selfie at check-in and check-out.
           </p>
 
+          <div className="activity-row">
+            <div>
+              <b>
+                Current status
+              </b>
+
+              <small>
+                {attendance
+                  ?.checkInAt
+                  ? `Check-in: ${formatDashboardTime(
+                      attendance.checkInAt
+                    )}`
+                  : "No check-in recorded today"}
+              </small>
+            </div>
+
+            <strong>
+              {attendance
+                ?.checkOutAt
+                ? "Complete"
+                : attendance
+                    ?.checkInAt
+                  ? "On shift"
+                  : "Pending"}
+            </strong>
+          </div>
+
           <Link
             to="/app/attendance"
             className="btn light full mt16"
@@ -422,6 +1117,96 @@ export default function CallerDashboard() {
             Open attendance
           </Link>
         </article>
+      </section>
+
+      <section className="card">
+        <div className="flex flex-between flex-gap mb16">
+          <div>
+            <span className="eyebrow">
+              Live records
+            </span>
+
+            <h2>
+              Recently updated leads
+            </h2>
+
+            <p className="text-muted">
+              This list refreshes from queue updates and call activity.
+            </p>
+          </div>
+
+          <Link
+            to="/app/my-leads"
+            className="btn light"
+          >
+            View all
+          </Link>
+        </div>
+
+        {recentAssignments.length ? (
+          <div>
+            {recentAssignments.map(
+              (assignment) => (
+                <div
+                  key={
+                    assignment.id ||
+                    assignment.assignmentId ||
+                    assignment.leadId
+                  }
+                  className="activity-row"
+                >
+                  <div>
+                    <b>
+                      {getAssignmentLeadName(
+                        assignment
+                      )}
+                    </b>
+
+                    <small>
+                      {assignment.lead
+                        ?.phone ||
+                        assignment.phone ||
+                        "No phone"}
+                      {" · "}
+                      {formatDashboardStatus(
+                        assignment.status ||
+                          assignment.lead
+                            ?.status ||
+                          "assigned"
+                      )}
+                      {" · "}
+                      {formatDashboardTime(
+                        getAssignmentUpdatedAt(
+                          assignment
+                        )
+                      )}
+                    </small>
+                  </div>
+
+                  <Link
+                    to={`/app/call-workspace?assignmentId=${encodeURIComponent(
+                      assignment.id ||
+                        assignment.assignmentId ||
+                        ""
+                    )}&leadId=${encodeURIComponent(
+                      assignment.leadId ||
+                        assignment.lead
+                          ?.id ||
+                        ""
+                    )}`}
+                    className="btn light"
+                  >
+                    Open
+                  </Link>
+                </div>
+              )
+            )}
+          </div>
+        ) : (
+          <p className="text-muted">
+            No assigned lead records are available yet.
+          </p>
+        )}
       </section>
     </main>
   );
@@ -465,24 +1250,49 @@ function normalizeCallerDashboard(
             ? dashboard.assignments
             : [];
 
-  const queueRecords = Array.isArray(queueResponse?.records)
-    ? queueResponse.records
-    : [];
+  const queueRecords =
+    Array.isArray(
+      queueResponse?.records
+    )
+      ? queueResponse.records
+      : [];
 
-  const merged = new Map();
-  for (const assignment of [...assignments, ...queueRecords]) {
-    const key = assignment.id || assignment.assignmentId || assignment.leadId;
-    if (!key) continue;
-    merged.set(key, {
-      ...(merged.get(key) || {}),
-      ...assignment,
-    });
+  const merged =
+    new Map();
+
+  for (
+    const assignment of
+    [
+      ...assignments,
+      ...queueRecords,
+    ]
+  ) {
+    const key =
+      assignment.id ||
+      assignment.assignmentId ||
+      assignment.leadId;
+
+    if (!key) {
+      continue;
+    }
+
+    merged.set(
+      key,
+      {
+        ...(merged.get(key) ||
+          {}),
+        ...assignment,
+      }
+    );
   }
 
   return {
     ...dashboard,
-    assignments: [...merged.values()],
-    queueCounts: queueResponse?.counts || {},
+    assignments:
+      [...merged.values()],
+    queueCounts:
+      queueResponse?.counts ||
+      {},
   };
 }
 
@@ -550,7 +1360,7 @@ function deriveCallerMetrics(
 
         if (
           status ===
-            "follow_up"
+          "follow_up"
         ) {
           return true;
         }
@@ -591,7 +1401,7 @@ function deriveCallerMetrics(
     Number(
       backendMetrics
         .assignedLeads ||
-        0
+      0
     );
 
   return {
@@ -605,7 +1415,7 @@ function deriveCallerMetrics(
         : Number(
             backendMetrics
               .pendingLeads ||
-              0
+            0
           ),
 
     callsToday:
@@ -632,7 +1442,7 @@ function deriveCallerMetrics(
         : Number(
             backendMetrics
               .followUpsDue ||
-              0
+            0
           ),
 
     conversionRate:
@@ -647,9 +1457,70 @@ function deriveCallerMetrics(
         : Number(
             backendMetrics
               .conversionRate ||
-              0
+            0
           ),
   };
+}
+
+function getRecentAssignments(
+  dashboard
+) {
+  const assignments =
+    Array.isArray(
+      dashboard
+        ?.assignments
+    )
+      ? dashboard
+          .assignments
+      : [];
+
+  return [...assignments]
+    .sort(
+      (left, right) =>
+        Date.parse(
+          getAssignmentUpdatedAt(
+            right
+          ) || 0
+        ) -
+        Date.parse(
+          getAssignmentUpdatedAt(
+            left
+          ) || 0
+        )
+    )
+    .slice(0, 8);
+}
+
+function getAssignmentUpdatedAt(
+  assignment
+) {
+  return (
+    assignment.updatedAt ||
+    assignment.lastCallAt ||
+    assignment.completedAt ||
+    assignment.openedAt ||
+    assignment.assignedAt ||
+    assignment.createdAt ||
+    assignment.lead
+      ?.updatedAt ||
+    assignment.lead
+      ?.createdAt ||
+    ""
+  );
+}
+
+function getAssignmentLeadName(
+  assignment
+) {
+  return (
+    assignment.lead
+      ?.business ||
+    assignment.lead
+      ?.name ||
+    assignment.business ||
+    assignment.name ||
+    "Assigned lead"
+  );
 }
 
 function normalizeDashboardStatus(
@@ -671,26 +1542,48 @@ function normalizeDashboardStatus(
     );
 }
 
-function getApiBaseUrl() {
-  const configured =
-    String(
-      import.meta.env
-        .VITE_API_URL ||
-        ""
+function formatDashboardStatus(
+  value
+) {
+  return normalizeDashboardStatus(
+    value
+  )
+    .replace(
+      /_/g,
+      " "
     )
-      .trim()
-      .replace(
-        /\/+$/,
-        ""
-      );
+    .replace(
+      /\b\w/g,
+      (character) =>
+        character.toUpperCase()
+    );
+}
 
-  if (configured) {
-    return /\/api$/i.test(
-      configured
-    )
-      ? configured
-      : `${configured}/api`;
+function formatDashboardTime(
+  value
+) {
+  if (!value) {
+    return "just now";
   }
 
-  return `${window.location.protocol}//${window.location.hostname}:8787/api`;
+  const date =
+    new Date(value);
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return "just now";
+  }
+
+  return new Intl.DateTimeFormat(
+    undefined,
+    {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }
+  ).format(date);
 }

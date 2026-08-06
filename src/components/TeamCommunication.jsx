@@ -1,4 +1,3 @@
-
 import {
   useCallback,
   useEffect,
@@ -42,6 +41,159 @@ const TASK_STATUSES = [
   "cancelled",
 ];
 
+const TEAM_CACHE_VERSION = 3;
+const TEAM_CACHE_TTL_MS =
+  10 * 60 * 1000;
+const TEAM_MESSAGE_LIMIT = 150;
+
+function getTeamCacheKey(userId) {
+  return [
+    "reachfly",
+    "team-communication",
+    TEAM_CACHE_VERSION,
+    userId || "anonymous",
+  ].join(":");
+}
+
+function readTeamCommunicationCache(
+  userId
+) {
+  if (
+    typeof window === "undefined"
+  ) {
+    return null;
+  }
+
+  try {
+    const raw =
+      window.sessionStorage.getItem(
+        getTeamCacheKey(userId)
+      );
+
+    if (!raw) {
+      return null;
+    }
+
+    const parsed =
+      JSON.parse(raw);
+
+    if (
+      !parsed ||
+      Date.now() -
+        Number(parsed.updatedAt || 0) >
+        TEAM_CACHE_TTL_MS
+    ) {
+      return null;
+    }
+
+    return {
+      channels:
+        Array.isArray(parsed.channels)
+          ? parsed.channels
+          : [],
+      tasks:
+        Array.isArray(parsed.tasks)
+          ? parsed.tasks
+          : [],
+      presence:
+        parsed.presence &&
+        typeof parsed.presence ===
+          "object"
+          ? parsed.presence
+          : {},
+      profiles:
+        parsed.profiles &&
+        typeof parsed.profiles ===
+          "object"
+          ? parsed.profiles
+          : {},
+      activeId:
+        String(
+          parsed.activeId || ""
+        ),
+      messagesByChannel:
+        parsed.messagesByChannel &&
+        typeof parsed.messagesByChannel ===
+          "object"
+          ? parsed.messagesByChannel
+          : {},
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeTeamCommunicationCache(
+  userId,
+  value
+) {
+  if (
+    typeof window === "undefined"
+  ) {
+    return;
+  }
+
+  try {
+    const messagesByChannel = {};
+
+    for (const [
+      channelId,
+      channelMessages,
+    ] of Object.entries(
+      value?.messagesByChannel || {}
+    )) {
+      if (
+        !Array.isArray(
+          channelMessages
+        )
+      ) {
+        continue;
+      }
+
+      messagesByChannel[channelId] =
+        channelMessages.slice(
+          -TEAM_MESSAGE_LIMIT
+        );
+    }
+
+    window.sessionStorage.setItem(
+      getTeamCacheKey(userId),
+      JSON.stringify({
+        updatedAt: Date.now(),
+        channels:
+          Array.isArray(
+            value?.channels
+          )
+            ? value.channels
+            : [],
+        tasks:
+          Array.isArray(
+            value?.tasks
+          )
+            ? value.tasks
+            : [],
+        presence:
+          value?.presence &&
+          typeof value.presence ===
+            "object"
+            ? value.presence
+            : {},
+        profiles:
+          value?.profiles &&
+          typeof value.profiles ===
+            "object"
+            ? value.profiles
+            : {},
+        activeId:
+          value?.activeId || "",
+        messagesByChannel,
+      })
+    );
+  } catch {
+    // Cache failures must never block communication.
+  }
+}
+
 export default function TeamCommunication({
   user,
   members = [],
@@ -61,14 +213,69 @@ export default function TeamCommunication({
 
   const canCreateGroups = canManage;
 
+  const initialCacheRef =
+    useRef(
+      readTeamCommunicationCache(
+        user?.id
+      )
+    );
+
+  const cachedActiveId =
+    initialCacheRef.current
+      ?.activeId ||
+    initialCacheRef.current
+      ?.channels?.[0]?.id ||
+    "";
+
   const [mode, setMode] = useState("chat");
-  const [channels, setChannels] = useState([]);
-  const [activeId, setActiveId] = useState("");
-  const [messages, setMessages] = useState([]);
-  const [tasks, setTasks] = useState([]);
-  const [presence, setPresence] = useState({});
-  const [typingUsers, setTypingUsers] = useState([]);
-  const [profileOverrides, setProfileOverrides] = useState({});
+
+  const [channels, setChannels] =
+    useState(
+      () =>
+        initialCacheRef.current
+          ?.channels || []
+    );
+
+  const [activeId, setActiveId] =
+    useState(
+      () =>
+        cachedActiveId
+    );
+
+  const [messages, setMessages] =
+    useState(
+      () =>
+        initialCacheRef.current
+          ?.messagesByChannel?.[
+            cachedActiveId
+          ] || []
+    );
+
+  const [tasks, setTasks] =
+    useState(
+      () =>
+        initialCacheRef.current
+          ?.tasks || []
+    );
+
+  const [presence, setPresence] =
+    useState(
+      () =>
+        initialCacheRef.current
+          ?.presence || {}
+    );
+
+  const [typingUsers, setTypingUsers] =
+    useState([]);
+
+  const [
+    profileOverrides,
+    setProfileOverrides,
+  ] = useState(
+    () =>
+      initialCacheRef.current
+        ?.profiles || {}
+  );
 
   const [body, setBody] = useState("");
   const [search, setSearch] = useState("");
@@ -90,7 +297,19 @@ export default function TeamCommunication({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [
+    loadingMessages,
+    setLoadingMessages,
+  ] = useState(
+    () =>
+      Boolean(
+        cachedActiveId &&
+        !initialCacheRef.current
+          ?.messagesByChannel?.[
+            cachedActiveId
+          ]?.length
+      )
+  );
   const [recordingVoice, setRecordingVoice] = useState(false);
   const [voiceSeconds, setVoiceSeconds] = useState(0);
 
@@ -106,6 +325,24 @@ export default function TeamCommunication({
   const remoteVideoRef = useRef(null);
   const peerConnectionRef = useRef(null);
   const localStreamRef = useRef(null);
+
+  const activeIdRef =
+    useRef(cachedActiveId);
+
+  const memberDirectoryRef =
+    useRef(new Map());
+
+  const messageCacheRef =
+    useRef(
+      initialCacheRef.current
+        ?.messagesByChannel || {}
+    );
+
+  const refreshPromiseRef =
+    useRef(null);
+
+  const cacheWriteTimerRef =
+    useRef(null);
 
   const memberDirectory = useMemo(() => {
     const directory = new Map();
@@ -135,6 +372,37 @@ export default function TeamCommunication({
 
     return directory;
   }, [members, user, profileOverrides]);
+
+  useEffect(() => {
+    memberDirectoryRef.current =
+      memberDirectory;
+
+    setChannels(
+      (current) =>
+        current.map(
+          (channel) =>
+            hydrateChannelProfiles(
+              channel,
+              memberDirectory,
+              user?.id
+            )
+        )
+    );
+
+    setMessages(
+      (current) =>
+        current.map(
+          (message) =>
+            hydrateMessageProfile(
+              message,
+              memberDirectory
+            )
+        )
+    );
+  }, [
+    memberDirectory,
+    user?.id,
+  ]);
 
   const active =
     channels.find(
@@ -244,144 +512,439 @@ export default function TeamCommunication({
     user?.id,
   ]);
 
-  const loadChannels = useCallback(async () => {
-    const data = await apiRequest(
-      "/team-communication/channels"
-    );
-
-    const nextChannels = (
-      data.channels || []
-    ).map((channel) =>
-      hydrateChannelProfiles(
-        channel,
-        memberDirectory,
-        user?.id
-      )
-    );
-
-    setChannels(nextChannels);
-
-    setActiveId((current) => {
-      if (
-        current &&
-        nextChannels.some(
-          (channel) =>
-            channel.id === current
-        )
-      ) {
-        return current;
-      }
-
-      return (
-        nextChannels[0]?.id || ""
-      );
-    });
-  }, [memberDirectory, user?.id]);
-
-  const loadMessages = useCallback(
-    async (channelId) => {
-      if (!channelId) {
-        setMessages([]);
-        return;
-      }
-
-      setLoadingMessages(true);
-
-      try {
-        const data = await apiRequest(
-          `/team-communication/channels/${encodeURIComponent(
-            channelId
-          )}/messages`,
-          {
-            query: {
-              limit: 150,
-            },
-          }
-        );
-
-        setMessages(
-          (data.messages || []).map(
-            (message) =>
-              hydrateMessageProfile(
-                message,
-                memberDirectory
-              )
-          )
-        );
-
+  const loadChannels =
+    useCallback(async () => {
+      const data =
         await apiRequest(
-          `/team-communication/channels/${encodeURIComponent(
-            channelId
-          )}/read`,
+          "/team-communication/channels",
           {
-            method: "POST",
+            timeoutMs: 12_000,
           }
-        ).catch(() => {});
-      } finally {
-        setLoadingMessages(false);
-      }
-    },
-    [memberDirectory]
-  );
+        );
 
-  const loadTasks = useCallback(async () => {
-    const data = await apiRequest(
-      "/team-communication/tasks"
+      const directory =
+        memberDirectoryRef.current;
+
+      const nextChannels = (
+        data?.channels || []
+      ).map((channel) =>
+        hydrateChannelProfiles(
+          channel,
+          directory,
+          user?.id
+        )
+      );
+
+      setChannels(nextChannels);
+
+      setActiveId((current) => {
+        if (
+          current &&
+          nextChannels.some(
+            (channel) =>
+              channel.id === current
+          )
+        ) {
+          return current;
+        }
+
+        return (
+          nextChannels[0]?.id || ""
+        );
+      });
+
+      return nextChannels;
+    }, [
+      user?.id,
+    ]);
+
+  const loadMessages =
+    useCallback(
+      async (
+        channelId,
+        {
+          background = false,
+        } = {}
+      ) => {
+        if (!channelId) {
+          setMessages([]);
+          setLoadingMessages(false);
+          return [];
+        }
+
+        const cachedMessages =
+          messageCacheRef.current[
+            channelId
+          ];
+
+        if (
+          Array.isArray(
+            cachedMessages
+          ) &&
+          cachedMessages.length
+        ) {
+          setMessages(
+            cachedMessages.map(
+              (message) =>
+                hydrateMessageProfile(
+                  message,
+                  memberDirectoryRef
+                    .current
+                )
+            )
+          );
+        }
+
+        if (
+          !background &&
+          !cachedMessages?.length
+        ) {
+          setLoadingMessages(true);
+        }
+
+        try {
+          const data =
+            await apiRequest(
+              `/team-communication/channels/${encodeURIComponent(
+                channelId
+              )}/messages`,
+              {
+                query: {
+                  limit:
+                    TEAM_MESSAGE_LIMIT,
+                },
+                timeoutMs: 12_000,
+              }
+            );
+
+          const nextMessages =
+            (
+              Array.isArray(
+                data?.messages
+              )
+                ? data.messages
+                : []
+            ).map(
+              (message) =>
+                hydrateMessageProfile(
+                  message,
+                  memberDirectoryRef
+                    .current
+                )
+            );
+
+          messageCacheRef.current = {
+            ...messageCacheRef.current,
+            [channelId]:
+              nextMessages.slice(
+                -TEAM_MESSAGE_LIMIT
+              ),
+          };
+
+          if (
+            activeIdRef.current ===
+            channelId
+          ) {
+            setMessages(
+              nextMessages
+            );
+          }
+
+          void apiRequest(
+            `/team-communication/channels/${encodeURIComponent(
+              channelId
+            )}/read`,
+            {
+              method: "POST",
+              timeoutMs: 8_000,
+            }
+          ).catch(() => {});
+
+          return nextMessages;
+        } catch (
+          requestError
+        ) {
+          if (
+            !cachedMessages?.length &&
+            activeIdRef.current ===
+              channelId
+          ) {
+            setError(
+              requestError?.message ||
+                "Messages could not be loaded."
+            );
+          }
+
+          return (
+            cachedMessages || []
+          );
+        } finally {
+          if (
+            activeIdRef.current ===
+            channelId
+          ) {
+            setLoadingMessages(
+              false
+            );
+          }
+        }
+      },
+      []
     );
 
-    setTasks(data.tasks || []);
-  }, []);
+  const loadTasks =
+    useCallback(async () => {
+      const data =
+        await apiRequest(
+          "/team-communication/tasks",
+          {
+            timeoutMs: 12_000,
+          }
+        );
 
-  const loadPresence = useCallback(async () => {
-    const data = await apiRequest(
-      "/team-communication/presence"
-    ).catch(() => ({
-      members: [],
-    }));
+      const nextTasks =
+        Array.isArray(data?.tasks)
+          ? data.tasks
+          : [];
 
-    const map = {};
+      setTasks(nextTasks);
 
-    for (const item of data.members || []) {
-      map[item.userId || item.id] =
-        item.status || "offline";
-    }
+      return nextTasks;
+    }, []);
 
-    setPresence(map);
-  }, []);
+  const loadPresence =
+    useCallback(async () => {
+      const data =
+        await apiRequest(
+          "/team-communication/presence",
+          {
+            timeoutMs: 10_000,
+          }
+        );
 
-  const refresh = useCallback(async () => {
-    setError("");
+      const nextPresence = {};
+      const nextProfiles = {};
 
-    try {
-      await Promise.all([
-        loadChannels(),
-        loadTasks(),
-        loadPresence(),
-      ]);
-    } catch (requestError) {
-      setError(
-        requestError?.message ||
-          "Team communication could not be loaded."
+      for (
+        const item of
+        data?.members || []
+      ) {
+        const userId =
+          item?.userId ||
+          item?.id;
+
+        if (!userId) {
+          continue;
+        }
+
+        const normalized = {
+          ...item,
+          id:
+            item.id || userId,
+          userId,
+          status:
+            item.status ||
+            item.availabilityStatus ||
+            "offline",
+        };
+
+        nextPresence[userId] =
+          normalized;
+
+        nextProfiles[userId] = {
+          ...normalized,
+          avatarUrl:
+            getProfileAvatar(
+              normalized
+            ),
+        };
+      }
+
+      setPresence(
+        nextPresence
       );
-    }
+
+      setProfileOverrides(
+        (current) => ({
+          ...current,
+          ...nextProfiles,
+        })
+      );
+
+      return nextPresence;
+    }, []);
+
+  const refresh =
+    useCallback(
+      async ({
+        silent = false,
+      } = {}) => {
+        if (
+          refreshPromiseRef.current
+        ) {
+          return (
+            refreshPromiseRef.current
+          );
+        }
+
+        if (!silent) {
+          setError("");
+        }
+
+        const promise =
+          Promise.allSettled([
+            loadChannels(),
+            loadTasks(),
+            loadPresence(),
+          ])
+            .then((results) => {
+              const failures =
+                results.filter(
+                  (result) =>
+                    result.status ===
+                    "rejected"
+                );
+
+              if (
+                failures.length ===
+                results.length
+              ) {
+                throw (
+                  failures[0]
+                    ?.reason ||
+                  new Error(
+                    "Team communication could not be loaded."
+                  )
+                );
+              }
+
+              return results;
+            })
+            .catch(
+              (requestError) => {
+                setError(
+                  requestError
+                    ?.message ||
+                    "Team communication could not be loaded."
+                );
+              }
+            )
+            .finally(() => {
+              refreshPromiseRef.current =
+                null;
+            });
+
+        refreshPromiseRef.current =
+          promise;
+
+        return promise;
+      },
+      [
+        loadChannels,
+        loadPresence,
+        loadTasks,
+      ]
+    );
+
+  useEffect(() => {
+    void refresh({
+      silent:
+        Boolean(
+          initialCacheRef.current
+        ),
+    });
+
+    const refreshWhenVisible =
+      () => {
+        if (
+          document.visibilityState ===
+          "visible"
+        ) {
+          void refresh({
+            silent: true,
+          });
+        }
+      };
+
+    const intervalId =
+      window.setInterval(
+        refreshWhenVisible,
+        30_000
+      );
+
+    window.addEventListener(
+      "focus",
+      refreshWhenVisible
+    );
+
+    document.addEventListener(
+      "visibilitychange",
+      refreshWhenVisible
+    );
+
+    return () => {
+      window.clearInterval(
+        intervalId
+      );
+
+      window.removeEventListener(
+        "focus",
+        refreshWhenVisible
+      );
+
+      document.removeEventListener(
+        "visibilitychange",
+        refreshWhenVisible
+      );
+    };
   }, [
-    loadChannels,
-    loadPresence,
-    loadTasks,
+    refresh,
   ]);
 
   useEffect(() => {
-    void refresh();
+    const cached =
+      readTeamCommunicationCache(
+        user?.id
+      );
 
-    const intervalId =
-      window.setInterval(() => {
-        void refresh();
-      }, 20_000);
+    if (!cached) {
+      return;
+    }
 
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [refresh]);
+    messageCacheRef.current =
+      cached.messagesByChannel ||
+      {};
+
+    setChannels(
+      cached.channels || []
+    );
+    setTasks(
+      cached.tasks || []
+    );
+    setPresence(
+      cached.presence || {}
+    );
+    setProfileOverrides(
+      cached.profiles || {}
+    );
+
+    const nextActiveId =
+      cached.activeId ||
+      cached.channels?.[0]?.id ||
+      "";
+
+    setActiveId(
+      nextActiveId
+    );
+
+    setMessages(
+      cached.messagesByChannel?.[
+        nextActiveId
+      ] || []
+    );
+  }, [
+    user?.id,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -391,26 +954,123 @@ export default function TeamCommunication({
   }, []);
 
   useEffect(() => {
+    activeIdRef.current =
+      activeId;
+
     if (!activeId) {
+      setMessages([]);
+      setLoadingMessages(false);
       return undefined;
     }
 
-    void loadMessages(activeId);
-    void joinConversation(activeId).catch(() => {});
+    const cachedMessages =
+      messageCacheRef.current[
+        activeId
+      ];
+
+    if (
+      Array.isArray(
+        cachedMessages
+      )
+    ) {
+      setMessages(
+        cachedMessages.map(
+          (message) =>
+            hydrateMessageProfile(
+              message,
+              memberDirectoryRef
+                .current
+            )
+        )
+      );
+    } else {
+      setMessages([]);
+    }
+
+    void loadMessages(
+      activeId,
+      {
+        background:
+          Boolean(
+            cachedMessages?.length
+          ),
+      }
+    );
+
+    void joinConversation(
+      activeId
+    ).catch(() => {});
 
     return () => {
-      void leaveConversation(activeId).catch(() => {});
+      void leaveConversation(
+        activeId
+      ).catch(() => {});
     };
-  }, [activeId, loadMessages]);
+  }, [
+    activeId,
+    loadMessages,
+  ]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "end",
-    });
+    bottomRef.current
+      ?.scrollIntoView({
+        behavior:
+          loadingMessages
+            ? "auto"
+            : "smooth",
+        block: "end",
+      });
   }, [
+    loadingMessages,
     messages.length,
     typingUsers.length,
+  ]);
+
+  useEffect(() => {
+    if (activeId) {
+      messageCacheRef.current = {
+        ...messageCacheRef.current,
+        [activeId]:
+          messages.slice(
+            -TEAM_MESSAGE_LIMIT
+          ),
+      };
+    }
+
+    window.clearTimeout(
+      cacheWriteTimerRef.current
+    );
+
+    cacheWriteTimerRef.current =
+      window.setTimeout(() => {
+        writeTeamCommunicationCache(
+          user?.id,
+          {
+            channels,
+            tasks,
+            presence,
+            profiles:
+              profileOverrides,
+            activeId,
+            messagesByChannel:
+              messageCacheRef.current,
+          }
+        );
+      }, 120);
+
+    return () => {
+      window.clearTimeout(
+        cacheWriteTimerRef.current
+      );
+    };
+  }, [
+    activeId,
+    channels,
+    messages,
+    presence,
+    profileOverrides,
+    tasks,
+    user?.id,
   ]);
 
   useEffect(() => {
@@ -418,8 +1078,15 @@ export default function TeamCommunication({
       onWorkspaceSocket(
         "chat:message-created",
         (event) => {
-          const message =
+          const rawMessage =
             event.message || event;
+
+          const message =
+            hydrateMessageProfile(
+              rawMessage,
+              memberDirectoryRef
+                .current
+            );
 
           if (
             message.channelId === activeId
@@ -430,6 +1097,20 @@ export default function TeamCommunication({
                 message
               )
             );
+
+            messageCacheRef.current = {
+              ...messageCacheRef.current,
+              [activeId]:
+                upsertById(
+                  messageCacheRef
+                    .current[
+                      activeId
+                    ] || [],
+                  message
+                ).slice(
+                  -TEAM_MESSAGE_LIMIT
+                ),
+            };
 
             void apiRequest(
               `/team-communication/channels/${encodeURIComponent(
@@ -2143,6 +2824,13 @@ export default function TeamCommunication({
                               member.role ||
                               "team member"
                           )}
+                          {" · "}
+                          {formatPresenceText(
+                            presence[
+                              member.id
+                            ] ||
+                              member
+                          )}
                         </small>
                       </span>
 
@@ -2220,8 +2908,7 @@ export default function TeamCommunication({
                           presence[
                             active?.otherMember?.id
                           ] ||
-                            active?.otherMember
-                              ?.availabilityStatus ||
+                            active?.otherMember ||
                             "offline"
                         )
                       : `${active?.members?.length || 0} members · ${
@@ -3736,12 +4423,17 @@ function MemberAvatar({
 function PresenceDot({
   status,
 }) {
+  const normalizedStatus =
+    normalizeStatus(
+      getPresenceStatus(status)
+    ) || "offline";
+
   return (
     <i
-      className={`team-presence-dot ${normalizeStatus(
+      className={`team-presence-dot ${normalizedStatus}`}
+      title={formatPresenceText(
         status
-      )}`}
-      title={formatRole(status)}
+      )}
     />
   );
 }
@@ -4145,14 +4837,127 @@ function formatMessageTime(value) {
   ).format(date);
 }
 
+function getPresenceStatus(value) {
+  if (
+    value &&
+    typeof value === "object"
+  ) {
+    return (
+      value.status ||
+      value.availabilityStatus ||
+      value.presence ||
+      "offline"
+    );
+  }
+
+  return value || "offline";
+}
+
+function getPresenceTimestamp(
+  value,
+  {
+    preferLogin = false,
+  } = {}
+) {
+  if (
+    !value ||
+    typeof value !== "object"
+  ) {
+    return "";
+  }
+
+  const loginTime =
+    value.loginAt ||
+    value.loggedInAt ||
+    value.lastLoginAt ||
+    value.sessionStartedAt ||
+    value.connectedAt ||
+    value.onlineAt;
+
+  const activityTime =
+    value.lastSeenAt ||
+    value.lastActiveAt ||
+    value.disconnectedAt ||
+    value.updatedAt ||
+    value.createdAt;
+
+  return preferLogin
+    ? loginTime ||
+        activityTime ||
+        ""
+    : activityTime ||
+        loginTime ||
+        "";
+}
+
+function formatPresenceClock(
+  value
+) {
+  if (!value) {
+    return "";
+  }
+
+  const date =
+    new Date(value);
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return "";
+  }
+
+  const today =
+    new Date();
+
+  const sameDay =
+    date.getFullYear() ===
+      today.getFullYear() &&
+    date.getMonth() ===
+      today.getMonth() &&
+    date.getDate() ===
+      today.getDate();
+
+  return new Intl.DateTimeFormat(
+    undefined,
+    sameDay
+      ? {
+          hour: "numeric",
+          minute: "2-digit",
+        }
+      : {
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        }
+  ).format(date);
+}
+
 function formatPresenceText(value) {
-  const status = normalizeStatus(value);
+  const status =
+    normalizeStatus(
+      getPresenceStatus(value)
+    );
 
   if (
     status === "online" ||
     status === "available"
   ) {
-    return "Active now";
+    const loginTime =
+      formatPresenceClock(
+        getPresenceTimestamp(
+          value,
+          {
+            preferLogin: true,
+          }
+        )
+      );
+
+    return loginTime
+      ? `Active now · signed in ${loginTime}`
+      : "Active now";
   }
 
   if (status === "busy") {
@@ -4160,10 +4965,28 @@ function formatPresenceText(value) {
   }
 
   if (status === "away") {
-    return "Away";
+    const lastActive =
+      formatPresenceClock(
+        getPresenceTimestamp(
+          value
+        )
+      );
+
+    return lastActive
+      ? `Away · last active ${lastActive}`
+      : "Away";
   }
 
-  return "Offline";
+  const lastSeen =
+    formatPresenceClock(
+      getPresenceTimestamp(
+        value
+      )
+    );
+
+  return lastSeen
+    ? `Offline · last seen ${lastSeen}`
+    : "Offline";
 }
 
 function formatDateTime(value) {

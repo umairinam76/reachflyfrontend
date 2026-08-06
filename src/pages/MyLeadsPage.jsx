@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -10,8 +11,10 @@ import {
 } from "react-router-dom";
 
 import {
-  api,
-} from "../api";
+  apiRequest,
+  getAccessToken,
+  onWorkspaceSocket,
+} from "../lib/workspace-platform-client.js";
 
 import "../styles.css";
 
@@ -53,6 +56,100 @@ const BUCKETS = [
       "All leads",
   },
 ];
+
+const QUEUE_CACHE_VERSION = 2;
+const QUEUE_CACHE_TTL_MS =
+  5 * 60 * 1000;
+const QUEUE_PAGE_LIMIT = 200;
+
+function getQueueCacheKey(bucket) {
+  const token =
+    getAccessToken() || "anonymous";
+
+  const sessionKey =
+    token.slice(-18);
+
+  return [
+    "reachfly",
+    "caller-queue",
+    QUEUE_CACHE_VERSION,
+    sessionKey,
+    bucket,
+  ].join(":");
+}
+
+function readQueueCache(bucket) {
+  if (
+    typeof window === "undefined"
+  ) {
+    return null;
+  }
+
+  try {
+    const raw =
+      window.sessionStorage.getItem(
+        getQueueCacheKey(bucket)
+      );
+
+    if (!raw) {
+      return null;
+    }
+
+    const parsed =
+      JSON.parse(raw);
+
+    if (
+      !parsed ||
+      !Array.isArray(parsed.records) ||
+      Date.now() -
+        Number(parsed.updatedAt || 0) >
+        QUEUE_CACHE_TTL_MS
+    ) {
+      return null;
+    }
+
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeQueueCache(
+  bucket,
+  {
+    records = [],
+    counts = {},
+  } = {}
+) {
+  if (
+    typeof window === "undefined"
+  ) {
+    return;
+  }
+
+  try {
+    window.sessionStorage.setItem(
+      getQueueCacheKey(bucket),
+      JSON.stringify({
+        updatedAt: Date.now(),
+        records:
+          Array.isArray(records)
+            ? records.slice(
+                0,
+                QUEUE_PAGE_LIMIT
+              )
+            : [],
+        counts:
+          counts &&
+          typeof counts === "object"
+            ? counts
+            : {},
+      })
+    );
+  } catch {
+    // Cache failures must never block the queue.
+  }
+}
 
 const OUTCOMES = [
   [
@@ -101,6 +198,17 @@ export default function MyLeadsPage() {
   const navigate =
     useNavigate();
 
+  const initialCacheRef =
+    useRef(
+      readQueueCache("current")
+    );
+
+  const loadSequenceRef =
+    useRef(0);
+
+  const socketRefreshTimerRef =
+    useRef(null);
+
   const [
     bucket,
     setBucket,
@@ -111,12 +219,20 @@ export default function MyLeadsPage() {
   const [
     records,
     setRecords,
-  ] = useState([]);
+  ] = useState(
+    () =>
+      initialCacheRef.current
+        ?.records || []
+  );
 
   const [
     counts,
     setCounts,
-  ] = useState({});
+  ] = useState(
+    () =>
+      initialCacheRef.current
+        ?.counts || {}
+  );
 
   const [
     selected,
@@ -131,7 +247,15 @@ export default function MyLeadsPage() {
   const [
     loading,
     setLoading,
-  ] = useState(true);
+  ] = useState(
+    () =>
+      !initialCacheRef.current
+  );
+
+  const [
+    refreshing,
+    setRefreshing,
+  ] = useState(false);
 
   const [
     saving,
@@ -167,68 +291,19 @@ export default function MyLeadsPage() {
 
   const request =
     useCallback(
-      async (
+      (
         path,
         options = {}
-      ) => {
-        const token =
-          api.getToken();
-
-        const response =
-          await fetch(
-            `${getApiBaseUrl()}${path}`,
-            {
-              method:
-                options.method ||
-                "GET",
-
-              headers: {
-                Accept:
-                  "application/json",
-
-                ...(options.body
-                  ? {
-                      "Content-Type":
-                        "application/json",
-                    }
-                  : {}),
-
-                ...(token
-                  ? {
-                      Authorization:
-                        `Bearer ${token}`,
-                    }
-                  : {}),
-              },
-
-              ...(options.body
-                ? {
-                    body:
-                      JSON.stringify(
-                        options.body
-                      ),
-                  }
-                : {}),
-            }
-          );
-
-        const data =
-          await response
-            .json()
-            .catch(
-              () => null
-            );
-
-        if (!response.ok) {
-          throw new Error(
-            data?.error ||
-            data?.message ||
-            `Request failed with status ${response.status}.`
-          );
-        }
-
-        return data;
-      },
+      ) =>
+        apiRequest(
+          path,
+          {
+            ...options,
+            timeoutMs:
+              options.timeoutMs ||
+              12_000,
+          }
+        ),
       []
     );
 
@@ -237,8 +312,15 @@ export default function MyLeadsPage() {
       async ({
         silent = false,
       } = {}) => {
+        const sequence =
+          ++loadSequenceRef.current;
+
         if (!silent) {
           setLoading(true);
+        }
+
+        if (silent) {
+          setRefreshing(true);
         }
 
         setError("");
@@ -246,22 +328,48 @@ export default function MyLeadsPage() {
         try {
           const response =
             await request(
-              `/caller-queue?bucket=${encodeURIComponent(
-                bucket
-              )}&limit=1000`
+              "/caller-queue",
+              {
+                query: {
+                  bucket,
+                  limit:
+                    QUEUE_PAGE_LIMIT,
+                },
+              }
             );
 
-          setRecords(
+          if (
+            sequence !==
+            loadSequenceRef.current
+          ) {
+            return;
+          }
+
+          const nextRecords =
             Array.isArray(
-              response.records
+              response?.records
             )
               ? response.records
-              : []
-          );
+              : [];
 
-          setCounts(
-            response.counts ||
-            {}
+          const nextCounts =
+            response?.counts &&
+            typeof response.counts ===
+              "object"
+              ? response.counts
+              : {};
+
+          setRecords(nextRecords);
+          setCounts(nextCounts);
+
+          writeQueueCache(
+            bucket,
+            {
+              records:
+                nextRecords,
+              counts:
+                nextCounts,
+            }
           );
 
           setSelected(
@@ -271,25 +379,36 @@ export default function MyLeadsPage() {
               }
 
               return (
-                response.records?.find(
+                nextRecords.find(
                   (item) =>
                     item.id ===
                     current.id
                 ) ||
-                null
+                current
               );
             }
           );
         } catch (
           requestError
         ) {
+          if (
+            sequence !==
+            loadSequenceRef.current
+          ) {
+            return;
+          }
+
           setError(
             requestError?.message ||
-            "The caller queue could not be loaded."
+              "The caller queue could not be loaded."
           );
         } finally {
-          if (!silent) {
+          if (
+            sequence ===
+            loadSequenceRef.current
+          ) {
             setLoading(false);
+            setRefreshing(false);
           }
         }
       },
@@ -300,22 +419,115 @@ export default function MyLeadsPage() {
     );
 
   useEffect(() => {
-    void load();
+    const cached =
+      readQueueCache(bucket);
+
+    if (cached) {
+      setRecords(
+        cached.records
+      );
+      setCounts(
+        cached.counts || {}
+      );
+      setLoading(false);
+    } else {
+      setRecords([]);
+      setLoading(true);
+    }
+
+    setSelected(null);
+
+    void load({
+      silent:
+        Boolean(cached),
+    });
+  }, [
+    bucket,
+    load,
+  ]);
+
+  useEffect(() => {
+    const refreshWhenVisible =
+      () => {
+        if (
+          document.visibilityState ===
+          "visible"
+        ) {
+          void load({
+            silent: true,
+          });
+        }
+      };
 
     const timer =
       window.setInterval(
-        () =>
-          void load({
-            silent:
-              true,
-          }),
-        15000
+        refreshWhenVisible,
+        30_000
       );
 
-    return () =>
-      window.clearInterval(
-        timer
+    window.addEventListener(
+      "focus",
+      refreshWhenVisible
+    );
+
+    document.addEventListener(
+      "visibilitychange",
+      refreshWhenVisible
+    );
+
+    return () => {
+      window.clearInterval(timer);
+
+      window.removeEventListener(
+        "focus",
+        refreshWhenVisible
       );
+
+      document.removeEventListener(
+        "visibilitychange",
+        refreshWhenVisible
+      );
+    };
+  }, [
+    load,
+  ]);
+
+  useEffect(() => {
+    const scheduleRefresh =
+      () => {
+        window.clearTimeout(
+          socketRefreshTimerRef.current
+        );
+
+        socketRefreshTimerRef.current =
+          window.setTimeout(() => {
+            void load({
+              silent: true,
+            });
+          }, 250);
+      };
+
+    const subscriptions = [
+      onWorkspaceSocket(
+        "lead:updated",
+        scheduleRefresh
+      ),
+      onWorkspaceSocket(
+        "lead:call-updated",
+        scheduleRefresh
+      ),
+    ];
+
+    return () => {
+      window.clearTimeout(
+        socketRefreshTimerRef.current
+      );
+
+      subscriptions.forEach(
+        (unsubscribe) =>
+          unsubscribe()
+      );
+    };
   }, [
     load,
   ]);
@@ -740,10 +952,14 @@ export default function MyLeadsPage() {
 
         <span>
           {filtered.length} displayed
+          {refreshing
+            ? " · Updating…"
+            : ""}
         </span>
       </div>
 
-      {loading ? (
+      {loading &&
+      !filtered.length ? (
         <div className="caller-queue-loading">
           Loading caller queue…
         </div>
@@ -1308,28 +1524,4 @@ function formatDateTime(
             "2-digit",
         }
       );
-}
-
-function getApiBaseUrl() {
-  const configured =
-    String(
-      import.meta.env
-        .VITE_API_URL ||
-        ""
-    )
-      .trim()
-      .replace(
-        /\/+$/,
-        ""
-      );
-
-  if (configured) {
-    return /\/api$/i.test(
-      configured
-    )
-      ? configured
-      : `${configured}/api`;
-  }
-
-  return `${window.location.protocol}//${window.location.hostname}:8787/api`;
 }
