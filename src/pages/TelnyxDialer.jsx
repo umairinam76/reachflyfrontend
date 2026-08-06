@@ -1516,7 +1516,7 @@ export default function TelnyxDialer({
           if (mountedRef.current) {
             setStatus("ready");
             setMessage(
-              "Telnyx dialer is ready."
+              "ReachFly Dialer is ready."
             );
           }
 
@@ -1536,7 +1536,7 @@ export default function TelnyxDialer({
 
           setError(
             requestError?.message ||
-              "Could not connect to the Telnyx dialer."
+              "Could not connect to the ReachFly Dialer."
           );
         }
 
@@ -1995,7 +1995,7 @@ export default function TelnyxDialer({
       <div className="section-title-row">
         <div>
           <span className="eyebrow">
-            Telnyx dialer
+            ReachFly Dialer 
           </span>
 
           <h3>
