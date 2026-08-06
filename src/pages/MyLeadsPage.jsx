@@ -17,6 +17,7 @@ import {
 } from "../lib/workspace-platform-client.js";
 
 import "../styles.css";
+import "../styles/assigned-lead-filters.css";
 
 const BUCKETS = [
   {
@@ -243,6 +244,21 @@ export default function MyLeadsPage() {
     search,
     setSearch,
   ] = useState("");
+
+  const [
+    campaignFilter,
+    setCampaignFilter,
+  ] = useState("all");
+
+  const [
+    priorityFilter,
+    setPriorityFilter,
+  ] = useState("all");
+
+  const [
+    sortBy,
+    setSortBy,
+  ] = useState("next_action");
 
   const [
     loading,
@@ -532,6 +548,28 @@ export default function MyLeadsPage() {
     load,
   ]);
 
+  const campaignOptions =
+    useMemo(() => {
+      const map = new Map();
+
+      for (const assignment of records) {
+        if (assignment.campaignId) {
+          map.set(
+            assignment.campaignId,
+            assignment.campaignName ||
+              "Untitled campaign"
+          );
+        }
+      }
+
+      return [...map.entries()].sort(
+        (left, right) =>
+          left[1].localeCompare(
+            right[1]
+          )
+      );
+    }, [records]);
+
   const filtered =
     useMemo(
       () => {
@@ -540,15 +578,41 @@ export default function MyLeadsPage() {
             .trim()
             .toLowerCase();
 
-        if (!value) {
-          return records;
-        }
-
-        return records.filter(
+        const next = records.filter(
           (assignment) => {
             const lead =
               assignment.lead ||
               {};
+
+            if (
+              campaignFilter !==
+                "all" &&
+              assignment.campaignId !==
+                campaignFilter
+            ) {
+              return false;
+            }
+
+            const priority = String(
+              assignment.priority ||
+                lead.priority ||
+                "normal"
+            )
+              .trim()
+              .toLowerCase();
+
+            if (
+              priorityFilter !==
+                "all" &&
+              priority !==
+                priorityFilter
+            ) {
+              return false;
+            }
+
+            if (!value) {
+              return true;
+            }
 
             return [
               lead.business,
@@ -558,6 +622,9 @@ export default function MyLeadsPage() {
               lead.website,
               lead.address,
               assignment.campaignName,
+              assignment.assignedByName,
+              assignment.status,
+              assignment.priority,
             ]
               .filter(Boolean)
               .join(" ")
@@ -567,10 +634,74 @@ export default function MyLeadsPage() {
               );
           }
         );
+
+        return [...next].sort(
+          (left, right) => {
+            if (sortBy === "newest") {
+              return (
+                Date.parse(
+                  right.assignedAt ||
+                    right.createdAt ||
+                    0
+                ) || 0
+              ) - (
+                Date.parse(
+                  left.assignedAt ||
+                    left.createdAt ||
+                    0
+                ) || 0
+              );
+            }
+
+            if (sortBy === "priority") {
+              const weights = {
+                urgent: 4,
+                high: 3,
+                normal: 2,
+                low: 1,
+              };
+
+              return (
+                weights[
+                  right.priority ||
+                    "normal"
+                ] || 0
+              ) - (
+                weights[
+                  left.priority ||
+                    "normal"
+                ] || 0
+              );
+            }
+
+            const leftTime =
+              Date.parse(
+                left.nextActionAt ||
+                  left.followUpAt ||
+                  left.callbackAt ||
+                  left.assignedAt ||
+                  0
+              ) || Number.MAX_SAFE_INTEGER;
+
+            const rightTime =
+              Date.parse(
+                right.nextActionAt ||
+                  right.followUpAt ||
+                  right.callbackAt ||
+                  right.assignedAt ||
+                  0
+              ) || Number.MAX_SAFE_INTEGER;
+
+            return leftTime - rightTime;
+          }
+        );
       },
       [
+        campaignFilter,
+        priorityFilter,
         records,
         search,
+        sortBy,
       ]
     );
 
@@ -934,23 +1065,94 @@ export default function MyLeadsPage() {
         )}
       </nav>
 
-      <div className="caller-queue-toolbar">
-        <input
-          value={
-            search
-          }
-          onChange={(
-            event
-          ) =>
-            setSearch(
-              event.target
-                .value
-            )
-          }
-          placeholder="Search business, phone, email, website or campaign"
-        />
+      <div className="caller-queue-toolbar caller-queue-toolbar--filters">
+        <label className="caller-filter-search">
+          <span>Search assigned leads</span>
+          <input
+            value={
+              search
+            }
+            onChange={(
+              event
+            ) =>
+              setSearch(
+                event.target
+                  .value
+              )
+            }
+            placeholder="Business, phone, email, website or campaign"
+          />
+        </label>
 
-        <span>
+        <label>
+          <span>Campaign</span>
+          <select
+            value={campaignFilter}
+            onChange={(event) =>
+              setCampaignFilter(
+                event.target.value
+              )
+            }
+          >
+            <option value="all">
+              All campaigns
+            </option>
+            {campaignOptions.map(
+              ([id, name]) => (
+                <option
+                  key={id}
+                  value={id}
+                >
+                  {name}
+                </option>
+              )
+            )}
+          </select>
+        </label>
+
+        <label>
+          <span>Priority</span>
+          <select
+            value={priorityFilter}
+            onChange={(event) =>
+              setPriorityFilter(
+                event.target.value
+              )
+            }
+          >
+            <option value="all">
+              All priorities
+            </option>
+            <option value="urgent">Urgent</option>
+            <option value="high">High</option>
+            <option value="normal">Normal</option>
+            <option value="low">Low</option>
+          </select>
+        </label>
+
+        <label>
+          <span>Sort</span>
+          <select
+            value={sortBy}
+            onChange={(event) =>
+              setSortBy(
+                event.target.value
+              )
+            }
+          >
+            <option value="next_action">
+              Next action first
+            </option>
+            <option value="newest">
+              Newly assigned
+            </option>
+            <option value="priority">
+              Highest priority
+            </option>
+          </select>
+        </label>
+
+        <span className="caller-filter-count">
           {filtered.length} displayed
           {refreshing
             ? " · Updating…"
@@ -1525,3 +1727,4 @@ function formatDateTime(
         }
       );
 }
+

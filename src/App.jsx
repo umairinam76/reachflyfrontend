@@ -59,6 +59,7 @@ import CallWorkspacePage from "../src/pages/CallWorkspacePage";
 import ProfileSettingsPage from "../src/pages/ProfileSettingsPage";
 import AttendancePage from "../src/pages/AttendancePage";
 import CallerDashboard from "../src/pages/CallerDashboardPage";
+import ManagerResourceBoard from "../src/pages/ManagerResourceBoard";
 
 /**
  * Routes rendered inside AuthProvider.
@@ -364,12 +365,20 @@ function AppRoutes() {
             />
 
             <Route
+              path="resource-board"
+              element={
+                <WorkspaceManagementRoute>
+                  <ManagerResourceBoard />
+                </WorkspaceManagementRoute>
+              }
+            />
+
+            <Route
               path="team-management"
               element={
-                <Navigate
-                  to="/app/role-operations?tab=team"
-                  replace
-                />
+                <WorkspaceManagementRoute>
+                  <ManagerResourceBoard />
+                </WorkspaceManagementRoute>
               }
             />
 

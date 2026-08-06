@@ -21,6 +21,7 @@ import {
 } from "../lib/workspace-platform-client.js";
 
 import "../styles.css";
+import "../styles/assigned-lead-filters.css";
 
 const DASHBOARD_CACHE_VERSION = 3;
 const DASHBOARD_CACHE_TTL_MS =
@@ -485,6 +486,16 @@ export default function CallerDashboard() {
         ?.updatedAt || 0
   );
 
+  const [
+    recentLeadFilter,
+    setRecentLeadFilter,
+  ] = useState("all");
+
+  const [
+    recentLeadSearch,
+    setRecentLeadSearch,
+  ] = useState("");
+
   useEffect(() => {
     if (
       user &&
@@ -909,12 +920,60 @@ export default function CallerDashboard() {
 
   const recentAssignments =
     useMemo(
-      () =>
-        getRecentAssignments(
-          dashboard
-        ),
+      () => {
+        const query =
+          recentLeadSearch
+            .trim()
+            .toLowerCase();
+
+        return getRecentAssignments(
+          dashboard,
+          50
+        )
+          .filter((assignment) => {
+            const status =
+              normalizeDashboardStatus(
+                assignment.status ||
+                  assignment.lead
+                    ?.status ||
+                  "assigned"
+              );
+
+            if (
+              recentLeadFilter !==
+                "all" &&
+              status !==
+                recentLeadFilter
+            ) {
+              return false;
+            }
+
+            if (!query) {
+              return true;
+            }
+
+            return [
+              getAssignmentLeadName(
+                assignment
+              ),
+              assignment.lead
+                ?.phone,
+              assignment.lead
+                ?.email,
+              assignment.campaignName,
+              status,
+            ]
+              .filter(Boolean)
+              .join(" ")
+              .toLowerCase()
+              .includes(query);
+          })
+          .slice(0, 8);
+      },
       [
         dashboard,
+        recentLeadFilter,
+        recentLeadSearch,
       ]
     );
 
@@ -1141,6 +1200,35 @@ export default function CallerDashboard() {
           >
             View all
           </Link>
+        </div>
+
+        <div className="caller-dashboard-lead-filters">
+          <input
+            value={recentLeadSearch}
+            onChange={(event) =>
+              setRecentLeadSearch(
+                event.target.value
+              )
+            }
+            placeholder="Search recent assigned leads…"
+          />
+
+          <select
+            value={recentLeadFilter}
+            onChange={(event) =>
+              setRecentLeadFilter(
+                event.target.value
+              )
+            }
+          >
+            <option value="all">All statuses</option>
+            <option value="assigned">Assigned</option>
+            <option value="in_progress">In progress</option>
+            <option value="follow_up">Follow-up</option>
+            <option value="qualified">Qualified</option>
+            <option value="meeting_booked">Meeting booked</option>
+            <option value="completed">Completed</option>
+          </select>
         </div>
 
         {recentAssignments.length ? (
@@ -1463,7 +1551,8 @@ function deriveCallerMetrics(
 }
 
 function getRecentAssignments(
-  dashboard
+  dashboard,
+  limit = 8
 ) {
   const assignments =
     Array.isArray(
@@ -1488,7 +1577,10 @@ function getRecentAssignments(
           ) || 0
         )
     )
-    .slice(0, 8);
+    .slice(
+      0,
+      Math.max(1, Number(limit || 8))
+    );
 }
 
 function getAssignmentUpdatedAt(
