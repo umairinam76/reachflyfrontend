@@ -17,7 +17,7 @@ import {
 } from "../lib/workspace-platform-client.js";
 
 import "../styles.css";
-import "../styles/assigned-lead-filters.css";
+// import "../styles/assigned-lead-filters.css";
 
 const BUCKETS = [
   {

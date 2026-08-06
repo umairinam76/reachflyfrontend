@@ -21,7 +21,7 @@ import {
 } from "../lib/workspace-platform-client.js";
 
 import "../styles.css";
-import "../styles/assigned-lead-filters.css";
+// import "../styles/assigned-lead-filters.css";
 
 const DASHBOARD_CACHE_VERSION = 3;
 const DASHBOARD_CACHE_TTL_MS =
