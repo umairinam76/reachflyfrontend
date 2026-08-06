@@ -6,6 +6,7 @@ import {
   useState,
 } from "react";
 import { api } from "../api";
+import { apiRequest } from "../lib/workspace-platform-client.js";
 import "../styles.css";
 
 const ACTIVE_STATES = new Set([
@@ -1002,58 +1003,63 @@ export default function TelnyxDialer({
             queueCallStartedRef.current
           ) {
             const queueResult =
-              await api.callerQueueCallComplete(
-                resolvedAssignmentId,
+              await apiRequest(
+                `/caller-queue/${encodeURIComponent(
+                  resolvedAssignmentId
+                )}/call/complete`,
                 {
-                  callId:
-                    localCallId,
+                  method: "POST",
+                  body: {
+                    callId:
+                      localCallId,
 
-                  provider:
-                    "telnyx",
+                    provider:
+                      "telnyx",
 
-                  providerCallId:
-                    providerCallIdRef.current,
+                    providerCallId:
+                      providerCallIdRef.current,
 
-                  outcome,
-                  status: outcome,
-                  durationSeconds,
-                  answered:
-                    wasAnswered,
+                    outcome,
+                    status: outcome,
+                    durationSeconds,
+                    answered:
+                      wasAnswered,
 
-                  cause:
-                    cause ||
-                    finalStateRef.current
-                      .cause,
+                    cause:
+                      cause ||
+                      finalStateRef.current
+                        .cause,
 
-                  sipCode:
-                    Number(
-                      sipCode ||
-                        finalStateRef
-                          .current
-                          .sipCode ||
-                        0
-                    ),
+                    sipCode:
+                      Number(
+                        sipCode ||
+                          finalStateRef
+                            .current
+                            .sipCode ||
+                          0
+                      ),
 
-                  notes:
-                    buildAutomaticCallNote({
-                      outcome,
-                      durationSeconds,
+                    notes:
+                      buildAutomaticCallNote({
+                        outcome,
+                        durationSeconds,
 
-                      cause:
-                        cause ||
-                        finalStateRef
-                          .current
-                          .cause,
+                        cause:
+                          cause ||
+                          finalStateRef
+                            .current
+                            .cause,
 
-                      sipCode:
-                        Number(
-                          sipCode ||
-                            finalStateRef
-                              .current
-                              .sipCode ||
-                            0
-                        ),
-                    }),
+                        sipCode:
+                          Number(
+                            sipCode ||
+                              finalStateRef
+                                .current
+                                .sipCode ||
+                              0
+                          ),
+                      }),
+                  },
                 }
               );
 
@@ -1690,15 +1696,20 @@ export default function TelnyxDialer({
         );
 
         const queueStartResult =
-          await api.callerQueueCallStart(
-            resolvedAssignmentId,
+          await apiRequest(
+            `/caller-queue/${encodeURIComponent(
+              resolvedAssignmentId
+            )}/call/start`,
             {
-              callId:
-                createdCall.id,
+              method: "POST",
+              body: {
+                callId:
+                  createdCall.id,
 
-              provider: "telnyx",
-              toNumber: phone,
-              recordingConsent: true,
+                provider: "telnyx",
+                toNumber: phone,
+                recordingConsent: true,
+              },
             }
           );
 
