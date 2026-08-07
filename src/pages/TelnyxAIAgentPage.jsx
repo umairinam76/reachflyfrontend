@@ -874,7 +874,7 @@ export default function TelnyxAIAgentPage() {
         <div>
           <span className="rf-agent-provider-logo">T</span>
           <div>
-            <b>Telnyx voice infrastructure</b>
+            <b>ReachFly voice infrastructure</b>
             <small>
               Assistant {diagnostics.assistantId || "not linked"}
             </small>
