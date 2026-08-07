@@ -352,12 +352,6 @@ export default function TelnyxAIAgentPage() {
       return;
     }
 
-    if (!agent?.telnyxAssistantId) {
-      setError("Save the voice agent before queueing or calling a custom lead.");
-      setActiveTab("setup");
-      return;
-    }
-
     if (callNow) {
       setCallingCustomLead(true);
     } else {
@@ -367,6 +361,8 @@ export default function TelnyxAIAgentPage() {
     setSuccess("");
 
     try {
+      await ensureVoiceAgentReady();
+
       const response = await apiRequest(
         "/telnyx/ai-agent/leads/custom",
         {
@@ -539,10 +535,13 @@ export default function TelnyxAIAgentPage() {
     }
   }
 
-  async function saveAgent() {
+  async function persistVoiceAgent({ announce = false } = {}) {
     setSaving(true);
-    setError("");
-    setSuccess("");
+
+    if (announce) {
+      setError("");
+      setSuccess("");
+    }
 
     try {
       let payload = normalizeAgentForm(form);
@@ -591,28 +590,72 @@ export default function TelnyxAIAgentPage() {
           timeoutMs: 45_000,
         }
       );
+
+      const savedAgent = response?.agent || null;
+
       setDashboard((current) => ({
         ...(current || {}),
-        agent: response.agent,
+        agent: savedAgent || current?.agent || null,
       }));
-      setForm((current) =>
-        normalizeAgentForm({
-          ...current,
-          ...response.agent,
-        })
-      );
-      setSuccess(
-        "The ReachFly voice agent was saved and synchronized with Telnyx."
-      );
+
+      if (savedAgent) {
+        setForm((current) =>
+          normalizeAgentForm({
+            ...current,
+            ...savedAgent,
+          })
+        );
+      }
+
+      if (announce) {
+        setSuccess(
+          "The ReachFly voice agent was saved and synchronized with Telnyx."
+        );
+      }
+
       await loadDashboard({ silent: true });
+      return savedAgent;
     } catch (requestError) {
-      setError(
-        requestError?.message ||
-          "The voice agent could not be saved."
-      );
+      if (announce) {
+        setError(
+          requestError?.message ||
+            "The voice agent could not be saved."
+        );
+      }
+      throw requestError;
     } finally {
       setSaving(false);
     }
+  }
+
+  async function saveAgent() {
+    try {
+      await persistVoiceAgent({ announce: true });
+    } catch {
+      // persistVoiceAgent already surfaced the save error.
+    }
+  }
+
+  async function ensureVoiceAgentReady() {
+    if (agent?.telnyxAssistantId) {
+      return agent;
+    }
+
+    if (!form.complianceConfirmed) {
+      throw new Error(
+        "Approve the calling and suppression policy in Agent setup before assigning or calling leads."
+      );
+    }
+
+    const savedAgent = await persistVoiceAgent({ announce: false });
+
+    if (!savedAgent?.telnyxAssistantId) {
+      throw new Error(
+        "ReachFly could not link the Telnyx AI assistant. Open Agent setup, save the voice agent, and check the Telnyx configuration message."
+      );
+    }
+
+    return savedAgent;
   }
 
   async function assignSelectedLeads() {
@@ -626,6 +669,8 @@ export default function TelnyxAIAgentPage() {
     setSuccess("");
 
     try {
+      await ensureVoiceAgentReady();
+
       const response = await apiRequest(
         "/telnyx/ai-agent/leads/assign",
         {
@@ -666,6 +711,8 @@ export default function TelnyxAIAgentPage() {
     setSuccess("");
 
     try {
+      await ensureVoiceAgentReady();
+
       const response = await apiRequest(
         "/telnyx/ai-agent/campaigns/start",
         {
@@ -1562,9 +1609,7 @@ function LeadQueue({
             className="btn light"
             disabled={
               creatingCustomLead ||
-              callingCustomLead ||
-              !String(customLeadForm.phone || "").trim() ||
-              !agent?.telnyxAssistantId
+              callingCustomLead
             }
             onClick={onQueueCustomLead}
           >
@@ -1575,9 +1620,7 @@ function LeadQueue({
             className="btn primary"
             disabled={
               creatingCustomLead ||
-              callingCustomLead ||
-              !String(customLeadForm.phone || "").trim() ||
-              !agent?.telnyxAssistantId
+              callingCustomLead
             }
             onClick={onCallCustomLead}
           >
@@ -1796,11 +1839,7 @@ function LeadQueue({
         <button
           type="button"
           className="btn primary full"
-          disabled={
-            assigning ||
-            !selectedLeadIds.length ||
-            !agent?.telnyxAssistantId
-          }
+          disabled={assigning || creatingCustomLead || callingCustomLead}
           onClick={onAssign}
         >
           {assigning
@@ -1854,7 +1893,6 @@ function LeadQueue({
             className="btn primary"
             disabled={
               starting ||
-              !agent?.telnyxAssistantId ||
               !queue.some(
                 (item) => normalizeStatus(item.status) === "queued"
               )
