@@ -40407,3 +40407,1368 @@ body.audit-drawer-open {
     white-space: normal;
   }
 }
+.rf-agent-page {
+  --agent-ink: #18203a;
+  --agent-muted: #667085;
+  --agent-line: #e7e9f2;
+  --agent-soft: #f7f7fc;
+  --agent-purple: #6d4aff;
+  --agent-purple-dark: #5635e8;
+  --agent-green: #087f5b;
+  --agent-red: #c33245;
+  --agent-amber: #b56b00;
+  width: 100%;
+  padding: 28px;
+  color: var(--agent-ink);
+}
+
+.rf-agent-page *,
+.rf-agent-page *::before,
+.rf-agent-page *::after {
+  box-sizing: border-box;
+}
+
+.rf-agent-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.rf-agent-header h1 {
+  margin: 5px 0 8px;
+  font-size: clamp(30px, 4vw, 46px);
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+.rf-agent-header p {
+  max-width: 760px;
+  margin: 0;
+  color: var(--agent-muted);
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.rf-agent-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.rf-agent-live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--agent-line);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.rf-agent-live-pill i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #98a2b3;
+}
+
+.rf-agent-live-pill.ready i {
+  background: #12b76a;
+  box-shadow: 0 0 0 5px rgba(18, 183, 106, 0.12);
+}
+
+.rf-agent-live-pill.warning i {
+  background: #f79009;
+  box-shadow: 0 0 0 5px rgba(247, 144, 9, 0.12);
+}
+
+.rf-agent-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 13px 15px;
+  border: 1px solid;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.rf-agent-alert.error {
+  color: #9b1c31;
+  border-color: #ffc7d1;
+  background: #fff3f5;
+}
+
+.rf-agent-alert.success {
+  color: #05603a;
+  border-color: #abefc6;
+  background: #ecfdf3;
+}
+
+.rf-agent-alert button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 20px;
+}
+
+.rf-agent-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.rf-agent-metric {
+  min-height: 132px;
+  padding: 19px;
+  border: 1px solid var(--agent-line);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 8px 28px rgba(39, 31, 88, 0.04);
+}
+
+.rf-agent-metric span,
+.rf-agent-metric small {
+  display: block;
+  color: var(--agent-muted);
+}
+
+.rf-agent-metric span {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.rf-agent-metric b {
+  display: block;
+  margin: 10px 0 7px;
+  font-size: 31px;
+  line-height: 1;
+}
+
+.rf-agent-metric small {
+  font-size: 12px;
+}
+
+.rf-agent-provider-card {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.75fr) minmax(0, 2fr);
+  align-items: center;
+  gap: 28px;
+  margin-bottom: 20px;
+  padding: 18px 20px;
+  border: 1px solid #ded8ff;
+  border-radius: 17px;
+  background: linear-gradient(135deg, #faf9ff 0%, #fff 60%);
+}
+
+.rf-agent-provider-card > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.rf-agent-provider-card b,
+.rf-agent-provider-card small {
+  display: block;
+}
+
+.rf-agent-provider-card small {
+  margin-top: 4px;
+  color: var(--agent-muted);
+  font-size: 11px;
+}
+
+.rf-agent-provider-logo {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  color: #fff;
+  background: linear-gradient(135deg, #7c5cff, #512ad8);
+  font-weight: 900;
+  font-size: 19px;
+}
+
+.rf-agent-provider-card dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.rf-agent-provider-card dl div {
+  min-width: 0;
+}
+
+.rf-agent-provider-card dt {
+  margin-bottom: 5px;
+  color: var(--agent-muted);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.rf-agent-provider-card dd {
+  overflow: hidden;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rf-agent-tabs {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 18px;
+  padding: 5px;
+  border: 1px solid var(--agent-line);
+  border-radius: 14px;
+  background: #fff;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.rf-agent-tabs button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 39px;
+  padding: 0 15px;
+  border: 0;
+  border-radius: 10px;
+  color: var(--agent-muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.rf-agent-tabs button.active {
+  color: #fff;
+  background: var(--agent-purple);
+  box-shadow: 0 8px 18px rgba(109, 74, 255, 0.2);
+}
+
+.rf-agent-tabs button b {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.18);
+  font-size: 10px;
+}
+
+.rf-agent-setup-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 17px;
+  align-items: start;
+}
+
+.rf-agent-card {
+  min-width: 0;
+  padding: 21px;
+  border: 1px solid var(--agent-line);
+  border-radius: 17px;
+  background: #fff;
+  box-shadow: 0 8px 30px rgba(39, 31, 88, 0.035);
+}
+
+.rf-agent-form-card {
+  display: grid;
+  gap: 16px;
+}
+
+.rf-agent-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--agent-line);
+}
+
+.rf-agent-card-heading.compact {
+  align-items: center;
+}
+
+.rf-agent-card-heading span:not(.rf-agent-section-number) {
+  color: var(--agent-purple);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+}
+
+.rf-agent-card-heading h2 {
+  margin: 5px 0 0;
+  font-size: 19px;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
+.rf-agent-section-number {
+  color: #d2ccff;
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.rf-agent-field-grid {
+  display: grid;
+  gap: 13px;
+}
+
+.rf-agent-field-grid.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.rf-agent-field-grid.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.rf-agent-field {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.rf-agent-field > span,
+.rf-agent-campaign-controls label > span {
+  color: #344054;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.rf-agent-field input,
+.rf-agent-field textarea,
+.rf-agent-field select,
+.rf-agent-toolbar input,
+.rf-agent-toolbar select,
+.rf-agent-campaign-controls input,
+.rf-agent-campaign-controls select {
+  width: 100%;
+  min-height: 43px;
+  padding: 10px 12px;
+  border: 1px solid #d9dce8;
+  border-radius: 10px;
+  outline: 0;
+  color: var(--agent-ink);
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.rf-agent-field textarea {
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.rf-agent-field input:focus,
+.rf-agent-field textarea:focus,
+.rf-agent-field select:focus,
+.rf-agent-toolbar input:focus,
+.rf-agent-toolbar select:focus,
+.rf-agent-campaign-controls input:focus,
+.rf-agent-campaign-controls select:focus {
+  border-color: #9783ff;
+  box-shadow: 0 0 0 3px rgba(109, 74, 255, 0.1);
+}
+
+.rf-agent-field > small {
+  color: var(--agent-muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.rf-agent-number-input {
+  position: relative;
+}
+
+.rf-agent-number-input small {
+  position: absolute;
+  top: 50%;
+  right: 11px;
+  transform: translateY(-50%);
+  color: var(--agent-muted);
+  font-size: 9px;
+  pointer-events: none;
+}
+
+.rf-agent-number-input small + * {
+  padding-right: 58px;
+}
+
+.rf-agent-check-row,
+.rf-agent-toggle-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px;
+  border: 1px solid var(--agent-line);
+  border-radius: 12px;
+  background: var(--agent-soft);
+}
+
+.rf-agent-check-row {
+  justify-content: flex-start;
+}
+
+.rf-agent-check-row.important {
+  border-color: #d6ceff;
+  background: #f8f6ff;
+}
+
+.rf-agent-check-row input {
+  width: 17px;
+  height: 17px;
+  margin-top: 2px;
+  accent-color: var(--agent-purple);
+}
+
+.rf-agent-check-row b,
+.rf-agent-check-row small,
+.rf-agent-toggle-row b,
+.rf-agent-toggle-row small {
+  display: block;
+}
+
+.rf-agent-check-row b,
+.rf-agent-toggle-row b {
+  font-size: 12px;
+}
+
+.rf-agent-check-row small,
+.rf-agent-toggle-row small {
+  margin-top: 3px;
+  color: var(--agent-muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.rf-agent-toggle-row input {
+  width: 38px;
+  height: 21px;
+  accent-color: var(--agent-purple);
+}
+
+.rf-agent-save {
+  min-height: 48px;
+}
+
+.rf-agent-leads-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(340px, 0.65fr);
+  gap: 17px;
+  align-items: start;
+}
+
+.rf-agent-lead-picker,
+.rf-agent-queue-card {
+  display: grid;
+  gap: 15px;
+}
+
+.rf-agent-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 31px;
+  padding: 0 10px;
+  border-radius: 999px;
+  color: var(--agent-purple-dark);
+  background: #f0edff;
+  font-size: 11px;
+}
+
+.rf-agent-toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 160px auto;
+  gap: 9px;
+}
+
+.rf-agent-table-wrap {
+  width: 100%;
+  overflow: auto;
+  border: 1px solid var(--agent-line);
+  border-radius: 12px;
+}
+
+.rf-agent-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.rf-agent-table th {
+  padding: 10px 12px;
+  color: var(--agent-muted);
+  background: #fafbfc;
+  font-size: 9px;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.rf-agent-table td {
+  padding: 12px;
+  border-top: 1px solid var(--agent-line);
+  vertical-align: middle;
+}
+
+.rf-agent-table tr.disabled {
+  opacity: 0.55;
+}
+
+.rf-agent-table td b,
+.rf-agent-table td small {
+  display: block;
+}
+
+.rf-agent-table td small {
+  margin-top: 3px;
+  color: var(--agent-muted);
+  font-size: 10px;
+}
+
+.rf-agent-table input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--agent-purple);
+}
+
+.rf-agent-empty-cell {
+  padding: 42px !important;
+  color: var(--agent-muted);
+  text-align: center;
+}
+
+.rf-agent-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.rf-agent-status.green {
+  color: #067647;
+  background: #ecfdf3;
+}
+
+.rf-agent-status.amber {
+  color: #93370d;
+  background: #fffaeb;
+}
+
+.rf-agent-status.red {
+  color: #b42318;
+  background: #fef3f2;
+}
+
+.rf-agent-status.gray {
+  color: #475467;
+  background: #f2f4f7;
+}
+
+.rf-agent-muted {
+  color: var(--agent-muted);
+  font-size: 10px;
+}
+
+.rf-agent-campaign-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.rf-agent-campaign-controls label {
+  display: grid;
+  gap: 6px;
+}
+
+.rf-agent-queue-list {
+  display: grid;
+  gap: 9px;
+  max-height: 640px;
+  overflow: auto;
+}
+
+.rf-agent-queue-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px;
+  border: 1px solid var(--agent-line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.rf-agent-queue-item b,
+.rf-agent-queue-item small {
+  display: block;
+}
+
+.rf-agent-queue-item small {
+  margin-top: 4px;
+  color: var(--agent-muted);
+  font-size: 10px;
+}
+
+.rf-agent-queue-meta {
+  text-align: right;
+}
+
+.rf-agent-call-details summary {
+  color: var(--agent-purple);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.rf-agent-call-details dl {
+  position: absolute;
+  z-index: 8;
+  width: min(420px, calc(100vw - 40px));
+  margin: 8px 0 0;
+  padding: 14px;
+  border: 1px solid var(--agent-line);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 18px 55px rgba(25, 22, 54, 0.16);
+}
+
+.rf-agent-call-details dl div + div {
+  margin-top: 8px;
+}
+
+.rf-agent-call-details dt {
+  color: var(--agent-muted);
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.rf-agent-call-details dd {
+  overflow-wrap: anywhere;
+  margin: 3px 0 0;
+  font-size: 11px;
+}
+
+.rf-agent-meeting-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.rf-agent-meeting-card {
+  padding: 19px;
+  border: 1px solid var(--agent-line);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.rf-agent-meeting-card header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 13px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid var(--agent-line);
+}
+
+.rf-agent-calendar-date {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 56px;
+  border-radius: 12px;
+  color: #fff;
+  background: var(--agent-purple);
+}
+
+.rf-agent-calendar-date b {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.rf-agent-calendar-date span {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.rf-agent-meeting-card h3 {
+  overflow: hidden;
+  margin: 4px 0;
+  font-size: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rf-agent-meeting-card header p {
+  margin: 0;
+  color: var(--agent-muted);
+  font-size: 10px;
+}
+
+.rf-agent-meeting-card dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 13px;
+  margin: 16px 0 0;
+}
+
+.rf-agent-meeting-card dt {
+  color: var(--agent-muted);
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.rf-agent-meeting-card dd {
+  overflow-wrap: anywhere;
+  margin: 4px 0 0;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.rf-agent-meeting-notes {
+  margin: 15px 0 0;
+  padding: 12px;
+  border-radius: 10px;
+  color: #475467;
+  background: var(--agent-soft);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.rf-agent-empty {
+  display: grid;
+  place-items: center;
+  min-height: 260px;
+  padding: 30px;
+  text-align: center;
+}
+
+.rf-agent-empty > span {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 12px;
+  border-radius: 15px;
+  color: var(--agent-purple);
+  background: #f0edff;
+  font-weight: 900;
+}
+
+.rf-agent-empty p {
+  max-width: 380px;
+  margin: 7px 0 0;
+  color: var(--agent-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.rf-agent-loading {
+  display: grid;
+  place-items: center;
+  min-height: 460px;
+  gap: 8px;
+}
+
+.rf-agent-loading small {
+  color: var(--agent-muted);
+}
+
+.rf-agent-spinner {
+  width: 32px;
+  height: 32px;
+  margin-bottom: 8px;
+  border: 3px solid #e6e1ff;
+  border-top-color: var(--agent-purple);
+  border-radius: 50%;
+  animation: rf-agent-spin 0.8s linear infinite;
+}
+
+.rf-agent-page .btn.danger {
+  color: #b42318;
+  border-color: #fecdca;
+  background: #fef3f2;
+}
+
+.rf-agent-page .btn.small {
+  min-height: 31px;
+  padding: 0 10px;
+  font-size: 10px;
+}
+
+@keyframes rf-agent-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 1180px) {
+  .rf-agent-metrics,
+  .rf-agent-provider-card dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .rf-agent-provider-card {
+    grid-template-columns: 1fr;
+  }
+
+  .rf-agent-field-grid.three {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .rf-agent-leads-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 820px) {
+  .rf-agent-page {
+    padding: 18px;
+  }
+
+  .rf-agent-header {
+    flex-direction: column;
+  }
+
+  .rf-agent-header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .rf-agent-setup-grid,
+  .rf-agent-meeting-grid,
+  .rf-agent-metrics,
+  .rf-agent-provider-card dl {
+    grid-template-columns: 1fr;
+  }
+
+  .rf-agent-field-grid.two,
+  .rf-agent-field-grid.three,
+  .rf-agent-toolbar,
+  .rf-agent-campaign-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .rf-agent-tabs {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rf-agent-spinner {
+    animation: none;
+  }
+}
+
+/* Claude website intelligence */
+.rf-agent-website-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.rf-agent-brain-pill {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--agent-border, #e5e7eb);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.rf-agent-brain-pill b {
+  font-size: 12px;
+}
+
+.rf-agent-brain-pill span,
+.rf-agent-field-note {
+  font-size: 11px;
+  color: var(--agent-muted, #667085);
+}
+
+.rf-agent-intel-empty,
+.rf-agent-intel-preview {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--agent-border, #e5e7eb);
+  border-radius: 16px;
+  background: rgba(248, 250, 252, 0.86);
+}
+
+.rf-agent-intel-empty p,
+.rf-agent-intel-summary p {
+  margin: 7px 0 0;
+  line-height: 1.55;
+  color: var(--agent-muted, #667085);
+}
+
+.rf-agent-intel-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.rf-agent-intel-meta span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid var(--agent-border, #e5e7eb);
+}
+
+.rf-agent-intel-meta b {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.rf-agent-intel-meta small,
+.rf-agent-intel-summary small,
+.rf-agent-intel-list small {
+  color: var(--agent-muted, #667085);
+  font-size: 10px;
+}
+
+.rf-agent-intel-summary {
+  padding: 14px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid var(--agent-border, #e5e7eb);
+}
+
+.rf-agent-intel-summary b {
+  display: block;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.rf-agent-intel-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.rf-agent-intel-list {
+  padding: 13px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid var(--agent-border, #e5e7eb);
+}
+
+.rf-agent-intel-list > b {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 12px;
+}
+
+.rf-agent-intel-list ul {
+  margin: 0;
+  padding-left: 17px;
+}
+
+.rf-agent-intel-list li {
+  margin: 5px 0;
+  line-height: 1.4;
+  font-size: 11px;
+  color: var(--agent-muted, #667085);
+}
+
+@media (max-width: 820px) {
+  .rf-agent-intel-meta,
+  .rf-agent-intel-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* Claude + Google Voice Agent v3 */
+.rf-agent-google-leads-card {
+  grid-column: 1 / -1;
+}
+
+.rf-agent-google-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 27px;
+  padding: 0 10px;
+  border: 1px solid #d9d6fe;
+  border-radius: 999px;
+  background: #f4f3ff;
+  color: #5925dc;
+  font-size: 10px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.rf-agent-google-copy {
+  max-width: 960px;
+  margin: -2px 0 16px;
+  color: var(--agent-muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.rf-agent-google-grid {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.35fr) minmax(180px, 1.35fr) minmax(100px, .55fr) minmax(100px, .55fr) minmax(130px, .7fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.rf-agent-google-find {
+  min-height: 42px;
+  white-space: nowrap;
+}
+
+.rf-agent-google-result {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid var(--agent-line);
+}
+
+.rf-agent-google-result span {
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--agent-line);
+  border-radius: 11px;
+  background: #fbfbff;
+}
+
+.rf-agent-google-result b,
+.rf-agent-google-result small {
+  display: block;
+}
+
+.rf-agent-google-result b {
+  overflow: hidden;
+  color: var(--agent-ink);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rf-agent-google-result small {
+  margin-top: 4px;
+  color: var(--agent-muted);
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+@media (max-width: 1180px) {
+  .rf-agent-google-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .rf-agent-google-grid,
+  .rf-agent-google-result {
+    grid-template-columns: 1fr;
+  }
+
+  .rf-agent-google-badge {
+    white-space: normal;
+  }
+}
+
+/* Custom AI lead / one-off call */
+.rf-agent-custom-lead-card {
+  grid-column: 1 / -1;
+  border-color: #d7e3ff;
+  background: linear-gradient(180deg, #fbfdff 0%, #ffffff 100%);
+}
+
+.rf-agent-custom-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 27px;
+  padding: 0 10px;
+  border: 1px solid #bfd3ff;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #175cd3;
+  font-size: 10px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.rf-agent-custom-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.rf-agent-custom-context {
+  margin-top: 14px;
+}
+
+.rf-agent-custom-context textarea {
+  min-height: 132px;
+  resize: vertical;
+}
+
+.rf-agent-custom-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.rf-agent-custom-actions .btn {
+  min-width: 160px;
+}
+
+@media (max-width: 1180px) {
+  .rf-agent-custom-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .rf-agent-custom-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .rf-agent-custom-actions {
+    flex-direction: column;
+  }
+
+  .rf-agent-custom-actions .btn {
+    width: 100%;
+  }
+
+  .rf-agent-custom-badge {
+    white-space: normal;
+  }
+}
+
+.rf-agent-queue-context {
+  max-width: 680px;
+  margin-top: 5px !important;
+  color: #475467 !important;
+  line-height: 1.45;
+}
+
+
+/* ==========================================================
+   Live AI call monitor
+   ========================================================== */
+
+.rf-agent-call-monitor-layout {
+  display: grid;
+  gap: 18px;
+}
+
+.rf-agent-live-monitor {
+  display: grid;
+  gap: 18px;
+}
+
+.rf-agent-live-monitor-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.rf-agent-monitor-status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.rf-agent-monitor-status {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 12px;
+  background: rgba(248, 250, 252, 0.85);
+}
+
+.rf-agent-monitor-status span {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.65;
+}
+
+.rf-agent-monitor-status b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rf-agent-monitor-status.good {
+  border-color: rgba(22, 163, 74, 0.28);
+  background: rgba(22, 163, 74, 0.07);
+}
+
+.rf-agent-monitor-warning {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  padding: 11px 13px;
+  border: 1px solid rgba(217, 119, 6, 0.25);
+  border-radius: 10px;
+  background: rgba(245, 158, 11, 0.08);
+  font-size: 13px;
+}
+
+.rf-agent-monitor-warning b {
+  flex: 0 0 auto;
+}
+
+.rf-agent-live-transcript {
+  overflow: hidden;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.rf-agent-live-transcript-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 15px;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  background: rgba(248, 250, 252, 0.82);
+}
+
+.rf-agent-live-transcript-heading > div {
+  display: grid;
+  gap: 2px;
+}
+
+.rf-agent-live-transcript-heading small {
+  opacity: 0.66;
+}
+
+.rf-agent-live-dot {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #94a3b8;
+}
+
+.rf-agent-live-dot.active {
+  background: #16a34a;
+  box-shadow: 0 0 0 5px rgba(22, 163, 74, 0.12);
+}
+
+.rf-agent-live-transcript-body {
+  display: grid;
+  gap: 10px;
+  max-height: 420px;
+  overflow: auto;
+  padding: 14px;
+}
+
+.rf-agent-transcript-message {
+  display: grid;
+  gap: 4px;
+  max-width: min(760px, 92%);
+  padding: 10px 12px;
+  border-radius: 12px;
+}
+
+.rf-agent-transcript-message > span {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.62;
+}
+
+.rf-agent-transcript-message p {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+
+.rf-agent-transcript-message.assistant {
+  justify-self: start;
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.rf-agent-transcript-message.lead {
+  justify-self: end;
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.rf-agent-transcript-empty {
+  padding: 28px 16px;
+  text-align: center;
+  opacity: 0.62;
+}
+
+.rf-agent-monitor-privacy-note {
+  display: block;
+  line-height: 1.55;
+  opacity: 0.68;
+}
+
+@media (max-width: 900px) {
+  .rf-agent-monitor-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .rf-agent-monitor-status-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .rf-agent-live-monitor-actions .btn {
+    width: 100%;
+  }
+}

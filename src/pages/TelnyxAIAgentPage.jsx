@@ -16,6 +16,7 @@ import {
 
 import {
   apiRequest,
+  emitWorkspaceSocket,
   onWorkspaceSocket,
 } from "../lib/workspace-platform-client.js";
 
@@ -874,7 +875,7 @@ export default function TelnyxAIAgentPage() {
         <div>
           <span className="rf-agent-provider-logo">T</span>
           <div>
-            <b>ReachFly voice infrastructure</b>
+            <b>Telnyx voice infrastructure</b>
             <small>
               Assistant {diagnostics.assistantId || "not linked"}
             </small>
@@ -1950,100 +1951,1017 @@ function LeadQueue({
 }
 
 function CallsPanel({ calls, busyCallId, onCancel }) {
-  return (
-    <section className="rf-agent-card">
-      <div className="rf-agent-card-heading compact">
-        <div>
-          <span>Conversation activity</span>
-          <h2>AI-agent calls</h2>
-        </div>
-        <b className="rf-agent-count">{calls.length} records</b>
-      </div>
+  const [monitorCallId, setMonitorCallId] = useState("");
+  const [listening, setListening] = useState(false);
+  const [audioStatus, setAudioStatus] = useState("idle");
+  const [audioError, setAudioError] = useState("");
+  const audioContextRef = useRef(null);
+  const listeningRef = useRef(false);
+  const nextAudioAtRef = useRef({
+    inbound: 0,
+    outbound: 0,
+  });
 
-      <div className="rf-agent-table-wrap">
-        <table className="rf-agent-table calls">
-          <thead>
-            <tr>
-              <th>Lead</th>
-              <th>Status</th>
-              <th>Outcome</th>
-              <th>Started</th>
-              <th>Duration</th>
-              <th>Details</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {calls.length ? (
-              calls.map((call) => {
-                const live = LIVE_CALL_STATES.has(
-                  normalizeStatus(call.status)
-                );
-                return (
-                  <tr key={call.id}>
-                    <td>
-                      <b>{call.leadName || "Unknown lead"}</b>
-                      <small>{formatPhone(call.toNumber)}</small>
-                    </td>
-                    <td><StatusBadge value={call.status} /></td>
-                    <td>
-                      {call.outcome ? (
-                        <StatusBadge value={call.outcome} />
-                      ) : (
-                        <span className="rf-agent-muted">Pending</span>
-                      )}
-                    </td>
-                    <td>{formatDateTime(call.createdAt)}</td>
-                    <td>{formatDuration(call.durationSeconds)}</td>
-                    <td>
-                      <details className="rf-agent-call-details">
-                        <summary>View</summary>
-                        <dl>
-                          <div>
-                            <dt>Call control ID</dt>
-                            <dd>{call.callControlId || "—"}</dd>
-                          </div>
-                          <div>
-                            <dt>Conversation</dt>
-                            <dd>{call.conversationId || "—"}</dd>
-                          </div>
-                          <div>
-                            <dt>Notes</dt>
-                            <dd>{call.notes || call.error || "—"}</dd>
-                          </div>
-                          <div>
-                            <dt>Hangup</dt>
-                            <dd>{call.hangupCause || "—"}</dd>
-                          </div>
-                        </dl>
-                      </details>
-                    </td>
-                    <td>
-                      {live ? (
+  const monitorCall = useMemo(
+    () =>
+      calls.find(
+        (call) => call.id === monitorCallId
+      ) || null,
+    [calls, monitorCallId]
+  );
+
+  const transcript = useMemo(
+    () =>
+      normalizeLiveTranscript(
+        monitorCall?.messageHistory ||
+          monitorCall?.conversation ||
+          []
+      ),
+    [
+      monitorCall?.messageHistory,
+      monitorCall?.conversation,
+    ]
+  );
+
+  useEffect(() => {
+    const unsubscribeMedia =
+      onWorkspaceSocket(
+        "telnyx-ai-agent:media",
+        (packet) => {
+          if (
+            !listeningRef.current ||
+            !monitorCallId ||
+            packet?.callId !== monitorCallId
+          ) {
+            return;
+          }
+
+          playPcmuPacket({
+            packet,
+            audioContextRef,
+            nextAudioAtRef,
+          });
+        }
+      );
+
+    const unsubscribeStatus =
+      onWorkspaceSocket(
+        "telnyx-ai-agent:media-status",
+        (event) => {
+          if (
+            !monitorCallId ||
+            event?.callId !== monitorCallId
+          ) {
+            return;
+          }
+
+          setAudioStatus(
+            String(
+              event.status || "waiting"
+            )
+          );
+        }
+      );
+
+    return () => {
+      unsubscribeMedia?.();
+      unsubscribeStatus?.();
+    };
+  }, [monitorCallId]);
+
+  useEffect(() => {
+    return () => {
+      listeningRef.current = false;
+
+      if (monitorCallId) {
+        void emitWorkspaceSocket(
+          "telnyx-ai-agent:monitor:leave",
+          {
+            callId: monitorCallId,
+          },
+          {
+            waitForAcknowledgement: false,
+          }
+        ).catch(() => {});
+      }
+
+      const context =
+        audioContextRef.current;
+
+      audioContextRef.current = null;
+
+      if (context) {
+        void context.close().catch(
+          () => {}
+        );
+      }
+    };
+  }, [monitorCallId]);
+
+  async function openMonitor(call) {
+    if (!call?.id) return;
+
+    if (
+      monitorCallId &&
+      monitorCallId !== call.id
+    ) {
+      await stopListening();
+    }
+
+    setMonitorCallId(call.id);
+    setAudioError("");
+    setAudioStatus(
+      call.mediaStreamStatus ||
+        (LIVE_CALL_STATES.has(
+          normalizeStatus(call.status)
+        )
+          ? "waiting"
+          : "ended")
+    );
+  }
+
+  async function startListening() {
+    if (!monitorCall?.id) {
+      return;
+    }
+
+    const live =
+      LIVE_CALL_STATES.has(
+        normalizeStatus(
+          monitorCall.status
+        )
+      );
+
+    if (!live) {
+      setAudioError(
+        "This call has already ended. The live audio stream is only available while the call is active."
+      );
+      return;
+    }
+
+    setAudioError("");
+
+    try {
+      const AudioContextClass =
+        window.AudioContext ||
+        window.webkitAudioContext;
+
+      if (!AudioContextClass) {
+        throw new Error(
+          "This browser does not support Web Audio."
+        );
+      }
+
+      let context =
+        audioContextRef.current;
+
+      if (!context) {
+        context =
+          new AudioContextClass();
+
+        audioContextRef.current =
+          context;
+      }
+
+      await context.resume();
+
+      nextAudioAtRef.current = {
+        inbound:
+          context.currentTime +
+          0.05,
+        outbound:
+          context.currentTime +
+          0.05,
+      };
+
+      /*
+       * Set the ref before waiting for the socket acknowledgement so the
+       * first media packets are not discarded if Telnyx is already streaming.
+       */
+      listeningRef.current = true;
+
+      const joined =
+        await emitWorkspaceSocket(
+          "telnyx-ai-agent:monitor:join",
+          {
+            callId:
+              monitorCall.id,
+          },
+          {
+            timeoutMs: 15_000,
+          }
+        );
+
+      setListening(true);
+      setAudioStatus(
+        joined?.status ||
+          monitorCall.mediaStreamStatus ||
+          "waiting"
+      );
+    } catch (error) {
+      listeningRef.current = false;
+      setListening(false);
+      setAudioStatus("failed");
+      setAudioError(
+        error?.message ||
+          "ReachFly could not start the live audio monitor."
+      );
+    }
+  }
+
+  async function stopListening() {
+    const callId =
+      monitorCallId;
+
+    listeningRef.current = false;
+    setListening(false);
+
+    if (callId) {
+      try {
+        await emitWorkspaceSocket(
+          "telnyx-ai-agent:monitor:leave",
+          {
+            callId,
+          },
+          {
+            timeoutMs: 5_000,
+          }
+        );
+      } catch {
+        // The socket may already have disconnected. Local audio still stops.
+      }
+    }
+
+    const context =
+      audioContextRef.current;
+
+    audioContextRef.current = null;
+    nextAudioAtRef.current = {
+      inbound: 0,
+      outbound: 0,
+    };
+
+    if (context) {
+      try {
+        await context.close();
+      } catch {
+        // Ignore browser AudioContext close errors.
+      }
+    }
+
+    setAudioStatus(
+      monitorCall?.mediaStreamStatus ||
+        "idle"
+    );
+  }
+
+  return (
+    <section className="rf-agent-call-monitor-layout">
+      {monitorCall ? (
+        <article className="rf-agent-card rf-agent-live-monitor">
+          <div className="rf-agent-card-heading compact">
+            <div>
+              <span>Live conversation monitor</span>
+              <h2>
+                {monitorCall.leadName ||
+                  "AI-agent call"}
+              </h2>
+              <small>
+                {formatPhone(
+                  monitorCall.toNumber
+                )}
+              </small>
+            </div>
+
+            <StatusBadge
+              value={
+                monitorCall.status ||
+                "unknown"
+              }
+            />
+          </div>
+
+          <div className="rf-agent-live-monitor-actions">
+            <button
+              type="button"
+              className={
+                listening
+                  ? "btn danger"
+                  : "btn primary"
+              }
+              disabled={
+                !LIVE_CALL_STATES.has(
+                  normalizeStatus(
+                    monitorCall.status
+                  )
+                )
+              }
+              onClick={() =>
+                void (
+                  listening
+                    ? stopListening()
+                    : startListening()
+                )
+              }
+            >
+              {listening
+                ? "Stop listening"
+                : "🔊 Listen live"}
+            </button>
+
+            {LIVE_CALL_STATES.has(
+              normalizeStatus(
+                monitorCall.status
+              )
+            ) ? (
+              <button
+                type="button"
+                className="btn danger"
+                disabled={
+                  busyCallId ===
+                  monitorCall.id
+                }
+                onClick={() =>
+                  onCancel(
+                    monitorCall.id
+                  )
+                }
+              >
+                {busyCallId ===
+                monitorCall.id
+                  ? "Ending…"
+                  : "End call"}
+              </button>
+            ) : null}
+
+            <button
+              type="button"
+              className="btn light"
+              onClick={() =>
+                setMonitorCallId("")
+              }
+            >
+              Close monitor
+            </button>
+          </div>
+
+          {audioError ? (
+            <div className="rf-agent-monitor-warning">
+              {audioError}
+            </div>
+          ) : null}
+
+          <div className="rf-agent-monitor-status-grid">
+            <MonitorStatus
+              label="Phone"
+              value={
+                monitorCall.answeredAt
+                  ? "Connected"
+                  : formatLabel(
+                      normalizeStatus(
+                        monitorCall.status
+                      )
+                    )
+              }
+              good={Boolean(
+                monitorCall.answeredAt
+              )}
+            />
+            <MonitorStatus
+              label="Claude"
+              value={
+                monitorCall.assistantStartedAt
+                  ? "Attached"
+                  : monitorCall.error
+                    ? "Failed"
+                    : "Waiting"
+              }
+              good={Boolean(
+                monitorCall.assistantStartedAt
+              )}
+            />
+            <MonitorStatus
+              label="Live audio"
+              value={
+                listening
+                  ? formatLabel(
+                      audioStatus
+                    )
+                  : formatLabel(
+                      monitorCall.mediaStreamStatus ||
+                        audioStatus ||
+                        "idle"
+                    )
+              }
+              good={
+                listening &&
+                [
+                  "connected",
+                  "requested",
+                ].includes(
+                  normalizeStatus(
+                    audioStatus
+                  )
+                )
+              }
+            />
+            <MonitorStatus
+              label="Transcript"
+              value={
+                transcript.length
+                  ? `${transcript.length} messages`
+                  : monitorCall.assistantStartedAt
+                    ? "Waiting"
+                    : "Unavailable"
+              }
+              good={
+                transcript.length > 0
+              }
+            />
+          </div>
+
+          {monitorCall.error ? (
+            <div className="rf-agent-monitor-warning">
+              <b>Call error</b>
+              <span>
+                {monitorCall.error}
+              </span>
+            </div>
+          ) : null}
+
+          {monitorCall.contextInjectionWarning ? (
+            <div className="rf-agent-monitor-warning">
+              <b>Lead context warning</b>
+              <span>
+                {
+                  monitorCall.contextInjectionWarning
+                }
+              </span>
+            </div>
+          ) : null}
+
+          {monitorCall.mediaStreamError ? (
+            <div className="rf-agent-monitor-warning">
+              <b>Live-audio warning</b>
+              <span>
+                {
+                  monitorCall.mediaStreamError
+                }
+              </span>
+            </div>
+          ) : null}
+
+          <div className="rf-agent-live-transcript">
+            <div className="rf-agent-live-transcript-heading">
+              <div>
+                <b>Live transcript</b>
+                <small>
+                  Updates arrive from the Telnyx AI conversation while the call is active.
+                </small>
+              </div>
+              <span
+                className={`rf-agent-live-dot ${
+                  LIVE_CALL_STATES.has(
+                    normalizeStatus(
+                      monitorCall.status
+                    )
+                  )
+                    ? "active"
+                    : ""
+                }`}
+              />
+            </div>
+
+            <div className="rf-agent-live-transcript-body">
+              {transcript.length ? (
+                transcript.map(
+                  (
+                    message,
+                    index
+                  ) => (
+                    <div
+                      key={`${message.role}-${index}-${message.text.slice(
+                        0,
+                        24
+                      )}`}
+                      className={`rf-agent-transcript-message ${
+                        message.role ===
+                        "assistant"
+                          ? "assistant"
+                          : "lead"
+                      }`}
+                    >
+                      <span>
+                        {message.role ===
+                        "assistant"
+                          ? "AI"
+                          : "Lead"}
+                      </span>
+                      <p>
+                        {message.text}
+                      </p>
+                    </div>
+                  )
+                )
+              ) : (
+                <div className="rf-agent-transcript-empty">
+                  {monitorCall.assistantStartedAt
+                    ? "Waiting for the first conversation turn…"
+                    : "The AI assistant has not attached to this call yet."}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <small className="rf-agent-monitor-privacy-note">
+            Live monitoring is listen-only. ReachFly does not send your browser microphone into the call. Use monitoring only where your calling, notice, consent and supervision policies permit it.
+          </small>
+        </article>
+      ) : null}
+
+      <article className="rf-agent-card">
+        <div className="rf-agent-card-heading compact">
+          <div>
+            <span>Conversation activity</span>
+            <h2>AI-agent calls</h2>
+          </div>
+          <b className="rf-agent-count">{calls.length} records</b>
+        </div>
+
+        <div className="rf-agent-table-wrap">
+          <table className="rf-agent-table calls">
+            <thead>
+              <tr>
+                <th>Lead</th>
+                <th>Status</th>
+                <th>Outcome</th>
+                <th>Started</th>
+                <th>Duration</th>
+                <th>Monitor</th>
+                <th>Details</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {calls.length ? (
+                calls.map((call) => {
+                  const live = LIVE_CALL_STATES.has(
+                    normalizeStatus(call.status)
+                  );
+
+                  return (
+                    <tr key={call.id}>
+                      <td>
+                        <b>{call.leadName || "Unknown lead"}</b>
+                        <small>{formatPhone(call.toNumber)}</small>
+                      </td>
+                      <td><StatusBadge value={call.status} /></td>
+                      <td>
+                        {call.outcome ? (
+                          <StatusBadge value={call.outcome} />
+                        ) : (
+                          <span className="rf-agent-muted">Pending</span>
+                        )}
+                      </td>
+                      <td>{formatDateTime(call.createdAt)}</td>
+                      <td>{formatDuration(call.durationSeconds)}</td>
+                      <td>
                         <button
                           type="button"
-                          className="btn danger small"
-                          disabled={busyCallId === call.id}
-                          onClick={() => onCancel(call.id)}
+                          className={
+                            live
+                              ? "btn primary small"
+                              : "btn light small"
+                          }
+                          onClick={() =>
+                            void openMonitor(call)
+                          }
                         >
-                          {busyCallId === call.id ? "Ending…" : "End"}
+                          {live
+                            ? "Open live"
+                            : "Transcript"}
                         </button>
-                      ) : null}
-                    </td>
-                  </tr>
-                );
-              })
-            ) : (
-              <tr>
-                <td colSpan={7} className="rf-agent-empty-cell">
-                  No AI-agent calls have been made yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+                      </td>
+                      <td>
+                        <details className="rf-agent-call-details">
+                          <summary>View</summary>
+                          <dl>
+                            <div>
+                              <dt>Call control ID</dt>
+                              <dd>{call.callControlId || "—"}</dd>
+                            </div>
+                            <div>
+                              <dt>Conversation</dt>
+                              <dd>{call.conversationId || "—"}</dd>
+                            </div>
+                            <div>
+                              <dt>AI attached</dt>
+                              <dd>
+                                {call.assistantStartedAt
+                                  ? formatDateTime(call.assistantStartedAt)
+                                  : "—"}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt>Live audio</dt>
+                              <dd>
+                                {formatLabel(
+                                  normalizeStatus(
+                                    call.mediaStreamStatus ||
+                                      "not_started"
+                                  )
+                                )}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt>Notes</dt>
+                              <dd>{call.notes || call.error || "—"}</dd>
+                            </div>
+                            <div>
+                              <dt>Hangup</dt>
+                              <dd>{call.hangupCause || "—"}</dd>
+                            </div>
+                          </dl>
+                        </details>
+                      </td>
+                      <td>
+                        {live ? (
+                          <button
+                            type="button"
+                            className="btn danger small"
+                            disabled={busyCallId === call.id}
+                            onClick={() => onCancel(call.id)}
+                          >
+                            {busyCallId === call.id ? "Ending…" : "End"}
+                          </button>
+                        ) : null}
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan={8} className="rf-agent-empty-cell">
+                    No AI-agent calls have been made yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </article>
     </section>
+  );
+}
+
+function MonitorStatus({
+  label,
+  value,
+  good = false,
+}) {
+  return (
+    <div
+      className={`rf-agent-monitor-status ${
+        good ? "good" : ""
+      }`}
+    >
+      <span>{label}</span>
+      <b>{value}</b>
+    </div>
+  );
+}
+
+function normalizeLiveTranscript(value) {
+  const messages =
+    findConversationMessages(
+      value
+    );
+
+  return messages
+    .map((message) => {
+      const role =
+        normalizeStatus(
+          message?.role
+        );
+
+      if (
+        ![
+          "assistant",
+          "user",
+        ].includes(role)
+      ) {
+        return null;
+      }
+
+      const text =
+        conversationMessageText(
+          message?.content ??
+            message?.text
+        );
+
+      if (!text) {
+        return null;
+      }
+
+      return {
+        role,
+        text,
+      };
+    })
+    .filter(Boolean)
+    .slice(-100);
+}
+
+function findConversationMessages(
+  value,
+  depth = 0
+) {
+  if (depth > 6) {
+    return [];
+  }
+
+  if (Array.isArray(value)) {
+    if (
+      value.some(
+        (item) =>
+          item &&
+          typeof item ===
+            "object" &&
+          (
+            "role" in item ||
+            "content" in item
+          )
+      )
+    ) {
+      return value;
+    }
+
+    for (const item of value) {
+      const nested =
+        findConversationMessages(
+          item,
+          depth + 1
+        );
+
+      if (nested.length) {
+        return nested;
+      }
+    }
+
+    return [];
+  }
+
+  if (
+    !value ||
+    typeof value !== "object"
+  ) {
+    return [];
+  }
+
+  for (const key of [
+    "message_history",
+    "messageHistory",
+    "messages",
+    "conversation",
+    "payload",
+    "data",
+  ]) {
+    if (
+      value[key] !==
+      undefined
+    ) {
+      const nested =
+        findConversationMessages(
+          value[key],
+          depth + 1
+        );
+
+      if (nested.length) {
+        return nested;
+      }
+    }
+  }
+
+  return [];
+}
+
+function conversationMessageText(
+  value
+) {
+  if (
+    typeof value ===
+    "string"
+  ) {
+    return value.trim();
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => {
+        if (
+          typeof item ===
+          "string"
+        ) {
+          return item;
+        }
+
+        if (
+          item &&
+          typeof item ===
+            "object"
+        ) {
+          return (
+            item.text ||
+            item.content ||
+            ""
+          );
+        }
+
+        return "";
+      })
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+  }
+
+  if (
+    value &&
+    typeof value ===
+      "object"
+  ) {
+    return String(
+      value.text ||
+        value.content ||
+        ""
+    ).trim();
+  }
+
+  return "";
+}
+
+function playPcmuPacket({
+  packet,
+  audioContextRef,
+  nextAudioAtRef,
+}) {
+  const context =
+    audioContextRef.current;
+
+  if (
+    !context ||
+    context.state === "closed"
+  ) {
+    return;
+  }
+
+  const payload =
+    String(
+      packet?.payload || ""
+    );
+
+  if (!payload) {
+    return;
+  }
+
+  let bytes = null;
+
+  try {
+    const binary =
+      window.atob(payload);
+
+    bytes =
+      new Uint8Array(
+        binary.length
+      );
+
+    for (
+      let index = 0;
+      index < binary.length;
+      index += 1
+    ) {
+      bytes[index] =
+        binary.charCodeAt(
+          index
+        );
+    }
+  } catch {
+    return;
+  }
+
+  if (!bytes.length) {
+    return;
+  }
+
+  const sampleRate =
+    Number(
+      packet?.sampleRate ||
+        8000
+    ) || 8000;
+
+  const audioBuffer =
+    context.createBuffer(
+      1,
+      bytes.length,
+      sampleRate
+    );
+
+  const samples =
+    audioBuffer.getChannelData(
+      0
+    );
+
+  for (
+    let index = 0;
+    index < bytes.length;
+    index += 1
+  ) {
+    samples[index] =
+      decodeMuLawSample(
+        bytes[index]
+      );
+  }
+
+  const source =
+    context.createBufferSource();
+
+  source.buffer =
+    audioBuffer;
+
+  const gain =
+    context.createGain();
+
+  gain.gain.value = 0.92;
+
+  source.connect(gain);
+  gain.connect(
+    context.destination
+  );
+
+  const track =
+    packet?.track ===
+    "outbound"
+      ? "outbound"
+      : "inbound";
+
+  const floor =
+    context.currentTime +
+    0.03;
+
+  const scheduledAt =
+    Math.max(
+      floor,
+      Number(
+        nextAudioAtRef
+          .current?.[track] ||
+          0
+      )
+    );
+
+  source.start(
+    scheduledAt
+  );
+
+  nextAudioAtRef.current = {
+    ...nextAudioAtRef.current,
+    [track]:
+      scheduledAt +
+      audioBuffer.duration,
+  };
+}
+
+function decodeMuLawSample(
+  value
+) {
+  let sample =
+    (~value) & 0xff;
+
+  const sign =
+    sample & 0x80;
+
+  const exponent =
+    (sample >> 4) & 0x07;
+
+  const mantissa =
+    sample & 0x0f;
+
+  let magnitude =
+    ((mantissa << 3) +
+      0x84) <<
+    exponent;
+
+  magnitude -= 0x84;
+
+  const signed =
+    sign
+      ? -magnitude
+      : magnitude;
+
+  return Math.max(
+    -1,
+    Math.min(
+      1,
+      signed / 32768
+    )
   );
 }
 
