@@ -69,6 +69,18 @@ const DEFAULT_GOOGLE_LEAD_FORM = {
   qualityLevel: "balanced",
 };
 
+const DEFAULT_CUSTOM_LEAD_FORM = {
+  contactName: "",
+  companyName: "",
+  jobTitle: "",
+  phone: "",
+  email: "",
+  website: "",
+  location: "",
+  timezone: "America/New_York",
+  context: "",
+};
+
 const TABS = [
   ["setup", "Agent setup"],
   ["leads", "Lead queue"],
@@ -112,6 +124,11 @@ export default function TelnyxAIAgentPage() {
   );
   const [findingGoogleLeads, setFindingGoogleLeads] = useState(false);
   const [googleLeadResult, setGoogleLeadResult] = useState(null);
+  const [customLeadForm, setCustomLeadForm] = useState(
+    DEFAULT_CUSTOM_LEAD_FORM
+  );
+  const [creatingCustomLead, setCreatingCustomLead] = useState(false);
+  const [callingCustomLead, setCallingCustomLead] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [accessDenied, setAccessDenied] = useState(false);
@@ -326,6 +343,87 @@ export default function TelnyxAIAgentPage() {
       }
       return [...new Set([...current, ...visibleIds])];
     });
+  }
+
+  async function submitCustomLead(callNow = false) {
+    const phone = String(customLeadForm.phone || "").trim();
+    if (!phone) {
+      setError("Enter the custom lead phone number first.");
+      return;
+    }
+
+    if (!agent?.telnyxAssistantId) {
+      setError("Save the voice agent before queueing or calling a custom lead.");
+      setActiveTab("setup");
+      return;
+    }
+
+    if (callNow) {
+      setCallingCustomLead(true);
+    } else {
+      setCreatingCustomLead(true);
+    }
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await apiRequest(
+        "/telnyx/ai-agent/leads/custom",
+        {
+          method: "POST",
+          body: {
+            ...customLeadForm,
+            callNow,
+            defaultTimezone:
+              customLeadForm.timezone || form.defaultLeadTimezone,
+            maxAttempts: Number(form.maxAttempts || 3),
+            dailyCallLimit: Number(form.dailyCallLimit || 25),
+            fromNumber: form.fromNumber,
+          },
+          timeoutMs: callNow ? 60_000 : 30_000,
+        }
+      );
+
+      setCustomLeadForm((current) => ({
+        ...DEFAULT_CUSTOM_LEAD_FORM,
+        timezone:
+          current.timezone ||
+          form.defaultLeadTimezone ||
+          "America/New_York",
+      }));
+      setSelectedLeadIds([]);
+      await loadDashboard({ silent: true });
+
+      if (callNow) {
+        const result = response?.callResult || {};
+        const started = Number(result.started || 0);
+        const deferred = Number(result.deferred || 0);
+        const failed = Number(result.failed || 0);
+        setSuccess(
+          started
+            ? "The custom lead was queued and the AI call started."
+            : deferred
+              ? "The custom lead was queued, but the call was deferred by the configured calling policy or lead timezone."
+              : failed
+                ? "The custom lead was queued, but the call could not start. Check Calls and backend logs for the provider error."
+                : response?.message || "The custom lead was queued for an AI call."
+        );
+        setActiveTab("calls");
+      } else {
+        setSuccess(
+          response?.message ||
+            "The custom lead was added to the AI-agent queue with its private call context."
+        );
+      }
+    } catch (requestError) {
+      setError(
+        requestError?.message ||
+          "The custom lead could not be queued for the AI agent."
+      );
+    } finally {
+      setCreatingCustomLead(false);
+      setCallingCustomLead(false);
+    }
   }
 
   async function findGoogleLeads() {
@@ -801,6 +899,9 @@ export default function TelnyxAIAgentPage() {
           googleLeadForm={googleLeadForm}
           googleLeadResult={googleLeadResult}
           findingGoogleLeads={findingGoogleLeads}
+          customLeadForm={customLeadForm}
+          creatingCustomLead={creatingCustomLead}
+          callingCustomLead={callingCustomLead}
           assigning={assigning}
           starting={starting}
           onGoogleLeadForm={(key, value) =>
@@ -810,6 +911,14 @@ export default function TelnyxAIAgentPage() {
             }))
           }
           onFindGoogleLeads={() => void findGoogleLeads()}
+          onCustomLeadForm={(key, value) =>
+            setCustomLeadForm((current) => ({
+              ...current,
+              [key]: value,
+            }))
+          }
+          onQueueCustomLead={() => void submitCustomLead(false)}
+          onCallCustomLead={() => void submitCustomLead(true)}
           onSearch={setLeadSearch}
           onLeadStatus={setLeadStatus}
           onQueueStatus={setQueueStatus}
@@ -1302,10 +1411,16 @@ function LeadQueue({
   googleLeadForm,
   googleLeadResult,
   findingGoogleLeads,
+  customLeadForm,
+  creatingCustomLead,
+  callingCustomLead,
   assigning,
   starting,
   onGoogleLeadForm,
   onFindGoogleLeads,
+  onCustomLeadForm,
+  onQueueCustomLead,
+  onCallCustomLead,
   onSearch,
   onLeadStatus,
   onQueueStatus,
@@ -1317,6 +1432,160 @@ function LeadQueue({
 }) {
   return (
     <section className="rf-agent-leads-layout">
+      <article className="rf-agent-card rf-agent-custom-lead-card">
+        <div className="rf-agent-card-heading compact">
+          <div>
+            <span>Custom AI call</span>
+            <h2>Call one lead with private context for Claude</h2>
+          </div>
+          <span className="rf-agent-custom-badge">One-off / high-priority lead</span>
+        </div>
+
+        <p className="rf-agent-google-copy">
+          Enter only the phone number and the details you know. The context is
+          added privately to Claude for this call so the agent can personalize
+          the conversation without reading your notes word-for-word. Calling
+          still respects DNC, workspace limits and the configured local-time window.
+        </p>
+
+        <div className="rf-agent-custom-grid">
+          <label className="rf-agent-field">
+            <span>Contact name</span>
+            <input
+              value={customLeadForm.contactName}
+              onChange={(event) =>
+                onCustomLeadForm("contactName", event.target.value)
+              }
+              placeholder="e.g. John Smith"
+            />
+          </label>
+
+          <label className="rf-agent-field">
+            <span>Company</span>
+            <input
+              value={customLeadForm.companyName}
+              onChange={(event) =>
+                onCustomLeadForm("companyName", event.target.value)
+              }
+              placeholder="e.g. Acme Dental"
+            />
+          </label>
+
+          <label className="rf-agent-field">
+            <span>Role / title</span>
+            <input
+              value={customLeadForm.jobTitle}
+              onChange={(event) =>
+                onCustomLeadForm("jobTitle", event.target.value)
+              }
+              placeholder="e.g. Owner, CTO"
+            />
+          </label>
+
+          <label className="rf-agent-field required">
+            <span>Phone number *</span>
+            <input
+              value={customLeadForm.phone}
+              onChange={(event) =>
+                onCustomLeadForm("phone", event.target.value)
+              }
+              placeholder="+12135551234"
+              inputMode="tel"
+            />
+          </label>
+
+          <label className="rf-agent-field">
+            <span>Email</span>
+            <input
+              type="email"
+              value={customLeadForm.email}
+              onChange={(event) =>
+                onCustomLeadForm("email", event.target.value)
+              }
+              placeholder="john@example.com"
+            />
+          </label>
+
+          <label className="rf-agent-field">
+            <span>Website</span>
+            <input
+              value={customLeadForm.website}
+              onChange={(event) =>
+                onCustomLeadForm("website", event.target.value)
+              }
+              placeholder="https://example.com"
+            />
+          </label>
+
+          <label className="rf-agent-field">
+            <span>Location</span>
+            <input
+              value={customLeadForm.location}
+              onChange={(event) =>
+                onCustomLeadForm("location", event.target.value)
+              }
+              placeholder="Dallas, TX"
+            />
+          </label>
+
+          <label className="rf-agent-field">
+            <span>Lead timezone</span>
+            <input
+              value={customLeadForm.timezone}
+              onChange={(event) =>
+                onCustomLeadForm("timezone", event.target.value)
+              }
+              placeholder="America/New_York"
+            />
+          </label>
+        </div>
+
+        <label className="rf-agent-field rf-agent-custom-context">
+          <span>Private lead context for Claude</span>
+          <textarea
+            rows={6}
+            maxLength={12000}
+            value={customLeadForm.context}
+            onChange={(event) =>
+              onCustomLeadForm("context", event.target.value)
+            }
+            placeholder="Example: John requested a website redesign last quarter but delayed because of budget. Their current site is on WordPress, they want online booking, and the best angle is reducing manual appointment work. Do not mention that we know their budget unless they bring it up."
+          />
+          <small>
+            {String(customLeadForm.context || "").length.toLocaleString()} / 12,000 characters. These notes are private model context, not a script.
+          </small>
+        </label>
+
+        <div className="rf-agent-custom-actions">
+          <button
+            type="button"
+            className="btn light"
+            disabled={
+              creatingCustomLead ||
+              callingCustomLead ||
+              !String(customLeadForm.phone || "").trim() ||
+              !agent?.telnyxAssistantId
+            }
+            onClick={onQueueCustomLead}
+          >
+            {creatingCustomLead ? "Adding to queue…" : "Add to AI queue"}
+          </button>
+          <button
+            type="button"
+            className="btn primary"
+            disabled={
+              creatingCustomLead ||
+              callingCustomLead ||
+              !String(customLeadForm.phone || "").trim() ||
+              !agent?.telnyxAssistantId
+            }
+            onClick={onCallCustomLead}
+          >
+            {callingCustomLead ? "Starting AI call…" : "Call this lead now"}
+          </button>
+        </div>
+      </article>
+
       <article className="rf-agent-card rf-agent-google-leads-card">
         <div className="rf-agent-card-heading compact">
           <div>
@@ -1601,10 +1870,23 @@ function LeadQueue({
             queue.map((item) => (
               <article key={item.id} className="rf-agent-queue-item">
                 <div>
-                  <b>{item.leadName || item.lead?.name}</b>
+                  <b>
+                    {item.customLeadDetails?.contactName ||
+                      item.leadName ||
+                      item.lead?.name}
+                  </b>
                   <small>
+                    {item.customLeadDetails?.companyName
+                      ? `${item.customLeadDetails.companyName} · `
+                      : ""}
                     {formatPhone(item.phone || item.lead?.phone)} · {item.campaignName || "Lead"}
                   </small>
+                  {item.customContext ? (
+                    <small className="rf-agent-queue-context">
+                      Context: {String(item.customContext).slice(0, 180)}
+                      {String(item.customContext).length > 180 ? "…" : ""}
+                    </small>
+                  ) : null}
                 </div>
                 <div className="rf-agent-queue-meta">
                   <StatusBadge value={item.status} />
