@@ -96,6 +96,7 @@ const LIVE_CALL_STATES = new Set([
   "ringing",
   "answered",
   "assistant_active",
+  "assistant_failed",
   "active",
 ]);
 
@@ -1970,18 +1971,32 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
     [calls, monitorCallId]
   );
 
-  const transcript = useMemo(
-    () =>
-      normalizeLiveTranscript(
-        monitorCall?.messageHistory ||
-          monitorCall?.conversation ||
-          []
-      ),
-    [
-      monitorCall?.messageHistory,
-      monitorCall?.conversation,
-    ]
-  );
+  const transcript = useMemo(() => {
+    const realtime = Array.isArray(
+      monitorCall?.liveTranscript
+    )
+      ? [...monitorCall.liveTranscript]
+      : [];
+
+    if (monitorCall?.liveTranscriptInterim) {
+      realtime.push(
+        monitorCall.liveTranscriptInterim
+      );
+    }
+
+    return normalizeLiveTranscript(
+      realtime.length
+        ? realtime
+        : monitorCall?.messageHistory ||
+            monitorCall?.conversation ||
+            []
+    );
+  }, [
+    monitorCall?.liveTranscript,
+    monitorCall?.liveTranscriptInterim,
+    monitorCall?.messageHistory,
+    monitorCall?.conversation,
+  ]);
 
   useEffect(() => {
     const unsubscribeMedia =
@@ -2332,7 +2347,8 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
               value={
                 monitorCall.assistantStartedAt
                   ? "Attached"
-                  : monitorCall.error
+                  : monitorCall.aiAssistantError ||
+                      monitorCall.error
                     ? "Failed"
                     : "Waiting"
               }
@@ -2370,12 +2386,33 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
               value={
                 transcript.length
                   ? `${transcript.length} messages`
-                  : monitorCall.assistantStartedAt
-                    ? "Waiting"
-                    : "Unavailable"
+                  : normalizeStatus(
+                        monitorCall.transcriptionStatus
+                      ) === "failed"
+                    ? "Failed"
+                    : [
+                          "starting",
+                          "requested",
+                          "streaming",
+                        ].includes(
+                          normalizeStatus(
+                            monitorCall.transcriptionStatus
+                          )
+                        ) ||
+                        monitorCall.assistantStartedAt
+                      ? "Waiting"
+                      : "Unavailable"
               }
               good={
-                transcript.length > 0
+                transcript.length > 0 ||
+                [
+                  "requested",
+                  "streaming",
+                ].includes(
+                  normalizeStatus(
+                    monitorCall.transcriptionStatus
+                  )
+                )
               }
             />
           </div>
@@ -2411,12 +2448,21 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
             </div>
           ) : null}
 
+          {monitorCall.transcriptionError ? (
+            <div className="rf-agent-monitor-warning">
+              <b>Live-transcript warning</b>
+              <span>
+                {monitorCall.transcriptionError}
+              </span>
+            </div>
+          ) : null}
+
           <div className="rf-agent-live-transcript">
             <div className="rf-agent-live-transcript-heading">
               <div>
                 <b>Live transcript</b>
                 <small>
-                  Updates arrive from the Telnyx AI conversation while the call is active.
+                  Updates arrive from Telnyx real-time call transcription while the call is active.
                 </small>
               </div>
               <span
@@ -2455,7 +2501,10 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
                         {message.role ===
                         "assistant"
                           ? "AI"
-                          : "Lead"}
+                          : message.role ===
+                              "user"
+                            ? "Lead"
+                            : "Call"}
                       </span>
                       <p>
                         {message.text}
@@ -2465,9 +2514,19 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
                 )
               ) : (
                 <div className="rf-agent-transcript-empty">
-                  {monitorCall.assistantStartedAt
-                    ? "Waiting for the first conversation turn…"
-                    : "The AI assistant has not attached to this call yet."}
+                  {[
+                    "starting",
+                    "requested",
+                    "streaming",
+                  ].includes(
+                    normalizeStatus(
+                      monitorCall.transcriptionStatus
+                    )
+                  )
+                    ? "Waiting for speech on the call…"
+                    : monitorCall.assistantStartedAt
+                      ? "Waiting for the first conversation turn…"
+                      : "The AI assistant has not attached to this call yet."}
                 </div>
               )}
             </div>
@@ -2644,14 +2703,12 @@ function normalizeLiveTranscript(value) {
           message?.role
         );
 
-      if (
-        ![
-          "assistant",
-          "user",
-        ].includes(role)
-      ) {
-        return null;
-      }
+      const normalizedRole = [
+        "assistant",
+        "user",
+      ].includes(role)
+        ? role
+        : "unknown";
 
       const text =
         conversationMessageText(
@@ -2664,8 +2721,13 @@ function normalizeLiveTranscript(value) {
       }
 
       return {
-        role,
+        role: normalizedRole,
         text,
+        isFinal: message?.isFinal !== false,
+        occurredAt:
+          message?.occurredAt ||
+          message?.createdAt ||
+          "",
       };
     })
     .filter(Boolean)
