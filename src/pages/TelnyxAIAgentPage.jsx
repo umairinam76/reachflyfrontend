@@ -27,7 +27,7 @@ const DEFAULT_FORM = {
   description:
     "ReachFly outbound qualification and meeting-booking agent.",
   companyName: "",
-  voice: "Telnyx.NaturalHD.astra",
+  voice: "Telnyx.Ultra.Clara",
   model: "anthropic/claude-haiku-4-5",
   websiteUrl: "",
   websiteIntelligence: {},
@@ -78,7 +78,7 @@ const DEFAULT_CUSTOM_LEAD_FORM = {
   email: "",
   website: "",
   location: "",
-  timezone: "America/New_York",
+  timezone: "",
   context: "",
 };
 
@@ -372,8 +372,10 @@ export default function TelnyxAIAgentPage() {
           body: {
             ...customLeadForm,
             callNow,
-            defaultTimezone:
-              customLeadForm.timezone || form.defaultLeadTimezone,
+            // Leave this blank when the manager did not enter a timezone so
+            // the backend can infer a safe single-timezone country from the
+            // phone prefix (for example +92 -> Asia/Karachi).
+            defaultTimezone: customLeadForm.timezone || "",
             maxAttempts: Number(form.maxAttempts || 3),
             dailyCallLimit: Number(form.dailyCallLimit || 25),
             fromNumber: form.fromNumber,
@@ -382,13 +384,9 @@ export default function TelnyxAIAgentPage() {
         }
       );
 
-      setCustomLeadForm((current) => ({
+      setCustomLeadForm({
         ...DEFAULT_CUSTOM_LEAD_FORM,
-        timezone:
-          current.timezone ||
-          form.defaultLeadTimezone ||
-          "America/New_York",
-      }));
+      });
       setSelectedLeadIds([]);
       await loadDashboard({ silent: true });
 
@@ -397,13 +395,21 @@ export default function TelnyxAIAgentPage() {
         const started = Number(result.started || 0);
         const deferred = Number(result.deferred || 0);
         const failed = Number(result.failed || 0);
+        const firstResult = Array.isArray(result.results)
+          ? result.results.find((item) => item?.reason || item?.error)
+          : null;
+        const providerReason =
+          firstResult?.reason || firstResult?.error || "";
+        const reusedPrefix = response?.reusedQueueItem
+          ? "The existing pending/deferred queue entry was refreshed. "
+          : "";
         setSuccess(
           started
-            ? "The custom lead was queued and the AI call started."
+            ? `${reusedPrefix}The AI call started. Open Calls → Live monitor, then click Listen live.`
             : deferred
-              ? "The custom lead was queued, but the call was deferred by the configured calling policy or lead timezone."
+              ? `${reusedPrefix}The call is queued but was not dialed yet${providerReason ? `: ${providerReason}` : ". Check the lead timezone and calling window."}`
               : failed
-                ? "The custom lead was queued, but the call could not start. Check Calls and backend logs for the provider error."
+                ? `${reusedPrefix}The call could not start${providerReason ? `: ${providerReason}` : ". Check Calls and backend logs for the provider error."}`
                 : response?.message || "The custom lead was queued for an AI call."
         );
         setActiveTab("calls");
@@ -1052,9 +1058,23 @@ function AgentSetup({
             ))}
           </select>
           <small>
-            NaturalHD is a strong starting point; available voices are loaded
-            directly from Telnyx.
+            For the most natural low-latency delivery, use a Telnyx Ultra voice.
+            Ultra has faster TTS startup than NaturalHD and supports expressive
+            delivery.
           </small>
+          <div className="rf-agent-website-actions">
+            <button
+              type="button"
+              className="btn light"
+              onClick={() => onChange("voice", "Telnyx.Ultra.Clara")}
+            >
+              Use recommended Ultra Clara
+            </button>
+            <span className="rf-agent-brain-pill">
+              <b>Low-latency preset</b>
+              <span>Ultra Clara + Claude Haiku 4.5 + Deepgram Flux</span>
+            </span>
+          </div>
         </label>
 
         <TextArea
@@ -1584,8 +1604,12 @@ function LeadQueue({
               onChange={(event) =>
                 onCustomLeadForm("timezone", event.target.value)
               }
-              placeholder="America/New_York"
+              placeholder="Leave blank to auto-detect when possible"
             />
+            <small>
+              Example: +92 numbers resolve to Asia/Karachi when this field is
+              blank. The configured calling window still applies.
+            </small>
           </label>
         </div>
 
