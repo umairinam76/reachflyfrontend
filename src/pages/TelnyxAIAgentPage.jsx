@@ -19,7 +19,7 @@ import {
   onWorkspaceSocket,
 } from "../lib/workspace-platform-client.js";
 
-import "../styles.css";
+import "../styles/telnyx-ai-agent.css";
 
 const DEFAULT_FORM = {
   name: "",
@@ -27,7 +27,9 @@ const DEFAULT_FORM = {
     "ReachFly outbound qualification and meeting-booking agent.",
   companyName: "",
   voice: "Telnyx.NaturalHD.astra",
-  model: "",
+  model: "anthropic/claude-haiku-4-5",
+  websiteUrl: "",
+  websiteIntelligence: {},
   greeting:
     "Hi, this is the automated sales assistant calling from {{company_name}}. Is now an okay time for a quick question?",
   disclosure:
@@ -59,6 +61,14 @@ const DEFAULT_FORM = {
   complianceConfirmed: false,
 };
 
+const DEFAULT_GOOGLE_LEAD_FORM = {
+  niche: "",
+  location: "",
+  limit: 25,
+  radiusKm: 25,
+  qualityLevel: "balanced",
+};
+
 const TABS = [
   ["setup", "Agent setup"],
   ["leads", "Lead queue"],
@@ -88,6 +98,7 @@ export default function TelnyxAIAgentPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [analyzingWebsite, setAnalyzingWebsite] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [starting, setStarting] = useState(false);
   const [busyCallId, setBusyCallId] = useState("");
@@ -96,6 +107,11 @@ export default function TelnyxAIAgentPage() {
   const [leadStatus, setLeadStatus] = useState("all");
   const [queueStatus, setQueueStatus] = useState("all");
   const [campaignLimit, setCampaignLimit] = useState(10);
+  const [googleLeadForm, setGoogleLeadForm] = useState(
+    DEFAULT_GOOGLE_LEAD_FORM
+  );
+  const [findingGoogleLeads, setFindingGoogleLeads] = useState(false);
+  const [googleLeadResult, setGoogleLeadResult] = useState(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [accessDenied, setAccessDenied] = useState(false);
@@ -312,17 +328,168 @@ export default function TelnyxAIAgentPage() {
     });
   }
 
+  async function findGoogleLeads() {
+    const niche = String(googleLeadForm.niche || "").trim();
+    const location = String(googleLeadForm.location || "").trim();
+
+    if (!niche || !location) {
+      setError("Enter both a business niche and target location for Google Places.");
+      return;
+    }
+
+    setFindingGoogleLeads(true);
+    setGoogleLeadResult(null);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await apiRequest(
+        "/telnyx/ai-agent/leads/find",
+        {
+          method: "POST",
+          body: {
+            niche,
+            location,
+            limit: Number(googleLeadForm.limit || 25),
+            radiusKm: Number(googleLeadForm.radiusKm || 25),
+            qualityLevel:
+              googleLeadForm.qualityLevel || "balanced",
+            exact: true,
+          },
+          timeoutMs: 130_000,
+        }
+      );
+
+      setGoogleLeadResult(response);
+      await loadDashboard({ silent: true });
+
+      const discoveredIds = Array.isArray(response?.assignmentIds)
+        ? response.assignmentIds
+        : [];
+      setSelectedLeadIds(discoveredIds);
+      setLeadSearch("");
+      setLeadStatus("all");
+      setSuccess(
+        response?.message ||
+          `${response?.imported || 0} new callable Google lead${
+            response?.imported === 1 ? "" : "s"
+          } added to the voice-agent lead pool.`
+      );
+    } catch (requestError) {
+      setError(
+        requestError?.message ||
+          "ReachFly could not retrieve Google Places leads."
+      );
+    } finally {
+      setFindingGoogleLeads(false);
+    }
+  }
+
+  async function analyzeWebsite() {
+    if (!String(form.websiteUrl || "").trim()) {
+      setError("Enter the company website URL first.");
+      return;
+    }
+
+    setAnalyzingWebsite(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response = await apiRequest(
+        "/telnyx/ai-agent/website/analyze",
+        {
+          method: "POST",
+          body: {
+            websiteUrl: form.websiteUrl,
+            companyName: form.companyName,
+          },
+          timeoutMs: 120_000,
+        }
+      );
+
+      setDashboard((current) => ({
+        ...(current || {}),
+        agent: response.agent,
+      }));
+      setForm((current) =>
+        normalizeAgentForm({
+          ...current,
+          ...(response.agent || {}),
+          websiteIntelligence:
+            response.intelligence ||
+            response.agent?.websiteIntelligence ||
+            {},
+          model:
+            response.liveConversationModel ||
+            response.agent?.model ||
+            "anthropic/claude-haiku-4-5",
+        })
+      );
+      setSuccess(
+        `Claude analyzed ${response.pagesAnalyzed || 0} website page${
+          response.pagesAnalyzed === 1 ? "" : "s"
+        }. The live Telnyx voice agent can now use this knowledge naturally.`
+      );
+    } catch (requestError) {
+      setError(
+        requestError?.message ||
+          "Claude could not analyze the company website."
+      );
+    } finally {
+      setAnalyzingWebsite(false);
+    }
+  }
+
   async function saveAgent() {
     setSaving(true);
     setError("");
     setSuccess("");
 
     try {
+      let payload = normalizeAgentForm(form);
+      const normalizedWebsite = String(payload.websiteUrl || "").trim();
+      const analyzedSource = String(
+        payload.websiteIntelligence?.sourceUrl || ""
+      ).trim();
+
+      if (
+        normalizedWebsite &&
+        (!payload.websiteIntelligence?.analyzedAt ||
+          (!analyzedSource || analyzedSource !== normalizedWebsite))
+      ) {
+        const analyzed = await apiRequest(
+          "/telnyx/ai-agent/website/analyze",
+          {
+            method: "POST",
+            body: {
+              websiteUrl: normalizedWebsite,
+              companyName: payload.companyName,
+            },
+            timeoutMs: 120_000,
+          }
+        );
+
+        payload = normalizeAgentForm({
+          ...payload,
+          ...(analyzed.agent || {}),
+          websiteIntelligence:
+            analyzed.intelligence ||
+            analyzed.agent?.websiteIntelligence ||
+            {},
+          model:
+            analyzed.liveConversationModel ||
+            analyzed.agent?.model ||
+            payload.model,
+        });
+        setForm(payload);
+      }
+
       const response = await apiRequest(
         "/telnyx/ai-agent",
         {
           method: "PUT",
-          body: normalizeAgentForm(form),
+          body: payload,
           timeoutMs: 45_000,
         }
       );
@@ -613,7 +780,9 @@ export default function TelnyxAIAgentPage() {
           voices={voices}
           diagnostics={diagnostics}
           saving={saving}
+          analyzingWebsite={analyzingWebsite}
           onChange={updateForm}
+          onAnalyzeWebsite={() => void analyzeWebsite()}
           onSave={() => void saveAgent()}
         />
       ) : null}
@@ -629,8 +798,18 @@ export default function TelnyxAIAgentPage() {
           leadStatus={leadStatus}
           queueStatus={queueStatus}
           campaignLimit={campaignLimit}
+          googleLeadForm={googleLeadForm}
+          googleLeadResult={googleLeadResult}
+          findingGoogleLeads={findingGoogleLeads}
           assigning={assigning}
           starting={starting}
+          onGoogleLeadForm={(key, value) =>
+            setGoogleLeadForm((current) => ({
+              ...current,
+              [key]: value,
+            }))
+          }
+          onFindGoogleLeads={() => void findGoogleLeads()}
           onSearch={setLeadSearch}
           onLeadStatus={setLeadStatus}
           onQueueStatus={setQueueStatus}
@@ -662,7 +841,9 @@ function AgentSetup({
   voices,
   diagnostics,
   saving,
+  analyzingWebsite,
   onChange,
+  onAnalyzeWebsite,
   onSave,
 }) {
   const numberOptions = Array.isArray(diagnostics.fromNumbers)
@@ -743,47 +924,62 @@ function AgentSetup({
       <article className="rf-agent-card rf-agent-form-card">
         <div className="rf-agent-card-heading">
           <div>
-            <span>Sales playbook</span>
-            <h2>Tell the agent what a good conversation looks like</h2>
+            <span>Claude website intelligence</span>
+            <h2>Give ReachFly your website, not a call script</h2>
           </div>
           <span className="rf-agent-section-number">02</span>
         </div>
 
-        <TextArea
-          label="Offer or service"
-          value={form.offer}
-          onChange={(value) => onChange("offer", value)}
-          placeholder="What Codesync Labs sells, primary value and approved claims."
-          rows={4}
+        <Field
+          label="Company website URL"
+          value={form.websiteUrl}
+          onChange={(value) => onChange("websiteUrl", value)}
+          placeholder="https://codesynclabs.com"
         />
 
-        <TextArea
-          label="Ideal customer"
-          value={form.idealCustomer}
-          onChange={(value) => onChange("idealCustomer", value)}
-          placeholder="Industries, company size, roles, problems and exclusions."
-          rows={4}
-        />
+        <div className="rf-agent-website-actions">
+          <button
+            type="button"
+            className="btn primary"
+            disabled={analyzingWebsite || !String(form.websiteUrl || "").trim()}
+            onClick={onAnalyzeWebsite}
+          >
+            {analyzingWebsite
+              ? "Claude is reading the website…"
+              : form.websiteIntelligence?.analyzedAt
+                ? "Re-analyze website with Claude"
+                : "Analyze website with Claude"}
+          </button>
 
-        <TextArea
-          label="Qualification questions"
-          value={form.qualificationQuestions}
-          onChange={(value) =>
-            onChange("qualificationQuestions", value)
-          }
-          placeholder="Ask about current process, pain, urgency, budget range and decision process—one question at a time."
-          rows={5}
-        />
+          <div className="rf-agent-brain-pill">
+            <b>Live conversation brain</b>
+            <span>Claude Haiku 4.5 through Telnyx</span>
+          </div>
+        </div>
 
-        <TextArea
-          label="Objection handling"
-          value={form.objectionHandling}
-          onChange={(value) =>
-            onChange("objectionHandling", value)
-          }
-          placeholder="Approved answers for price, timing, existing vendor and send-me-information objections."
-          rows={5}
-        />
+        {form.websiteIntelligence?.analyzedAt ? (
+          <WebsiteIntelligencePreview
+            intelligence={form.websiteIntelligence}
+            websiteUrl={form.websiteUrl}
+          />
+        ) : (
+          <div className="rf-agent-intel-empty">
+            <b>What happens after Analyze</b>
+            <p>
+              ReachFly safely crawls the public website, Claude extracts the
+              services, target customers, value propositions, proof points,
+              qualification questions, objections and booking angles, and that
+              knowledge becomes the live voice agent's grounded sales context.
+            </p>
+          </div>
+        )}
+
+        <small className="rf-agent-field-note">
+          The website is analyzed before calls. During a live call, Telnyx
+          handles speech recognition and voice output while Claude reasons over
+          the ongoing transcript and the website-derived knowledge. This avoids
+          a rigid word-for-word script.
+        </small>
       </article>
 
       <article className="rf-agent-card rf-agent-form-card">
@@ -1008,7 +1204,13 @@ function AgentSetup({
         <button
           type="button"
           className="btn primary full rf-agent-save"
-          disabled={saving || !form.complianceConfirmed}
+          disabled={
+            saving ||
+            analyzingWebsite ||
+            !form.complianceConfirmed ||
+            (Boolean(String(form.websiteUrl || "").trim()) &&
+              !form.websiteIntelligence?.analyzedAt)
+          }
           onClick={onSave}
         >
           {saving
@@ -1017,6 +1219,73 @@ function AgentSetup({
         </button>
       </article>
     </section>
+  );
+}
+
+function WebsiteIntelligencePreview({ intelligence, websiteUrl }) {
+  const sourcePages = Array.isArray(intelligence?.sourcePages)
+    ? intelligence.sourcePages
+    : [];
+  const services = Array.isArray(intelligence?.services)
+    ? intelligence.services
+    : [];
+  const customers = Array.isArray(intelligence?.targetCustomers)
+    ? intelligence.targetCustomers
+    : [];
+  const values = Array.isArray(intelligence?.valuePropositions)
+    ? intelligence.valuePropositions
+    : [];
+  const questions = Array.isArray(intelligence?.qualificationQuestions)
+    ? intelligence.qualificationQuestions
+    : [];
+
+  return (
+    <div className="rf-agent-intel-preview">
+      <div className="rf-agent-intel-meta">
+        <span>
+          <b>Claude profile ready</b>
+          <small>{formatDateTime(intelligence.analyzedAt)}</small>
+        </span>
+        <span>
+          <b>{sourcePages.length}</b>
+          <small>pages analyzed</small>
+        </span>
+        <span>
+          <b>{intelligence.claudeModel || "Claude"}</b>
+          <small>website analysis model</small>
+        </span>
+      </div>
+
+      <div className="rf-agent-intel-summary">
+        <b>{intelligence.oneLinePitch || intelligence.companyName}</b>
+        <p>{intelligence.companySummary || "Website profile generated."}</p>
+        <small>{websiteUrl}</small>
+      </div>
+
+      <div className="rf-agent-intel-grid">
+        <IntelList title="Services" items={services} />
+        <IntelList title="Target customers" items={customers} />
+        <IntelList title="Value propositions" items={values} />
+        <IntelList title="Discovery questions" items={questions} />
+      </div>
+    </div>
+  );
+}
+
+function IntelList({ title, items }) {
+  return (
+    <div className="rf-agent-intel-list">
+      <b>{title}</b>
+      {items.length ? (
+        <ul>
+          {items.slice(0, 6).map((item, index) => (
+            <li key={`${title}-${index}`}>{item}</li>
+          ))}
+        </ul>
+      ) : (
+        <small>No grounded items extracted.</small>
+      )}
+    </div>
   );
 }
 
@@ -1030,8 +1299,13 @@ function LeadQueue({
   leadStatus,
   queueStatus,
   campaignLimit,
+  googleLeadForm,
+  googleLeadResult,
+  findingGoogleLeads,
   assigning,
   starting,
+  onGoogleLeadForm,
+  onFindGoogleLeads,
   onSearch,
   onLeadStatus,
   onQueueStatus,
@@ -1043,11 +1317,124 @@ function LeadQueue({
 }) {
   return (
     <section className="rf-agent-leads-layout">
+      <article className="rf-agent-card rf-agent-google-leads-card">
+        <div className="rf-agent-card-heading compact">
+          <div>
+            <span>Google Places lead finder</span>
+            <h2>Find fresh leads for Claude to call</h2>
+          </div>
+          <span className="rf-agent-google-badge">Existing ReachFly Google pipeline</span>
+        </div>
+
+        <p className="rf-agent-google-copy">
+          This uses the same server-side Google Places + ReachFly enrichment
+          implementation already used by your campaign builder. New callable
+          leads are saved into this workspace and selected for review; calls do
+          not start until you explicitly assign and start the queue.
+        </p>
+
+        <div className="rf-agent-google-grid">
+          <label className="rf-agent-field">
+            <span>Business niche</span>
+            <input
+              value={googleLeadForm.niche}
+              onChange={(event) =>
+                onGoogleLeadForm("niche", event.target.value)
+              }
+              placeholder="e.g. dental clinics, roofing companies"
+            />
+          </label>
+          <label className="rf-agent-field">
+            <span>Target location</span>
+            <input
+              value={googleLeadForm.location}
+              onChange={(event) =>
+                onGoogleLeadForm("location", event.target.value)
+              }
+              placeholder="e.g. Dallas, TX"
+            />
+          </label>
+          <label className="rf-agent-field">
+            <span>Lead count</span>
+            <input
+              type="number"
+              min="1"
+              max="250"
+              value={googleLeadForm.limit}
+              onChange={(event) =>
+                onGoogleLeadForm("limit", Number(event.target.value))
+              }
+            />
+          </label>
+          <label className="rf-agent-field">
+            <span>Radius</span>
+            <input
+              type="number"
+              min="1"
+              max="1000"
+              value={googleLeadForm.radiusKm}
+              onChange={(event) =>
+                onGoogleLeadForm("radiusKm", Number(event.target.value))
+              }
+            />
+            <small>kilometers</small>
+          </label>
+          <label className="rf-agent-field">
+            <span>Quality</span>
+            <select
+              value={googleLeadForm.qualityLevel}
+              onChange={(event) =>
+                onGoogleLeadForm("qualityLevel", event.target.value)
+              }
+            >
+              <option value="strict">Strict</option>
+              <option value="balanced">Balanced</option>
+              <option value="broad">Broad</option>
+            </select>
+          </label>
+          <button
+            type="button"
+            className="btn primary rf-agent-google-find"
+            disabled={
+              findingGoogleLeads ||
+              !String(googleLeadForm.niche || "").trim() ||
+              !String(googleLeadForm.location || "").trim()
+            }
+            onClick={onFindGoogleLeads}
+          >
+            {findingGoogleLeads
+              ? "Searching Google Places…"
+              : "Find leads with Google"}
+          </button>
+        </div>
+
+        {googleLeadResult ? (
+          <div className="rf-agent-google-result">
+            <span>
+              <b>{googleLeadResult.imported || 0}</b>
+              <small>new callable leads</small>
+            </span>
+            <span>
+              <b>{googleLeadResult.delivered || 0}</b>
+              <small>Google/ReachFly results</small>
+            </span>
+            <span>
+              <b>{googleLeadResult.duplicateOrUncallable || 0}</b>
+              <small>duplicate or uncallable</small>
+            </span>
+            <span>
+              <b>{googleLeadResult.campaign?.name || "Ready"}</b>
+              <small>saved lead pool</small>
+            </span>
+          </div>
+        ) : null}
+      </article>
+
       <article className="rf-agent-card rf-agent-lead-picker">
         <div className="rf-agent-card-heading compact">
           <div>
-            <span>Available CRM leads</span>
-            <h2>Select leads for the agent</h2>
+            <span>Workspace lead pool</span>
+            <h2>Review and assign leads to Claude</h2>
           </div>
           <b className="rf-agent-count">
             {selectedLeadIds.length} selected
@@ -1129,7 +1516,7 @@ function LeadQueue({
               ) : (
                 <tr>
                   <td colSpan={5} className="rf-agent-empty-cell">
-                    No matching callable leads were found.
+                    No matching callable leads are available yet. Use Google Places above or import leads through the existing campaign builder.
                   </td>
                 </tr>
               )}
@@ -1489,6 +1876,16 @@ function normalizeAgentForm(value = {}) {
   return {
     ...DEFAULT_FORM,
     ...value,
+    model:
+      value.model ||
+      DEFAULT_FORM.model,
+    websiteUrl:
+      value.websiteUrl ||
+      DEFAULT_FORM.websiteUrl,
+    websiteIntelligence:
+      value.websiteIntelligence && typeof value.websiteIntelligence === "object"
+        ? value.websiteIntelligence
+        : {},
     meetingDurationMinutes: safeNumber(
       value.meetingDurationMinutes,
       30
