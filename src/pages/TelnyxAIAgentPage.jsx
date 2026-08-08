@@ -27,7 +27,7 @@ const DEFAULT_FORM = {
   description:
     "ReachFly outbound qualification and meeting-booking agent.",
   companyName: "",
-  voice: "Telnyx.Ultra.Clara",
+  voice: "Telnyx.NaturalHD.astra",
   model: "anthropic/claude-haiku-4-5",
   websiteUrl: "",
   websiteIntelligence: {},
@@ -197,11 +197,37 @@ export default function TelnyxAIAgentPage() {
         }
       );
       if (!mountedRef.current) return;
-      setVoices(
-        Array.isArray(response?.voices)
-          ? response.voices
-          : []
-      );
+      const loadedVoices = Array.isArray(response?.voices)
+        ? response.voices
+        : [];
+
+      setVoices(loadedVoices);
+      setForm((current) => {
+        if (!loadedVoices.length) return current;
+
+        const exact = loadedVoices.find(
+          (voice) =>
+            String(voice.id || "").toLowerCase() ===
+            String(current.voice || "").toLowerCase()
+        );
+        if (exact) return current;
+
+        const mapped =
+          resolveFrontendFriendlyVoice(
+            loadedVoices,
+            current.voice
+          ) ||
+          chooseFrontendRecommendedVoice(
+            loadedVoices
+          );
+
+        return mapped
+          ? {
+              ...current,
+              voice: mapped.id,
+            }
+          : current;
+      });
     } catch (requestError) {
       if (!mountedRef.current) return;
       setError(
@@ -311,6 +337,10 @@ export default function TelnyxAIAgentPage() {
     : [];
   const diagnostics = dashboard?.diagnostics || {};
   const agent = dashboard?.agent || null;
+  const recommendedVoice = useMemo(
+    () => chooseFrontendRecommendedVoice(voices),
+    [voices]
+  );
 
   const allVisibleSelected =
     assignableLeads.length > 0 &&
@@ -347,7 +377,7 @@ export default function TelnyxAIAgentPage() {
     });
   }
 
-  async function submitCustomLead(callNow = false) {
+  async function submitCustomLead(callNow = false, testCall = false) {
     const phone = String(customLeadForm.phone || "").trim();
     if (!phone) {
       setError("Enter the custom lead phone number first.");
@@ -372,6 +402,8 @@ export default function TelnyxAIAgentPage() {
           body: {
             ...customLeadForm,
             callNow,
+            testCall,
+            testCallConfirmed: testCall,
             // Leave this blank when the manager did not enter a timezone so
             // the backend can infer a safe single-timezone country from the
             // phone prefix (for example +92 -> Asia/Karachi).
@@ -405,7 +437,9 @@ export default function TelnyxAIAgentPage() {
           : "";
         setSuccess(
           started
-            ? `${reusedPrefix}The AI call started. Open Calls → Live monitor, then click Listen live.`
+            ? testCall
+              ? `${reusedPrefix}The controlled test call started and bypassed only the configured calling-time window. Open Calls → Live monitor, then click Listen live.`
+              : `${reusedPrefix}The AI call started. Open Calls → Live monitor, then click Listen live.`
             : deferred
               ? `${reusedPrefix}The call is queued but was not dialed yet${providerReason ? `: ${providerReason}` : ". Check the lead timezone and calling window."}`
               : failed
@@ -428,6 +462,14 @@ export default function TelnyxAIAgentPage() {
       setCreatingCustomLead(false);
       setCallingCustomLead(false);
     }
+  }
+
+  function startControlledTestCall() {
+    const confirmed = window.confirm(
+      "This test call bypasses the configured local calling-time window for this ONE manually entered Custom AI Call. DNC/suppression, valid-number, active-call, concurrency and daily-limit protections still apply. Use only a number you control or where you have permission to test. Continue?"
+    );
+    if (!confirmed) return;
+    void submitCustomLead(true, true);
   }
 
   async function findGoogleLeads() {
@@ -616,8 +658,13 @@ export default function TelnyxAIAgentPage() {
       }
 
       if (announce) {
+        const voiceResolution =
+          response?.voiceResolution;
+
         setSuccess(
-          "The ReachFly voice agent was saved and synchronized with Telnyx."
+          voiceResolution?.changed
+            ? `The voice agent was saved. ReachFly automatically mapped the requested voice to the valid Telnyx voice: ${voiceResolution.selectedLabel || voiceResolution.selected}.`
+            : "The ReachFly voice agent was saved and synchronized with Telnyx."
         );
       }
 
@@ -931,6 +978,7 @@ export default function TelnyxAIAgentPage() {
         <AgentSetup
           form={form}
           voices={voices}
+          recommendedVoice={recommendedVoice}
           diagnostics={diagnostics}
           saving={saving}
           analyzingWebsite={analyzingWebsite}
@@ -957,6 +1005,9 @@ export default function TelnyxAIAgentPage() {
           customLeadForm={customLeadForm}
           creatingCustomLead={creatingCustomLead}
           callingCustomLead={callingCustomLead}
+          canTestCall={["owner", "admin"].includes(
+            String(dashboard?.access?.role || "").toLowerCase()
+          )}
           assigning={assigning}
           starting={starting}
           onGoogleLeadForm={(key, value) =>
@@ -974,6 +1025,7 @@ export default function TelnyxAIAgentPage() {
           }
           onQueueCustomLead={() => void submitCustomLead(false)}
           onCallCustomLead={() => void submitCustomLead(true)}
+          onTestCustomLead={startControlledTestCall}
           onSearch={setLeadSearch}
           onLeadStatus={setLeadStatus}
           onQueueStatus={setQueueStatus}
@@ -1003,6 +1055,7 @@ export default function TelnyxAIAgentPage() {
 function AgentSetup({
   form,
   voices,
+  recommendedVoice,
   diagnostics,
   saving,
   analyzingWebsite,
@@ -1058,21 +1111,32 @@ function AgentSetup({
             ))}
           </select>
           <small>
-            For the most natural low-latency delivery, use a Telnyx Ultra voice.
-            Ultra has faster TTS startup than NaturalHD and supports expressive
-            delivery.
+            ReachFly uses the exact voice IDs returned by your Telnyx account.
+            This prevents a friendly display name such as "Ultra Clara" from
+            being saved as an invalid provider voice ID.
           </small>
+
           <div className="rf-agent-website-actions">
             <button
               type="button"
               className="btn light"
-              onClick={() => onChange("voice", "Telnyx.Ultra.Clara")}
+              disabled={!recommendedVoice?.id}
+              onClick={() =>
+                recommendedVoice?.id &&
+                onChange("voice", recommendedVoice.id)
+              }
             >
-              Use recommended Ultra Clara
+              {recommendedVoice?.id
+                ? `Use recommended: ${recommendedVoice.name || "fast voice"}`
+                : "No recommended voice available"}
             </button>
+
             <span className="rf-agent-brain-pill">
               <b>Low-latency preset</b>
-              <span>Ultra Clara + Claude Haiku 4.5 + Deepgram Flux</span>
+              <span>
+                {(recommendedVoice?.name || "Account voice")} + Claude Haiku
+                4.5 + Deepgram Flux
+              </span>
             </span>
           </div>
         </label>
@@ -1483,6 +1547,7 @@ function LeadQueue({
   customLeadForm,
   creatingCustomLead,
   callingCustomLead,
+  canTestCall,
   assigning,
   starting,
   onGoogleLeadForm,
@@ -1490,6 +1555,7 @@ function LeadQueue({
   onCustomLeadForm,
   onQueueCustomLead,
   onCallCustomLead,
+  onTestCustomLead,
   onSearch,
   onLeadStatus,
   onQueueStatus,
@@ -1511,46 +1577,14 @@ function LeadQueue({
         </div>
 
         <p className="rf-agent-google-copy">
-          Enter only the phone number and the details you know. The context is
-          added privately to Claude for this call so the agent can personalize
-          the conversation without reading your notes word-for-word. Calling
-          still respects DNC, workspace limits and the configured local-time window.
+          Phone number is the only required field. Name, company and private
+          context are optional. ReachFly auto-detects a safe timezone when possible
+          from the phone prefix. Normal calls respect the local calling window;
+          owners and admins can use the controlled test button to bypass only that
+          time window for one manual test call.
         </p>
 
         <div className="rf-agent-custom-grid">
-          <label className="rf-agent-field">
-            <span>Contact name</span>
-            <input
-              value={customLeadForm.contactName}
-              onChange={(event) =>
-                onCustomLeadForm("contactName", event.target.value)
-              }
-              placeholder="e.g. John Smith"
-            />
-          </label>
-
-          <label className="rf-agent-field">
-            <span>Company</span>
-            <input
-              value={customLeadForm.companyName}
-              onChange={(event) =>
-                onCustomLeadForm("companyName", event.target.value)
-              }
-              placeholder="e.g. Acme Dental"
-            />
-          </label>
-
-          <label className="rf-agent-field">
-            <span>Role / title</span>
-            <input
-              value={customLeadForm.jobTitle}
-              onChange={(event) =>
-                onCustomLeadForm("jobTitle", event.target.value)
-              }
-              placeholder="e.g. Owner, CTO"
-            />
-          </label>
-
           <label className="rf-agent-field required">
             <span>Phone number *</span>
             <input
@@ -1561,71 +1595,45 @@ function LeadQueue({
               placeholder="+12135551234"
               inputMode="tel"
             />
+            <small>Only the phone number is required.</small>
           </label>
 
           <label className="rf-agent-field">
-            <span>Email</span>
+            <span>Contact name <em>optional</em></span>
             <input
-              type="email"
-              value={customLeadForm.email}
+              value={customLeadForm.contactName}
               onChange={(event) =>
-                onCustomLeadForm("email", event.target.value)
+                onCustomLeadForm("contactName", event.target.value)
               }
-              placeholder="john@example.com"
+              placeholder="e.g. John"
             />
           </label>
 
           <label className="rf-agent-field">
-            <span>Website</span>
+            <span>Company <em>optional</em></span>
             <input
-              value={customLeadForm.website}
+              value={customLeadForm.companyName}
               onChange={(event) =>
-                onCustomLeadForm("website", event.target.value)
+                onCustomLeadForm("companyName", event.target.value)
               }
-              placeholder="https://example.com"
+              placeholder="e.g. Acme Dental"
             />
-          </label>
-
-          <label className="rf-agent-field">
-            <span>Location</span>
-            <input
-              value={customLeadForm.location}
-              onChange={(event) =>
-                onCustomLeadForm("location", event.target.value)
-              }
-              placeholder="Dallas, TX"
-            />
-          </label>
-
-          <label className="rf-agent-field">
-            <span>Lead timezone</span>
-            <input
-              value={customLeadForm.timezone}
-              onChange={(event) =>
-                onCustomLeadForm("timezone", event.target.value)
-              }
-              placeholder="Leave blank to auto-detect when possible"
-            />
-            <small>
-              Example: +92 numbers resolve to Asia/Karachi when this field is
-              blank. The configured calling window still applies.
-            </small>
           </label>
         </div>
 
         <label className="rf-agent-field rf-agent-custom-context">
-          <span>Private lead context for Claude</span>
+          <span>What should the AI know? <em>optional</em></span>
           <textarea
-            rows={6}
+            rows={4}
             maxLength={12000}
             value={customLeadForm.context}
             onChange={(event) =>
               onCustomLeadForm("context", event.target.value)
             }
-            placeholder="Example: John requested a website redesign last quarter but delayed because of budget. Their current site is on WordPress, they want online booking, and the best angle is reducing manual appointment work. Do not mention that we know their budget unless they bring it up."
+            placeholder="Example: They do not have a website. Introduce CodeSync Labs, explain the value briefly, and try to book a discovery meeting."
           />
           <small>
-            {String(customLeadForm.context || "").length.toLocaleString()} / 12,000 characters. These notes are private model context, not a script.
+            {String(customLeadForm.context || "").length.toLocaleString()} / 12,000. Private context for Claude; it is not read word-for-word.
           </small>
         </label>
 
@@ -1652,6 +1660,22 @@ function LeadQueue({
           >
             {callingCustomLead ? "Starting AI call…" : "Call this lead now"}
           </button>
+          {canTestCall ? (
+            <button
+              type="button"
+              className="btn light"
+              disabled={
+                creatingCustomLead ||
+                callingCustomLead
+              }
+              onClick={onTestCustomLead}
+              title="Bypasses only the configured calling-time window for one controlled Custom AI Call"
+            >
+              {callingCustomLead
+                ? "Starting test call…"
+                : "🧪 Test AI call now (bypass hours)"}
+            </button>
+          ) : null}
         </div>
       </article>
 
@@ -3239,6 +3263,143 @@ function normalizeAgentForm(value = {}) {
 function safeNumber(value, fallback) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
+}
+
+
+function chooseFrontendRecommendedVoice(voicesValue) {
+  const voices = Array.isArray(voicesValue)
+    ? voicesValue.filter((voice) => voice?.id)
+    : [];
+
+  if (!voices.length) return null;
+
+  const score = (voice) => {
+    const id = String(
+      voice.id || ""
+    ).toLowerCase();
+    const name = String(
+      voice.name || ""
+    ).toLowerCase();
+    const model = String(
+      voice.model || ""
+    ).toLowerCase();
+    const language = String(
+      voice.language || ""
+    ).toLowerCase();
+
+    let value = 0;
+
+    if (
+      model === "ultra" ||
+      id.startsWith("telnyx.ultra.")
+    ) {
+      value += 1000;
+    }
+
+    if (name.includes("clara")) value += 120;
+    else if (name.includes("callie")) value += 110;
+    else if (name.includes("molly")) value += 100;
+    else if (name.includes("madison")) value += 90;
+    else if (name.includes("skyler")) value += 80;
+
+    if (
+      language === "en-us" ||
+      language.includes("american english")
+    ) {
+      value += 70;
+    } else if (
+      language.startsWith("en") ||
+      language.includes("english")
+    ) {
+      value += 50;
+    }
+
+    if (
+      model === "kokorotts" ||
+      id.startsWith("telnyx.kokorotts.")
+    ) {
+      value += 400;
+    }
+
+    if (
+      model === "naturalhd" ||
+      id.startsWith("telnyx.naturalhd.")
+    ) {
+      value += 300;
+    }
+
+    if (id === "telnyx.naturalhd.astra") {
+      value += 60;
+    }
+
+    return value;
+  };
+
+  return (
+    [...voices].sort(
+      (left, right) => score(right) - score(left)
+    )[0] || null
+  );
+}
+
+function resolveFrontendFriendlyVoice(
+  voicesValue,
+  requestedValue
+) {
+  const voices = Array.isArray(voicesValue)
+    ? voicesValue
+    : [];
+  const requested = String(
+    requestedValue || ""
+  ).trim();
+
+  const parts = requested.split(".");
+  if (parts.length < 3) return null;
+
+  const provider = String(
+    parts[0] || ""
+  ).toLowerCase();
+  const model = String(
+    parts[1] || ""
+  ).toLowerCase();
+  const friendlyName = parts
+    .slice(2)
+    .join(".")
+    .trim()
+    .toLowerCase();
+
+  if (provider !== "telnyx" || !friendlyName) {
+    return null;
+  }
+
+  return (
+    voices.find((voice) => {
+      const voiceModel = String(
+        voice.model || ""
+      ).toLowerCase();
+      const voiceId = String(
+        voice.id || ""
+      ).toLowerCase();
+      const voiceName = String(
+        voice.name || ""
+      ).toLowerCase();
+
+      const sameModel =
+        voiceModel === model ||
+        voiceId.startsWith(
+          `telnyx.${model}.`
+        );
+
+      return (
+        sameModel &&
+        (
+          voiceName === friendlyName ||
+          voiceName.includes(friendlyName) ||
+          friendlyName.includes(voiceName)
+        )
+      );
+    }) || null
+  );
 }
 
 function normalizeStatus(value) {
