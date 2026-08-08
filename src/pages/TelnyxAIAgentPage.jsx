@@ -32,7 +32,7 @@ const DEFAULT_FORM = {
   websiteUrl: "",
   websiteIntelligence: {},
   greeting:
-    "Hi, this is the automated sales assistant calling from {{company_name}}. Is now an okay time for a quick question?",
+    "Hi, this is the Lisa calling from {{company_name}}. Is now an okay time for a quick question?",
   disclosure:
     "Clearly identify yourself as an automated AI sales assistant and identify the company at the beginning of the call.",
   persona:
