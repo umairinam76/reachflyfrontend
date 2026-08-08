@@ -33,7 +33,8 @@ const DEFAULT_FORM = {
   description:
     "ReachFly outbound qualification and meeting-booking agent.",
   companyName: "",
-  voice: "",
+  elevenLabsAgentId: "",
+  voice: "fNZkPhLHNXqE8oMjamg6",
   model: "elevenlabs-managed-llm",
   websiteUrl: "",
   websiteIntelligence: {},
@@ -111,6 +112,7 @@ export default function TelnyxAIAgentPage() {
 
   const [dashboard, setDashboard] = useState(null);
   const [voices, setVoices] = useState([]);
+  const [elevenLabsAgents, setElevenLabsAgents] = useState([]);
   const [form, setForm] = useState(DEFAULT_FORM);
   const [activeTab, setActiveTab] = useState("setup");
   const [loading, setLoading] = useState(true);
@@ -241,18 +243,57 @@ export default function TelnyxAIAgentPage() {
     }
   }, []);
 
+  const loadElevenLabsAgents = useCallback(async () => {
+    try {
+      const response = await apiRequest(
+        "/telnyx/ai-agent/agents",
+        { timeoutMs: 45_000 }
+      );
+      if (!mountedRef.current) return;
+      const loadedAgents = Array.isArray(response?.agents)
+        ? response.agents
+        : [];
+      setElevenLabsAgents(loadedAgents);
+      setForm((current) => {
+        if (current.elevenLabsAgentId || !loadedAgents.length) return current;
+        const configuredId = dashboard?.agent?.elevenLabsAgentId ||
+          dashboard?.diagnostics?.elevenLabsAgentId ||
+          "";
+        const selected =
+          loadedAgents.find((item) => item.agentId === configuredId) ||
+          loadedAgents[0];
+        return selected
+          ? {
+              ...current,
+              elevenLabsAgentId: selected.agentId,
+              voice: current.voice || selected.voiceId || "fNZkPhLHNXqE8oMjamg6",
+            }
+          : current;
+      });
+    } catch (requestError) {
+      if (!mountedRef.current) return;
+      if (![403, 404].includes(Number(requestError?.status))) {
+        setError(
+          requestError?.message ||
+            "ElevenLabs agents could not be loaded."
+        );
+      }
+    }
+  }, [dashboard?.agent?.elevenLabsAgentId, dashboard?.diagnostics?.elevenLabsAgentId]);
+
   useEffect(() => {
     mountedRef.current = true;
     void Promise.all([
       loadDashboard(),
       loadVoices(),
+      loadElevenLabsAgents(),
     ]);
 
     return () => {
       mountedRef.current = false;
       window.clearTimeout(refreshTimerRef.current);
     };
-  }, [loadDashboard, loadVoices]);
+  }, [loadDashboard, loadVoices, loadElevenLabsAgents]);
 
   useEffect(() => {
     const scheduleSilentRefresh = () => {
@@ -1016,6 +1057,7 @@ export default function TelnyxAIAgentPage() {
         <AgentSetup
           form={form}
           voices={voices}
+          elevenLabsAgents={elevenLabsAgents}
           recommendedVoice={recommendedVoice}
           diagnostics={diagnostics}
           saving={saving}
@@ -1098,6 +1140,7 @@ export default function TelnyxAIAgentPage() {
 function AgentSetup({
   form,
   voices,
+  elevenLabsAgents,
   recommendedVoice,
   diagnostics,
   saving,
@@ -1137,6 +1180,37 @@ function AgentSetup({
         </div>
 
         <label className="rf-agent-field">
+          <span>ElevenLabs agent</span>
+          <select
+            value={form.elevenLabsAgentId || ""}
+            onChange={(event) => {
+              const agentId = event.target.value;
+              const selected = (elevenLabsAgents || []).find(
+                (item) => item.agentId === agentId
+              );
+              onChange("elevenLabsAgentId", agentId);
+              if (selected?.voiceId) {
+                onChange("voice", selected.voiceId);
+              }
+            }}
+          >
+            {!elevenLabsAgents?.length ? (
+              <option value={form.elevenLabsAgentId || ""}>
+                {form.elevenLabsAgentId || "No ElevenLabs agents loaded"}
+              </option>
+            ) : null}
+            {(elevenLabsAgents || []).map((item) => (
+              <option key={item.agentId} value={item.agentId}>
+                {item.name} — {item.voiceName || item.voiceId || "No voice"}
+              </option>
+            ))}
+          </select>
+          <small>
+            ReachFly loads agents from your ElevenLabs account and shows the voice attached to each one. This control is protected by the same workspace access rules as the rest of Voice Agent, so AH Growth cannot access it.
+          </small>
+        </label>
+
+        <label className="rf-agent-field">
           <span>ElevenLabs voice</span>
           <select
             value={form.voice}
@@ -1154,7 +1228,7 @@ function AgentSetup({
             ))}
           </select>
           <small>
-            The voice comes from the linked ElevenAgent. ReachFly keeps that voice and applies the low-latency realtime settings when you save.
+            Choose any voice available to your ElevenLabs workspace. Saving ReachFly now updates the selected ElevenAgent to this voice and applies the low-latency realtime settings.
           </small>
 
           <div className="rf-agent-website-actions">
@@ -3426,6 +3500,8 @@ function chooseFrontendRecommendedVoice(voicesValue) {
     const language = String(voice.language || "").toLowerCase();
     const gender = String(voice.gender || "").toLowerCase();
     let value = 0;
+
+    if (id === "fnzkphlhnxqe8omjamg6") value += 10000;
 
     const ultra =
       model === "ultra" || id.startsWith("telnyx.ultra.");
