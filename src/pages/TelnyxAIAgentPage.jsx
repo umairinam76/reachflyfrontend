@@ -22,6 +22,12 @@ import {
 
 import "../styles.css";
 
+const FAST_HUMAN_GREETING =
+  "Hi, this is Lisa, the AI assistant with {{company_name}}. Hey—did I catch you at an okay time for one quick question?";
+
+const FAST_HUMAN_PERSONA =
+  "Warm, quick, perceptive, lightly playful, and conversational. Sound present rather than scripted. Use contractions, short sentences, natural backchannels like yeah, right, gotcha, mm-hm, I see, fair enough, hmm, or well only when they fit. Match the lead's energy and use subtle emotion. With an Ultra expressive voice, light laughter is okay only when a genuinely funny or playful moment happens. Never force laughter and never claim to be human.";
+
 const DEFAULT_FORM = {
   name: "",
   description:
@@ -31,12 +37,10 @@ const DEFAULT_FORM = {
   model: "anthropic/claude-haiku-4-5",
   websiteUrl: "",
   websiteIntelligence: {},
-  greeting:
-    "Hi, this is the Lisa calling from {{company_name}}. Is now an okay time for a quick question?",
+  greeting: FAST_HUMAN_GREETING,
   disclosure:
     "Clearly identify yourself as an automated AI sales assistant and identify the company at the beginning of the call.",
-  persona:
-    "Warm, confident, concise, curious, respectful, and conversational. Use short sentences and natural pauses. Never claim to be human.",
+  persona: FAST_HUMAN_PERSONA,
   offer: "",
   idealCustomer: "",
   qualificationQuestions: "",
@@ -1131,11 +1135,25 @@ function AgentSetup({
                 : "No recommended voice available"}
             </button>
 
+            <button
+              type="button"
+              className="btn primary"
+              onClick={() => {
+                if (recommendedVoice?.id) {
+                  onChange("voice", recommendedVoice.id);
+                }
+                onChange("greeting", FAST_HUMAN_GREETING);
+                onChange("persona", FAST_HUMAN_PERSONA);
+              }}
+            >
+              ⚡ Apply fast + humanized preset
+            </button>
+
             <span className="rf-agent-brain-pill">
-              <b>Low-latency preset</b>
+              <b>Fast human mode</b>
               <span>
-                {(recommendedVoice?.name || "Account voice")} + Claude Haiku
-                4.5 + Deepgram Flux
+                {(recommendedVoice?.name || "Account Ultra voice")} + expressive mode +
+                Claude Haiku 4.5 + aggressive Deepgram Flux turn-taking
               </span>
             </span>
           </div>
