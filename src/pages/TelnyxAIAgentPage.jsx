@@ -23,10 +23,10 @@ import {
 import "../styles.css";
 
 const FAST_HUMAN_GREETING =
-  "Hi, this is Lisa, the AI assistant with {{company_name}}. Hey—did I catch you at an okay time for one quick question?";
+  "Hey, Lisa here from {{company_name}} — I’m their AI assistant. Did I catch you at a bad time?";
 
 const FAST_HUMAN_PERSONA =
-  "Warm, quick, perceptive, lightly playful, and conversational. Sound present rather than scripted. Use contractions, short sentences, natural backchannels like yeah, right, gotcha, mm-hm, I see, fair enough, hmm, or well only when they fit. Match the lead's energy and use subtle emotion. With an Ultra expressive voice, light laughter is okay only when a genuinely funny or playful moment happens. Never force laughter and never claim to be human.";
+  "Quick, warm, perceptive, relaxed, and naturally conversational. Use contractions, short fragments, varied rhythm, small reactions like ah gotcha, yeah fair, oh nice, hmm okay, or right only when they fit. Occasionally use one tiny hesitation or self-correction such as well— or actually. Match the caller's energy. A brief natural chuckle is okay only in a genuinely playful moment. Avoid canned call-center filler and never claim to be human.";
 
 const DEFAULT_FORM = {
   name: "",
@@ -151,7 +151,7 @@ export default function TelnyxAIAgentPage() {
         const response = await apiRequest(
           "/telnyx/ai-agent/dashboard",
           {
-            timeoutMs: 20_000,
+            timeoutMs: 45_000,
           }
         );
 
@@ -1146,11 +1146,11 @@ function AgentSetup({
                 onChange("persona", FAST_HUMAN_PERSONA);
               }}
             >
-              ⚡ Apply fast + humanized preset
+              ⚡ Apply turbo-natural preset
             </button>
 
             <span className="rf-agent-brain-pill">
-              <b>Fast human mode</b>
+              <b>Turbo natural mode</b>
               <span>
                 {(recommendedVoice?.name || "Account Ultra voice")} + expressive mode +
                 Claude Haiku 4.5 + aggressive Deepgram Flux turn-taking
@@ -3292,72 +3292,52 @@ function chooseFrontendRecommendedVoice(voicesValue) {
   if (!voices.length) return null;
 
   const score = (voice) => {
-    const id = String(
-      voice.id || ""
-    ).toLowerCase();
-    const name = String(
-      voice.name || ""
-    ).toLowerCase();
-    const model = String(
-      voice.model || ""
-    ).toLowerCase();
-    const language = String(
-      voice.language || ""
-    ).toLowerCase();
-
+    const id = String(voice.id || "").toLowerCase();
+    const name = String(voice.name || "").toLowerCase();
+    const model = String(voice.model || "").toLowerCase();
+    const language = String(voice.language || "").toLowerCase();
+    const gender = String(voice.gender || "").toLowerCase();
     let value = 0;
 
-    if (
-      model === "ultra" ||
-      id.startsWith("telnyx.ultra.")
-    ) {
-      value += 1000;
-    }
+    const ultra =
+      model === "ultra" || id.startsWith("telnyx.ultra.");
+    if (ultra) value += 1500;
 
-    if (name.includes("clara")) value += 120;
-    else if (name.includes("callie")) value += 110;
-    else if (name.includes("molly")) value += 100;
-    else if (name.includes("madison")) value += 90;
-    else if (name.includes("skyler")) value += 80;
+    if (id === "telnyx.ultra.2747b6cf-fa34-460c-97db-267566918881") value += 800;
+    if (name.includes("allie")) value += 700;
+    if (name.includes("natural conversationalist")) value += 650;
+    if (name.includes("conversational")) value += 300;
+    if (name.includes("approachable")) value += 220;
+    if (name.includes("warm")) value += 210;
+    if (name.includes("friendly")) value += 200;
+    if (name.includes("encourager")) value += 180;
+    if (name.includes("service specialist")) value += 150;
+    if (name.includes("callie")) value += 140;
+    if (name.includes("mia")) value += 130;
+    if (name.includes("clara")) value += 90;
 
     if (
       language === "en-us" ||
       language.includes("american english")
-    ) {
-      value += 70;
-    } else if (
+    ) value += 100;
+    else if (
       language.startsWith("en") ||
       language.includes("english")
-    ) {
-      value += 50;
-    }
+    ) value += 80;
+
+    if (gender.includes("female")) value += 40;
 
     if (
-      model === "kokorotts" ||
-      id.startsWith("telnyx.kokorotts.")
-    ) {
-      value += 400;
-    }
-
-    if (
-      model === "naturalhd" ||
-      id.startsWith("telnyx.naturalhd.")
-    ) {
-      value += 300;
-    }
-
-    if (id === "telnyx.naturalhd.astra") {
-      value += 60;
-    }
+      !ultra &&
+      (model === "naturalhd" || id.startsWith("telnyx.naturalhd."))
+    ) value += 350;
 
     return value;
   };
 
-  return (
-    [...voices].sort(
-      (left, right) => score(right) - score(left)
-    )[0] || null
-  );
+  return [...voices].sort(
+    (left, right) => score(right) - score(left)
+  )[0] || null;
 }
 
 function resolveFrontendFriendlyVoice(
