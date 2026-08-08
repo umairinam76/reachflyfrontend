@@ -336,6 +336,23 @@ export default function TelnyxAIAgentPage() {
   const calls = Array.isArray(dashboard?.calls)
     ? dashboard.calls
     : [];
+  const activeCalls = useMemo(
+    () =>
+      calls.filter((call) =>
+        LIVE_CALL_STATES.has(normalizeStatus(call.status))
+      ),
+    [calls]
+  );
+  const activeCustomPhoneCall = useMemo(() => {
+    const phone = normalizePhoneKey(customLeadForm.phone);
+    if (!phone) return null;
+    return (
+      activeCalls.find(
+        (call) =>
+          normalizePhoneKey(call.toNumber) === phone
+      ) || null
+    );
+  }, [activeCalls, customLeadForm.phone]);
   const meetings = Array.isArray(dashboard?.meetings)
     ? dashboard.meetings
     : [];
@@ -388,6 +405,14 @@ export default function TelnyxAIAgentPage() {
       return;
     }
 
+    if (callNow && activeCustomPhoneCall) {
+      setError("");
+      setSuccess(
+        "This number is already on an active AI call. End the current call below or open Calls to monitor it."
+      );
+      return;
+    }
+
     if (callNow) {
       setCallingCustomLead(true);
     } else {
@@ -419,6 +444,15 @@ export default function TelnyxAIAgentPage() {
           timeoutMs: callNow ? 60_000 : 30_000,
         }
       );
+
+      if (response?.alreadyActive && response?.activeCall?.id) {
+        setError("");
+        setSuccess(
+          "This number is already on an active AI call. Use End current call or open Calls to monitor it."
+        );
+        await loadDashboard({ silent: true });
+        return;
+      }
 
       setCustomLeadForm({
         ...DEFAULT_CUSTOM_LEAD_FORM,
@@ -1007,6 +1041,9 @@ export default function TelnyxAIAgentPage() {
           googleLeadResult={googleLeadResult}
           findingGoogleLeads={findingGoogleLeads}
           customLeadForm={customLeadForm}
+          activeCustomPhoneCall={activeCustomPhoneCall}
+          activeCalls={activeCalls}
+          busyCallId={busyCallId}
           creatingCustomLead={creatingCustomLead}
           callingCustomLead={callingCustomLead}
           canTestCall={["owner", "admin"].includes(
@@ -1030,6 +1067,8 @@ export default function TelnyxAIAgentPage() {
           onQueueCustomLead={() => void submitCustomLead(false)}
           onCallCustomLead={() => void submitCustomLead(true)}
           onTestCustomLead={startControlledTestCall}
+          onEndCall={(id) => void cancelCall(id)}
+          onOpenCalls={() => setActiveTab("calls")}
           onSearch={setLeadSearch}
           onLeadStatus={setLeadStatus}
           onQueueStatus={setQueueStatus}
@@ -1563,6 +1602,9 @@ function LeadQueue({
   googleLeadResult,
   findingGoogleLeads,
   customLeadForm,
+  activeCustomPhoneCall,
+  activeCalls,
+  busyCallId,
   creatingCustomLead,
   callingCustomLead,
   canTestCall,
@@ -1574,6 +1616,8 @@ function LeadQueue({
   onQueueCustomLead,
   onCallCustomLead,
   onTestCustomLead,
+  onEndCall,
+  onOpenCalls,
   onSearch,
   onLeadStatus,
   onQueueStatus,
@@ -1655,6 +1699,38 @@ function LeadQueue({
           </small>
         </label>
 
+        {activeCustomPhoneCall ? (
+          <div className="rf-agent-monitor-warning">
+            <div>
+              <b>Active call already running</b>
+              <div>
+                {activeCustomPhoneCall.leadName || "This lead"} · {formatPhone(
+                  activeCustomPhoneCall.toNumber
+                )} · {formatLabel(normalizeStatus(activeCustomPhoneCall.status))}
+              </div>
+            </div>
+            <div className="rf-agent-custom-actions">
+              <button
+                type="button"
+                className="btn light"
+                onClick={onOpenCalls}
+              >
+                Open live call
+              </button>
+              <button
+                type="button"
+                className="btn danger"
+                disabled={busyCallId === activeCustomPhoneCall.id}
+                onClick={() => onEndCall(activeCustomPhoneCall.id)}
+              >
+                {busyCallId === activeCustomPhoneCall.id
+                  ? "Ending…"
+                  : "End current call"}
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         <div className="rf-agent-custom-actions">
           <button
             type="button"
@@ -1672,11 +1748,16 @@ function LeadQueue({
             className="btn primary"
             disabled={
               creatingCustomLead ||
-              callingCustomLead
+              callingCustomLead ||
+              Boolean(activeCustomPhoneCall)
             }
             onClick={onCallCustomLead}
           >
-            {callingCustomLead ? "Starting AI call…" : "Call this lead now"}
+            {activeCustomPhoneCall
+              ? "Call already active"
+              : callingCustomLead
+                ? "Starting AI call…"
+                : "Call this lead now"}
           </button>
           {canTestCall ? (
             <button
@@ -1684,7 +1765,8 @@ function LeadQueue({
               className="btn light"
               disabled={
                 creatingCustomLead ||
-                callingCustomLead
+                callingCustomLead ||
+                Boolean(activeCustomPhoneCall)
               }
               onClick={onTestCustomLead}
               title="Bypasses only the configured calling-time window for one controlled Custom AI Call"
@@ -2002,6 +2084,33 @@ function LeadQueue({
                   {item.nextAttemptAt ? (
                     <small>{formatDateTime(item.nextAttemptAt)}</small>
                   ) : null}
+                  {(() => {
+                    const matchingCall = activeCalls.find(
+                      (call) =>
+                        normalizePhoneKey(call.toNumber) ===
+                        normalizePhoneKey(item.phone || item.lead?.phone)
+                    );
+                    if (!matchingCall) return null;
+                    return (
+                      <div className="rf-agent-custom-actions">
+                        <button
+                          type="button"
+                          className="btn light"
+                          onClick={onOpenCalls}
+                        >
+                          Open
+                        </button>
+                        <button
+                          type="button"
+                          className="btn danger"
+                          disabled={busyCallId === matchingCall.id}
+                          onClick={() => onEndCall(matchingCall.id)}
+                        >
+                          {busyCallId === matchingCall.id ? "Ending…" : "End call"}
+                        </button>
+                      </div>
+                    );
+                  })()}
                 </div>
               </article>
             ))
@@ -3453,6 +3562,13 @@ function statusTone(value) {
     return "red";
   }
   return "gray";
+}
+
+function normalizePhoneKey(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const digits = raw.replace(/\D/g, "");
+  return digits ? `+${digits}` : "";
 }
 
 function formatPhone(value) {
