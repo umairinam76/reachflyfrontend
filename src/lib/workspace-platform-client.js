@@ -448,7 +448,317 @@ export async function apiRequest(
     removeExternalAbort();
   }
 }
+export async function getRoleDashboard() {
+  const response = await apiRequest(
+    "/sales/dashboard"
+  );
 
+  const source =
+    response &&
+    typeof response === "object"
+      ? response
+      : {};
+
+  const user =
+    source.currentUser ||
+    source.user ||
+    {};
+
+  const role = String(
+    source.role ||
+      user.workspaceRole ||
+      user.role ||
+      "viewer"
+  )
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+
+  const calls = Array.isArray(
+    source.calls
+  )
+    ? source.calls
+    : [];
+
+  const assignments = Array.isArray(
+    source.assignments
+  )
+    ? source.assignments
+    : Array.isArray(source.records)
+      ? source.records
+      : [];
+
+  const members = Array.isArray(
+    source.members
+  )
+    ? source.members
+    : [];
+
+  const tasks = Array.isArray(
+    source.tasks
+  )
+    ? source.tasks
+    : [];
+
+  const metrics =
+    source.metrics &&
+    typeof source.metrics === "object"
+      ? source.metrics
+      : {};
+
+  const todayKey = new Date()
+    .toISOString()
+    .slice(0, 10);
+
+  const todayCalls = calls.filter(
+    (call) => {
+      const value =
+        call?.createdAt ||
+        call?.startedAt ||
+        call?.updatedAt ||
+        "";
+
+      return (
+        String(value).slice(0, 10) ===
+        todayKey
+      );
+    }
+  );
+
+  const normalizeStatus = (value) =>
+    String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[\s-]+/g, "_");
+
+  const answeredCalls =
+    todayCalls.filter((call) =>
+      [
+        "answered",
+        "active",
+        "completed",
+        "contacted",
+        "qualified",
+        "meeting_booked",
+        "converted",
+      ].includes(
+        normalizeStatus(
+          call?.status ||
+            call?.state ||
+            call?.outcome
+        )
+      )
+    ).length;
+
+  const qualifiedLeads =
+    assignments.filter((assignment) =>
+      [
+        "qualified",
+        "meeting_booked",
+        "converted",
+      ].includes(
+        normalizeStatus(
+          assignment?.status ||
+            assignment?.outcome
+        )
+      )
+    ).length;
+
+  const meetingsBooked =
+    assignments.filter(
+      (assignment) =>
+        normalizeStatus(
+          assignment?.status ||
+            assignment?.outcome
+        ) === "meeting_booked"
+    ).length;
+
+  const pendingTasks = tasks.filter(
+    (task) =>
+      ![
+        "completed",
+        "done",
+        "cancelled",
+        "canceled",
+        "closed",
+      ].includes(
+        normalizeStatus(task?.status)
+      )
+  ).length;
+
+  const totalCallSeconds =
+    todayCalls.reduce(
+      (total, call) =>
+        total +
+        Math.max(
+          0,
+          Number(
+            call?.durationSeconds ||
+              call?.duration ||
+              0
+          ) || 0
+        ),
+      0
+    );
+
+  const summary = {
+    ...metrics,
+
+    managedMembers:
+      metrics.managedMembers ??
+      members.length,
+
+    teamMembers:
+      metrics.teamMembers ??
+      members.length,
+
+    activeMembers:
+      metrics.activeMembers ??
+      members.filter(
+        (member) =>
+          member?.active !== false &&
+          member?.isActive !== false &&
+          normalizeStatus(
+            member?.status
+          ) !== "suspended"
+      ).length,
+
+    onlineNow:
+      metrics.onlineNow ??
+      members.filter((member) =>
+        [
+          "online",
+          "available",
+          "active",
+        ].includes(
+          normalizeStatus(
+            member?.presence ||
+              member?.availability ||
+              member?.status
+          )
+        )
+      ).length,
+
+    assignedLeads:
+      metrics.assignedLeads ??
+      assignments.length,
+
+    callsToday:
+      metrics.callsToday ??
+      todayCalls.length,
+
+    answeredToday:
+      metrics.answeredToday ??
+      metrics.answeredCallsToday ??
+      metrics.answeredCalls ??
+      answeredCalls,
+
+    answeredCallsToday:
+      metrics.answeredCallsToday ??
+      metrics.answeredToday ??
+      answeredCalls,
+
+    answeredCalls:
+      metrics.answeredCalls ??
+      metrics.answeredToday ??
+      answeredCalls,
+
+    followUpsDue:
+      metrics.followUpsDue ?? 0,
+
+    callbacksDue:
+      metrics.callbacksDue ??
+      metrics.followUpsDue ??
+      0,
+
+    pendingTasks:
+      metrics.pendingTasks ??
+      pendingTasks,
+
+    qualifiedLeads:
+      metrics.qualifiedLeads ??
+      qualifiedLeads,
+
+    meetingsBooked:
+      metrics.meetingsBooked ??
+      meetingsBooked,
+
+    totalCallSeconds:
+      metrics.totalCallSeconds ??
+      totalCallSeconds,
+
+    checkedIn:
+      metrics.checkedIn ??
+      metrics.checkedInToday ??
+      0,
+
+    checkedInToday:
+      metrics.checkedInToday ??
+      metrics.checkedIn ??
+      0,
+  };
+
+  return {
+    ...source,
+
+    role,
+
+    currentUser:
+      source.currentUser || user,
+
+    workspace:
+      source.workspace || {},
+
+    summary,
+
+    members,
+
+    team: Array.isArray(source.team)
+      ? source.team
+      : members,
+
+    teamPerformance:
+      Array.isArray(
+        source.teamPerformance
+      )
+        ? source.teamPerformance
+        : members,
+
+    assignments,
+
+    assignedLeads:
+      Array.isArray(
+        source.assignedLeads
+      )
+        ? source.assignedLeads
+        : assignments,
+
+    calls,
+
+    recentCalls:
+      Array.isArray(
+        source.recentCalls
+      )
+        ? source.recentCalls
+        : calls.slice(0, 20),
+
+    tasks,
+
+    overdueActions:
+      Array.isArray(
+        source.overdueActions
+      )
+        ? source.overdueActions
+        : [],
+
+    recentActivity:
+      Array.isArray(
+        source.recentActivity
+      )
+        ? source.recentActivity
+        : [],
+  };
+}
 /**
  * Uploads a FormData body using the standard authenticated API client.
  */
