@@ -289,6 +289,16 @@ export default function MyLeadsPage() {
   ] = useState("");
 
   const [
+    dailyDay,
+    setDailyDay,
+  ] = useState(null);
+
+  const [
+    submittingDay,
+    setSubmittingDay,
+  ] = useState(false);
+
+  const [
     outcome,
     setOutcome,
   ] = useState(
@@ -322,6 +332,66 @@ export default function MyLeadsPage() {
         ),
       []
     );
+
+  const loadDailyDay =
+    useCallback(
+      async () => {
+        try {
+          const response =
+            await request(
+              "/daily-leads/my-day"
+            );
+
+          setDailyDay(response);
+        } catch (
+          requestError
+        ) {
+          console.warn(
+            "[MyLeadsPage] Daily status could not be loaded:",
+            requestError
+          );
+        }
+      },
+      [request]
+    );
+
+  async function submitDailyWork() {
+    setSubmittingDay(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const response =
+        await request(
+          "/daily-leads/my-day/submit",
+          {
+            method: "POST",
+            body: {},
+          }
+        );
+
+      setDailyDay((current) => ({
+        ...(current || {}),
+        submission:
+          response.submission ||
+          current?.submission ||
+          null,
+      }));
+
+      setSuccess(
+        "Today's caller work was submitted successfully."
+      );
+    } catch (
+      requestError
+    ) {
+      setError(
+        requestError?.message ||
+          "Today's caller work could not be submitted."
+      );
+    } finally {
+      setSubmittingDay(false);
+    }
+  }
 
   const load =
     useCallback(
@@ -457,9 +527,12 @@ export default function MyLeadsPage() {
       silent:
         Boolean(cached),
     });
+
+    void loadDailyDay();
   }, [
     bucket,
     load,
+    loadDailyDay,
   ]);
 
   useEffect(() => {
@@ -532,6 +605,21 @@ export default function MyLeadsPage() {
         "lead:call-updated",
         scheduleRefresh
       ),
+      onWorkspaceSocket(
+        "daily-leads:completed",
+        () => {
+          scheduleRefresh();
+          void loadDailyDay();
+        }
+      ),
+      onWorkspaceSocket(
+        "daily-leads:config-updated",
+        () => void loadDailyDay()
+      ),
+      onWorkspaceSocket(
+        "daily-leads:submitted",
+        () => void loadDailyDay()
+      ),
     ];
 
     return () => {
@@ -546,6 +634,7 @@ export default function MyLeadsPage() {
     };
   }, [
     load,
+    loadDailyDay,
   ]);
 
   const campaignOptions =
@@ -1028,6 +1117,14 @@ export default function MyLeadsPage() {
         </div>
       ) : null}
 
+      <DailyWorkPanel
+        dailyDay={dailyDay}
+        submitting={submittingDay}
+        onSubmit={() =>
+          void submitDailyWork()
+        }
+      />
+
       <nav className="caller-queue-tabs">
         {BUCKETS.map(
           (item) => (
@@ -1427,6 +1524,92 @@ export default function MyLeadsPage() {
       ) : null}
     </main>
   );
+}
+
+function DailyWorkPanel({
+  dailyDay,
+  submitting,
+  onSubmit,
+}) {
+  if (!dailyDay) {
+    return null;
+  }
+
+  const submitted =
+    dailyDay.submission?.status ===
+    "submitted";
+
+  return (
+    <section
+      className="cardish"
+      style={{ marginBottom: 16 }}
+    >
+      <div className="section-title-row">
+        <div>
+          <span className="eyebrow">
+            Daily assignment
+          </span>
+          <h3>
+            {dailyDay.assigned || 0}/
+            {dailyDay.leadsPerCaller || 100}
+            {" "}leads assigned
+          </h3>
+          <p>
+            Current niche: {dailyDay.currentNiche || "Not assigned"}
+            {dailyDay.nextNiche
+              ? ` · Next niche: ${dailyDay.nextNiche}`
+              : ""}
+          </p>
+          <p>
+            Worked: {dailyDay.worked || 0}
+            {" · "}
+            Remaining: {dailyDay.remaining || 0}
+            {" · "}
+            Refresh/deadline: {formatDailyDateTime(
+              dailyDay.nextRefreshAt
+            )}
+            {" "}
+            ({dailyDay.timezone || ""})
+          </p>
+        </div>
+
+        <span className="badge badge-neutral">
+          {submitted
+            ? "Submitted"
+            : dailyDay.submission?.status ===
+                "missed_deadline"
+              ? "Missed deadline"
+              : "Open day"}
+        </span>
+      </div>
+
+      <div className="flex flex-gap flex-wrap mt16">
+        <button
+          type="button"
+          className="btn primary"
+          onClick={onSubmit}
+          disabled={
+            submitting ||
+            submitted
+          }
+        >
+          {submitting
+            ? "Submitting…"
+            : submitted
+              ? "Day submitted"
+              : "Submit today's work"}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function formatDailyDateTime(value) {
+  if (!value) return "Not scheduled";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "Not scheduled"
+    : date.toLocaleString();
 }
 
 function LeadCard({

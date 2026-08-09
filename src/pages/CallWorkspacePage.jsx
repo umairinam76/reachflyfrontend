@@ -312,6 +312,12 @@ export default function CallWorkspacePage() {
 
       <section className="rf-call-layout">
         <div className="rf-call-layout__primary">
+          <section className="cardish" style={{ marginBottom: 12 }}>
+            <p className="rf-call-eyebrow">Manual caller phone</p>
+            <h2>Telnyx dialer & keypad</h2>
+            <p>Start the call here. During an active call the End call button and dial pad are available below.</p>
+          </section>
+
           <TelnyxDialer
             lead={lead}
             assignmentId={resolvedAssignmentId}
