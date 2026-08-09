@@ -7,7 +7,7 @@ import {
 } from "react";
 import { api } from "../api";
 import { apiRequest } from "../lib/workspace-platform-client.js";
-import "../styles.css";
+import "./TelnyxDialer.css";
 
 const ACTIVE_STATES = new Set([
   "active",
@@ -202,6 +202,12 @@ export default function TelnyxDialer({
 
   const [busy, setBusy] =
     useState(false);
+
+  const [dialPadOpen, setDialPadOpen] =
+    useState(false);
+
+  const [sendingDigit, setSendingDigit] =
+    useState("");
 
   const [
     recordingConsent,
@@ -704,6 +710,8 @@ export default function TelnyxDialer({
 
       setElapsed(0);
       setMuted(false);
+      setDialPadOpen(false);
+      setSendingDigit("");
     }, [stopRingback]);
 
   const disconnect =
@@ -1516,7 +1524,7 @@ export default function TelnyxDialer({
           if (mountedRef.current) {
             setStatus("ready");
             setMessage(
-              "ReachFly Dialer is ready."
+              "Telnyx dialer is ready."
             );
           }
 
@@ -1536,7 +1544,7 @@ export default function TelnyxDialer({
 
           setError(
             requestError?.message ||
-              "Could not connect to the ReachFly Dialer."
+              "Could not connect to the Telnyx dialer."
           );
         }
 
@@ -1880,52 +1888,277 @@ export default function TelnyxDialer({
       const call =
         callRef.current;
 
-      if (!call) {
+      const localCallId =
+        localCallIdRef.current;
+
+      if (!call && !localCallId) {
         return;
       }
 
       setBusy(true);
       setError("");
       setStatus("ending");
+      setDialPadOpen(false);
       stopRingback();
 
-      try {
-        await Promise.resolve(
-          call.hangup?.()
-        );
+      let browserHangupSucceeded = false;
+      let carrierHangupSucceeded = false;
+      let browserError = null;
+      let carrierError = null;
 
-        window.setTimeout(
-          () => {
-            if (
-              localCallIdRef.current &&
-              !finalizingRef.current
-            ) {
-              void finalizeCall({
-                state: "hangup",
-                cause:
-                  "Caller ended call",
-              });
+      /*
+       * Primary path: terminate the WebRTC/SIP call from the Telnyx browser SDK.
+       * Telnyx documents call.hangup() as the normal client-side BYE/cancel path.
+       */
+      if (call?.hangup) {
+        try {
+          await Promise.resolve(
+            call.hangup()
+          );
+
+          browserHangupSucceeded = true;
+        } catch (requestError) {
+          browserError =
+            requestError;
+
+          console.warn(
+            "[TelnyxDialer] Browser hangup failed; trying carrier fallback:",
+            requestError
+          );
+        }
+      }
+
+      /*
+       * Carrier-side safety path.
+       *
+       * The backend uses the stored Telnyx call_control_id and sends
+       * POST /v2/calls/{call_control_id}/actions/hangup. Calling both paths is
+       * intentional: the browser call may lose its WebSocket while the PSTN
+       * call leg is still alive.
+       */
+      if (localCallId) {
+        try {
+          await apiRequest(
+            `/telnyx/calls/${encodeURIComponent(
+              localCallId
+            )}/end`,
+            {
+              method: "POST",
             }
-          },
-          1500
-        );
-      } catch (requestError) {
-        await finalizeCall({
-          state: "hangup",
+          );
 
-          cause:
-            requestError?.message ||
-            "Caller ended call",
-        });
-      } finally {
+          carrierHangupSucceeded = true;
+        } catch (requestError) {
+          carrierError =
+            requestError;
+
+          /*
+           * It is common for the server fallback to arrive after the browser BYE
+           * already ended the call. If the browser hangup succeeded, the fallback
+           * error is informational and must not make the UI claim the hangup
+           * failed.
+           */
+          if (browserHangupSucceeded) {
+            console.info(
+              "[TelnyxDialer] Carrier hangup fallback was not needed or could not run:",
+              requestError
+            );
+          } else {
+            console.error(
+              "[TelnyxDialer] Carrier hangup fallback failed:",
+              requestError
+            );
+          }
+        }
+      }
+
+      if (
+        !browserHangupSucceeded &&
+        !carrierHangupSucceeded
+      ) {
         if (mountedRef.current) {
+          setStatus(
+            call?.state
+              ? normalizeCallState(
+                  call.state
+                )
+              : "active"
+          );
+
+          setError(
+            carrierError?.message ||
+              browserError?.message ||
+              "The call could not be ended. The Telnyx call leg is still active."
+          );
+
           setBusy(false);
         }
+
+        return;
+      }
+
+      /*
+       * Normal SDK/webhook final-state events will call finalizeCall first.
+       * This timer is only a UI/CRM safety cleanup after at least one real
+       * termination command was accepted.
+       */
+      window.setTimeout(
+        () => {
+          if (
+            localCallIdRef.current &&
+            !finalizingRef.current
+          ) {
+            void finalizeCall({
+              state: "hangup",
+              cause:
+                "Caller ended call",
+            });
+          }
+        },
+        2500
+      );
+
+      if (mountedRef.current) {
+        setMessage(
+          "Ending call…"
+        );
+
+        setBusy(false);
       }
     }, [
       finalizeCall,
       stopRingback,
     ]);
+
+  const sendDialPadDigit =
+    useCallback(
+      async (digit) => {
+        const normalizedDigit =
+          String(digit || "").trim();
+
+        if (
+          !/^[0-9*#]$/.test(
+            normalizedDigit
+          )
+        ) {
+          return;
+        }
+
+        if (
+          !ACTIVE_STATES.has(
+            status
+          )
+        ) {
+          setError(
+            "The dial pad is available after the call is answered."
+          );
+          return;
+        }
+
+        const call =
+          callRef.current;
+
+        const localCallId =
+          localCallIdRef.current;
+
+        setSendingDigit(
+          normalizedDigit
+        );
+        setError("");
+
+        let browserDtmfSucceeded = false;
+        let browserError = null;
+
+        /*
+         * Primary path: Telnyx WebRTC sends the DTMF digit on the live call.
+         */
+        if (call?.sendDigits) {
+          try {
+            await Promise.resolve(
+              call.sendDigits(
+                normalizedDigit
+              )
+            );
+
+            browserDtmfSucceeded = true;
+          } catch (requestError) {
+            browserError =
+              requestError;
+
+            console.warn(
+              "[TelnyxDialer] Browser DTMF failed; trying carrier fallback:",
+              requestError
+            );
+          }
+        }
+
+        /*
+         * Fallback only when the browser SDK could not send the digit.
+         * Do not send through both paths on success or the IVR would receive the
+         * same digit twice.
+         */
+        if (
+          !browserDtmfSucceeded &&
+          localCallId
+        ) {
+          try {
+            await apiRequest(
+              `/telnyx/calls/${encodeURIComponent(
+                localCallId
+              )}/dtmf`,
+              {
+                method: "POST",
+                body: {
+                  digits:
+                    normalizedDigit,
+                },
+              }
+            );
+
+            browserDtmfSucceeded = true;
+          } catch (requestError) {
+            setError(
+              requestError?.message ||
+                browserError?.message ||
+                "The keypad digit could not be sent."
+            );
+          }
+        }
+
+        if (
+          !browserDtmfSucceeded &&
+          !localCallId
+        ) {
+          setError(
+            browserError?.message ||
+              "The keypad digit could not be sent because the active call is not linked yet."
+          );
+        }
+
+        if (
+          browserDtmfSucceeded &&
+          mountedRef.current
+        ) {
+          setMessage(
+            `Sent ${normalizedDigit}`
+          );
+        }
+
+        if (mountedRef.current) {
+          window.setTimeout(
+            () => {
+              if (
+                mountedRef.current
+              ) {
+                setSendingDigit("");
+              }
+            },
+            180
+          );
+        }
+      },
+      [status]
+    );
 
   const toggleMute =
     useCallback(() => {
@@ -1995,7 +2228,7 @@ export default function TelnyxDialer({
       <div className="section-title-row">
         <div>
           <span className="eyebrow">
-            ReachFly Dialer 
+            Telnyx dialer
           </span>
 
           <h3>
@@ -2135,6 +2368,30 @@ export default function TelnyxDialer({
             </button>
 
             <button
+              className="btn light"
+              type="button"
+              onClick={() =>
+                setDialPadOpen(
+                  (current) =>
+                    !current
+                )
+              }
+              disabled={
+                busy ||
+                !ACTIVE_STATES.has(
+                  status
+                )
+              }
+              aria-expanded={
+                dialPadOpen
+              }
+            >
+              {dialPadOpen
+                ? "Hide dial pad"
+                : "Dial pad"}
+            </button>
+
+            <button
               className="btn danger"
               type="button"
               onClick={hangup}
@@ -2147,6 +2404,68 @@ export default function TelnyxDialer({
           </>
         )}
       </div>
+
+      {callInProgress &&
+      dialPadOpen ? (
+        <div
+          aria-label="Call dial pad"
+          style={{
+            marginTop: 16,
+            width: "100%",
+            maxWidth: 280,
+            display: "grid",
+            gridTemplateColumns:
+              "repeat(3, minmax(64px, 1fr))",
+            gap: 10,
+          }}
+        >
+          {[
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "6",
+            "7",
+            "8",
+            "9",
+            "*",
+            "0",
+            "#",
+          ].map((digit) => (
+            <button
+              key={digit}
+              className="btn light"
+              type="button"
+              disabled={
+                busy ||
+                Boolean(
+                  sendingDigit
+                ) ||
+                !ACTIVE_STATES.has(
+                  status
+                )
+              }
+              onClick={() =>
+                void sendDialPadDigit(
+                  digit
+                )
+              }
+              aria-label={`Send DTMF ${digit}`}
+              style={{
+                minHeight: 48,
+                fontSize: 18,
+                fontWeight: 700,
+              }}
+            >
+              {sendingDigit ===
+              digit
+                ? "•"
+                : digit}
+            </button>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }

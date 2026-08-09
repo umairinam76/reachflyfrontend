@@ -23,10 +23,10 @@ import {
 import "../styles.css";
 
 const FAST_HUMAN_GREETING =
-  "Hey, Lisa here from {{company_name}} — I’m their AI assistant. Did I catch you at a bad time?";
+  "Hey {{greeting_name}} — Jason here from {{company_name}}. Quick heads-up, I’m their AI assistant. Did I catch you at a bad time?";
 
 const FAST_HUMAN_PERSONA =
-  "Quick, warm, perceptive, relaxed, and naturally conversational. Use contractions, short fragments, varied rhythm, small reactions like ah gotcha, yeah fair, oh nice, hmm okay, or right only when they fit. Occasionally use one tiny hesitation or self-correction such as well— or actually. Match the caller's energy. A brief natural chuckle is okay only in a genuinely playful moment. Avoid canned call-center filler and never claim to be human.";
+  "Relaxed, sharp, warm, and conversational. Keep most turns short, use contractions and plain words, and match the prospect’s pace. Small reactions like yeah, right, gotcha, hmm, fair, or oh okay are fine only when they genuinely fit. Allow brief silence instead of filling every gap. Rarely use a tiny self-correction such as well—actually. Never use canned call-center filler, never over-acknowledge, and never claim to be human.";
 
 const DEFAULT_FORM = {
   name: "",
@@ -1263,7 +1263,7 @@ function AgentSetup({
             <span className="rf-agent-brain-pill">
               <b>Fast natural mode</b>
               <span>
-                {(recommendedVoice?.name || "Linked ElevenLabs voice")} + Flash v2.5 + streaming latency 3 + 1.0 speed + eager turn-taking
+                {(recommendedVoice?.name || "Linked ElevenLabs voice")} + Flash v2 + streaming latency 3 + 1.0 speed + eager Turn V3
               </span>
             </span>
           </div>
