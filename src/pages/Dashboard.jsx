@@ -11,6 +11,7 @@ import {
 } from "../lib/workspace-platform-client.js";
 
 import DailyLeadManagerPanel from "./DailyLeadManagerPanel.jsx";
+import AuditStudioPanel from "./AuditStudioPanel.jsx";
 
 const ROLE_LABELS = {
   owner: "Owner workspace",
@@ -465,6 +466,7 @@ function ManagerDashboard({
   return (
     <>
       <DailyLeadManagerPanel />
+      <AuditStudioPanel />
 
       <MetricGrid
         items={[

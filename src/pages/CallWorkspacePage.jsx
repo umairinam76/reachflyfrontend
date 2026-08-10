@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -56,6 +57,9 @@ export default function CallWorkspacePage() {
   const [generatingFullAudit, setGeneratingFullAudit] = useState(false);
   const [generatingCompetitorAnalysis, setGeneratingCompetitorAnalysis] = useState(false);
 
+  const socketRefreshTimerRef =
+    useRef(null);
+
   const resolvedAssignmentId = assignment?.id || assignmentId;
   const resolvedLeadId = lead?.id || assignment?.leadId || requestedLeadId;
 
@@ -95,7 +99,7 @@ export default function CallWorkspacePage() {
       setFollowUpAt(toLocalDateTimeInput(nextAssignment.nextActionAt || nextAssignment.followUpAt));
 
       const [callsResponse, auditsResponse] = await Promise.all([
-        apiRequest(`/telnyx/calls?leadId=${encodeURIComponent(nextLead.id)}&limit=100`),
+        apiRequest(`/telnyx/calls?leadId=${encodeURIComponent(nextLead.id)}&limit=30`),
         nextLead.website
           ? apiRequest(
               `/lead-audits?website=${encodeURIComponent(nextLead.website)}&kind=mini`
@@ -142,16 +146,58 @@ export default function CallWorkspacePage() {
   }, [resolvedAssignmentId]);
 
   useEffect(() => {
-    const refresh = () => void loadWorkspace({ silent: true });
+    const scheduleRefresh = () => {
+      window.clearTimeout(
+        socketRefreshTimerRef.current
+      );
+
+      socketRefreshTimerRef.current =
+        window.setTimeout(
+          () =>
+            void loadWorkspace({
+              silent: true,
+            }),
+          350
+        );
+    };
+
     const subscriptions = [
-      onWorkspaceSocket("call:created", refresh),
-      onWorkspaceSocket("call:updated", refresh),
-      onWorkspaceSocket("call:completed", refresh),
-      onWorkspaceSocket("lead:audit-updated", refresh),
-      onWorkspaceSocket("lead:updated", refresh),
-      onWorkspaceSocket("lead:call-updated", refresh),
+      onWorkspaceSocket(
+        "call:created",
+        scheduleRefresh
+      ),
+      onWorkspaceSocket(
+        "call:updated",
+        scheduleRefresh
+      ),
+      onWorkspaceSocket(
+        "call:completed",
+        scheduleRefresh
+      ),
+      onWorkspaceSocket(
+        "lead:audit-updated",
+        scheduleRefresh
+      ),
+      onWorkspaceSocket(
+        "lead:updated",
+        scheduleRefresh
+      ),
+      onWorkspaceSocket(
+        "lead:call-updated",
+        scheduleRefresh
+      ),
     ];
-    return () => subscriptions.forEach((unsubscribe) => unsubscribe?.());
+
+    return () => {
+      window.clearTimeout(
+        socketRefreshTimerRef.current
+      );
+
+      subscriptions.forEach(
+        (unsubscribe) =>
+          unsubscribe?.()
+      );
+    };
   }, [loadWorkspace]);
 
   useEffect(() => {
@@ -159,7 +205,7 @@ export default function CallWorkspacePage() {
     if (!PENDING_AUDIT_STATUSES.has(status)) return undefined;
     const timer = window.setInterval(
       () => void loadWorkspace({ silent: true }),
-      3000
+      8000
     );
     return () => window.clearInterval(timer);
   }, [miniAudit?.status, lead?.miniAuditStatus, loadWorkspace]);
@@ -190,8 +236,33 @@ export default function CallWorkspacePage() {
       const body = {
         lead,
         website: lead.website,
-        niche: lead.category || lead.primaryType || "",
-        location: lead.address || lead.formattedAddress || "",
+        niche:
+          lead.dailyNiche ||
+          assignment?.niche ||
+          lead.category ||
+          lead.primaryType ||
+          "",
+        location:
+          lead.dailyLocation ||
+          assignment?.location ||
+          lead.address ||
+          lead.formattedAddress ||
+          "",
+        resourceType:
+          lead.dailyResourceType ||
+          lead.resourceType ||
+          assignment?.resourceType ||
+          "",
+        country:
+          lead.dailyCountry ||
+          lead.country ||
+          assignment?.country ||
+          "",
+        regionCode:
+          lead.dailyRegionCode ||
+          lead.regionCode ||
+          assignment?.regionCode ||
+          "",
       };
       const report = kind === "mini"
         ? await apiRequest("/lead-audits/mini", { method: "POST", body })
@@ -239,6 +310,7 @@ export default function CallWorkspacePage() {
         `/caller-queue/${encodeURIComponent(resolvedAssignmentId)}/outcome`,
         {
           method: "POST",
+          timeoutMs: 30_000,
           body: {
             outcome,
             status: outcome,

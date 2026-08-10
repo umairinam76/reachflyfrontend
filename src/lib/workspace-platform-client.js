@@ -96,9 +96,9 @@ function resolveSocketBaseUrl() {
     );
 
   /*
-   * Prefer the secure API origin whenever an explicitly configured socket
-   * URL is insecure on an HTTPS page. This prevents Mixed Content failures
-   * caused by stale HTTP or WebSocket environment values.
+   * Prefer the API origin whenever an explicitly configured socket URL is
+   * insecure on an HTTPS page. This prevents a stale value such as
+   * ws://52.44.71.169:8787 from causing a browser Mixed Content failure.
    */
   let candidate =
     configured || apiOrigin;
@@ -448,317 +448,7 @@ export async function apiRequest(
     removeExternalAbort();
   }
 }
-export async function getRoleDashboard() {
-  const response = await apiRequest(
-    "/sales/dashboard"
-  );
 
-  const source =
-    response &&
-    typeof response === "object"
-      ? response
-      : {};
-
-  const user =
-    source.currentUser ||
-    source.user ||
-    {};
-
-  const role = String(
-    source.role ||
-      user.workspaceRole ||
-      user.role ||
-      "viewer"
-  )
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, "_");
-
-  const calls = Array.isArray(
-    source.calls
-  )
-    ? source.calls
-    : [];
-
-  const assignments = Array.isArray(
-    source.assignments
-  )
-    ? source.assignments
-    : Array.isArray(source.records)
-      ? source.records
-      : [];
-
-  const members = Array.isArray(
-    source.members
-  )
-    ? source.members
-    : [];
-
-  const tasks = Array.isArray(
-    source.tasks
-  )
-    ? source.tasks
-    : [];
-
-  const metrics =
-    source.metrics &&
-    typeof source.metrics === "object"
-      ? source.metrics
-      : {};
-
-  const todayKey = new Date()
-    .toISOString()
-    .slice(0, 10);
-
-  const todayCalls = calls.filter(
-    (call) => {
-      const value =
-        call?.createdAt ||
-        call?.startedAt ||
-        call?.updatedAt ||
-        "";
-
-      return (
-        String(value).slice(0, 10) ===
-        todayKey
-      );
-    }
-  );
-
-  const normalizeStatus = (value) =>
-    String(value || "")
-      .trim()
-      .toLowerCase()
-      .replace(/[\s-]+/g, "_");
-
-  const answeredCalls =
-    todayCalls.filter((call) =>
-      [
-        "answered",
-        "active",
-        "completed",
-        "contacted",
-        "qualified",
-        "meeting_booked",
-        "converted",
-      ].includes(
-        normalizeStatus(
-          call?.status ||
-            call?.state ||
-            call?.outcome
-        )
-      )
-    ).length;
-
-  const qualifiedLeads =
-    assignments.filter((assignment) =>
-      [
-        "qualified",
-        "meeting_booked",
-        "converted",
-      ].includes(
-        normalizeStatus(
-          assignment?.status ||
-            assignment?.outcome
-        )
-      )
-    ).length;
-
-  const meetingsBooked =
-    assignments.filter(
-      (assignment) =>
-        normalizeStatus(
-          assignment?.status ||
-            assignment?.outcome
-        ) === "meeting_booked"
-    ).length;
-
-  const pendingTasks = tasks.filter(
-    (task) =>
-      ![
-        "completed",
-        "done",
-        "cancelled",
-        "canceled",
-        "closed",
-      ].includes(
-        normalizeStatus(task?.status)
-      )
-  ).length;
-
-  const totalCallSeconds =
-    todayCalls.reduce(
-      (total, call) =>
-        total +
-        Math.max(
-          0,
-          Number(
-            call?.durationSeconds ||
-              call?.duration ||
-              0
-          ) || 0
-        ),
-      0
-    );
-
-  const summary = {
-    ...metrics,
-
-    managedMembers:
-      metrics.managedMembers ??
-      members.length,
-
-    teamMembers:
-      metrics.teamMembers ??
-      members.length,
-
-    activeMembers:
-      metrics.activeMembers ??
-      members.filter(
-        (member) =>
-          member?.active !== false &&
-          member?.isActive !== false &&
-          normalizeStatus(
-            member?.status
-          ) !== "suspended"
-      ).length,
-
-    onlineNow:
-      metrics.onlineNow ??
-      members.filter((member) =>
-        [
-          "online",
-          "available",
-          "active",
-        ].includes(
-          normalizeStatus(
-            member?.presence ||
-              member?.availability ||
-              member?.status
-          )
-        )
-      ).length,
-
-    assignedLeads:
-      metrics.assignedLeads ??
-      assignments.length,
-
-    callsToday:
-      metrics.callsToday ??
-      todayCalls.length,
-
-    answeredToday:
-      metrics.answeredToday ??
-      metrics.answeredCallsToday ??
-      metrics.answeredCalls ??
-      answeredCalls,
-
-    answeredCallsToday:
-      metrics.answeredCallsToday ??
-      metrics.answeredToday ??
-      answeredCalls,
-
-    answeredCalls:
-      metrics.answeredCalls ??
-      metrics.answeredToday ??
-      answeredCalls,
-
-    followUpsDue:
-      metrics.followUpsDue ?? 0,
-
-    callbacksDue:
-      metrics.callbacksDue ??
-      metrics.followUpsDue ??
-      0,
-
-    pendingTasks:
-      metrics.pendingTasks ??
-      pendingTasks,
-
-    qualifiedLeads:
-      metrics.qualifiedLeads ??
-      qualifiedLeads,
-
-    meetingsBooked:
-      metrics.meetingsBooked ??
-      meetingsBooked,
-
-    totalCallSeconds:
-      metrics.totalCallSeconds ??
-      totalCallSeconds,
-
-    checkedIn:
-      metrics.checkedIn ??
-      metrics.checkedInToday ??
-      0,
-
-    checkedInToday:
-      metrics.checkedInToday ??
-      metrics.checkedIn ??
-      0,
-  };
-
-  return {
-    ...source,
-
-    role,
-
-    currentUser:
-      source.currentUser || user,
-
-    workspace:
-      source.workspace || {},
-
-    summary,
-
-    members,
-
-    team: Array.isArray(source.team)
-      ? source.team
-      : members,
-
-    teamPerformance:
-      Array.isArray(
-        source.teamPerformance
-      )
-        ? source.teamPerformance
-        : members,
-
-    assignments,
-
-    assignedLeads:
-      Array.isArray(
-        source.assignedLeads
-      )
-        ? source.assignedLeads
-        : assignments,
-
-    calls,
-
-    recentCalls:
-      Array.isArray(
-        source.recentCalls
-      )
-        ? source.recentCalls
-        : calls.slice(0, 20),
-
-    tasks,
-
-    overdueActions:
-      Array.isArray(
-        source.overdueActions
-      )
-        ? source.overdueActions
-        : [],
-
-    recentActivity:
-      Array.isArray(
-        source.recentActivity
-      )
-        ? source.recentActivity
-        : [],
-  };
-}
 /**
  * Uploads a FormData body using the standard authenticated API client.
  */
@@ -1850,7 +1540,43 @@ function extractErrorMessage(
     typeof payload ===
     "string"
   ) {
-    return payload.trim();
+    const text =
+      payload.trim();
+
+    if (!text) {
+      return "";
+    }
+
+    /*
+     * Express/Vercel can return an HTML error page for an API route mismatch.
+     * Never print the entire HTML document into a caller-facing alert.
+     */
+    if (
+      /<html[\s>]|<!doctype\s+html/i.test(
+        text
+      )
+    ) {
+      const preMatch =
+        text.match(
+          /<pre[^>]*>([\s\S]*?)<\/pre>/i
+        );
+
+      const source =
+        preMatch?.[1] ||
+        text;
+
+      return source
+        .replace(/<[^>]+>/g, " ")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&amp;/g, "&")
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    return text;
   }
 
   if (
@@ -2281,4 +2007,335 @@ function wait(milliseconds) {
       );
     }
   );
+}
+/**
+ * Loads the authenticated user's role-aware ReachFly dashboard.
+ *
+ * The current backend exposes the dashboard data through /sales/dashboard.
+ * Older Dashboard.jsx builds imported getRoleDashboard directly from this
+ * module, so keep this compatibility wrapper here instead of duplicating
+ * request logic inside the page component.
+ */
+export async function getRoleDashboard() {
+  const response =
+    await apiRequest(
+      "/sales/dashboard"
+    );
+
+  const source =
+    response &&
+    typeof response === "object"
+      ? response
+      : {};
+
+  const user =
+    source.currentUser ||
+    source.user ||
+    {};
+
+  const role =
+    String(
+      source.role ||
+        user.workspaceRole ||
+        user.role ||
+        "viewer"
+    )
+      .trim()
+      .toLowerCase()
+      .replace(/[\s-]+/g, "_");
+
+  const calls =
+    Array.isArray(source.calls)
+      ? source.calls
+      : [];
+
+  const assignments =
+    Array.isArray(
+      source.assignments
+    )
+      ? source.assignments
+      : Array.isArray(
+            source.records
+          )
+        ? source.records
+        : [];
+
+  const members =
+    Array.isArray(source.members)
+      ? source.members
+      : [];
+
+  const tasks =
+    Array.isArray(source.tasks)
+      ? source.tasks
+      : [];
+
+  const metrics =
+    source.metrics &&
+    typeof source.metrics ===
+      "object"
+      ? source.metrics
+      : {};
+
+  const todayKey =
+    new Date()
+      .toISOString()
+      .slice(0, 10);
+
+  const todayCalls =
+    calls.filter((call) => {
+      const value =
+        call?.createdAt ||
+        call?.startedAt ||
+        call?.updatedAt ||
+        "";
+
+      return String(value)
+        .slice(0, 10) ===
+        todayKey;
+    });
+
+  const normalizedStatus =
+    (value) =>
+      String(value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[\s-]+/g, "_");
+
+  const answeredCalls =
+    todayCalls.filter((call) =>
+      [
+        "answered",
+        "active",
+        "completed",
+        "contacted",
+        "qualified",
+        "meeting_booked",
+        "converted",
+      ].includes(
+        normalizedStatus(
+          call?.status ||
+            call?.state ||
+            call?.outcome
+        )
+      )
+    ).length;
+
+  const qualifiedLeads =
+    assignments.filter(
+      (assignment) =>
+        [
+          "qualified",
+          "meeting_booked",
+          "converted",
+        ].includes(
+          normalizedStatus(
+            assignment?.status ||
+              assignment?.outcome
+          )
+        )
+    ).length;
+
+  const meetingsBooked =
+    assignments.filter(
+      (assignment) =>
+        normalizedStatus(
+          assignment?.status ||
+            assignment?.outcome
+        ) === "meeting_booked"
+    ).length;
+
+  const pendingTasks =
+    tasks.filter(
+      (task) =>
+        ![
+          "completed",
+          "done",
+          "cancelled",
+          "canceled",
+          "closed",
+        ].includes(
+          normalizedStatus(
+            task?.status
+          )
+        )
+    ).length;
+
+  const totalCallSeconds =
+    todayCalls.reduce(
+      (total, call) =>
+        total +
+        Math.max(
+          0,
+          Number(
+            call?.durationSeconds ||
+              call?.duration ||
+              0
+          ) || 0
+        ),
+      0
+    );
+
+  const summary = {
+    ...metrics,
+
+    managedMembers:
+      metrics.managedMembers ??
+      members.length,
+
+    teamMembers:
+      metrics.teamMembers ??
+      members.length,
+
+    activeMembers:
+      metrics.activeMembers ??
+      members.filter(
+        (member) =>
+          member?.active !== false &&
+          member?.isActive !== false &&
+          normalizedStatus(
+            member?.status
+          ) !== "suspended"
+      ).length,
+
+    onlineNow:
+      metrics.onlineNow ??
+      members.filter(
+        (member) =>
+          [
+            "online",
+            "available",
+            "active",
+          ].includes(
+            normalizedStatus(
+              member?.presence ||
+                member?.availability ||
+                member?.status
+            )
+          )
+      ).length,
+
+    assignedLeads:
+      metrics.assignedLeads ??
+      assignments.length,
+
+    callsToday:
+      metrics.callsToday ??
+      todayCalls.length,
+
+    answeredToday:
+      metrics.answeredToday ??
+      metrics.answeredCallsToday ??
+      metrics.answeredCalls ??
+      answeredCalls,
+
+    answeredCallsToday:
+      metrics.answeredCallsToday ??
+      metrics.answeredToday ??
+      answeredCalls,
+
+    answeredCalls:
+      metrics.answeredCalls ??
+      metrics.answeredToday ??
+      answeredCalls,
+
+    followUpsDue:
+      metrics.followUpsDue ??
+      0,
+
+    callbacksDue:
+      metrics.callbacksDue ??
+      metrics.followUpsDue ??
+      0,
+
+    pendingTasks:
+      metrics.pendingTasks ??
+      pendingTasks,
+
+    qualifiedLeads:
+      metrics.qualifiedLeads ??
+      qualifiedLeads,
+
+    meetingsBooked:
+      metrics.meetingsBooked ??
+      meetingsBooked,
+
+    totalCallSeconds:
+      metrics.totalCallSeconds ??
+      totalCallSeconds,
+
+    checkedIn:
+      metrics.checkedIn ??
+      metrics.checkedInToday ??
+      0,
+
+    checkedInToday:
+      metrics.checkedInToday ??
+      metrics.checkedIn ??
+      0,
+  };
+
+  return {
+    ...source,
+
+    role,
+
+    currentUser:
+      source.currentUser ||
+      user,
+
+    workspace:
+      source.workspace ||
+      {},
+
+    summary,
+
+    members,
+
+    team:
+      Array.isArray(source.team)
+        ? source.team
+        : members,
+
+    teamPerformance:
+      Array.isArray(
+        source.teamPerformance
+      )
+        ? source.teamPerformance
+        : members,
+
+    assignments,
+
+    assignedLeads:
+      Array.isArray(
+        source.assignedLeads
+      )
+        ? source.assignedLeads
+        : assignments,
+
+    calls,
+
+    recentCalls:
+      Array.isArray(
+        source.recentCalls
+      )
+        ? source.recentCalls
+        : calls.slice(0, 20),
+
+    tasks,
+
+    overdueActions:
+      Array.isArray(
+        source.overdueActions
+      )
+        ? source.overdueActions
+        : [],
+
+    recentActivity:
+      Array.isArray(
+        source.recentActivity
+      )
+        ? source.recentActivity
+        : [],
+  };
 }

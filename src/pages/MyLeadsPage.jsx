@@ -327,7 +327,7 @@ export default function MyLeadsPage() {
             ...options,
             timeoutMs:
               options.timeoutMs ||
-              12_000,
+              45_000,
           }
         ),
       []
@@ -421,6 +421,8 @@ export default function MyLeadsPage() {
                   limit:
                     QUEUE_PAGE_LIMIT,
                 },
+                timeoutMs:
+                  45_000,
               }
             );
 
@@ -484,10 +486,38 @@ export default function MyLeadsPage() {
             return;
           }
 
-          setError(
-            requestError?.message ||
-              "The caller queue could not be loaded."
-          );
+          const cached =
+            readQueueCache(
+              bucket
+            );
+
+          /*
+           * A caller must not lose the task list because one refresh is slow.
+           * Keep the last successful daily queue on screen and retry on the
+           * normal focus/socket/30-second refresh cycle.
+           */
+          if (
+            cached?.records?.length
+          ) {
+            setRecords(
+              cached.records
+            );
+            setCounts(
+              cached.counts || {}
+            );
+
+            console.warn(
+              "[MyLeadsPage] Queue refresh failed; keeping cached queue:",
+              requestError
+            );
+
+            setError("");
+          } else {
+            setError(
+              requestError?.message ||
+                "The caller queue could not be loaded."
+            );
+          }
         } finally {
           if (
             sequence ===
@@ -943,12 +973,19 @@ export default function MyLeadsPage() {
         null
       );
 
-      await load({
+      /*
+       * The outcome is already durably saved at this point. Release the caller
+       * immediately; refresh the queue and open the next lead in parallel
+       * instead of making the user wait for two more network round trips.
+       */
+      setSaving(false);
+
+      void load({
         silent:
           true,
       });
 
-      await openNextLead();
+      void openNextLead();
     } catch (
       requestError
     ) {
@@ -956,7 +993,7 @@ export default function MyLeadsPage() {
         requestError?.message ||
         "The call outcome could not be saved."
       );
-    } finally {
+
       setSaving(false);
     }
   }
@@ -999,12 +1036,14 @@ export default function MyLeadsPage() {
         null
       );
 
-      await load({
+      setSaving(false);
+
+      void load({
         silent:
           true,
       });
 
-      await openNextLead();
+      void openNextLead();
     } catch (
       requestError
     ) {
@@ -1012,7 +1051,7 @@ export default function MyLeadsPage() {
         requestError?.message ||
         "The lead could not be skipped."
       );
-    } finally {
+
       setSaving(false);
     }
   }
@@ -1556,9 +1595,31 @@ function DailyWorkPanel({
           </h3>
           <p>
             Current niche: {dailyDay.currentNiche || "Not assigned"}
-            {dailyDay.nextNiche
-              ? ` · Next niche: ${dailyDay.nextNiche}`
+            {dailyDay.currentResourceType
+              ? ` · ${formatResourceType(dailyDay.currentResourceType)}`
               : ""}
+            {dailyDay.currentLocation
+              ? ` · ${dailyDay.currentLocation}`
+              : ""}
+            {dailyDay.currentCountry &&
+            !String(dailyDay.currentLocation || "")
+              .toLowerCase()
+              .includes(
+                String(dailyDay.currentCountry).toLowerCase()
+              )
+              ? ` · ${dailyDay.currentCountry}`
+              : ""}
+          </p>
+          <p>
+            Next assignment: {dailyDay.nextNiche || "Use manager default niche"}
+            {dailyDay.nextResourceType
+              ? ` · ${formatResourceType(dailyDay.nextResourceType)}`
+              : ""}
+            {dailyDay.nextLocation
+              ? ` · ${dailyDay.nextLocation}`
+              : dailyDay.nextResourceType === "local"
+                ? " · Pakistan (auto city)"
+                : ""}
           </p>
           <p>
             Worked: {dailyDay.worked || 0}
@@ -1602,6 +1663,14 @@ function DailyWorkPanel({
       </div>
     </section>
   );
+}
+
+function formatResourceType(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase() === "local"
+    ? "Local · Pakistan"
+    : "International";
 }
 
 function formatDailyDateTime(value) {

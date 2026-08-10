@@ -7,7 +7,7 @@ import {
 } from "react";
 import { api } from "../api";
 import { apiRequest } from "../lib/workspace-platform-client.js";
-import "../styles.css";
+import "./TelnyxDialer.css";
 
 const ACTIVE_STATES = new Set([
   "active",
@@ -46,7 +46,7 @@ const CALL_SETUP_TIMEOUT_SECONDS = 60;
  */
 const TELNYX_WEBRTC_SCRIPT_ID = "reachfly-telnyx-webrtc-sdk";
 const TELNYX_WEBRTC_CDN_URL =
-  "https://unpkg.com/@telnyx/webrtc@2.26.1/lib/bundle.js";
+  "https://unpkg.com/@telnyx/webrtc@2.26.4/lib/bundle.js";
 
 let telnyxWebRtcLoaderPromise = null;
 
@@ -181,6 +181,19 @@ export default function TelnyxDialer({
   const finalizingRef = useRef(false);
   const finalizedCallIdsRef = useRef(new Set());
   const mountedRef = useRef(true);
+
+  /*
+   * Telnyx browser sessions are long-lived. Refresh auth in-place instead of
+   * forcing the caller to reload the whole CRM when a WebRTC token expires.
+   */
+  const authRefreshPromiseRef = useRef(null);
+
+  /*
+   * Telnyx can emit a late "Failed to hang up cleanly" SDK error after the BYE
+   * already succeeded. Keep a short grace period so that benign cleanup noise
+   * does not appear as a red production error after a successful End call.
+   */
+  const terminationGraceUntilRef = useRef(0);
 
   const finalStateRef = useRef({
     cause: "",
@@ -1308,6 +1321,9 @@ export default function TelnyxDialer({
             nextState
           )
         ) {
+          terminationGraceUntilRef.current =
+            Date.now() + 15_000;
+
           stopRingback();
 
           await finalizeCall({
@@ -1326,6 +1342,82 @@ export default function TelnyxDialer({
         startRingback,
         stopRingback,
       ]
+    );
+
+  const refreshTelnyxAuthentication =
+    useCallback(
+      async (client) => {
+        if (!client) {
+          throw new Error(
+            "The Telnyx browser client is not connected."
+          );
+        }
+
+        if (
+          authRefreshPromiseRef.current
+        ) {
+          return authRefreshPromiseRef.current;
+        }
+
+        const refreshPromise =
+          (async () => {
+            const session =
+              await api.telnyxSession();
+
+            if (!session?.loginToken) {
+              throw new Error(
+                "Telnyx did not return a refreshed browser login token."
+              );
+            }
+
+            if (
+              typeof client.login ===
+              "function"
+            ) {
+              await Promise.resolve(
+                client.login({
+                  creds: {
+                    login_token:
+                      session.loginToken,
+                  },
+                })
+              );
+            } else if (
+              typeof client.updateToken ===
+              "function"
+            ) {
+              await Promise.resolve(
+                client.updateToken(
+                  session.loginToken
+                )
+              );
+            } else {
+              throw new Error(
+                "This Telnyx WebRTC build cannot refresh authentication in-place. Reload the call workspace."
+              );
+            }
+
+            if (mountedRef.current) {
+              setError("");
+              setMessage(
+                "Telnyx session refreshed."
+              );
+            }
+
+            return session;
+          })();
+
+        authRefreshPromiseRef.current =
+          refreshPromise;
+
+        try {
+          return await refreshPromise;
+        } finally {
+          authRefreshPromiseRef.current =
+            null;
+        }
+      },
+      []
     );
 
   const connect =
@@ -1468,6 +1560,58 @@ export default function TelnyxDialer({
           client.on(
             "telnyx.error",
             (event) => {
+              const errorMessage =
+                getTelnyxErrorMessage(
+                  event
+                );
+
+              if (
+                isTelnyxAuthError(
+                  event
+                )
+              ) {
+                console.warn(
+                  "[TelnyxDialer] Telnyx authentication expired; refreshing session.",
+                  event
+                );
+
+                void refreshTelnyxAuthentication(
+                  client
+                ).catch(
+                  (requestError) => {
+                    console.error(
+                      "[TelnyxDialer] Telnyx authentication refresh failed:",
+                      requestError
+                    );
+
+                    if (
+                      mountedRef.current
+                    ) {
+                      setError(
+                        requestError?.message ||
+                          errorMessage
+                      );
+                    }
+                  }
+                );
+
+                return;
+              }
+
+              if (
+                Date.now() <
+                  terminationGraceUntilRef.current &&
+                isBenignTerminationError(
+                  event
+                )
+              ) {
+                console.info(
+                  "[TelnyxDialer] Ignoring benign post-hangup SDK cleanup error:",
+                  event
+                );
+                return;
+              }
+
               console.error(
                 "[TelnyxDialer] Telnyx error:",
                 event
@@ -1475,9 +1619,7 @@ export default function TelnyxDialer({
 
               if (mountedRef.current) {
                 setError(
-                  getTelnyxErrorMessage(
-                    event
-                  )
+                  errorMessage
                 );
               }
             }
@@ -1490,6 +1632,23 @@ export default function TelnyxDialer({
                 "[TelnyxDialer] Telnyx warning:",
                 event
               );
+
+              if (
+                isTelnyxTokenExpiringWarning(
+                  event
+                )
+              ) {
+                void refreshTelnyxAuthentication(
+                  client
+                ).catch(
+                  (requestError) => {
+                    console.warn(
+                      "[TelnyxDialer] Proactive Telnyx token refresh failed:",
+                      requestError
+                    );
+                  }
+                );
+              }
             }
           );
 
@@ -1555,6 +1714,7 @@ export default function TelnyxDialer({
       }
     }, [
       handleCallNotification,
+      refreshTelnyxAuthentication,
       status,
     ]);
 
@@ -1899,6 +2059,10 @@ export default function TelnyxDialer({
       setError("");
       setStatus("ending");
       setDialPadOpen(false);
+
+      terminationGraceUntilRef.current =
+        Date.now() + 15_000;
+
       stopRingback();
 
       let browserHangupSucceeded = false;
@@ -2070,23 +2234,47 @@ export default function TelnyxDialer({
         let browserError = null;
 
         /*
-         * Primary path: Telnyx WebRTC sends the DTMF digit on the live call.
+         * Primary path: send DTMF through the live Telnyx WebRTC call.
+         *
+         * Recent Telnyx builds expose call.sendDigits(), while older/current
+         * browser bundles may expose call.dtmf(). Support both so production
+         * callers are not tied to one SDK surface.
          */
-        if (call?.sendDigits) {
+        const browserDtmfMethods = [
+          typeof call?.sendDigits ===
+          "function"
+            ? () =>
+                call.sendDigits(
+                  normalizedDigit
+                )
+            : null,
+
+          typeof call?.dtmf ===
+          "function"
+            ? () =>
+                call.dtmf(
+                  normalizedDigit
+                )
+            : null,
+        ].filter(Boolean);
+
+        for (
+          const sendBrowserDtmf
+          of browserDtmfMethods
+        ) {
           try {
             await Promise.resolve(
-              call.sendDigits(
-                normalizedDigit
-              )
+              sendBrowserDtmf()
             );
 
             browserDtmfSucceeded = true;
+            break;
           } catch (requestError) {
             browserError =
               requestError;
 
             console.warn(
-              "[TelnyxDialer] Browser DTMF failed; trying carrier fallback:",
+              "[TelnyxDialer] Browser DTMF method failed; trying next available path:",
               requestError
             );
           }
@@ -2639,6 +2827,122 @@ function getTelnyxErrorMessage(
     value?.error?.message ||
     value?.data?.message ||
     "The Telnyx call could not be started."
+  );
+}
+
+function isTelnyxAuthError(
+  value
+) {
+  const code =
+    Number(
+      value?.code ||
+        value?.error?.code ||
+        value?.data?.code ||
+        0
+    ) || 0;
+
+  if (
+    [
+      46001,
+      46002,
+      46003,
+    ].includes(code)
+  ) {
+    return true;
+  }
+
+  const message =
+    getTelnyxErrorMessage(
+      value
+    )
+      .toLowerCase();
+
+  return (
+    message.includes(
+      "access token is no longer active"
+    ) ||
+    message.includes(
+      "authentication required"
+    ) ||
+    message.includes(
+      "invalid credentials"
+    ) ||
+    (
+      message.includes("token") &&
+      (
+        message.includes(
+          "expired"
+        ) ||
+        message.includes(
+          "inactive"
+        )
+      )
+    )
+  );
+}
+
+function isTelnyxTokenExpiringWarning(
+  value
+) {
+  const code =
+    Number(
+      value?.code ||
+        value?.warning?.code ||
+        value?.data?.code ||
+        0
+    ) || 0;
+
+  if (code === 34001) {
+    return true;
+  }
+
+  const message =
+    String(
+      value?.message ||
+        value?.warning?.message ||
+        value?.data?.message ||
+        ""
+    )
+      .toLowerCase();
+
+  return (
+    message.includes("token") &&
+    (
+      message.includes(
+        "expiring"
+      ) ||
+      message.includes(
+        "expires soon"
+      )
+    )
+  );
+}
+
+function isBenignTerminationError(
+  value
+) {
+  const message =
+    getTelnyxErrorMessage(
+      value
+    )
+      .toLowerCase();
+
+  return (
+    message.includes(
+      "failed to hang up cleanly"
+    ) ||
+    message.includes(
+      "already hung up"
+    ) ||
+    message.includes(
+      "already ended"
+    ) ||
+    message.includes(
+      "call does not exist"
+    ) ||
+    message.includes(
+      "call not found"
+    )
   );
 }
 

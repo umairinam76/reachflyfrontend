@@ -18,6 +18,18 @@ const DEFAULT_CONFIG = {
   assignmentMinute: 0,
   niches: [],
   locations: [],
+  localPakistanLocations: [
+    "Karachi",
+    "Lahore",
+    "Islamabad",
+    "Rawalpindi",
+    "Faisalabad",
+    "Multan",
+    "Peshawar",
+    "Sialkot",
+    "Gujranwala",
+  ],
+  regionCode: "US",
   callerPlans: {},
 };
 
@@ -50,16 +62,14 @@ export default function DailyLeadManagerPanel() {
 
         setStatus(result);
 
-        const config = {
+        setForm({
           ...DEFAULT_CONFIG,
           ...(result?.config || {}),
           callerPlans: {
             ...(result?.config
               ?.callerPlans || {}),
           },
-        };
-
-        setForm(config);
+        });
       } catch (requestError) {
         setError(
           requestError?.message ||
@@ -115,10 +125,10 @@ export default function DailyLeadManagerPanel() {
         uniqueStrings([
           ...(form.niches || []),
           ...(status?.callers || [])
-            .map(
-              (caller) =>
-                caller.currentNiche
-            )
+            .flatMap((caller) => [
+              caller.currentNiche,
+              caller.nextNiche,
+            ])
             .filter(Boolean),
         ]),
       [form.niches, status?.callers]
@@ -150,12 +160,61 @@ export default function DailyLeadManagerPanel() {
     }));
   }
 
+  function setResourceType(
+    callerId,
+    value
+  ) {
+    setForm((current) => {
+      const existing =
+        current.callerPlans?.[
+          callerId
+        ] || {};
+
+      const nextPlan = {
+        ...existing,
+        resourceType: value,
+      };
+
+      // Local means Pakistan automatically. Clearing an old international
+      // market prevents a previous value such as Texas from leaking into a
+      // Pakistan queue when the manager only changes the resource type.
+      if (value === "local") {
+        nextPlan.location = "";
+        nextPlan.country = "Pakistan";
+        nextPlan.regionCode = "PK";
+      } else {
+        if (
+          existing.resourceType ===
+          "local"
+        ) {
+          nextPlan.location = "";
+        }
+        nextPlan.country = "";
+        nextPlan.regionCode =
+          current.regionCode || "US";
+      }
+
+      return {
+        ...current,
+        callerPlans: {
+          ...(current.callerPlans || {}),
+          [callerId]: nextPlan,
+        },
+      };
+    });
+  }
+
   async function save() {
     setSaving(true);
     setError("");
     setMessage("");
 
     try {
+      const callerPlans =
+        normalizeCallerPlans(
+          form.callerPlans || {}
+        );
+
       const result =
         await apiRequest(
           "/daily-leads/config",
@@ -168,7 +227,7 @@ export default function DailyLeadManagerPanel() {
                   1,
                   Number(
                     form.leadsPerCaller ||
-                    100
+                      100
                   )
                 ),
               niches:
@@ -179,21 +238,29 @@ export default function DailyLeadManagerPanel() {
                 normalizeList(
                   form.locations
                 ),
-              callerPlans:
-                form.callerPlans || {},
+              localPakistanLocations:
+                normalizeList(
+                  form.localPakistanLocations
+                ),
+              regionCode:
+                String(
+                  form.regionCode || "US"
+                )
+                  .trim()
+                  .toUpperCase(),
+              callerPlans,
             },
           }
         );
 
       setMessage(
-        "Daily lead schedule and next-day caller niches were saved. The scheduler has been updated immediately."
+        "Schedule, resource types, markets, and next-day niches were saved. The scheduler was updated immediately."
       );
 
       setStatus((current) => ({
         ...(current || {}),
         config:
-          result.config ||
-          form,
+          result.config || form,
         nextRunAt:
           result.nextRunAt ||
           current?.nextRunAt,
@@ -228,7 +295,7 @@ export default function DailyLeadManagerPanel() {
       );
 
       setMessage(
-        "Daily lead refresh started. Reused leads are used first; only shortages are generated."
+        "Daily queue refresh completed. ReachFly reused eligible records first and generated only the remaining shortage."
       );
 
       await load({ silent: true });
@@ -245,7 +312,9 @@ export default function DailyLeadManagerPanel() {
   if (loading) {
     return (
       <section className="rf-panel">
-        <p>Loading daily lead controls…</p>
+        <p>
+          Loading daily caller controls…
+        </p>
       </section>
     );
   }
@@ -255,14 +324,33 @@ export default function DailyLeadManagerPanel() {
       <div className="rf-panel-header">
         <div>
           <p className="rf-dashboard-eyebrow">
-            Daily caller automation
+            Daily caller operations
           </p>
           <h2>
-            100-lead daily refresh
+            Daily lead allocation
           </h2>
           <p>
-            Set the refresh time and tomorrow's niche for each caller. Existing useful leads are reused first and new lead API calls only fill the shortage.
+            Control the refresh schedule, daily target, resource market, and next niche for every caller. Useful previous leads are reused before Google lead generation.
           </p>
+        </div>
+
+        <div
+          style={pillStyle}
+          title="The next scheduled queue rollover"
+        >
+          <span
+            style={{
+              opacity: 0.66,
+              fontSize: 12,
+            }}
+          >
+            Next refresh
+          </span>
+          <strong>
+            {formatDateTime(
+              status?.nextRunAt
+            ) || "Not scheduled"}
+          </strong>
         </div>
       </div>
 
@@ -278,17 +366,8 @@ export default function DailyLeadManagerPanel() {
         </div>
       ) : null}
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns:
-            "repeat(auto-fit, minmax(190px, 1fr))",
-          gap: 14,
-          marginBottom: 18,
-        }}
-      >
-        <label>
-          <span>Automation</span>
+      <div style={settingsGridStyle}>
+        <Field label="Automation">
           <select
             value={
               form.enabled
@@ -310,10 +389,9 @@ export default function DailyLeadManagerPanel() {
               Disabled
             </option>
           </select>
-        </label>
+        </Field>
 
-        <label>
-          <span>Daily refresh time</span>
+        <Field label="Daily refresh time">
           <input
             type="time"
             value={timeValue}
@@ -336,10 +414,9 @@ export default function DailyLeadManagerPanel() {
               }));
             }}
           />
-        </label>
+        </Field>
 
-        <label>
-          <span>Timezone</span>
+        <Field label="Timezone">
           <input
             value={form.timezone || ""}
             onChange={(event) =>
@@ -350,10 +427,9 @@ export default function DailyLeadManagerPanel() {
             }
             placeholder="Asia/Karachi"
           />
-        </label>
+        </Field>
 
-        <label>
-          <span>Leads per caller</span>
+        <Field label="Leads per caller">
           <input
             type="number"
             min="1"
@@ -370,10 +446,9 @@ export default function DailyLeadManagerPanel() {
               )
             }
           />
-        </label>
+        </Field>
 
-        <label>
-          <span>Default niches</span>
+        <Field label="Default niches">
           <input
             value={
               (form.niches || []).join(
@@ -390,10 +465,9 @@ export default function DailyLeadManagerPanel() {
             }
             placeholder="clinics, dentists, law firms"
           />
-        </label>
+        </Field>
 
-        <label>
-          <span>Default locations</span>
+        <Field label="International markets">
           <input
             value={
               (form.locations || []).join(
@@ -408,9 +482,9 @@ export default function DailyLeadManagerPanel() {
                 )
               )
             }
-            placeholder="California, Texas, Florida"
+            placeholder="California, Texas, Ontario"
           />
-        </label>
+        </Field>
       </div>
 
       <div
@@ -429,7 +503,7 @@ export default function DailyLeadManagerPanel() {
         >
           {saving
             ? "Saving…"
-            : "Save schedule & next-day niches"}
+            : "Save daily plan"}
         </button>
 
         <button
@@ -442,13 +516,6 @@ export default function DailyLeadManagerPanel() {
             ? "Refreshing…"
             : "Refresh queues now"}
         </button>
-
-        <div style={{ alignSelf: "center" }}>
-          <strong>Next refresh:</strong>{" "}
-          {formatDateTime(
-            status?.nextRunAt
-          ) || "Not scheduled"}
-        </div>
       </div>
 
       <datalist id="daily-lead-niche-options">
@@ -463,18 +530,14 @@ export default function DailyLeadManagerPanel() {
       </datalist>
 
       <div style={{ overflowX: "auto" }}>
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-          }}
-        >
+        <table style={tableStyle}>
           <thead>
             <tr>
               <th align="left">Caller</th>
+              <th align="left">Resource type</th>
               <th align="left">Today</th>
-              <th align="left">Tomorrow / next refresh niche</th>
-              <th align="left">Location</th>
+              <th align="left">Next niche</th>
+              <th align="left">Next market</th>
               <th align="left">Progress</th>
               <th align="left">Submission</th>
             </tr>
@@ -486,10 +549,16 @@ export default function DailyLeadManagerPanel() {
                   form.callerPlans?.[
                     caller.id
                   ] || {};
+                const resourceType =
+                  plan.resourceType ??
+                  caller.nextResourceType ??
+                  "international";
+                const isLocal =
+                  resourceType === "local";
 
                 return (
                   <tr key={caller.id}>
-                    <td>
+                    <td style={cellStyle}>
                       <strong>
                         {caller.name}
                       </strong>
@@ -498,11 +567,45 @@ export default function DailyLeadManagerPanel() {
                         {caller.email}
                       </small>
                     </td>
-                    <td>
-                      {caller.currentNiche ||
-                        "—"}
+
+                    <td style={cellStyle}>
+                      <select
+                        value={resourceType}
+                        onChange={(event) =>
+                          setResourceType(
+                            caller.id,
+                            event.target.value
+                          )
+                        }
+                        style={{
+                          minWidth: 150,
+                        }}
+                      >
+                        <option value="international">
+                          International
+                        </option>
+                        <option value="local">
+                          Local · Pakistan
+                        </option>
+                      </select>
                     </td>
-                    <td>
+
+                    <td style={cellStyle}>
+                      <strong>
+                        {caller.currentNiche ||
+                          "—"}
+                      </strong>
+                      <div style={mutedStyle}>
+                        {formatResourceType(
+                          caller.currentResourceType
+                        )}
+                        {caller.currentLocation
+                          ? ` · ${caller.currentLocation}`
+                          : ""}
+                      </div>
+                    </td>
+
+                    <td style={cellStyle}>
                       <input
                         list="daily-lead-niche-options"
                         value={
@@ -518,33 +621,127 @@ export default function DailyLeadManagerPanel() {
                           )
                         }
                         placeholder="Next niche"
+                        style={{
+                          minWidth: 180,
+                        }}
                       />
                     </td>
-                    <td>
-                      <input
-                        value={
-                          plan.location ??
-                          caller.nextLocation ??
-                          ""
-                        }
-                        onChange={(event) =>
-                          setCallerPlan(
-                            caller.id,
-                            "location",
-                            event.target.value
-                          )
-                        }
-                        placeholder="Use default location"
-                      />
+
+                    <td style={cellStyle}>
+                      {isLocal ? (
+                        <div>
+                          <strong>
+                            Pakistan
+                          </strong>
+                          <div style={mutedStyle}>
+                            {plan.location
+                              ? plan.location
+                              : `Auto city rotation · ${caller.nextLocation || "Pakistan"}`}
+                          </div>
+                          <input
+                            value={
+                              plan.location || ""
+                            }
+                            onChange={(event) =>
+                              setCallerPlan(
+                                caller.id,
+                                "location",
+                                event.target.value
+                              )
+                            }
+                            placeholder="Optional Pakistan city"
+                            style={{
+                              minWidth: 190,
+                              marginTop: 6,
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div
+                          style={{
+                            display: "grid",
+                            gap: 6,
+                          }}
+                        >
+                          <input
+                            value={
+                              plan.location ??
+                              caller.nextLocation ??
+                              ""
+                            }
+                            onChange={(event) =>
+                              setCallerPlan(
+                                caller.id,
+                                "location",
+                                event.target.value
+                              )
+                            }
+                            placeholder="Texas / Ontario / London"
+                            style={{
+                              minWidth: 190,
+                            }}
+                          />
+                          <div
+                            style={{
+                              display: "flex",
+                              gap: 6,
+                            }}
+                          >
+                            <input
+                              value={
+                                plan.country ??
+                                caller.nextCountry ??
+                                ""
+                              }
+                              onChange={(event) =>
+                                setCallerPlan(
+                                  caller.id,
+                                  "country",
+                                  event.target.value
+                                )
+                              }
+                              placeholder="Country"
+                              style={{
+                                minWidth: 120,
+                              }}
+                            />
+                            <input
+                              value={
+                                plan.regionCode ??
+                                caller.nextRegionCode ??
+                                form.regionCode ??
+                                "US"
+                              }
+                              maxLength={2}
+                              onChange={(event) =>
+                                setCallerPlan(
+                                  caller.id,
+                                  "regionCode",
+                                  event.target.value
+                                    .toUpperCase()
+                                )
+                              }
+                              placeholder="US"
+                              title="Google Places region code"
+                              style={{ width: 62 }}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </td>
-                    <td>
-                      {caller.workedToday || 0}
-                      /{caller.assignedToday || 0}
-                      {caller.remainingToday
-                        ? ` · ${caller.remainingToday} remaining`
-                        : ""}
+
+                    <td style={cellStyle}>
+                      <strong>
+                        {caller.workedToday || 0}
+                        /{caller.assignedToday || 0}
+                      </strong>
+                      <div style={mutedStyle}>
+                        {caller.remainingToday || 0}{" "}
+                        remaining
+                      </div>
                     </td>
-                    <td>
+
+                    <td style={cellStyle}>
                       {formatSubmission(
                         caller.submission
                       )}
@@ -556,7 +753,75 @@ export default function DailyLeadManagerPanel() {
           </tbody>
         </table>
       </div>
+
+      <div style={noteStyle}>
+        <strong>Local resource rule:</strong>{" "}
+        when a manager selects Local, ReachFly forces Google lead generation to Pakistan with region code PK. The manager does not need to enter a country. An optional Pakistan city can be supplied; otherwise the system rotates callers across configured Pakistan cities. International callers continue to use the selected international market.
+      </div>
     </section>
+  );
+}
+
+function Field({ label, children }) {
+  return (
+    <label
+      style={{
+        display: "grid",
+        gap: 7,
+      }}
+    >
+      <span
+        style={{
+          fontSize: 12,
+          fontWeight: 700,
+          opacity: 0.72,
+        }}
+      >
+        {label}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+function normalizeCallerPlans(value) {
+  return Object.fromEntries(
+    Object.entries(value || {}).map(
+      ([callerId, plan]) => {
+        const resourceType =
+          plan?.resourceType === "local"
+            ? "local"
+            : "international";
+
+        return [
+          callerId,
+          {
+            ...plan,
+            resourceType,
+            niche: String(
+              plan?.niche || ""
+            ).trim(),
+            location: String(
+              plan?.location || ""
+            ).trim(),
+            country:
+              resourceType === "local"
+                ? "Pakistan"
+                : String(
+                    plan?.country || ""
+                  ).trim(),
+            regionCode:
+              resourceType === "local"
+                ? "PK"
+                : String(
+                    plan?.regionCode || ""
+                  )
+                    .trim()
+                    .toUpperCase(),
+          },
+        ];
+      }
+    )
   );
 }
 
@@ -586,6 +851,13 @@ function formatDateTime(value) {
     : date.toLocaleString();
 }
 
+function formatResourceType(value) {
+  if (!value) return "";
+  return value === "local"
+    ? "Local · Pakistan"
+    : "International";
+}
+
 function formatSubmission(submission) {
   if (!submission) {
     return "Not submitted";
@@ -604,3 +876,50 @@ function formatSubmission(submission) {
       )}`
     : "Submitted";
 }
+
+const settingsGridStyle = {
+  display: "grid",
+  gridTemplateColumns:
+    "repeat(auto-fit, minmax(190px, 1fr))",
+  gap: 14,
+  marginBottom: 18,
+};
+
+const pillStyle = {
+  display: "grid",
+  gap: 2,
+  minWidth: 210,
+  padding: "10px 12px",
+  border: "1px solid rgba(127,127,127,.24)",
+  borderRadius: 12,
+};
+
+const tableStyle = {
+  width: "100%",
+  minWidth: 1120,
+  borderCollapse: "separate",
+  borderSpacing: 0,
+};
+
+const cellStyle = {
+  padding: "12px 10px",
+  verticalAlign: "top",
+  borderTop:
+    "1px solid rgba(127,127,127,.14)",
+};
+
+const mutedStyle = {
+  marginTop: 3,
+  fontSize: 12,
+  opacity: 0.62,
+};
+
+const noteStyle = {
+  marginTop: 18,
+  padding: "12px 14px",
+  borderRadius: 12,
+  background:
+    "rgba(127,127,127,.08)",
+  fontSize: 13,
+  lineHeight: 1.55,
+};
