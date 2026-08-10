@@ -35,6 +35,19 @@ const PENDING_AUDIT_STATUSES = new Set([
   "generating",
 ]);
 
+const READY_AUDIT_STATUSES = new Set([
+  "complete",
+  "completed",
+  "ready",
+  "crm_audit_ready",
+]);
+
+const FAILED_AUDIT_STATUSES = new Set([
+  "failed",
+  "error",
+  "cancelled",
+]);
+
 export default function CallWorkspacePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -213,12 +226,41 @@ export default function CallWorkspacePage() {
   const miniAuditStatus = normalizeStatus(
     miniAudit?.status || lead?.miniAuditStatus || ""
   );
+  const campaignType = normalizeCampaignType(
+    assignment?.campaignType ||
+      assignment?.auditKind ||
+      lead?.dailyCampaignType ||
+      lead?.campaignType ||
+      "website"
+  );
+  const miniAuditReady = Boolean(
+    miniAudit &&
+      READY_AUDIT_STATUSES.has(miniAuditStatus)
+  );
+  const miniAuditPending =
+    generatingAudit ||
+    PENDING_AUDIT_STATUSES.has(miniAuditStatus);
+  const miniAuditFailed = FAILED_AUDIT_STATUSES.has(
+    miniAuditStatus
+  );
 
   const latestCall = useMemo(() => callHistory[0] || null, [callHistory]);
 
   async function generateReport(kind) {
-    if (!lead?.website) {
-      setError("A website is required to generate this report.");
+    const canResearchWithoutWebsite =
+      campaignType === "gmb" &&
+      Boolean(
+        resolvedLeadId ||
+          lead?.business ||
+          lead?.name ||
+          lead?.placeId ||
+          lead?.address
+      );
+
+    if (!lead?.website && !canResearchWithoutWebsite) {
+      setError(
+        "A website is required for Website campaign audits."
+      );
       return;
     }
 
@@ -235,7 +277,10 @@ export default function CallWorkspacePage() {
     try {
       const body = {
         lead,
-        website: lead.website,
+        leadId: resolvedLeadId,
+        campaignId: assignment?.campaignId || lead?.campaignId || "",
+        campaignType,
+        website: lead.website || "",
         niche:
           lead.dailyNiche ||
           assignment?.niche ||
@@ -292,6 +337,26 @@ export default function CallWorkspacePage() {
       setBusy(false);
     }
   }
+
+  useEffect(() => {
+    if (!lead || !resolvedLeadId) return;
+    if (miniAuditReady || miniAuditPending) return;
+
+    // Existing/manual assignments also receive the default Mini Audit automatically
+    // when the caller opens the workspace. Backend cache/dedupe prevents duplicates.
+    if (!miniAuditStatus || miniAuditFailed) {
+      void generateReport("mini");
+    }
+    // generateReport intentionally omitted from dependencies; this effect is keyed
+    // to the current lead and audit state only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    resolvedLeadId,
+    miniAuditStatus,
+    miniAuditReady,
+    miniAuditPending,
+    miniAuditFailed,
+  ]);
 
   async function saveOutcome() {
     if (!resolvedAssignmentId) return;
@@ -387,22 +452,43 @@ export default function CallWorkspacePage() {
           <section className="cardish" style={{ marginBottom: 12 }}>
             <p className="rf-call-eyebrow">Manual caller phone</p>
             <h2>Telnyx dialer & keypad</h2>
-            <p>Start the call here. During an active call the End call button and dial pad are available below.</p>
+            <p>The dialer unlocks as soon as the default Mini Audit is ready. During an active call the End call button and dial pad are available below.</p>
           </section>
 
-          <TelnyxDialer
-            lead={lead}
-            assignmentId={resolvedAssignmentId}
-            campaignId={assignment.campaignId || lead.campaignId || ""}
-            autoAdvance={false}
-            onAssignmentChange={(updated) => {
-              if (!updated) return;
-              setAssignment(updated);
-              if (updated.lead) setLead(updated.lead);
-            }}
-            onCallComplete={() => void loadWorkspace({ silent: true })}
-            onOpenNextLead={() => navigate("/app/my-leads")}
-          />
+          {miniAuditReady ? (
+            <TelnyxDialer
+              lead={lead}
+              assignmentId={resolvedAssignmentId}
+              campaignId={assignment.campaignId || lead.campaignId || ""}
+              autoAdvance={false}
+              onAssignmentChange={(updated) => {
+                if (!updated) return;
+                setAssignment(updated);
+                if (updated.lead) setLead(updated.lead);
+              }}
+              onCallComplete={() => void loadWorkspace({ silent: true })}
+              onOpenNextLead={() => navigate("/app/my-leads")}
+            />
+          ) : (
+            <section className="cardish" style={{ marginBottom: 12 }}>
+              <p className="rf-call-eyebrow">Pre-call audit</p>
+              <h2>Mini Audit required before dialing</h2>
+              <p>
+                {miniAuditPending
+                  ? "ReachFly is preparing the default Mini Audit. Manager setup is not required."
+                  : "ReachFly will generate the built-in Mini Audit automatically. A manager PDF only changes future report formatting."}
+              </p>
+              {!miniAuditPending ? (
+                <button
+                  type="button"
+                  onClick={() => void generateReport("mini")}
+                  disabled={generatingAudit}
+                >
+                  {miniAuditFailed ? "Retry Mini Audit" : "Generate Mini Audit"}
+                </button>
+              ) : null}
+            </section>
+          )}
 
           <section className="rf-call-outcome-card">
             <div>
@@ -495,6 +581,22 @@ export default function CallWorkspacePage() {
       </section>
     </main>
   );
+}
+
+function normalizeCampaignType(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+
+  return [
+    "gmb",
+    "gmb_audit",
+    "google_business_profile",
+    "local_visibility",
+  ].includes(normalized)
+    ? "gmb"
+    : "website";
 }
 
 function normalizeStatus(value) {

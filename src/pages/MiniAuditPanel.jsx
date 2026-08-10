@@ -68,8 +68,21 @@ export default function MiniAuditPanel({
     [audit, lead]
   );
 
+  const campaignType = normalizeCampaignType(
+    lead?.dailyCampaignType ||
+      lead?.campaignType ||
+      lead?.auditCampaignType ||
+      "website"
+  );
+
   const canGenerate = Boolean(
-    lead?.website
+    lead?.website ||
+      (campaignType === "gmb" &&
+        (lead?.id ||
+          lead?.business ||
+          lead?.name ||
+          lead?.placeId ||
+          lead?.address))
   );
 
   if (!canGenerate) {
@@ -82,8 +95,8 @@ export default function MiniAuditPanel({
 
         <AuditEmptyState
           icon="WEB"
-          title="Website required"
-          description="This lead does not have an official website, so a verified mini audit cannot be generated."
+          title="Lead evidence required"
+          description="Website campaigns require a public website. GMB campaigns can generate the Mini Audit from the business/profile identity even when no website is available."
         />
       </section>
     );
@@ -99,9 +112,11 @@ export default function MiniAuditPanel({
 
         <AuditProgressState
           lead={lead}
+          campaignType={campaignType}
         />
 
         <AuditActionGrid
+          campaignType={campaignType}
           auditReady={false}
           generating={generating}
           generatingFullAudit={
@@ -139,11 +154,14 @@ export default function MiniAuditPanel({
             audit?.error ||
             audit?.message ||
             lead?.miniAuditError ||
-            "The website could not be reviewed. Retry the report or confirm that the website is publicly accessible."
+            (campaignType === "gmb"
+              ? "The public GMB/local evidence could not be reviewed. Retry the report or verify the business identity and location."
+              : "The website could not be reviewed. Retry the report or confirm that the website is publicly accessible.")
           }
         />
 
         <AuditActionGrid
+          campaignType={campaignType}
           auditReady={false}
           generating={generating}
           generatingFullAudit={
@@ -177,10 +195,15 @@ export default function MiniAuditPanel({
         <AuditEmptyState
           icon="MA"
           title="Mini audit not generated"
-          description="Generate the one-page internal sales report before calling this business. The report will use public website data and verified public information."
+          description={
+            campaignType === "gmb"
+              ? "ReachFly generates the same one-page Mini Audit before calling, using verified public GMB/local evidence. No manager upload is required."
+              : "ReachFly generates the same one-page Mini Audit before calling, using verified public website and search evidence. No manager upload is required."
+          }
         />
 
         <AuditActionGrid
+          campaignType={campaignType}
           auditReady={false}
           generating={generating}
           generatingFullAudit={
@@ -241,6 +264,7 @@ export default function MiniAuditPanel({
       />
 
       <AuditActionGrid
+        campaignType={campaignType}
         auditReady
         generating={generating}
         generatingFullAudit={
@@ -734,6 +758,7 @@ function AuditDownloadActions({
 }
 
 function AuditActionGrid({
+  campaignType = "website",
   auditReady,
   generating,
   generatingFullAudit,
@@ -820,11 +845,15 @@ function AuditActionGrid({
           <strong>
             {generatingFullAudit
               ? "Generating full audit"
-              : "Full audit report"}
+              : campaignType === "gmb"
+                ? "Full GMB audit"
+                : "Full Website audit"}
           </strong>
 
           <small>
-            Create the detailed report
+            {campaignType === "gmb"
+              ? "Detailed local visibility report"
+              : "Detailed website / technology report"}
           </small>
         </div>
       </button>
@@ -834,29 +863,53 @@ function AuditActionGrid({
 
 function AuditProgressState({
   lead,
+  campaignType = "website",
 }) {
-  const steps = [
-    {
-      title: "Website access",
-      description:
-        "Fetching the public homepage and metadata.",
-    },
-    {
-      title: "Business verification",
-      description:
-        "Reviewing public contact and business details.",
-    },
-    {
-      title: "Technical findings",
-      description:
-        "Checking public conversion and website signals.",
-    },
-    {
-      title: "Report preparation",
-      description:
-        "Formatting the internal one-page mini audit.",
-    },
-  ];
+  const steps = campaignType === "gmb"
+    ? [
+        {
+          title: "Public profile search",
+          description:
+            "Finding the business and public local-search evidence.",
+        },
+        {
+          title: "Business verification",
+          description:
+            "Checking identity, address/NAP, category, hours and contact details where verifiable.",
+        },
+        {
+          title: "Local trust signals",
+          description:
+            "Reviewing reviews, profile signals and nearby competitor context.",
+        },
+        {
+          title: "Report preparation",
+          description:
+            "Formatting the universal one-page caller Mini Audit.",
+        },
+      ]
+    : [
+        {
+          title: "Website access",
+          description:
+            "Fetching the public homepage and metadata.",
+        },
+        {
+          title: "Business verification",
+          description:
+            "Reviewing public contact and business details.",
+        },
+        {
+          title: "Website findings",
+          description:
+            "Checking public conversion, trust, SEO and usability signals.",
+        },
+        {
+          title: "Report preparation",
+          description:
+            "Formatting the universal one-page caller Mini Audit.",
+        },
+      ];
 
   return (
     <div className="rf-mini-audit-progress">
@@ -1021,12 +1074,8 @@ function normalizeMiniAudit({
   audit,
   lead,
 }) {
-  const container = audit || {};
   const source =
-    container.report ||
-    container.content ||
-    container.result ||
-    container;
+    audit || {};
 
   const snapshotSource =
     source.businessSnapshot ||
@@ -1067,19 +1116,14 @@ function normalizeMiniAudit({
 
   return {
     id:
-      container.id ||
       source.id ||
       source.auditId ||
       "",
     status:
-      container.status ||
       source.status ||
       lead?.miniAuditStatus ||
       "",
     generatedAt:
-      container.generatedAt ||
-      container.completedAt ||
-      container.updatedAt ||
       source.generatedAt ||
       source.completedAt ||
       source.updatedAt ||
@@ -1092,7 +1136,6 @@ function normalizeMiniAudit({
     workspaceName:
       source.workspaceName ||
       source.brandName ||
-      container.brand?.name ||
       workspace.name ||
       source.parentAccountName ||
       "ReachFly AI",
@@ -1318,6 +1361,22 @@ async function copyAuditToClipboard(
 
     textarea.remove();
   }
+}
+
+function normalizeCampaignType(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+
+  return [
+    "gmb",
+    "gmb_audit",
+    "google_business_profile",
+    "local_visibility",
+  ].includes(normalized)
+    ? "gmb"
+    : "website";
 }
 
 function normalizeStatus(value) {
