@@ -58,7 +58,7 @@ const BUCKETS = [
   },
 ];
 
-const QUEUE_CACHE_VERSION = 2;
+const QUEUE_CACHE_VERSION = 3;
 const QUEUE_CACHE_TTL_MS =
   5 * 60 * 1000;
 const QUEUE_PAGE_LIMIT = 200;
@@ -636,6 +636,10 @@ export default function MyLeadsPage() {
         scheduleRefresh
       ),
       onWorkspaceSocket(
+        "lead:audit-updated",
+        scheduleRefresh
+      ),
+      onWorkspaceSocket(
         "daily-leads:completed",
         () => {
           scheduleRefresh();
@@ -825,8 +829,14 @@ export default function MyLeadsPage() {
     );
 
   async function openLead(
-    assignment
+    assignment,
+    {
+      ensureAudit = true,
+    } = {}
   ) {
+    let openedAssignment =
+      assignment;
+
     setSelected(
       assignment
     );
@@ -856,18 +866,209 @@ export default function MyLeadsPage() {
           }
         );
 
-      replaceAssignment(
-        response.assignment
-      );
+      if (
+        response?.assignment
+      ) {
+        openedAssignment =
+          response.assignment;
+
+        replaceAssignment(
+          openedAssignment
+        );
+      }
     } catch {
       // Opening the drawer should remain usable even if telemetry fails.
     }
+
+    if (
+      ensureAudit &&
+      !isCallerAuditReady(
+        openedAssignment
+      )
+    ) {
+      const currentStatus =
+        getCallerMiniAuditStatus(
+          openedAssignment
+        );
+
+      if (
+        !isAuditPendingStatus(
+          currentStatus
+        ) &&
+        !isAuditReviewStatus(
+          currentStatus
+        )
+      ) {
+        try {
+          openedAssignment =
+            await ensureDefaultMiniAudit(
+              openedAssignment
+            );
+
+          if (
+            !isCallerAuditReady(
+              openedAssignment
+            )
+          ) {
+            setError("");
+            setSuccess(
+              "The default Mini Audit is being prepared. Calling unlocks automatically when it is ready."
+            );
+          }
+        } catch (
+          requestError
+        ) {
+          setError(
+            requestError?.message ||
+              "The default Mini Audit could not be queued."
+          );
+        }
+      }
+    }
+
+    return openedAssignment;
+  }
+
+  async function ensureDefaultMiniAudit(
+    assignment
+  ) {
+    const lead =
+      assignment?.lead ||
+      {};
+
+    const campaignType =
+      getCampaignType(
+        assignment
+      ) || "website";
+
+    const currentStatus =
+      getCallerMiniAuditStatus(
+        assignment
+      );
+
+    if (
+      isCallerAuditReady(
+        assignment
+      ) ||
+      isAuditPendingStatus(
+        currentStatus
+      )
+    ) {
+      return assignment;
+    }
+
+    if (
+      isAuditReviewStatus(
+        currentStatus
+      )
+    ) {
+      return assignment;
+    }
+
+    const report =
+      await request(
+        "/lead-audits/mini",
+        {
+          method: "POST",
+          body: {
+            campaignId:
+              assignment?.campaignId ||
+              lead?.campaignId ||
+              "",
+            leadId:
+              assignment?.leadId ||
+              lead?.id ||
+              "",
+            lead,
+            website:
+              lead?.website ||
+              "",
+            campaignType,
+            auditKind:
+              "mini",
+            auditType:
+              "Mini Audit",
+            niche:
+              lead?.dailyNiche ||
+              assignment?.niche ||
+              lead?.category ||
+              lead?.primaryType ||
+              "",
+            location:
+              lead?.dailyLocation ||
+              assignment?.location ||
+              lead?.address ||
+              lead?.formattedAddress ||
+              "",
+            resourceType:
+              lead?.dailyResourceType ||
+              lead?.resourceType ||
+              assignment?.resourceType ||
+              "",
+            country:
+              lead?.dailyCountry ||
+              lead?.country ||
+              assignment?.country ||
+              "",
+            regionCode:
+              lead?.dailyRegionCode ||
+              lead?.regionCode ||
+              assignment?.regionCode ||
+              "",
+          },
+        }
+      );
+
+    const nextStatus =
+      normalizeAuditStatus(
+        report?.status ||
+          "queued"
+      ) || "queued";
+
+    const updated = {
+      ...assignment,
+      auditKind:
+        "mini",
+      auditType:
+        "Mini Audit",
+      auditStatus:
+        nextStatus,
+      miniAudit:
+        report ||
+        assignment?.miniAudit ||
+        null,
+      miniAuditStatus:
+        nextStatus,
+      lead: {
+        ...lead,
+        auditKind:
+          "mini",
+        auditType:
+          "Mini Audit",
+        auditStatus:
+          nextStatus,
+        miniAudit:
+          report ||
+          lead?.miniAudit ||
+          null,
+        miniAuditStatus:
+          nextStatus,
+      },
+    };
+
+    replaceAssignment(
+      updated
+    );
+
+    return updated;
   }
 
   async function callLead(
     assignment
   ) {
-    const lead = assignment.lead || {};
+    const lead =
+      assignment.lead ||
+      {};
 
     if (!lead.phone) {
       setError(
@@ -876,21 +1077,94 @@ export default function MyLeadsPage() {
       return;
     }
 
-    if (!isCallerAuditReady(assignment)) {
-      setError(
-        getAuditBlockedMessage(assignment)
-      );
-      await openLead(assignment);
-      return;
+    let currentAssignment =
+      assignment;
+
+    if (
+      !isCallerAuditReady(
+        currentAssignment
+      )
+    ) {
+      const currentStatus =
+        getCallerMiniAuditStatus(
+          currentAssignment
+        );
+
+      if (
+        isAuditReviewStatus(
+          currentStatus
+        )
+      ) {
+        setError(
+          getAuditBlockedMessage(
+            currentAssignment
+          )
+        );
+        await openLead(
+          currentAssignment,
+          {
+            ensureAudit: false,
+          }
+        );
+        return;
+      }
+
+      if (
+        !isAuditPendingStatus(
+          currentStatus
+        )
+      ) {
+        try {
+          currentAssignment =
+            await ensureDefaultMiniAudit(
+              currentAssignment
+            );
+        } catch (
+          requestError
+        ) {
+          setError(
+            requestError?.message ||
+              "The default Mini Audit could not be queued."
+          );
+          await openLead(
+            currentAssignment,
+            {
+              ensureAudit: false,
+            }
+          );
+          return;
+        }
+      }
+
+      if (
+        !isCallerAuditReady(
+          currentAssignment
+        )
+      ) {
+        setError("");
+        setSuccess(
+          "The default Mini Audit is being prepared from this lead's verified public evidence. The call will unlock automatically when it is ready."
+        );
+        await openLead(
+          currentAssignment,
+          {
+            ensureAudit: false,
+          }
+        );
+        return;
+      }
     }
 
     setError("");
+    setSuccess("");
 
     navigate(
       `/app/call-workspace?assignmentId=${encodeURIComponent(
-        assignment.id
+        currentAssignment.id
       )}&leadId=${encodeURIComponent(
-        assignment.leadId || lead.id || ""
+        currentAssignment.leadId ||
+          currentAssignment.lead?.id ||
+          ""
       )}`
     );
   }
@@ -1847,8 +2121,7 @@ function LeadCard({
           type="button"
           className="btn primary"
           disabled={
-            !lead.phone ||
-            !isCallerAuditReady(assignment)
+            !lead.phone
           }
           title={
             !lead.phone
@@ -1861,7 +2134,15 @@ function LeadCard({
             onCall
           }
         >
-          Call
+          {isCallerAuditReady(assignment)
+            ? "Call"
+            : isAuditPendingStatus(
+                getCallerMiniAuditStatus(
+                  assignment
+                )
+              )
+              ? "Audit generating"
+              : "Prepare audit"}
         </button>
       </footer>
     </article>
@@ -2082,25 +2363,8 @@ function getCampaignTypeLabel(assignment) {
   return "Standard";
 }
 
-function getAuditTypeLabel(assignment) {
-  const type = getCampaignType(assignment);
-  if (type === "gmb") {
-    return "GMB / Local Visibility Audit";
-  }
-  if (type === "website") {
-    return "Website / Technology Audit";
-  }
-  return "Mini audit";
-}
-
-function getCallerAudit(assignment) {
-  return (
-    assignment?.auditReport ||
-    assignment?.lead?.auditReport ||
-    assignment?.miniAudit ||
-    assignment?.lead?.miniAudit ||
-    null
-  );
+function getAuditTypeLabel() {
+  return "Mini Audit";
 }
 
 function normalizeAuditStatus(value) {
@@ -2110,22 +2374,7 @@ function normalizeAuditStatus(value) {
     .replace(/[\s-]+/g, "_");
 }
 
-function isCallerAuditReady(assignment) {
-  const type = getCampaignType(assignment);
-  if (!type) return true;
-
-  if (getCallerAudit(assignment)) {
-    return true;
-  }
-
-  const status = normalizeAuditStatus(
-    assignment?.auditStatus ||
-      assignment?.lead?.auditStatus ||
-      assignment?.miniAuditStatus ||
-      assignment?.lead?.miniAuditStatus ||
-      ""
-  );
-
+function isAuditReadyStatus(value) {
   return [
     "ready",
     "ready_for_caller",
@@ -2133,87 +2382,274 @@ function isCallerAuditReady(assignment) {
     "complete",
     "completed",
     "success",
-  ].includes(status);
+  ].includes(
+    normalizeAuditStatus(
+      value
+    )
+  );
 }
 
-function formatAuditStatus(assignment) {
-  if (isCallerAuditReady(assignment)) {
-    return "Ready for Caller";
-  }
-
-  const status = normalizeAuditStatus(
-    assignment?.auditStatus ||
-      assignment?.lead?.auditStatus ||
-      assignment?.miniAuditStatus ||
-      assignment?.lead?.miniAuditStatus ||
-      ""
+function isAuditPendingStatus(value) {
+  return [
+    "queued",
+    "pending",
+    "processing",
+    "running",
+    "generating",
+  ].includes(
+    normalizeAuditStatus(
+      value
+    )
   );
+}
 
-  if (status === "format_required") {
-    return "Manager format required";
+function isAuditReviewStatus(value) {
+  return [
+    "technical_review_required",
+    "review_required",
+  ].includes(
+    normalizeAuditStatus(
+      value
+    )
+  );
+}
+
+function getCallerMiniAuditRecord(
+  assignment
+) {
+  return (
+    assignment?.miniAudit ||
+    assignment?.lead?.miniAudit ||
+    null
+  );
+}
+
+function getCallerMiniAuditStatus(
+  assignment
+) {
+  const audit =
+    getCallerMiniAuditRecord(
+      assignment
+    );
+
+  const miniStatus =
+    normalizeAuditStatus(
+      audit?.status ||
+        assignment?.miniAuditStatus ||
+        assignment?.lead?.miniAuditStatus ||
+        ""
+    );
+
+  if (miniStatus) {
+    return miniStatus;
   }
-  if (["failed", "error", "audit_error"].includes(status)) {
-    return "Audit Error";
+
+  const legacyStatus =
+    normalizeAuditStatus(
+      assignment?.auditStatus ||
+        assignment?.lead?.auditStatus ||
+        ""
+    );
+
+  /*
+   * "format_required" belongs to the retired manager-PDF gate.
+   * It must never block the built-in ReachFly Mini Audit flow.
+   * Treat it as "not generated yet" so the caller page can
+   * queue the default Mini Audit automatically.
+   */
+  if (
+    legacyStatus ===
+    "format_required"
+  ) {
+    return "";
   }
-  if (["technical_review_required", "review_required"].includes(status)) {
+
+  /*
+   * Only preserve genuine review/failure/pending states from
+   * legacy records. A legacy "ready" Website/GMB report does
+   * not replace the universal Mini Audit pre-call requirement.
+   */
+  if (
+    isAuditPendingStatus(
+      legacyStatus
+    ) ||
+    isAuditReviewStatus(
+      legacyStatus
+    ) ||
+    [
+      "failed",
+      "error",
+      "audit_error",
+    ].includes(
+      legacyStatus
+    )
+  ) {
+    return legacyStatus;
+  }
+
+  return "";
+}
+
+function getCallerAudit(
+  assignment
+) {
+  const audit =
+    getCallerMiniAuditRecord(
+      assignment
+    );
+
+  if (!audit) {
+    return null;
+  }
+
+  const status =
+    getCallerMiniAuditStatus(
+      assignment
+    );
+
+  if (
+    !isAuditReadyStatus(
+      status
+    )
+  ) {
+    return null;
+  }
+
+  return audit;
+}
+
+function isCallerAuditReady(
+  assignment
+) {
+  return isAuditReadyStatus(
+    getCallerMiniAuditStatus(
+      assignment
+    )
+  );
+}
+
+function formatAuditStatus(
+  assignment
+) {
+  const status =
+    getCallerMiniAuditStatus(
+      assignment
+    );
+
+  if (
+    isAuditReadyStatus(
+      status
+    )
+  ) {
+    return "Mini Audit Ready";
+  }
+
+  if (
+    [
+      "failed",
+      "error",
+      "audit_error",
+    ].includes(status)
+  ) {
+    return "Mini Audit Error";
+  }
+
+  if (
+    isAuditReviewStatus(
+      status
+    )
+  ) {
     return "Technical Review Required";
   }
-  if (["queued", "processing", "running", "generating"].includes(status)) {
-    return "Generating";
+
+  if (
+    isAuditPendingStatus(
+      status
+    )
+  ) {
+    return "Generating Mini Audit";
   }
 
-  return getCampaignType(assignment)
-    ? "Preparing audit"
-    : "Not required";
+  return "Default Mini Audit";
 }
 
-function getAuditPendingTitle(assignment) {
-  const status = normalizeAuditStatus(
-    assignment?.auditStatus ||
-      assignment?.lead?.auditStatus ||
-      assignment?.miniAuditStatus ||
-      assignment?.lead?.miniAuditStatus ||
-      ""
-  );
+function getAuditPendingTitle(
+  assignment
+) {
+  const status =
+    getCallerMiniAuditStatus(
+      assignment
+    );
 
-  if (status === "format_required") {
-    return "Manager audit format required";
+  if (
+    [
+      "failed",
+      "error",
+      "audit_error",
+    ].includes(status)
+  ) {
+    return "Mini Audit generation failed";
   }
-  if (["failed", "error", "audit_error"].includes(status)) {
-    return "Audit error";
-  }
-  if (["technical_review_required", "review_required"].includes(status)) {
+
+  if (
+    isAuditReviewStatus(
+      status
+    )
+  ) {
     return "Technical review required";
   }
-  return "Audit is being prepared";
+
+  if (
+    isAuditPendingStatus(
+      status
+    )
+  ) {
+    return "Default Mini Audit is being prepared";
+  }
+
+  return "Default Mini Audit will be generated automatically";
 }
 
-function getAuditBlockedMessage(assignment) {
-  const type = getCampaignType(assignment);
-  if (!type) {
-    return "This lead can be called when its phone number is available.";
+function getAuditBlockedMessage(
+  assignment
+) {
+  const status =
+    getCallerMiniAuditStatus(
+      assignment
+    );
+
+  if (
+    [
+      "failed",
+      "error",
+      "audit_error",
+    ].includes(status)
+  ) {
+    return "The default Mini Audit could not be completed. Click Call again to retry generation before dialing.";
   }
 
-  const status = normalizeAuditStatus(
-    assignment?.auditStatus ||
-      assignment?.lead?.auditStatus ||
-      assignment?.miniAuditStatus ||
-      assignment?.lead?.miniAuditStatus ||
-      ""
-  );
-  const label = getAuditTypeLabel(assignment);
-
-  if (status === "format_required") {
-    return `The manager must upload and activate the ${label} PDF format before this lead can be called.`;
-  }
-  if (["failed", "error", "audit_error"].includes(status)) {
-    return `${label} generation failed. The lead is held from calling until the audit is regenerated successfully.`;
-  }
-  if (["technical_review_required", "review_required"].includes(status)) {
-    return `${label} requires review before the caller can start this call.`;
+  if (
+    isAuditReviewStatus(
+      status
+    )
+  ) {
+    return "This Mini Audit requires technical review before the caller can start the call.";
   }
 
-  return `${label} is being generated from this lead's own verified evidence. Calling is enabled when the report is Ready for Caller.`;
+  if (
+    isAuditPendingStatus(
+      status
+    )
+  ) {
+    return "The default Mini Audit is being generated from this lead's verified public evidence. Calling unlocks as soon as it is ready.";
+  }
+
+  const campaign =
+    getCampaignTypeLabel(
+      assignment
+    );
+
+  return `ReachFly will generate the built-in Mini Audit for this ${campaign} lead automatically. Manager uploads are optional and only change future audit formatting.`;
 }
 
 function getLeadName(
