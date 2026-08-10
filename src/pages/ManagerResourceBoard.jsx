@@ -21,7 +21,7 @@ import {
 } from "../lib/workspace-platform-client.js";
 
 import "../styles.css";
-import "../styles/manager-resource-board.css";
+// import "../styles/manager-resource-boar.css";
 
 const BOARD_CACHE_KEY =
   "reachfly:manager-resource-board:v1";
