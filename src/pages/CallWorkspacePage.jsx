@@ -72,6 +72,8 @@ export default function CallWorkspacePage() {
 
   const socketRefreshTimerRef =
     useRef(null);
+  const autoAuditRepairRef =
+    useRef(new Set());
 
   const resolvedAssignmentId = assignment?.id || assignmentId;
   const resolvedLeadId = lead?.id || assignment?.leadId || requestedLeadId;
@@ -233,9 +235,17 @@ export default function CallWorkspacePage() {
       lead?.campaignType ||
       "website"
   );
+  const miniAuditFindingCount =
+    getMiniAuditFindingCount(miniAudit);
   const miniAuditReady = Boolean(
     miniAudit &&
-      READY_AUDIT_STATUSES.has(miniAuditStatus)
+      READY_AUDIT_STATUSES.has(miniAuditStatus) &&
+      miniAuditFindingCount > 0
+  );
+  const miniAuditNeedsRepair = Boolean(
+    miniAudit &&
+      READY_AUDIT_STATUSES.has(miniAuditStatus) &&
+      miniAuditFindingCount === 0
   );
   const miniAuditPending =
     generatingAudit ||
@@ -246,7 +256,10 @@ export default function CallWorkspacePage() {
 
   const latestCall = useMemo(() => callHistory[0] || null, [callHistory]);
 
-  async function generateReport(kind) {
+  async function generateReport(
+    kind,
+    { force = false } = {}
+  ) {
     const canResearchWithoutWebsite =
       campaignType === "gmb" &&
       Boolean(
@@ -308,6 +321,7 @@ export default function CallWorkspacePage() {
           lead.regionCode ||
           assignment?.regionCode ||
           "",
+        force,
       };
       const report = kind === "mini"
         ? await apiRequest("/lead-audits/mini", { method: "POST", body })
@@ -342,6 +356,16 @@ export default function CallWorkspacePage() {
     if (!lead || !resolvedLeadId) return;
     if (miniAuditReady || miniAuditPending) return;
 
+    // Repair one stale/legacy "complete" report with zero structured findings.
+    // This happens after format/schema upgrades when an older cached report is reused.
+    if (miniAuditNeedsRepair) {
+      if (!autoAuditRepairRef.current.has(resolvedLeadId)) {
+        autoAuditRepairRef.current.add(resolvedLeadId);
+        void generateReport("mini", { force: true });
+      }
+      return;
+    }
+
     // Existing/manual assignments also receive the default Mini Audit automatically
     // when the caller opens the workspace. Backend cache/dedupe prevents duplicates.
     if (!miniAuditStatus || miniAuditFailed) {
@@ -356,6 +380,7 @@ export default function CallWorkspacePage() {
     miniAuditReady,
     miniAuditPending,
     miniAuditFailed,
+    miniAuditNeedsRepair,
   ]);
 
   async function saveOutcome() {
@@ -481,7 +506,7 @@ export default function CallWorkspacePage() {
               {!miniAuditPending ? (
                 <button
                   type="button"
-                  onClick={() => void generateReport("mini")}
+                  onClick={() => void generateReport("mini", { force: true })}
                   disabled={generatingAudit}
                 >
                   {miniAuditFailed ? "Retry Mini Audit" : "Generate Mini Audit"}
@@ -573,9 +598,9 @@ export default function CallWorkspacePage() {
             generating={generatingAudit}
             generatingFullAudit={generatingFullAudit}
             generatingCompetitorAnalysis={generatingCompetitorAnalysis}
-            onGenerateMiniAudit={() => void generateReport("mini")}
-            onGenerateFullAudit={() => void generateReport("full")}
-            onGenerateCompetitorAnalysis={() => void generateReport("competitor")}
+            onGenerateMiniAudit={() => void generateReport("mini", { force: true })}
+            onGenerateFullAudit={() => void generateReport("full", { force: true })}
+            onGenerateCompetitorAnalysis={() => void generateReport("competitor", { force: true })}
           />
         </aside>
       </section>
@@ -597,6 +622,20 @@ function normalizeCampaignType(value) {
   ].includes(normalized)
     ? "gmb"
     : "website";
+}
+
+function getMiniAuditFindingCount(audit) {
+  if (!audit || typeof audit !== "object") return 0;
+  const payload =
+    audit.report && typeof audit.report === "object"
+      ? audit.report
+      : audit;
+  const findings =
+    payload.issues ||
+    payload.findings ||
+    payload.auditFindings ||
+    [];
+  return Array.isArray(findings) ? findings.length : 0;
 }
 
 function normalizeStatus(value) {

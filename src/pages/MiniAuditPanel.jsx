@@ -45,7 +45,8 @@ export default function MiniAuditPanel({
       ) &&
       !AUDIT_FAILED_STATUSES.has(
         normalizedStatus
-      )
+      ) &&
+      getAuditFindingCount(audit) > 0
   );
 
   const auditPending =
@@ -152,6 +153,8 @@ export default function MiniAuditPanel({
           title="Mini audit could not be completed"
           description={
             audit?.error ||
+            audit?.providerError ||
+            audit?.report?.generationNote ||
             audit?.message ||
             lead?.miniAuditError ||
             (campaignType === "gmb"
@@ -234,6 +237,10 @@ export default function MiniAuditPanel({
       />
 
       <AuditReportBanner
+        report={report}
+      />
+
+      <AuditGenerationSource
         report={report}
       />
 
@@ -396,6 +403,45 @@ function AuditReportBanner({
         </strong>
       </div>
     </section>
+  );
+}
+
+function AuditGenerationSource({
+  report,
+}) {
+  const fallback =
+    report.provider ===
+    "deterministic-fallback";
+
+  if (
+    !fallback &&
+    !report.generationNote &&
+    !report.providerError
+  ) {
+    return null;
+  }
+
+  return (
+    <div
+      className={`rf-workspace-alert ${
+        fallback
+          ? "rf-workspace-alert--warning"
+          : "rf-workspace-alert--success"
+      }`}
+    >
+      <strong>
+        {fallback
+          ? "Claude generation fallback used"
+          : "Claude audit generation"}
+      </strong>
+      {report.providerError ||
+      report.generationNote ? (
+        <span>
+          {report.providerError ||
+            report.generationNote}
+        </span>
+      ) : null}
+    </div>
   );
 }
 
@@ -1070,12 +1116,45 @@ function SnapshotRow({
   );
 }
 
+function getAuditFindingCount(audit) {
+  if (!audit || typeof audit !== "object") {
+    return 0;
+  }
+
+  const payload =
+    audit.report &&
+    typeof audit.report === "object"
+      ? audit.report
+      : audit;
+
+  const findings =
+    payload.issues ||
+    payload.findings ||
+    payload.auditFindings ||
+    [];
+
+  return Array.isArray(findings)
+    ? findings.length
+    : 0;
+}
+
 function normalizeMiniAudit({
   audit,
   lead,
 }) {
+  // lead-audit-service returns an envelope:
+  // { id, status, brand, provider, report: { snapshot, issues, footer, ... } }
+  // Older UI code read the envelope itself, which hid Claude's generated findings.
+  const envelope =
+    audit && typeof audit === "object"
+      ? audit
+      : {};
+
   const source =
-    audit || {};
+    envelope.report &&
+    typeof envelope.report === "object"
+      ? envelope.report
+      : envelope;
 
   const snapshotSource =
     source.businessSnapshot ||
@@ -1103,73 +1182,138 @@ function normalizeMiniAudit({
     : [];
 
   const workspace =
+    envelope.workspace ||
+    envelope.brand ||
     source.workspace ||
     source.brand ||
+    envelope.organization ||
     source.organization ||
     {};
 
   const website =
     snapshotSource.website ||
     source.website ||
+    envelope.website ||
     lead?.website ||
     "";
 
+  const auditId =
+    envelope.id ||
+    envelope.auditId ||
+    source.id ||
+    source.auditId ||
+    "";
+
+  const status =
+    envelope.status ||
+    source.status ||
+    lead?.miniAuditStatus ||
+    "";
+
+  const readyForPdf = [
+    "ready",
+    "ready_for_caller",
+    "crm_audit_ready",
+    "complete",
+    "completed",
+    "success",
+  ].includes(
+    normalizeStatus(status)
+  );
+
+  const generatedPdfUrl =
+    auditId && readyForPdf
+      ? `/api/lead-audits/${encodeURIComponent(
+          auditId
+        )}/pdf`
+      : "";
+
   return {
-    id:
-      source.id ||
-      source.auditId ||
-      "",
-    status:
-      source.status ||
-      lead?.miniAuditStatus ||
-      "",
+    id: auditId,
+    status,
     generatedAt:
+      envelope.generatedAt ||
+      envelope.completedAt ||
+      envelope.updatedAt ||
       source.generatedAt ||
       source.completedAt ||
       source.updatedAt ||
       "",
     reportDate:
       source.reportDate ||
+      envelope.reportDate ||
+      envelope.generatedAt ||
+      envelope.completedAt ||
       source.generatedAt ||
       source.completedAt ||
       new Date().toISOString(),
     workspaceName:
+      envelope.workspaceName ||
+      envelope.brandName ||
       source.workspaceName ||
       source.brandName ||
       workspace.name ||
+      envelope.parentAccountName ||
       source.parentAccountName ||
       "ReachFly AI",
     workspaceDomain:
+      envelope.workspaceDomain ||
+      envelope.brandDomain ||
       source.workspaceDomain ||
       source.brandDomain ||
+      workspace.website ||
       workspace.domain ||
       "",
     domain: getDomain(website),
     pdfUrl:
+      envelope.pdfUrl ||
+      envelope.downloadUrl ||
+      envelope.reportPdfUrl ||
       source.pdfUrl ||
       source.downloadUrl ||
       source.reportPdfUrl ||
-      "",
+      generatedPdfUrl,
     textUrl:
+      envelope.textUrl ||
+      envelope.reportTextUrl ||
       source.textUrl ||
       source.reportTextUrl ||
+      "",
+    provider:
+      envelope.provider ||
+      source.provider ||
+      "",
+    providerError:
+      envelope.providerError ||
+      source.providerError ||
+      "",
+    generationNote:
+      source.generationNote ||
+      envelope.generationNote ||
+      "",
+    footer:
+      source.footer ||
+      envelope.footer ||
       "",
     snapshot: {
       businessName:
         snapshotSource.businessName ||
         snapshotSource.name ||
         source.businessName ||
+        envelope.businessName ||
         lead?.business ||
         lead?.name ||
         "",
       phone:
         snapshotSource.phone ||
         source.phone ||
+        envelope.phone ||
         lead?.phone ||
         "",
       email:
         snapshotSource.email ||
         source.email ||
+        envelope.email ||
         lead?.email ||
         "",
       website,

@@ -2510,6 +2510,9 @@ function getCallerAudit(
   if (
     !isAuditReadyStatus(
       status
+    ) ||
+    !hasCallerReadyMiniAuditContent(
+      audit
     )
   ) {
     return null;
@@ -2518,13 +2521,49 @@ function getCallerAudit(
   return audit;
 }
 
+function hasCallerReadyMiniAuditContent(
+  audit
+) {
+  if (!audit || typeof audit !== "object") {
+    return false;
+  }
+
+  const payload =
+    audit.report &&
+    typeof audit.report === "object"
+      ? audit.report
+      : audit;
+
+  const findings =
+    payload.issues ||
+    payload.findings ||
+    payload.auditFindings ||
+    [];
+
+  return (
+    Array.isArray(findings) &&
+    findings.length > 0
+  );
+}
+
 function isCallerAuditReady(
   assignment
 ) {
-  return isAuditReadyStatus(
-    getCallerMiniAuditStatus(
+  const audit =
+    getCallerMiniAuditRecord(
       assignment
-    )
+    );
+
+  return Boolean(
+    audit &&
+      isAuditReadyStatus(
+        getCallerMiniAuditStatus(
+          assignment
+        )
+      ) &&
+      hasCallerReadyMiniAuditContent(
+        audit
+      )
   );
 }
 
