@@ -876,6 +876,14 @@ export default function MyLeadsPage() {
       return;
     }
 
+    if (!isCallerAuditReady(assignment)) {
+      setError(
+        getAuditBlockedMessage(assignment)
+      );
+      await openLead(assignment);
+      return;
+    }
+
     setError("");
 
     navigate(
@@ -1532,27 +1540,22 @@ export default function MyLeadsPage() {
 
               <aside className="caller-workspace__audit">
                 <span className="eyebrow">
-                  Mini audit
+                  {getAuditTypeLabel(selected)}
                 </span>
 
-                {selected.miniAudit ||
-                selected.lead
-                  ?.miniAudit ? (
-                  <MiniAudit
-                    audit={
-                      selected.miniAudit ||
-                      selected.lead
-                        .miniAudit
-                    }
+                {getCallerAudit(selected) ? (
+                  <CampaignAudit
+                    audit={getCallerAudit(selected)}
+                    campaignType={getCampaignType(selected)}
                   />
                 ) : (
                   <div className="caller-audit-pending">
                     <strong>
-                      Audit is being prepared
+                      {getAuditPendingTitle(selected)}
                     </strong>
 
                     <p>
-                      Daily automation queues mini audits for website leads before outreach.
+                      {getAuditBlockedMessage(selected)}
                     </p>
                   </div>
                 )}
@@ -1594,6 +1597,15 @@ function DailyWorkPanel({
             {" "}leads assigned
           </h3>
           <p>
+            Call mix: {dailyDay.websiteCalls ?? 0} Website
+            {" · "}
+            {dailyDay.gmbCalls ?? 0} GMB
+            {" · "}
+            Today: {dailyDay.websiteAssigned ?? 0} Website
+            {" · "}
+            {dailyDay.gmbAssigned ?? 0} GMB
+          </p>
+          <p>
             Current niche: {dailyDay.currentNiche || "Not assigned"}
             {dailyDay.currentResourceType
               ? ` · ${formatResourceType(dailyDay.currentResourceType)}`
@@ -1622,15 +1634,21 @@ function DailyWorkPanel({
                 : ""}
           </p>
           <p>
-            Worked: {dailyDay.worked || 0}
-            {" · "}
-            Remaining: {dailyDay.remaining || 0}
-            {" · "}
-            Refresh/deadline: {formatDailyDateTime(
-              dailyDay.nextRefreshAt
+            Lead delivery time: {formatDailyClock(
+              dailyDay.assignmentHour,
+              dailyDay.assignmentMinute
             )}
             {" "}
             ({dailyDay.timezone || ""})
+            {" · "}
+            Next scheduled delivery: {formatDailyDateTime(
+              dailyDay.nextRefreshAt
+            )}
+          </p>
+          <p>
+            Worked: {dailyDay.worked || 0}
+            {" · "}
+            Remaining: {dailyDay.remaining || 0}
           </p>
         </div>
 
@@ -1673,6 +1691,33 @@ function formatResourceType(value) {
     : "International";
 }
 
+function formatDailyClock(hour, minute) {
+  const safeHour =
+    Number.isFinite(Number(hour))
+      ? Math.max(
+          0,
+          Math.min(
+            23,
+            Number(hour)
+          )
+        )
+      : 0;
+  const safeMinute =
+    Number.isFinite(Number(minute))
+      ? Math.max(
+          0,
+          Math.min(
+            59,
+            Number(minute)
+          )
+        )
+      : 0;
+
+  return `${String(safeHour).padStart(2, "0")}:${String(
+    safeMinute
+  ).padStart(2, "0")}`;
+}
+
 function formatDailyDateTime(value) {
   if (!value) return "Not scheduled";
   const date = new Date(value);
@@ -1706,6 +1751,12 @@ function LeadCard({
             assignment.status
           )}
         </span>
+
+        {getCampaignType(assignment) ? (
+          <span className="badge badge-neutral">
+            {getCampaignTypeLabel(assignment)}
+          </span>
+        ) : null}
       </header>
 
       <h3>
@@ -1738,6 +1789,24 @@ function LeadCard({
           <dd>
             {lead.website ||
               "Unavailable"}
+          </dd>
+        </div>
+
+        <div>
+          <dt>
+            Call type
+          </dt>
+          <dd>
+            {getCampaignTypeLabel(assignment)}
+          </dd>
+        </div>
+
+        <div>
+          <dt>
+            Audit
+          </dt>
+          <dd>
+            {formatAuditStatus(assignment)}
           </dd>
         </div>
 
@@ -1778,7 +1847,15 @@ function LeadCard({
           type="button"
           className="btn primary"
           disabled={
+            !lead.phone ||
+            !isCallerAuditReady(assignment)
+          }
+          title={
             !lead.phone
+              ? "Phone number unavailable"
+              : !isCallerAuditReady(assignment)
+                ? getAuditBlockedMessage(assignment)
+                : `Call ${getCampaignTypeLabel(assignment)} lead`
           }
           onClick={
             onCall
@@ -1840,67 +1917,303 @@ function LeadSummary({
             "Unavailable"}
         </strong>
       </div>
+
+      <div>
+        <small>
+          Call type
+        </small>
+        <strong>
+          {getCampaignTypeLabel(assignment)}
+        </strong>
+      </div>
+
+      <div>
+        <small>
+          Audit status
+        </small>
+        <strong>
+          {formatAuditStatus(assignment)}
+        </strong>
+      </div>
     </section>
   );
 }
 
-function MiniAudit({
+function CampaignAudit({
   audit,
+  campaignType = "",
 }) {
+  const report =
+    audit?.report &&
+    typeof audit.report === "object"
+      ? audit.report
+      : audit || {};
+
   const findings =
-    Array.isArray(
-      audit.findings
-    )
-      ? audit.findings
-      : Array.isArray(
-            audit.issues
-          )
-        ? audit.issues
-        : [];
+    Array.isArray(report.findings)
+      ? report.findings
+      : Array.isArray(report.issues)
+        ? report.issues
+        : Array.isArray(report.opportunities)
+          ? report.opportunities
+          : [];
+
+  const summary =
+    report.summary ||
+    report.executiveSummary ||
+    audit?.summary ||
+    audit?.executiveSummary ||
+    "";
 
   return (
     <div className="caller-mini-audit">
-      {audit.summary ? (
+      <p>
+        <strong>
+          {campaignType === "gmb"
+            ? "GMB / Local Visibility lead"
+            : "Website / Technology lead"}
+        </strong>
+      </p>
+
+      {summary ? (
         <p>
-          {audit.summary}
+          {summary}
         </p>
       ) : null}
 
       {findings
-        .slice(
-          0,
-          5
-        )
-        .map(
-          (
-            finding,
-            index
-          ) => (
-            <article
-              key={
-                finding.id ||
-                index
-              }
-            >
-              <strong>
-                {finding.title ||
-                  finding.issue ||
-                  `Finding ${
-                    index + 1
-                  }`}
-              </strong>
+        .slice(0, 8)
+        .map((finding, index) => (
+          <article
+            key={
+              finding.id ||
+              `${finding.title || finding.tag || "finding"}-${index}`
+            }
+          >
+            <strong>
+              {finding.title ||
+                finding.tag ||
+                finding.issue ||
+                `Finding ${index + 1}`}
+            </strong>
 
+            <p>
+              {finding.description ||
+                finding.finding ||
+                finding.evidence ||
+                finding.impact ||
+                finding.businessImpact ||
+                ""}
+            </p>
+
+            {finding.businessImpact &&
+            finding.businessImpact !== finding.impact ? (
               <p>
-                {finding.description ||
-                  finding.evidence ||
-                  finding.impact ||
-                  ""}
+                <b>Business impact:</b>{" "}
+                {finding.businessImpact}
               </p>
-            </article>
-          )
-        )}
+            ) : null}
+
+            {finding.approvedSalesWording ||
+            finding.controlledOpeningLine ? (
+              <p>
+                <b>Approved wording:</b>{" "}
+                {finding.approvedSalesWording ||
+                  finding.controlledOpeningLine}
+              </p>
+            ) : null}
+          </article>
+        ))}
+
+      {!findings.length && !summary ? (
+        <p>
+          The campaign audit is ready. Open the full report from this lead if more detail is required.
+        </p>
+      ) : null}
     </div>
   );
+}
+
+function getCampaignType(assignment) {
+  const raw =
+    assignment?.campaignType ||
+    assignment?.lead?.dailyCampaignType ||
+    assignment?.lead?.campaignType ||
+    assignment?.auditKind ||
+    assignment?.lead?.auditKind ||
+    "";
+
+  const value = String(raw)
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "_");
+
+  if (
+    [
+      "gmb",
+      "google_business_profile",
+      "google_business",
+      "local_visibility",
+      "local",
+    ].includes(value)
+  ) {
+    return "gmb";
+  }
+
+  if (
+    [
+      "website",
+      "website_audit",
+      "technology",
+      "tech",
+      "website_technology",
+    ].includes(value)
+  ) {
+    return "website";
+  }
+
+  return "";
+}
+
+function getCampaignTypeLabel(assignment) {
+  const type = getCampaignType(assignment);
+  if (type === "gmb") return "GMB";
+  if (type === "website") return "Website";
+  return "Standard";
+}
+
+function getAuditTypeLabel(assignment) {
+  const type = getCampaignType(assignment);
+  if (type === "gmb") {
+    return "GMB / Local Visibility Audit";
+  }
+  if (type === "website") {
+    return "Website / Technology Audit";
+  }
+  return "Mini audit";
+}
+
+function getCallerAudit(assignment) {
+  return (
+    assignment?.auditReport ||
+    assignment?.lead?.auditReport ||
+    assignment?.miniAudit ||
+    assignment?.lead?.miniAudit ||
+    null
+  );
+}
+
+function normalizeAuditStatus(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+}
+
+function isCallerAuditReady(assignment) {
+  const type = getCampaignType(assignment);
+  if (!type) return true;
+
+  if (getCallerAudit(assignment)) {
+    return true;
+  }
+
+  const status = normalizeAuditStatus(
+    assignment?.auditStatus ||
+      assignment?.lead?.auditStatus ||
+      assignment?.miniAuditStatus ||
+      assignment?.lead?.miniAuditStatus ||
+      ""
+  );
+
+  return [
+    "ready",
+    "ready_for_caller",
+    "crm_audit_ready",
+    "complete",
+    "completed",
+    "success",
+  ].includes(status);
+}
+
+function formatAuditStatus(assignment) {
+  if (isCallerAuditReady(assignment)) {
+    return "Ready for Caller";
+  }
+
+  const status = normalizeAuditStatus(
+    assignment?.auditStatus ||
+      assignment?.lead?.auditStatus ||
+      assignment?.miniAuditStatus ||
+      assignment?.lead?.miniAuditStatus ||
+      ""
+  );
+
+  if (status === "format_required") {
+    return "Manager format required";
+  }
+  if (["failed", "error", "audit_error"].includes(status)) {
+    return "Audit Error";
+  }
+  if (["technical_review_required", "review_required"].includes(status)) {
+    return "Technical Review Required";
+  }
+  if (["queued", "processing", "running", "generating"].includes(status)) {
+    return "Generating";
+  }
+
+  return getCampaignType(assignment)
+    ? "Preparing audit"
+    : "Not required";
+}
+
+function getAuditPendingTitle(assignment) {
+  const status = normalizeAuditStatus(
+    assignment?.auditStatus ||
+      assignment?.lead?.auditStatus ||
+      assignment?.miniAuditStatus ||
+      assignment?.lead?.miniAuditStatus ||
+      ""
+  );
+
+  if (status === "format_required") {
+    return "Manager audit format required";
+  }
+  if (["failed", "error", "audit_error"].includes(status)) {
+    return "Audit error";
+  }
+  if (["technical_review_required", "review_required"].includes(status)) {
+    return "Technical review required";
+  }
+  return "Audit is being prepared";
+}
+
+function getAuditBlockedMessage(assignment) {
+  const type = getCampaignType(assignment);
+  if (!type) {
+    return "This lead can be called when its phone number is available.";
+  }
+
+  const status = normalizeAuditStatus(
+    assignment?.auditStatus ||
+      assignment?.lead?.auditStatus ||
+      assignment?.miniAuditStatus ||
+      assignment?.lead?.miniAuditStatus ||
+      ""
+  );
+  const label = getAuditTypeLabel(assignment);
+
+  if (status === "format_required") {
+    return `The manager must upload and activate the ${label} PDF format before this lead can be called.`;
+  }
+  if (["failed", "error", "audit_error"].includes(status)) {
+    return `${label} generation failed. The lead is held from calling until the audit is regenerated successfully.`;
+  }
+  if (["technical_review_required", "review_required"].includes(status)) {
+    return `${label} requires review before the caller can start this call.`;
+  }
+
+  return `${label} is being generated from this lead's own verified evidence. Calling is enabled when the report is Ready for Caller.`;
 }
 
 function getLeadName(

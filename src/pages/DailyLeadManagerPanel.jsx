@@ -10,6 +10,8 @@ import {
   onWorkspaceSocket,
 } from "../lib/workspace-platform-client.js";
 
+import AuditStudioPanel from "./AuditStudioPanel.jsx";
+
 const DEFAULT_CONFIG = {
   enabled: true,
   leadsPerCaller: 100,
@@ -30,6 +32,8 @@ const DEFAULT_CONFIG = {
     "Gujranwala",
   ],
   regionCode: "US",
+  defaultWebsiteCalls: 80,
+  defaultGmbCalls: 20,
   callerPlans: {},
 };
 
@@ -44,6 +48,8 @@ export default function DailyLeadManagerPanel() {
     useState(false);
   const [running, setRunning] =
     useState(false);
+  const [runningCallerId, setRunningCallerId] =
+    useState("");
   const [error, setError] =
     useState("");
   const [message, setMessage] =
@@ -160,6 +166,41 @@ export default function DailyLeadManagerPanel() {
     }));
   }
 
+  function setCallerTime(
+    callerId,
+    value
+  ) {
+    const [hour, minute] =
+      String(value || "")
+        .split(":")
+        .map(Number);
+
+    if (
+      !Number.isInteger(hour) ||
+      hour < 0 ||
+      hour > 23 ||
+      !Number.isInteger(minute) ||
+      minute < 0 ||
+      minute > 59
+    ) {
+      return;
+    }
+
+    setForm((current) => ({
+      ...current,
+      callerPlans: {
+        ...(current.callerPlans || {}),
+        [callerId]: {
+          ...(current.callerPlans?.[
+            callerId
+          ] || {}),
+          assignmentHour: hour,
+          assignmentMinute: minute,
+        },
+      },
+    }));
+  }
+
   function setResourceType(
     callerId,
     value
@@ -204,57 +245,111 @@ export default function DailyLeadManagerPanel() {
     });
   }
 
+  function setCallerCallMix(
+    callerId,
+    kind,
+    value
+  ) {
+    const total = Math.max(
+      1,
+      Number(form.leadsPerCaller || 100)
+    );
+    const nextValue = Math.max(
+      0,
+      Math.min(total, Number(value || 0))
+    );
+
+    setForm((current) => {
+      const existing =
+        current.callerPlans?.[callerId] || {};
+      const currentWebsite =
+        Number.isFinite(Number(existing.websiteCalls))
+          ? Number(existing.websiteCalls)
+          : Math.round(total * 0.8);
+      const currentGmb =
+        Number.isFinite(Number(existing.gmbCalls))
+          ? Number(existing.gmbCalls)
+          : Math.max(0, total - currentWebsite);
+
+      const websiteCalls =
+        kind === "website"
+          ? nextValue
+          : Math.max(0, total - nextValue);
+      const gmbCalls =
+        kind === "gmb"
+          ? nextValue
+          : Math.max(0, total - nextValue);
+
+      return {
+        ...current,
+        callerPlans: {
+          ...(current.callerPlans || {}),
+          [callerId]: {
+            ...existing,
+            websiteCalls,
+            gmbCalls,
+          },
+        },
+      };
+    });
+  }
+
+  function buildConfigPayload() {
+    const callerPlans =
+      normalizeCallerPlans(
+        form.callerPlans || {}
+      );
+
+    return {
+      ...form,
+      leadsPerCaller:
+        Math.max(
+          1,
+          Number(
+            form.leadsPerCaller ||
+              100
+          )
+        ),
+      niches:
+        normalizeList(
+          form.niches
+        ),
+      locations:
+        normalizeList(
+          form.locations
+        ),
+      localPakistanLocations:
+        normalizeList(
+          form.localPakistanLocations
+        ),
+      regionCode:
+        String(
+          form.regionCode || "US"
+        )
+          .trim()
+          .toUpperCase(),
+      callerPlans,
+    };
+  }
+
   async function save() {
     setSaving(true);
     setError("");
     setMessage("");
 
     try {
-      const callerPlans =
-        normalizeCallerPlans(
-          form.callerPlans || {}
-        );
-
       const result =
         await apiRequest(
           "/daily-leads/config",
           {
             method: "PUT",
-            body: {
-              ...form,
-              leadsPerCaller:
-                Math.max(
-                  1,
-                  Number(
-                    form.leadsPerCaller ||
-                      100
-                  )
-                ),
-              niches:
-                normalizeList(
-                  form.niches
-                ),
-              locations:
-                normalizeList(
-                  form.locations
-                ),
-              localPakistanLocations:
-                normalizeList(
-                  form.localPakistanLocations
-                ),
-              regionCode:
-                String(
-                  form.regionCode || "US"
-                )
-                  .trim()
-                  .toUpperCase(),
-              callerPlans,
-            },
+            body:
+              buildConfigPayload(),
           }
         );
 
       setMessage(
-        "Schedule, resource types, markets, and next-day niches were saved. The scheduler was updated immediately."
+        "Caller times, Website/GMB call mix, resource types, markets, and niches were saved. If today already has a queue, use Override + assign now to replace only that caller's unworked tasks with the new mix."
       );
 
       setStatus((current) => ({
@@ -309,6 +404,89 @@ export default function DailyLeadManagerPanel() {
     }
   }
 
+  async function runCallerNow(caller) {
+    if (!caller?.id) return;
+
+    const hasTodayQueue =
+      Number(
+        caller.assignedToday ||
+          0
+      ) > 0;
+
+    if (
+      hasTodayQueue &&
+      typeof window !==
+        "undefined" &&
+      !window.confirm(
+        `Replace ${caller.name || "this caller"}'s unworked tasks for today and assign a fresh queue now? Already-worked/completed leads will stay in history.`
+      )
+    ) {
+      return;
+    }
+
+    setRunningCallerId(
+      caller.id
+    );
+    setError("");
+    setMessage("");
+
+    try {
+      // Save the row first so Assign Now always uses the manager's current
+      // time/resource/niche/market selections, even if Save daily plan was
+      // not clicked separately.
+      await apiRequest(
+        "/daily-leads/config",
+        {
+          method: "PUT",
+          body:
+            buildConfigPayload(),
+        }
+      );
+
+      const result =
+        await apiRequest(
+          "/daily-leads/run",
+          {
+            method: "POST",
+            body: {
+              force: true,
+              callerId:
+                caller.id,
+              overrideToday:
+                hasTodayQueue,
+              source:
+                hasTodayQueue
+                  ? "manager-override-now"
+                  : "manager-assign-now",
+            },
+            timeoutMs: 120_000,
+          }
+        );
+
+      const overridden =
+        Number(
+          result?.run
+            ?.overriddenCount ||
+            0
+        );
+
+      setMessage(
+        hasTodayQueue
+          ? `${caller.name || "Caller"}: ${overridden} unworked task${overridden === 1 ? " was" : "s were"} replaced and today's queue was assigned now. Worked/completed history was preserved.`
+          : `${caller.name || "Caller"}: today's lead queue was assigned now using the current manager settings.`
+      );
+
+      await load({ silent: true });
+    } catch (requestError) {
+      setError(
+        requestError?.message ||
+          "This caller's queue could not be assigned now."
+      );
+    } finally {
+      setRunningCallerId("");
+    }
+  }
+
   if (loading) {
     return (
       <section className="rf-panel">
@@ -320,7 +498,8 @@ export default function DailyLeadManagerPanel() {
   }
 
   return (
-    <section className="rf-panel">
+    <>
+      <section className="rf-panel">
       <div className="rf-panel-header">
         <div>
           <p className="rf-dashboard-eyebrow">
@@ -330,7 +509,7 @@ export default function DailyLeadManagerPanel() {
             Daily lead allocation
           </h2>
           <p>
-            Control the refresh schedule, daily target, resource market, and next niche for every caller. Useful previous leads are reused before Google lead generation.
+            Set a separate daily lead-delivery time, Website/GMB call mix, resource type, niche, and market for every caller. For example, a 100-lead caller can be set to 50 Website calls + 50 GMB calls. You can assign one caller now or override only that caller's unworked tasks to apply a changed mix today.
           </p>
         </div>
 
@@ -391,7 +570,7 @@ export default function DailyLeadManagerPanel() {
           </select>
         </Field>
 
-        <Field label="Daily refresh time">
+        <Field label="Default refresh time">
           <input
             type="time"
             value={timeValue}
@@ -535,11 +714,14 @@ export default function DailyLeadManagerPanel() {
             <tr>
               <th align="left">Caller</th>
               <th align="left">Resource type</th>
+              <th align="left">Lead time</th>
+              <th align="left">Website / GMB calls</th>
               <th align="left">Today</th>
               <th align="left">Next niche</th>
               <th align="left">Next market</th>
               <th align="left">Progress</th>
               <th align="left">Submission</th>
+              <th align="left">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -555,6 +737,34 @@ export default function DailyLeadManagerPanel() {
                   "international";
                 const isLocal =
                   resourceType === "local";
+                const callerHour =
+                  plan.assignmentHour ??
+                  caller.assignmentHour ??
+                  form.assignmentHour ??
+                  4;
+                const callerMinute =
+                  plan.assignmentMinute ??
+                  caller.assignmentMinute ??
+                  form.assignmentMinute ??
+                  0;
+                const callerTimeValue =
+                  `${String(callerHour).padStart(2, "0")}:${String(callerMinute).padStart(2, "0")}`;
+                const dailyTotal = Math.max(
+                  1,
+                  Number(form.leadsPerCaller || 100)
+                );
+                const websiteCalls =
+                  Number.isFinite(Number(plan.websiteCalls))
+                    ? Number(plan.websiteCalls)
+                    : Number.isFinite(Number(caller.websiteCalls))
+                      ? Number(caller.websiteCalls)
+                      : Math.round(dailyTotal * 0.8);
+                const gmbCalls =
+                  Number.isFinite(Number(plan.gmbCalls))
+                    ? Number(plan.gmbCalls)
+                    : Number.isFinite(Number(caller.gmbCalls))
+                      ? Number(caller.gmbCalls)
+                      : Math.max(0, dailyTotal - websiteCalls);
 
                 return (
                   <tr key={caller.id}>
@@ -588,6 +798,67 @@ export default function DailyLeadManagerPanel() {
                           Local · Pakistan
                         </option>
                       </select>
+                    </td>
+
+                    <td style={cellStyle}>
+                      <input
+                        type="time"
+                        value={callerTimeValue}
+                        onChange={(event) =>
+                          setCallerTime(
+                            caller.id,
+                            event.target.value
+                          )
+                        }
+                        style={{ minWidth: 118 }}
+                      />
+                      <div style={mutedStyle}>
+                        Next: {formatDateTime(
+                          caller.nextRefreshAt
+                        ) || "—"}
+                      </div>
+                    </td>
+
+                    <td style={cellStyle}>
+                      <div style={{ display: "grid", gap: 6, minWidth: 190 }}>
+                        <label style={mixLabelStyle}>
+                          <span>Website</span>
+                          <input
+                            type="number"
+                            min="0"
+                            max={dailyTotal}
+                            value={websiteCalls}
+                            onChange={(event) =>
+                              setCallerCallMix(
+                                caller.id,
+                                "website",
+                                event.target.value
+                              )
+                            }
+                            style={{ width: 76 }}
+                          />
+                        </label>
+                        <label style={mixLabelStyle}>
+                          <span>GMB</span>
+                          <input
+                            type="number"
+                            min="0"
+                            max={dailyTotal}
+                            value={gmbCalls}
+                            onChange={(event) =>
+                              setCallerCallMix(
+                                caller.id,
+                                "gmb",
+                                event.target.value
+                              )
+                            }
+                            style={{ width: 76 }}
+                          />
+                        </label>
+                        <div style={mutedStyle}>
+                          Today: {caller.websiteAssignedToday || 0} Website · {caller.gmbAssignedToday || 0} GMB
+                        </div>
+                      </div>
                     </td>
 
                     <td style={cellStyle}>
@@ -746,6 +1017,45 @@ export default function DailyLeadManagerPanel() {
                         caller.submission
                       )}
                     </td>
+
+                    <td style={cellStyle}>
+                      <button
+                        type="button"
+                        className="rf-button rf-button--secondary"
+                        onClick={() =>
+                          void runCallerNow(
+                            caller
+                          )
+                        }
+                        disabled={
+                          Boolean(
+                            runningCallerId
+                          )
+                        }
+                        style={{
+                          whiteSpace:
+                            "nowrap",
+                        }}
+                        title={
+                          Number(
+                            caller.assignedToday ||
+                              0
+                          ) > 0
+                            ? "Replace this caller's unworked tasks for today, preserve worked/completed history, and assign a fresh queue now."
+                            : "Assign today's queue immediately without waiting for the saved lead time."
+                        }
+                      >
+                        {runningCallerId ===
+                        caller.id
+                          ? "Assigning…"
+                          : Number(
+                                caller.assignedToday ||
+                                  0
+                              ) > 0
+                            ? "Override + assign now"
+                            : "Assign now"}
+                      </button>
+                    </td>
                   </tr>
                 );
               }
@@ -755,10 +1065,19 @@ export default function DailyLeadManagerPanel() {
       </div>
 
       <div style={noteStyle}>
+        <strong>Per-caller schedule:</strong>{" "}
+        each caller can have a different lead time. For example, if Caller 1 is Local · Pakistan at 19:00, that caller receives today's queue at 19:00 Asia/Karachi while other callers keep their own saved times. Saving a past time catches up a caller whose queue is still short. Use <strong>Assign now</strong> to deliver immediately, or <strong>Override + assign now</strong> to replace only that caller's unworked tasks for today while preserving worked/completed history. {" "}
+        <strong>Call mix:</strong>{" "}
+        Website + GMB calls are saved separately for every caller and are normalized to that caller's daily target. To change an already-assigned queue today, use <strong>Override + assign now</strong>. {" "}
+        <strong>Audit formats:</strong>{" "}
+        upload the Website / Technology and GMB / Local Visibility PDF examples in Audit Studio below before callers work those campaigns. {" "}
         <strong>Local resource rule:</strong>{" "}
-        when a manager selects Local, ReachFly forces Google lead generation to Pakistan with region code PK. The manager does not need to enter a country. An optional Pakistan city can be supplied; otherwise the system rotates callers across configured Pakistan cities. International callers continue to use the selected international market.
+        Local always uses Pakistan / PK; leaving the city blank keeps automatic Pakistan city rotation.
       </div>
     </section>
+
+      <AuditStudioPanel />
+    </>
   );
 }
 
@@ -818,10 +1137,63 @@ function normalizeCallerPlans(value) {
                   )
                     .trim()
                     .toUpperCase(),
+            assignmentHour:
+              isValidScheduleNumber(
+                plan?.assignmentHour,
+                0,
+                23
+              )
+                ? Number(plan.assignmentHour)
+                : undefined,
+            assignmentMinute:
+              isValidScheduleNumber(
+                plan?.assignmentMinute,
+                0,
+                59
+              )
+                ? Number(plan.assignmentMinute)
+                : undefined,
+            websiteCalls:
+              isValidScheduleNumber(
+                plan?.websiteCalls,
+                0,
+                5000
+              )
+                ? Number(plan.websiteCalls)
+                : undefined,
+            gmbCalls:
+              isValidScheduleNumber(
+                plan?.gmbCalls,
+                0,
+                5000
+              )
+                ? Number(plan.gmbCalls)
+                : undefined,
           },
         ];
       }
     )
+  );
+}
+
+function isValidScheduleNumber(
+  value,
+  min,
+  max
+) {
+  if (
+    value === "" ||
+    value === null ||
+    value === undefined
+  ) {
+    return false;
+  }
+
+  const number = Number(value);
+  return (
+    Number.isInteger(number) &&
+    number >= min &&
+    number <= max
   );
 }
 
@@ -885,6 +1257,14 @@ const settingsGridStyle = {
   marginBottom: 18,
 };
 
+const mixLabelStyle = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 8,
+  fontSize: 12,
+};
+
 const pillStyle = {
   display: "grid",
   gap: 2,
@@ -896,7 +1276,7 @@ const pillStyle = {
 
 const tableStyle = {
   width: "100%",
-  minWidth: 1120,
+  minWidth: 1510,
   borderCollapse: "separate",
   borderSpacing: 0,
 };

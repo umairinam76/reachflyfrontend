@@ -2339,3 +2339,12 @@ export async function getRoleDashboard() {
         : [],
   };
 }
+
+
+/**
+ * Compatibility alias used by RoleOperations builds that call
+ * workspacePlatform.salesDashboard().
+ */
+export async function salesDashboard() {
+  return getRoleDashboard();
+}

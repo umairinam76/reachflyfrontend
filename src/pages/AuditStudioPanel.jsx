@@ -13,6 +13,20 @@ import {
 
 const REPORTS = [
   {
+    kind: "website",
+    label: "Website / Technology Audit",
+    eyebrow: "Required · Website calls",
+    description:
+      "Manager-approved format for Website campaign leads. Upload a PDF example; every generated audit still uses the current lead's own verified evidence.",
+  },
+  {
+    kind: "gmb",
+    label: "GMB / Local Visibility Audit",
+    eyebrow: "Required · GMB calls",
+    description:
+      "Manager-approved format for GMB campaign leads. Upload a PDF example; every report is generated dynamically for that business and market.",
+  },
+  {
     kind: "mini",
     label: "Mini Audit",
     eyebrow: "Pre-call intelligence",
@@ -39,7 +53,7 @@ export default function AuditStudioPanel() {
   const [studio, setStudio] =
     useState(null);
   const [activeKind, setActiveKind] =
-    useState("mini");
+    useState("website");
   const [drafts, setDrafts] =
     useState({});
   const [systemPrompt, setSystemPrompt] =
@@ -269,7 +283,7 @@ export default function AuditStudioPanel() {
       );
 
       setMessage(
-        `${activeDefinition.label} reference PDF uploaded. It is now attached to version ${result?.template?.version ?? "current"} and will guide new Claude audits.`
+        `${activeDefinition.label} reference PDF uploaded as version ${result?.template?.version ?? "current"}. It will guide layout/style only; each new report remains dynamic to its lead.`
       );
 
       await load({ silent: true });
@@ -363,7 +377,7 @@ export default function AuditStudioPanel() {
           </p>
           <h2>Audit Studio</h2>
           <p>
-            Control the approved format for Mini Audits, Competitor Analysis, and Full Audits. Claude keeps ReachFly's fixed evidence rules while following the manager's active report format and reference PDF.
+            Control the required Website / Technology and GMB / Local Visibility caller-audit formats, plus Mini, Competitor, and Full reports. Upload one approved PDF example per type. PDFs control format/style only; every report is generated dynamically from the current lead's own verified public evidence.
           </p>
         </div>
 
@@ -380,6 +394,11 @@ export default function AuditStudioPanel() {
             Verified evidence only
           </strong>
         </div>
+      </div>
+
+      <div style={requiredFormatNoteStyle}>
+        <strong>Required daily-call formats:</strong>{" "}
+        Website calls use the Website / Technology template and GMB calls use the GMB / Local Visibility template. Upload an approved PDF example for both before callers work those queues.
       </div>
 
       {error ? (
@@ -593,7 +612,7 @@ export default function AuditStudioPanel() {
             Example PDF
           </h3>
           <p style={referenceDescriptionStyle}>
-            Upload the manager-approved example. Claude receives this reference with new audits so the content structure and presentation direction remain consistent.
+            Upload one manager-approved PDF for this report type. Claude uses its structure, layout direction, and presentation style only; names, facts, findings, metrics, and competitors are regenerated from the current lead.
           </p>
 
           {activeTemplate?.examplePdf ? (
@@ -855,6 +874,15 @@ const qualityBadgeStyle = {
   borderRadius: 12,
   border:
     "1px solid rgba(127,127,127,.22)",
+};
+
+const requiredFormatNoteStyle = {
+  margin: "0 0 16px",
+  padding: "12px 14px",
+  border: "1px solid rgba(127,127,127,.24)",
+  borderRadius: 12,
+  fontSize: 13,
+  lineHeight: 1.5,
 };
 
 const reportCardGridStyle = {
