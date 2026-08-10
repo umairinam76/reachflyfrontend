@@ -7,7 +7,7 @@ import {
 } from "react";
 import { api } from "../api";
 import { apiRequest } from "../lib/workspace-platform-client.js";
-import "./TelnyxDialer.css";
+import "../styles.css";
 
 const ACTIVE_STATES = new Set([
   "active",
