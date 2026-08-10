@@ -97,149 +97,184 @@ export default function ManagerDashboardPage() {
         const results =
           await Promise.allSettled([
             apiRequest(
-              "/team-management/members"
+              "/team"
             ),
 
             apiRequest(
-              "/team-management/performance"
+              "/team/performance"
             ),
 
             apiRequest(
-              "/attendance/team/today"
+              "/attendance/team"
             ),
 
             apiRequest(
-              "/team-management/assignments?limit=250"
+              "/sales/assignments?limit=250"
             ),
 
             apiRequest(
-              "/team-management/tasks?limit=250"
+              "/team-communication/tasks?limit=250"
             ),
 
             apiRequest(
-              "/calls?limit=100"
+              "/telnyx/calls?limit=100"
             ),
 
             apiRequest(
-              "/team-management/leads?limit=500&assignmentStatus=unassigned"
+              "/resource-board/unassigned-leads?limit=500"
             ),
 
             apiRequest(
-              "/team-management/dialers"
+              "/dialers"
             ),
 
             apiRequest(
-              "/team-management/senders"
+              "/senders"
             ),
           ]);
+
+        const failures = [];
 
         const memberResponse =
           getSettledValue(
             results[0],
-            {}
+            {},
+            "team",
+            failures
           );
 
         const performanceResponse =
           getSettledValue(
             results[1],
-            {}
+            {},
+            "team performance",
+            failures
           );
 
         const attendanceResponse =
           getSettledValue(
             results[2],
-            {}
+            {},
+            "team attendance",
+            failures
           );
 
         const assignmentResponse =
           getSettledValue(
             results[3],
-            {}
+            {},
+            "lead assignments",
+            failures
           );
 
         const taskResponse =
           getSettledValue(
             results[4],
-            {}
+            {},
+            "team tasks",
+            failures
           );
 
         const callResponse =
           getSettledValue(
             results[5],
-            {}
+            {},
+            "Telnyx calls",
+            failures
           );
 
         const leadResponse =
           getSettledValue(
             results[6],
-            {}
+            {},
+            "unassigned leads",
+            failures
           );
 
         const dialerResponse =
           getSettledValue(
             results[7],
-            {}
+            {},
+            "dialers",
+            failures
           );
 
         const senderResponse =
           getSettledValue(
             results[8],
-            {}
+            {},
+            "senders",
+            failures
           );
 
         setTeamMembers(
-          memberResponse.members ||
-            memberResponse.profiles ||
-            memberResponse.users ||
-            []
+          extractList(
+            memberResponse,
+            ["members", "profiles", "users"]
+          )
         );
 
         setPerformance(
-          performanceResponse.performance ||
-            performanceResponse.members ||
-            []
+          extractList(
+            performanceResponse,
+            ["performance", "members", "records"]
+          )
         );
 
         setAttendance(
-          attendanceResponse.attendance ||
-            attendanceResponse.records ||
-            attendanceResponse.members ||
-            []
+          extractList(
+            attendanceResponse,
+            ["attendance", "records", "members"]
+          )
         );
 
         setAssignments(
-          assignmentResponse.assignments ||
-            assignmentResponse.records ||
-            []
+          extractList(
+            assignmentResponse,
+            ["assignments", "records"]
+          )
         );
 
         setTasks(
-          taskResponse.tasks ||
-            taskResponse.records ||
-            []
+          extractList(
+            taskResponse,
+            ["tasks", "records"]
+          )
         );
 
         setCalls(
-          callResponse.calls ||
-            callResponse.records ||
-            []
+          extractList(
+            callResponse,
+            ["calls", "records"]
+          )
         );
 
         setUnassignedLeads(
-          leadResponse.leads ||
-            leadResponse.records ||
-            []
+          extractList(
+            leadResponse,
+            ["leads", "records"]
+          )
         );
 
         setDialers(
-          dialerResponse.dialers ||
-            []
+          extractList(
+            dialerResponse,
+            ["dialers", "records"]
+          )
         );
 
         setSenders(
-          senderResponse.senders ||
-            []
+          extractList(
+            senderResponse,
+            ["senders", "records"]
+          )
         );
+
+        if (failures.length) {
+          setError(
+            `Some manager data could not be loaded: ${failures.join(", ")}.`
+          );
+        }
       } catch (requestError) {
         setError(
           requestError?.message ||
@@ -325,6 +360,18 @@ export default function ManagerDashboardPage() {
       role,
       profile?.id,
     ]
+  );
+
+  const callerMembers = useMemo(
+    () =>
+      managedMembers.filter(
+        (member) =>
+          normalizeRole(
+            member.workspaceRole ||
+              member.role
+          ) === "caller"
+      ),
+    [managedMembers]
   );
 
   const metrics = useMemo(() => {
@@ -753,7 +800,7 @@ export default function ManagerDashboardPage() {
 
       {activeSection === "tools" ? (
         <ManagerToolsSection
-          members={managedMembers}
+          members={callerMembers}
           dialers={dialers}
           senders={senders}
           onConfigure={(member) => {
@@ -765,10 +812,14 @@ export default function ManagerDashboardPage() {
 
       {showAssignmentDialog ? (
         <ManagerAssignmentDialog
-          members={managedMembers}
+          members={callerMembers}
           leads={unassignedLeads}
           selectedMember={
-            selectedMember
+            callerMembers.find(
+              (member) =>
+                member.id ===
+                selectedMember?.id
+            ) || null
           }
           onClose={() =>
             setShowAssignmentDialog(
@@ -783,21 +834,39 @@ export default function ManagerDashboardPage() {
               ]
             );
 
-            const assignedIds =
+            const assignedLeadIds =
               new Set(
-                created.map(
-                  (item) =>
-                    item.leadId ||
-                    item.lead?.id
-                )
+                created
+                  .map(
+                    (item) =>
+                      item.leadId ||
+                      item.lead?.id
+                  )
+                  .filter(Boolean)
+              );
+
+            const assignedAssignmentIds =
+              new Set(
+                created
+                  .map(
+                    (item) =>
+                      item.assignmentId ||
+                      item.id
+                  )
+                  .filter(Boolean)
               );
 
             setUnassignedLeads(
               (current) =>
                 current.filter(
                   (lead) =>
-                    !assignedIds.has(
-                      lead.id
+                    !assignedLeadIds.has(
+                      lead.leadId ||
+                        lead.id
+                    ) &&
+                    !assignedAssignmentIds.has(
+                      lead.assignmentId ||
+                        ""
                     )
                 )
             );
@@ -845,8 +914,14 @@ export default function ManagerDashboardPage() {
 
       {showToolDialog ? (
         <ManagerToolDialog
-          members={managedMembers}
-          member={selectedMember}
+          members={callerMembers}
+          member={
+            callerMembers.find(
+              (member) =>
+                member.id ===
+                selectedMember?.id
+            ) || null
+          }
           dialers={dialers}
           senders={senders}
           onClose={() =>
@@ -1473,7 +1548,7 @@ function ManagerAssignmentsSection({
     try {
       const response =
         await apiRequest(
-          `/team-management/assignments/${encodeURIComponent(
+          `/sales/assignments/${encodeURIComponent(
             assignment.id
           )}`,
           {
@@ -1681,7 +1756,7 @@ function ManagerTasksSection({
     try {
       const response =
         await apiRequest(
-          `/team-management/tasks/${encodeURIComponent(
+          `/team-communication/tasks/${encodeURIComponent(
             task.id
           )}`,
           {
@@ -2299,28 +2374,120 @@ function ManagerAssignmentDialog({
     try {
       const response =
         await apiRequest(
-          "/team-management/assignments",
+          "/resource-board/leads/assign",
           {
             method: "POST",
             body: {
-              assigneeId,
-              leadIds:
+              resourceId: assigneeId,
+              assignmentIds:
                 selectedLeadIds,
-              priority,
-              instructions,
-              dueAt:
-                dueAt || null,
             },
           }
         );
 
-      onCreated(
-        response.assignments ||
-          [
-            response.assignment ||
-              response,
-          ]
-      );
+      let created = Array.isArray(
+        response?.results
+      )
+        ? response.results
+            .filter(
+              (item) =>
+                item?.ok &&
+                item?.assignment
+            )
+            .map(
+              (item) =>
+                item.assignment
+            )
+        : extractList(
+            response,
+            ["assignments"]
+          );
+
+      if (
+        !created.length &&
+        response?.assignment
+      ) {
+        created = [response.assignment];
+      }
+
+      if (!created.length) {
+        const firstFailure =
+          Array.isArray(response?.results)
+            ? response.results.find(
+                (item) => !item?.ok
+              )
+            : null;
+
+        throw new Error(
+          firstFailure?.error ||
+            "No leads were assigned."
+        );
+      }
+
+      const shouldPatchMetadata =
+        priority !== "normal" ||
+        Boolean(instructions.trim()) ||
+        Boolean(dueAt);
+
+      if (shouldPatchMetadata) {
+        const metadataResults =
+          await Promise.allSettled(
+            created.map(
+              (assignment) =>
+                apiRequest(
+                  `/sales/assignments/${encodeURIComponent(
+                    assignment.assignmentId ||
+                      assignment.id
+                  )}`,
+                  {
+                    method: "PATCH",
+                    body: {
+                      priority,
+                      notes:
+                        instructions.trim(),
+                      nextActionAt:
+                        dueAt || null,
+                    },
+                  }
+                )
+            )
+          );
+
+        created = created.map(
+          (assignment, index) => {
+            const metadataResult =
+              metadataResults[index];
+
+            if (
+              metadataResult?.status ===
+              "fulfilled"
+            ) {
+              return (
+                metadataResult.value
+                  ?.assignment ||
+                metadataResult.value ||
+                assignment
+              );
+            }
+
+            console.error(
+              "[manager-dashboard] assignment metadata update failed",
+              metadataResult?.reason
+            );
+
+            return {
+              ...assignment,
+              priority,
+              notes:
+                instructions.trim(),
+              nextActionAt:
+                dueAt || "",
+            };
+          }
+        );
+      }
+
+      onCreated(created);
     } catch (requestError) {
       onError(
         requestError?.message ||
@@ -2468,17 +2635,23 @@ function ManagerAssignmentDialog({
               {filteredLeads.map(
                 (lead) => (
                   <label
-                    key={lead.id}
+                    key={getLeadSelectionId(
+                      lead
+                    )}
                     className="rf-lead-selection-item"
                   >
                     <input
                       type="checkbox"
                       checked={selectedLeadIds.includes(
-                        lead.id
+                        getLeadSelectionId(
+                          lead
+                        )
                       )}
                       onChange={() =>
                         toggleLead(
-                          lead.id
+                          getLeadSelectionId(
+                            lead
+                          )
                         )
                       }
                     />
@@ -2559,7 +2732,7 @@ function ManagerTaskDialog({
     try {
       const response =
         await apiRequest(
-          "/team-management/tasks",
+          "/team-communication/tasks",
           {
             method: "POST",
             body: {
@@ -2795,51 +2968,65 @@ function ManagerToolDialog({
     setSaving(true);
 
     try {
-      const response =
-        await apiRequest(
-          `/team-management/members/${encodeURIComponent(
-            memberId
-          )}/tools`,
-          {
-            method: "PATCH",
-            body: {
-              dialerId:
-                dialerId || null,
-              senderId:
-                senderId || null,
-            },
-          }
-        );
-
       const selected =
         members.find(
           (item) =>
             item.id === memberId
         );
 
-      onUpdated(
-        response.member ||
-          response.profile ||
+      const selectedDialer =
+        dialers.find(
+          (dialer) =>
+            dialer.id === dialerId
+        ) || null;
+
+      const selectedSender =
+        senders.find(
+          (sender) =>
+            sender.id === senderId
+        ) || null;
+
+      const response =
+        await apiRequest(
+          `/resource-board/resources/${encodeURIComponent(
+            memberId
+          )}/channels`,
           {
-            ...selected,
-            assignedDialerId:
-              dialerId || "",
-            assignedSenderId:
-              senderId || "",
-            assignedDialer:
-              dialers.find(
-                (dialer) =>
-                  dialer.id ===
-                  dialerId
-              ) || null,
-            assignedSender:
-              senders.find(
-                (sender) =>
-                  sender.id ===
-                  senderId
-              ) || null,
+            method: "PATCH",
+            body: {
+              phoneNumber:
+                selectedDialer?.fromNumber ||
+                selectedDialer?.phoneNumber ||
+                selectedDialer?.number ||
+                "",
+              emailAccountId:
+                selectedSender?.emailAccountId ||
+                selectedSender?.senderId ||
+                selectedSender?.accountId ||
+                selectedSender?.id ||
+                "",
+            },
           }
-      );
+        );
+
+      onUpdated({
+        ...selected,
+        ...(response.resource || {}),
+        assignedDialerId:
+          dialerId || "",
+        assignedSenderId:
+          senderId || "",
+        assignedDialer:
+          response.dialer ||
+          selectedDialer,
+        assignedSender:
+          selectedSender,
+        emailAccountId:
+          response.emailAccount?.id ||
+          selectedSender?.emailAccountId ||
+          selected?.emailAccountId ||
+          "",
+      });
     } catch (requestError) {
       onError(
         requestError?.message ||
@@ -3378,12 +3565,53 @@ function updateForm(
 
 function getSettledValue(
   result,
-  fallback
+  fallback,
+  label = "request",
+  failures = null
 ) {
-  return result.status ===
-    "fulfilled"
-    ? result.value
-    : fallback;
+  if (result.status === "fulfilled") {
+    return result.value;
+  }
+
+  console.error(
+    `[manager-dashboard] ${label} failed`,
+    result.reason
+  );
+
+  if (Array.isArray(failures)) {
+    failures.push(label);
+  }
+
+  return fallback;
+}
+
+function extractList(
+  response,
+  keys = []
+) {
+  if (Array.isArray(response)) {
+    return response;
+  }
+
+  if (!response || typeof response !== "object") {
+    return [];
+  }
+
+  for (const key of keys) {
+    if (Array.isArray(response[key])) {
+      return response[key];
+    }
+  }
+
+  return [];
+}
+
+function getLeadSelectionId(lead) {
+  return (
+    lead?.assignmentId ||
+    lead?.id ||
+    ""
+  );
 }
 
 function getAssigneeId(item) {
