@@ -19,7 +19,7 @@ import {
   import AppShell from "./components/AppShell";
   import ReachFlyAIFloating from "./components/ReachFlyAIFloating";
   import RoleOperations from "./components/RoleOperations";
-
+import { SpeedInsights } from "@vercel/speed-insights/next"
   /*
   * Public pages
   */
@@ -927,6 +927,7 @@ export default function App() {
     <AuthProvider>
       <AppRoutes />
       <VercelAnalytics />
+      <SpeedInsights/>
     </AuthProvider>
   );
 }
