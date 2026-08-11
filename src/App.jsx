@@ -19,8 +19,7 @@ import {
   import AppShell from "./components/AppShell";
   import ReachFlyAIFloating from "./components/ReachFlyAIFloating";
   import RoleOperations from "./components/RoleOperations";
-import { SpeedInsights } from "@vercel/speed-insights/next"
-  /*
+import { SpeedInsights } from "@vercel/speed-insights/react";  /*
   * Public pages
   */
   import Marketing from "./pages/Marketing";
