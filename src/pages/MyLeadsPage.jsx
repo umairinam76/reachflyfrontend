@@ -17,6 +17,7 @@ import {
 } from "../lib/workspace-platform-client.js";
 
 import "../styles.css";
+// import "../styles/caller-workspace-refresh.css";
 // import "../styles/assigned-lead-filters.css";
 
 const BUCKETS = [
@@ -24,13 +25,13 @@ const BUCKETS = [
     value:
       "current",
     label:
-      "Current tasks",
+      "Today",
   },
   {
     value:
       "due",
     label:
-      "Due now",
+      "Retry queue",
   },
   {
     value:
@@ -48,7 +49,7 @@ const BUCKETS = [
     value:
       "completed",
     label:
-      "Completed",
+      "History",
   },
   {
     value:
@@ -58,7 +59,7 @@ const BUCKETS = [
   },
 ];
 
-const QUEUE_CACHE_VERSION = 3;
+const QUEUE_CACHE_VERSION = 4;
 const QUEUE_CACHE_TTL_MS =
   5 * 60 * 1000;
 const QUEUE_PAGE_LIMIT = 200;
@@ -209,6 +210,20 @@ export default function MyLeadsPage() {
 
   const socketRefreshTimerRef =
     useRef(null);
+
+  // Only the lead the caller opens is polled for its realtime Mini Audit.
+  // We keep the latest report outside queue payloads so a slow/stale
+  // /caller-queue refresh cannot overwrite a newer generating/ready state.
+  const liveMiniAuditByAssignmentRef =
+    useRef(new Map());
+
+  const miniAuditPollRef =
+    useRef({
+      token: 0,
+      timer: null,
+      assignmentId: "",
+      reportId: "",
+    });
 
   const [
     bucket,
@@ -434,11 +449,24 @@ export default function MyLeadsPage() {
           }
 
           const nextRecords =
-            Array.isArray(
+            (Array.isArray(
               response?.records
             )
               ? response.records
-              : [];
+              : []
+            ).map((assignment) => {
+              const liveReport =
+                liveMiniAuditByAssignmentRef.current.get(
+                  assignment.id
+                );
+
+              return liveReport
+                ? mergeMiniAuditJobIntoAssignment(
+                    assignment,
+                    liveReport
+                  )
+                : assignment;
+            });
 
           const nextCounts =
             response?.counts &&
@@ -533,6 +561,17 @@ export default function MyLeadsPage() {
         request,
       ]
     );
+
+  useEffect(() => {
+    return () => {
+      miniAuditPollRef.current.token += 1;
+      if (miniAuditPollRef.current.timer) {
+        window.clearTimeout(
+          miniAuditPollRef.current.timer
+        );
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const cached =
@@ -671,11 +710,42 @@ export default function MyLeadsPage() {
     loadDailyDay,
   ]);
 
+  const queueRecords =
+    useMemo(() => {
+      if (
+        bucket !== "current" ||
+        !dailyDay?.dateKey
+      ) {
+        return records;
+      }
+
+      // "Today" is a true daily queue. Historical/legacy active assignments
+      // stay accessible in the other buckets, but they do not flood the
+      // caller's 100-lead working list.
+      return records.filter(
+        (assignment) =>
+          String(
+            assignment.dailyQueueDate ||
+              assignment.assignmentDate ||
+              assignment.lead?.dailyQueueDate ||
+              assignment.lead?.assignmentDate ||
+              ""
+          ) ===
+          String(
+            dailyDay.dateKey
+          )
+      );
+    }, [
+      bucket,
+      dailyDay?.dateKey,
+      records,
+    ]);
+
   const campaignOptions =
     useMemo(() => {
       const map = new Map();
 
-      for (const assignment of records) {
+      for (const assignment of queueRecords) {
         if (assignment.campaignId) {
           map.set(
             assignment.campaignId,
@@ -691,7 +761,7 @@ export default function MyLeadsPage() {
             right[1]
           )
       );
-    }, [records]);
+    }, [queueRecords]);
 
   const filtered =
     useMemo(
@@ -701,7 +771,7 @@ export default function MyLeadsPage() {
             .trim()
             .toLowerCase();
 
-        const next = records.filter(
+        const next = queueRecords.filter(
           (assignment) => {
             const lead =
               assignment.lead ||
@@ -822,7 +892,7 @@ export default function MyLeadsPage() {
       [
         campaignFilter,
         priorityFilter,
-        records,
+        queueRecords,
         search,
         sortBy,
       ]
@@ -892,14 +962,13 @@ export default function MyLeadsPage() {
         );
 
       if (
-        !isAuditPendingStatus(
-          currentStatus
-        ) &&
         !isAuditReviewStatus(
           currentStatus
         )
       ) {
         try {
+          // Realtime mode: opening this one lead creates/promotes only this
+          // lead's Mini Audit. No other Today leads are queued in the background.
           openedAssignment =
             await ensureDefaultMiniAudit(
               openedAssignment
@@ -949,9 +1018,6 @@ export default function MyLeadsPage() {
     if (
       isCallerAuditReady(
         assignment
-      ) ||
-      isAuditPendingStatus(
-        currentStatus
       )
     ) {
       return assignment;
@@ -987,7 +1053,17 @@ export default function MyLeadsPage() {
             auditKind:
               "mini",
             auditType:
-              "Mini Audit",
+              campaignType === "gmb"
+                ? "GMB Mini Audit"
+                : "Website Mini Audit",
+            priority:
+              true,
+            interactive:
+              true,
+            automatic:
+              false,
+            source:
+              "caller-open-realtime",
             niche:
               lead?.dailyNiche ||
               assignment?.niche ||
@@ -1019,48 +1095,211 @@ export default function MyLeadsPage() {
         }
       );
 
-    const nextStatus =
-      normalizeAuditStatus(
-        report?.status ||
-          "queued"
-      ) || "queued";
+    const updated = mergeMiniAuditJobIntoAssignment(
+      assignment,
+      report
+    );
 
-    const updated = {
-      ...assignment,
-      auditKind:
-        "mini",
-      auditType:
-        "Mini Audit",
-      auditStatus:
-        nextStatus,
-      miniAudit:
-        report ||
-        assignment?.miniAudit ||
-        null,
-      miniAuditStatus:
-        nextStatus,
-      lead: {
-        ...lead,
-        auditKind:
-          "mini",
-        auditType:
-          "Mini Audit",
-        auditStatus:
-          nextStatus,
-        miniAudit:
-          report ||
-          lead?.miniAudit ||
-          null,
-        miniAuditStatus:
-          nextStatus,
-      },
-    };
+    if (report?.id) {
+      liveMiniAuditByAssignmentRef.current.set(
+        assignment.id,
+        report
+      );
+    }
 
     replaceAssignment(
       updated
     );
 
+    // The POST intentionally returns queued/generating immediately. Poll only
+    // this opened lead until Anthropic finishes so the drawer changes to the
+    // real audit without waiting for a queue refresh or websocket event.
+    if (
+      report?.id &&
+      isAuditPendingStatus(
+        report?.status
+      )
+    ) {
+      startMiniAuditPolling(
+        assignment.id,
+        report.id
+      );
+    }
+
     return updated;
+  }
+
+  function stopMiniAuditPolling() {
+    miniAuditPollRef.current.token += 1;
+
+    if (miniAuditPollRef.current.timer) {
+      window.clearTimeout(
+        miniAuditPollRef.current.timer
+      );
+    }
+
+    miniAuditPollRef.current.timer = null;
+    miniAuditPollRef.current.assignmentId = "";
+    miniAuditPollRef.current.reportId = "";
+  }
+
+  function startMiniAuditPolling(
+    assignmentId,
+    reportId
+  ) {
+    if (!assignmentId || !reportId) {
+      return;
+    }
+
+    stopMiniAuditPolling();
+
+    const token =
+      miniAuditPollRef.current.token;
+
+    miniAuditPollRef.current.assignmentId =
+      assignmentId;
+    miniAuditPollRef.current.reportId =
+      reportId;
+
+    let attempts = 0;
+    const maxAttempts = 80;
+
+    const poll = async () => {
+      if (
+        token !==
+        miniAuditPollRef.current.token
+      ) {
+        return;
+      }
+
+      attempts += 1;
+
+      try {
+        const report =
+          await request(
+            `/lead-audits/${encodeURIComponent(
+              reportId
+            )}`,
+            {
+              timeoutMs: 15_000,
+            }
+          );
+
+        if (
+          token !==
+          miniAuditPollRef.current.token
+        ) {
+          return;
+        }
+
+        if (report?.id) {
+          liveMiniAuditByAssignmentRef.current.set(
+            assignmentId,
+            report
+          );
+
+          applyMiniAuditReportToAssignment(
+            assignmentId,
+            report
+          );
+        }
+
+        const status =
+          normalizeAuditStatus(
+            report?.status
+          );
+
+        if (
+          isAuditReadyStatus(
+            status
+          )
+        ) {
+          setError("");
+          setSuccess(
+            "Mini Audit is ready."
+          );
+          return;
+        }
+
+        if (
+          isAuditFailureStatus(
+            status
+          )
+        ) {
+          setSuccess("");
+          setError(
+            report?.error ||
+              "Mini Audit generation failed. Open the lead again to retry."
+          );
+          return;
+        }
+
+        if (
+          isAuditReviewStatus(
+            status
+          )
+        ) {
+          setSuccess("");
+          setError(
+            "This Mini Audit requires technical review."
+          );
+          return;
+        }
+      } catch (requestError) {
+        // A single slow status request must not convert a generating audit into
+        // an error. Retry while this lead remains the active polling target.
+        if (attempts >= maxAttempts) {
+          console.warn(
+            "[MyLeadsPage] Mini Audit polling stopped after repeated status failures:",
+            requestError
+          );
+          return;
+        }
+      }
+
+      if (attempts >= maxAttempts) {
+        return;
+      }
+
+      miniAuditPollRef.current.timer =
+        window.setTimeout(
+          poll,
+          attempts < 8
+            ? 1_250
+            : 2_000
+        );
+    };
+
+    miniAuditPollRef.current.timer =
+      window.setTimeout(
+        poll,
+        700
+      );
+  }
+
+  function applyMiniAuditReportToAssignment(
+    assignmentId,
+    report
+  ) {
+    setRecords((current) =>
+      current.map((item) =>
+        item.id === assignmentId
+          ? mergeMiniAuditJobIntoAssignment(
+              item,
+              report
+            )
+          : item
+      )
+    );
+
+    setSelected((current) =>
+      current?.id === assignmentId
+        ? mergeMiniAuditJobIntoAssignment(
+            current,
+            report
+          )
+        : current
+    );
   }
 
   async function callLead(
@@ -1623,11 +1862,10 @@ export default function MyLeadsPage() {
       {selected ? (
         <div
           className="caller-workspace-backdrop"
-          onClick={() =>
-            setSelected(
-              null
-            )
-          }
+          onClick={() => {
+            stopMiniAuditPolling();
+            setSelected(null);
+          }}
         >
           <section
             className="caller-workspace"
@@ -1659,11 +1897,10 @@ export default function MyLeadsPage() {
               <button
                 type="button"
                 className="caller-workspace__close"
-                onClick={() =>
-                  setSelected(
-                    null
-                  )
-                }
+                onClick={() => {
+                  stopMiniAuditPolling();
+                  setSelected(null);
+                }}
               >
                 ×
               </button>
@@ -1683,7 +1920,10 @@ export default function MyLeadsPage() {
                   disabled={
                     saving ||
                     !selected.lead
-                      ?.phone
+                      ?.phone ||
+                    !isCallerAuditReady(
+                      selected
+                    )
                   }
                   onClick={() =>
                     void callLead(
@@ -1691,7 +1931,15 @@ export default function MyLeadsPage() {
                     )
                   }
                 >
-                  Call lead
+                  {isCallerAuditReady(selected)
+                    ? "Call lead"
+                    : isAuditPendingStatus(
+                        getCallerMiniAuditStatus(
+                          selected
+                        )
+                      )
+                      ? "Generating Mini Audit…"
+                      : "Mini Audit required"}
                 </button>
 
                 <label>
@@ -1855,88 +2103,155 @@ function DailyWorkPanel({
     dailyDay.submission?.status ===
     "submitted";
 
+  const target =
+    Math.max(
+      1,
+      Number(
+        dailyDay.leadsPerCaller ||
+        100
+      )
+    );
+
+  const assigned =
+    Math.min(
+      target,
+      Math.max(
+        0,
+        Number(
+          dailyDay.assigned ||
+          0
+        )
+      )
+    );
+
+  const worked =
+    Math.min(
+      assigned,
+      Math.max(
+        0,
+        Number(
+          dailyDay.worked ||
+          0
+        )
+      )
+    );
+
+  const remaining =
+    Math.max(
+      0,
+      assigned - worked
+    );
+
+  const progress =
+    Math.min(
+      100,
+      Math.round(
+        (worked / target) * 100
+      )
+    );
+
   return (
-    <section
-      className="cardish"
-      style={{ marginBottom: 16 }}
-    >
-      <div className="section-title-row">
+    <section className="rf-daily-queue-card">
+      <div className="rf-daily-queue-card__top">
         <div>
           <span className="eyebrow">
-            Daily assignment
+            Today's calling queue
           </span>
-          <h3>
-            {dailyDay.assigned || 0}/
-            {dailyDay.leadsPerCaller || 100}
-            {" "}leads assigned
-          </h3>
+
+          <h2>
+            {assigned} of {target} leads ready
+          </h2>
+
           <p>
-            Call mix: {dailyDay.websiteCalls ?? 0} Website
-            {" · "}
-            {dailyDay.gmbCalls ?? 0} GMB
-            {" · "}
-            Today: {dailyDay.websiteAssigned ?? 0} Website
-            {" · "}
-            {dailyDay.gmbAssigned ?? 0} GMB
-          </p>
-          <p>
-            Current niche: {dailyDay.currentNiche || "Not assigned"}
-            {dailyDay.currentResourceType
-              ? ` · ${formatResourceType(dailyDay.currentResourceType)}`
-              : ""}
-            {dailyDay.currentLocation
-              ? ` · ${dailyDay.currentLocation}`
-              : ""}
-            {dailyDay.currentCountry &&
-            !String(dailyDay.currentLocation || "")
-              .toLowerCase()
-              .includes(
-                String(dailyDay.currentCountry).toLowerCase()
-              )
-              ? ` · ${dailyDay.currentCountry}`
-              : ""}
-          </p>
-          <p>
-            Next assignment: {dailyDay.nextNiche || "Use manager default niche"}
-            {dailyDay.nextResourceType
-              ? ` · ${formatResourceType(dailyDay.nextResourceType)}`
-              : ""}
-            {dailyDay.nextLocation
-              ? ` · ${dailyDay.nextLocation}`
-              : dailyDay.nextResourceType === "local"
-                ? " · Pakistan (auto city)"
-                : ""}
-          </p>
-          <p>
-            Lead delivery time: {formatDailyClock(
-              dailyDay.assignmentHour,
-              dailyDay.assignmentMinute
-            )}
-            {" "}
-            ({dailyDay.timezone || ""})
-            {" · "}
-            Next scheduled delivery: {formatDailyDateTime(
-              dailyDay.nextRefreshAt
-            )}
-          </p>
-          <p>
-            Worked: {dailyDay.worked || 0}
-            {" · "}
-            Remaining: {dailyDay.remaining || 0}
+            Work today's queue first. ReachFly reuses existing AH Growth
+            inventory before requesting new Google Places leads.
           </p>
         </div>
 
-        <span className="badge badge-neutral">
+        <span
+          className={`rf-daily-queue-status ${
+            submitted
+              ? "is-complete"
+              : assigned >= target
+                ? "is-ready"
+                : "is-filling"
+          }`}
+        >
           {submitted
-            ? "Submitted"
-            : dailyDay.submission?.status ===
-                "missed_deadline"
-              ? "Missed deadline"
-              : "Open day"}
+            ? "Day submitted"
+            : assigned >= target
+              ? "Ready to call"
+              : "Filling queue"}
         </span>
       </div>
 
-      <div className="flex flex-gap flex-wrap mt16">
+      <div className="rf-daily-queue-metrics">
+        <div>
+          <span>Assigned today</span>
+          <strong>{assigned}</strong>
+          <small>Target {target}</small>
+        </div>
+
+        <div>
+          <span>Worked</span>
+          <strong>{worked}</strong>
+          <small>{progress}% complete</small>
+        </div>
+
+        <div>
+          <span>Remaining</span>
+          <strong>{remaining}</strong>
+          <small>Today's queue</small>
+        </div>
+
+        <div>
+          <span>Call mix</span>
+          <strong>
+            {dailyDay.websiteAssigned ?? 0}
+            {" / "}
+            {dailyDay.gmbAssigned ?? 0}
+          </strong>
+          <small>Website / GMB</small>
+        </div>
+      </div>
+
+      <div
+        className="rf-daily-queue-progress"
+        aria-label={`${progress}% of today's queue worked`}
+      >
+        <span
+          style={{
+            width: `${progress}%`,
+          }}
+        />
+      </div>
+
+      <div className="rf-daily-queue-meta">
+        <span>
+          <b>Market:</b>{" "}
+          {dailyDay.currentLocation ||
+            dailyDay.currentCountry ||
+            "Existing inventory"}
+        </span>
+
+        <span>
+          <b>Resource:</b>{" "}
+          {dailyDay.currentResourceType
+            ? formatResourceType(
+                dailyDay.currentResourceType
+              )
+            : "Existing leads first"}
+        </span>
+
+        <span>
+          <b>Next delivery:</b>{" "}
+          {formatDailyDateTime(
+            dailyDay.nextRefreshAt
+          )}
+        </span>
+      </div>
+
+      <div className="rf-daily-queue-card__actions">
         <button
           type="button"
           className="btn primary"
@@ -2114,20 +2429,29 @@ function LeadCard({
             onOpen
           }
         >
-          Open
+          {isCallerAuditReady(assignment)
+            ? "Open audit"
+            : isAuditPendingStatus(
+                getCallerMiniAuditStatus(
+                  assignment
+                )
+              )
+              ? "Open · generating"
+              : "Open & generate audit"}
         </button>
 
         <button
           type="button"
           className="btn primary"
           disabled={
-            !lead.phone
+            !lead.phone ||
+            !isCallerAuditReady(assignment)
           }
           title={
             !lead.phone
               ? "Phone number unavailable"
               : !isCallerAuditReady(assignment)
-                ? getAuditBlockedMessage(assignment)
+                ? "Open this lead first. Its Mini Audit will generate in real time and Call will unlock when ready."
                 : `Call ${getCampaignTypeLabel(assignment)} lead`
           }
           onClick={
@@ -2141,8 +2465,8 @@ function LeadCard({
                   assignment
                 )
               )
-              ? "Audit generating"
-              : "Prepare audit"}
+              ? "Waiting for audit"
+              : "Audit required"}
         </button>
       </footer>
     </article>
@@ -2389,6 +2713,49 @@ function isAuditReadyStatus(value) {
   );
 }
 
+function getCallerMiniAuditJobId(assignment) {
+  return String(
+    assignment?.miniAuditReportId ||
+      assignment?.auditReportId ||
+      assignment?.lead?.miniAuditReportId ||
+      assignment?.lead?.auditReportId ||
+      assignment?.miniAudit?.id ||
+      ""
+  ).trim();
+}
+
+function mergeMiniAuditJobIntoAssignment(assignment, report) {
+  const campaignType = getCampaignType(assignment) ||
+    String(report?.campaignType || "website").toLowerCase();
+  const status = normalizeAuditStatus(report?.status || "queued") || "queued";
+  const auditType = campaignType === "gmb"
+    ? "GMB Mini Audit"
+    : "Website Mini Audit";
+
+  return {
+    ...assignment,
+    auditKind: "mini",
+    auditTrack: campaignType,
+    auditType,
+    auditStatus: status,
+    auditReportId: report?.id || assignment?.auditReportId || "",
+    miniAudit: report || assignment?.miniAudit || null,
+    miniAuditStatus: status,
+    miniAuditReportId: report?.id || assignment?.miniAuditReportId || "",
+    lead: {
+      ...(assignment?.lead || {}),
+      auditKind: "mini",
+      auditTrack: campaignType,
+      auditType,
+      auditStatus: status,
+      auditReportId: report?.id || assignment?.lead?.auditReportId || "",
+      miniAudit: report || assignment?.lead?.miniAudit || null,
+      miniAuditStatus: status,
+      miniAuditReportId: report?.id || assignment?.lead?.miniAuditReportId || "",
+    },
+  };
+}
+
 function isAuditPendingStatus(value) {
   return [
     "queued",
@@ -2396,6 +2763,18 @@ function isAuditPendingStatus(value) {
     "processing",
     "running",
     "generating",
+  ].includes(
+    normalizeAuditStatus(
+      value
+    )
+  );
+}
+
+function isAuditFailureStatus(value) {
+  return [
+    "failed",
+    "error",
+    "audit_error",
   ].includes(
     normalizeAuditStatus(
       value
@@ -2441,6 +2820,12 @@ function getCallerMiniAuditStatus(
     );
 
   if (miniStatus) {
+    if (
+      isAuditPendingStatus(miniStatus) &&
+      !getCallerMiniAuditJobId(assignment)
+    ) {
+      return "";
+    }
     return miniStatus;
   }
 
@@ -2510,6 +2895,9 @@ function getCallerAudit(
   if (
     !isAuditReadyStatus(
       status
+    ) ||
+    !hasCallerReadyMiniAuditContent(
+      audit
     )
   ) {
     return null;
@@ -2518,13 +2906,50 @@ function getCallerAudit(
   return audit;
 }
 
+function hasCallerReadyMiniAuditContent(
+  audit
+) {
+  if (!audit || typeof audit !== "object") {
+    return false;
+  }
+
+  const payload =
+    audit.report &&
+    typeof audit.report === "object"
+      ? audit.report
+      : audit;
+
+  const findings =
+    payload.issues ||
+    payload.findings ||
+    payload.auditFindings ||
+    [];
+
+  return Boolean(
+    (Array.isArray(findings) && findings.length > 0) ||
+      (payload.noMajorIssues === true && String(payload.workingWell || "").trim()) ||
+      String(payload.summary || payload.strongestHook || "").trim()
+  );
+}
+
 function isCallerAuditReady(
   assignment
 ) {
-  return isAuditReadyStatus(
-    getCallerMiniAuditStatus(
+  const audit =
+    getCallerMiniAuditRecord(
       assignment
-    )
+    );
+
+  return Boolean(
+    audit &&
+      isAuditReadyStatus(
+        getCallerMiniAuditStatus(
+          assignment
+        )
+      ) &&
+      hasCallerReadyMiniAuditContent(
+        audit
+      )
   );
 }
 
@@ -2562,6 +2987,10 @@ function formatAuditStatus(
     return "Technical Review Required";
   }
 
+  if (status === "queued" || status === "pending") {
+    return "Mini Audit Queued";
+  }
+
   if (
     isAuditPendingStatus(
       status
@@ -2570,7 +2999,7 @@ function formatAuditStatus(
     return "Generating Mini Audit";
   }
 
-  return "Default Mini Audit";
+  return "Mini Audit — open to generate";
 }
 
 function getAuditPendingTitle(
@@ -2599,6 +3028,10 @@ function getAuditPendingTitle(
     return "Technical review required";
   }
 
+  if (status === "queued" || status === "pending") {
+    return "Default Mini Audit is queued";
+  }
+
   if (
     isAuditPendingStatus(
       status
@@ -2607,7 +3040,7 @@ function getAuditPendingTitle(
     return "Default Mini Audit is being prepared";
   }
 
-  return "Default Mini Audit will be generated automatically";
+  return "Mini Audit will generate when this lead is opened";
 }
 
 function getAuditBlockedMessage(
@@ -2649,7 +3082,7 @@ function getAuditBlockedMessage(
       assignment
     );
 
-  return `ReachFly will generate the built-in Mini Audit for this ${campaign} lead automatically. Manager uploads are optional and only change future audit formatting.`;
+  return `Opening this ${campaign} lead generates its built-in Mini Audit in real time. No other leads are queued. Manager uploads are optional and only change future audit formatting.`;
 }
 
 function getLeadName(
