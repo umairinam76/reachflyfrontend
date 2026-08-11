@@ -11,7 +11,6 @@ import { apiRequest, onWorkspaceSocket } from "../lib/workspace-platform-client.
 import MiniAuditPanel from "./MiniAuditPanel.jsx";
 import TelnyxDialer from "./TelnyxDialer.jsx";
 import "../styles.css";
-// import "../styles/caller-workspace-refresh.css";
 
 const OUTCOMES = [
   ["contacted", "Contacted"],
@@ -59,7 +58,6 @@ export default function CallWorkspacePage() {
   const [lead, setLead] = useState(null);
   const [miniAudit, setMiniAudit] = useState(null);
   const [callHistory, setCallHistory] = useState([]);
-  const [dailyDay, setDailyDay] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -74,8 +72,6 @@ export default function CallWorkspacePage() {
 
   const socketRefreshTimerRef =
     useRef(null);
-  const autoAuditRepairRef =
-    useRef(new Set());
 
   const resolvedAssignmentId = assignment?.id || assignmentId;
   const resolvedLeadId = lead?.id || assignment?.leadId || requestedLeadId;
@@ -115,34 +111,45 @@ export default function CallWorkspacePage() {
       setNotes(nextAssignment.notes || nextLead.notes || "");
       setFollowUpAt(toLocalDateTimeInput(nextAssignment.nextActionAt || nextAssignment.followUpAt));
 
-      const [callsResponse, auditsResponse, dailyResponse] = await Promise.all([
+      const nextCampaignType = normalizeCampaignType(
+        nextAssignment?.campaignType ||
+          nextAssignment?.auditTrack ||
+          nextLead?.dailyCampaignType ||
+          nextLead?.campaignType ||
+          "website"
+      );
+
+      const [callsResponse, auditsResponse] = await Promise.all([
         apiRequest(`/telnyx/calls?leadId=${encodeURIComponent(nextLead.id)}&limit=30`),
-        nextLead.website
-          ? apiRequest(
-              `/lead-audits?website=${encodeURIComponent(nextLead.website)}&kind=mini`
-            )
-          : Promise.resolve({ reports: [] }),
-        apiRequest("/daily-leads/my-day").catch(() => null),
+        apiRequest(
+          `/lead-audits?leadId=${encodeURIComponent(nextLead.id)}&kind=mini&track=${encodeURIComponent(nextCampaignType)}`
+        ),
       ]);
 
       setCallHistory(callsResponse.calls || []);
-      setDailyDay(dailyResponse);
 
       const reports = auditsResponse.reports || [];
-      const latestMiniAudit = reports.find((report) => report.kind === "mini") ||
-        nextLead.miniAudit ||
-        nextAssignment.miniAudit ||
-        null;
+      const latestMiniAudit = reports.find(
+        (report) =>
+          report.kind === "mini" &&
+          normalizeCampaignType(report.track || report.campaignType || nextCampaignType) === nextCampaignType
+      ) || null;
+      const hasRealAuditJob = Boolean(
+        latestMiniAudit?.id ||
+          nextLead.miniAuditReportId ||
+          nextAssignment.miniAuditReportId
+      );
+      const effectiveMiniStatus = latestMiniAudit?.status ||
+        (hasRealAuditJob
+          ? nextLead.miniAuditStatus || nextAssignment.miniAuditStatus || ""
+          : "not_started");
       setMiniAudit(latestMiniAudit);
 
       setLead((current) => ({
         ...(current || nextLead),
         miniAudit: latestMiniAudit,
-        miniAuditStatus:
-          latestMiniAudit?.status ||
-          nextLead.miniAuditStatus ||
-          nextAssignment.miniAuditStatus ||
-          "",
+        miniAuditStatus: effectiveMiniStatus,
+        auditTrack: nextCampaignType,
       }));
     } catch (requestError) {
       setError(requestError?.message || "The call workspace could not be loaded.");
@@ -239,17 +246,9 @@ export default function CallWorkspacePage() {
       lead?.campaignType ||
       "website"
   );
-  const miniAuditFindingCount =
-    getMiniAuditFindingCount(miniAudit);
   const miniAuditReady = Boolean(
     miniAudit &&
-      READY_AUDIT_STATUSES.has(miniAuditStatus) &&
-      miniAuditFindingCount > 0
-  );
-  const miniAuditNeedsRepair = Boolean(
-    miniAudit &&
-      READY_AUDIT_STATUSES.has(miniAuditStatus) &&
-      miniAuditFindingCount === 0
+      READY_AUDIT_STATUSES.has(miniAuditStatus)
   );
   const miniAuditPending =
     generatingAudit ||
@@ -260,10 +259,7 @@ export default function CallWorkspacePage() {
 
   const latestCall = useMemo(() => callHistory[0] || null, [callHistory]);
 
-  async function generateReport(
-    kind,
-    { force = false } = {}
-  ) {
+  async function generateReport(kind) {
     const canResearchWithoutWebsite =
       campaignType === "gmb" &&
       Boolean(
@@ -297,7 +293,17 @@ export default function CallWorkspacePage() {
         leadId: resolvedLeadId,
         campaignId: assignment?.campaignId || lead?.campaignId || "",
         campaignType,
+        track: campaignType,
         website: lead.website || "",
+        placeId:
+          lead.placeId ||
+          lead.googlePlaceId ||
+          "",
+        gmbProfileUrl:
+          lead.gmbProfileUrl ||
+          lead.googleMapsUri ||
+          lead.googleMapsUrl ||
+          "",
         niche:
           lead.dailyNiche ||
           assignment?.niche ||
@@ -325,7 +331,14 @@ export default function CallWorkspacePage() {
           lead.regionCode ||
           assignment?.regionCode ||
           "",
-        force,
+        ...(kind === "mini"
+          ? {
+              priority: true,
+              interactive: true,
+              automatic: false,
+              source: "call-workspace-open-realtime",
+            }
+          : {}),
       };
       const report = kind === "mini"
         ? await apiRequest("/lead-audits/mini", { method: "POST", body })
@@ -340,6 +353,8 @@ export default function CallWorkspacePage() {
           ...(current || {}),
           miniAudit: report,
           miniAuditStatus: report.status || "queued",
+          auditTrack: campaignType,
+          auditType: campaignType === "gmb" ? "GMB Mini Audit" : "Website Mini Audit",
         }));
       }
 
@@ -360,18 +375,8 @@ export default function CallWorkspacePage() {
     if (!lead || !resolvedLeadId) return;
     if (miniAuditReady || miniAuditPending) return;
 
-    // Repair one stale/legacy "complete" report with zero structured findings.
-    // This happens after format/schema upgrades when an older cached report is reused.
-    if (miniAuditNeedsRepair) {
-      if (!autoAuditRepairRef.current.has(resolvedLeadId)) {
-        autoAuditRepairRef.current.add(resolvedLeadId);
-        void generateReport("mini", { force: true });
-      }
-      return;
-    }
-
-    // Existing/manual assignments also receive the default Mini Audit automatically
-    // when the caller opens the workspace. Backend cache/dedupe prevents duplicates.
+    // Realtime mode: opening this workspace generates only this lead's Mini Audit.
+    // Backend cache/dedupe prevents duplicate work for repeated opens.
     if (!miniAuditStatus || miniAuditFailed) {
       void generateReport("mini");
     }
@@ -384,12 +389,9 @@ export default function CallWorkspacePage() {
     miniAuditReady,
     miniAuditPending,
     miniAuditFailed,
-    miniAuditNeedsRepair,
   ]);
 
-  async function saveOutcome({
-    advance = false,
-  } = {}) {
+  async function saveOutcome() {
     if (!resolvedAssignmentId) return;
 
     if (["callback", "follow_up"].includes(outcome) && !followUpAt) {
@@ -425,40 +427,7 @@ export default function CallWorkspacePage() {
         setAssignment(response.assignment);
         setLead(response.assignment.lead || lead);
       }
-      setSuccess(
-        advance
-          ? "Outcome saved. Opening the next lead…"
-          : "The call outcome was saved."
-      );
-
-      if (advance) {
-        const nextResponse =
-          await apiRequest(
-            "/caller-queue/next?bucket=current"
-          ).catch(() => null);
-
-        const nextAssignment =
-          nextResponse?.assignment;
-
-        if (nextAssignment?.id) {
-          const nextLeadId =
-            nextAssignment.leadId ||
-            nextAssignment.lead?.id ||
-            "";
-
-          navigate(
-            `/app/call-workspace?assignmentId=${encodeURIComponent(
-              nextAssignment.id
-            )}${
-              nextLeadId
-                ? `&leadId=${encodeURIComponent(nextLeadId)}`
-                : ""
-            }`
-          );
-        } else {
-          navigate("/app/my-leads");
-        }
-      }
+      setSuccess("The call outcome was saved.");
     } catch (requestError) {
       setError(requestError?.message || "The call outcome could not be saved.");
     } finally {
@@ -491,20 +460,10 @@ export default function CallWorkspacePage() {
       <header className="rf-call-header">
         <div className="rf-call-header__identity">
           <div>
-            <p className="rf-call-eyebrow">Today's calling workspace</p>
+            <p className="rf-call-eyebrow">Live Telnyx call workspace</p>
             <h1>{lead.business || lead.name || "Business lead"}</h1>
             <p>{lead.phone || "No phone"} · {lead.website || "No website"}</p>
           </div>
-
-          {dailyDay ? (
-            <div className="rf-call-day-progress">
-              <strong>
-                {dailyDay.worked || 0}/{dailyDay.leadsPerCaller || 100}
-              </strong>
-              <span>worked today</span>
-              <small>{dailyDay.remaining || 0} remaining</small>
-            </div>
-          ) : null}
         </div>
         <div className="rf-call-header__actions">
           <button type="button" onClick={() => navigate("/app/my-leads")}>Back to leads</button>
@@ -523,32 +482,10 @@ export default function CallWorkspacePage() {
 
       <section className="rf-call-layout">
         <div className="rf-call-layout__primary">
-          <section className="rf-call-lead-summary">
-            <div>
-              <p className="rf-call-eyebrow">Current lead</p>
-              <h2>{lead.business || lead.name || "Business lead"}</h2>
-              <p>
-                {lead.address ||
-                  lead.formattedAddress ||
-                  assignment.campaignName ||
-                  "Assigned lead"}
-              </p>
-            </div>
-
-            <div className="rf-call-lead-summary__meta">
-              <span>
-                <small>Phone</small>
-                <strong>{lead.phone || "Not available"}</strong>
-              </span>
-              <span>
-                <small>Attempts</small>
-                <strong>{assignment.callAttempts || 0}</strong>
-              </span>
-              <span>
-                <small>Audit</small>
-                <strong>{miniAuditReady ? "Ready" : miniAuditPending ? "Preparing" : "Required"}</strong>
-              </span>
-            </div>
+          <section className="cardish" style={{ marginBottom: 12 }}>
+            <p className="rf-call-eyebrow">Manual caller phone</p>
+            <h2>Telnyx dialer & keypad</h2>
+            <p>The dialer unlocks as soon as the default Mini Audit is ready. During an active call the End call button and dial pad are available below.</p>
           </section>
 
           {miniAuditReady ? (
@@ -577,7 +514,7 @@ export default function CallWorkspacePage() {
               {!miniAuditPending ? (
                 <button
                   type="button"
-                  onClick={() => void generateReport("mini", { force: true })}
+                  onClick={() => void generateReport("mini")}
                   disabled={generatingAudit}
                 >
                   {miniAuditFailed ? "Retry Mini Audit" : "Generate Mini Audit"}
@@ -619,31 +556,9 @@ export default function CallWorkspacePage() {
               />
             </label>
 
-            <div className="rf-call-outcome-actions">
-              <button
-                type="button"
-                className="rf-call-secondary-action"
-                disabled={savingOutcome}
-                onClick={() =>
-                  void saveOutcome()
-                }
-              >
-                {savingOutcome ? "Saving…" : "Save only"}
-              </button>
-
-              <button
-                type="button"
-                className="rf-call-primary-action"
-                disabled={savingOutcome}
-                onClick={() =>
-                  void saveOutcome({
-                    advance: true,
-                  })
-                }
-              >
-                {savingOutcome ? "Saving…" : "Save & next lead"}
-              </button>
-            </div>
+            <button type="button" disabled={savingOutcome} onClick={() => void saveOutcome()}>
+              {savingOutcome ? "Saving…" : "Save outcome"}
+            </button>
           </section>
 
           <section className="rf-call-history-card">
@@ -691,10 +606,9 @@ export default function CallWorkspacePage() {
             generating={generatingAudit}
             generatingFullAudit={generatingFullAudit}
             generatingCompetitorAnalysis={generatingCompetitorAnalysis}
-            onGenerateMiniAudit={() => void generateReport("mini", { force: true })}
-            onGenerateFullAudit={() => void generateReport("full", { force: true })}
-            onGenerateCompetitorAnalysis={() => void generateReport("competitor", { force: true })}
-            compact
+            onGenerateMiniAudit={() => void generateReport("mini")}
+            onGenerateFullAudit={() => void generateReport("full")}
+            onGenerateCompetitorAnalysis={() => void generateReport("competitor")}
           />
         </aside>
       </section>
@@ -716,20 +630,6 @@ function normalizeCampaignType(value) {
   ].includes(normalized)
     ? "gmb"
     : "website";
-}
-
-function getMiniAuditFindingCount(audit) {
-  if (!audit || typeof audit !== "object") return 0;
-  const payload =
-    audit.report && typeof audit.report === "object"
-      ? audit.report
-      : audit;
-  const findings =
-    payload.issues ||
-    payload.findings ||
-    payload.auditFindings ||
-    [];
-  return Array.isArray(findings) ? findings.length : 0;
 }
 
 function normalizeStatus(value) {

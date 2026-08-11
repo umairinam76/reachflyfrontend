@@ -27,12 +27,9 @@ export default function MiniAuditPanel({
   onGenerateMiniAudit,
   onGenerateFullAudit,
   onGenerateCompetitorAnalysis,
-  compact = false,
 }) {
   const [expandedIssue, setExpandedIssue] =
     useState("");
-  const [expandedReport, setExpandedReport] =
-    useState(false);
 
   const normalizedStatus = normalizeStatus(
     status ||
@@ -48,8 +45,7 @@ export default function MiniAuditPanel({
       ) &&
       !AUDIT_FAILED_STATUSES.has(
         normalizedStatus
-      ) &&
-      getAuditFindingCount(audit) > 0
+      )
   );
 
   const auditPending =
@@ -73,7 +69,10 @@ export default function MiniAuditPanel({
   );
 
   const campaignType = normalizeCampaignType(
-    lead?.dailyCampaignType ||
+    audit?.track ||
+      audit?.campaignType ||
+      lead?.auditTrack ||
+      lead?.dailyCampaignType ||
       lead?.campaignType ||
       lead?.auditCampaignType ||
       "website"
@@ -95,6 +94,7 @@ export default function MiniAuditPanel({
         <AuditPanelHeader
           report={report}
           status="unavailable"
+          campaignType={campaignType}
         />
 
         <AuditEmptyState
@@ -112,6 +112,7 @@ export default function MiniAuditPanel({
         <AuditPanelHeader
           report={report}
           status="processing"
+          campaignType={campaignType}
         />
 
         <AuditProgressState
@@ -156,8 +157,6 @@ export default function MiniAuditPanel({
           title="Mini audit could not be completed"
           description={
             audit?.error ||
-            audit?.providerError ||
-            audit?.report?.generationNote ||
             audit?.message ||
             lead?.miniAuditError ||
             (campaignType === "gmb"
@@ -232,193 +231,19 @@ export default function MiniAuditPanel({
     );
   }
 
-  if (
-    compact &&
-    !expandedReport
-  ) {
-    const topIssues =
-      report.issues.slice(
-        0,
-        4
-      );
-
-    return (
-      <section className="rf-mini-audit-panel rf-mini-audit-panel--compact">
-        <AuditPanelHeader
-          report={report}
-          status="completed"
-        />
-
-        <div className="rf-mini-audit-compact__summary">
-          <div>
-            <span>Verified findings</span>
-            <strong>{report.issues.length}</strong>
-          </div>
-
-          <div>
-            <span>Decision maker</span>
-            <strong>
-              {report.snapshot.decisionMaker ||
-                "Verify on call"}
-            </strong>
-          </div>
-        </div>
-
-        <div className="rf-mini-audit-compact__snapshot">
-          <span>
-            <small>Business</small>
-            <strong>
-              {report.snapshot.businessName ||
-                "Not identified"}
-            </strong>
-          </span>
-
-          <span>
-            <small>Platform</small>
-            <strong>
-              {report.snapshot.platform ||
-                "Not identified"}
-            </strong>
-          </span>
-        </div>
-
-        <section className="rf-mini-audit-compact__issues">
-          <div className="rf-mini-audit-compact__heading">
-            <div>
-              <small>CALL PREP</small>
-              <h3>Top talking points</h3>
-            </div>
-
-            <span>
-              {report.issues.length} findings
-            </span>
-          </div>
-
-          {topIssues.map(
-            (issue, index) => (
-              <article
-                key={
-                  issue.id ||
-                  `compact-${index}`
-                }
-              >
-                <span>
-                  {String(
-                    index + 1
-                  ).padStart(
-                    2,
-                    "0"
-                  )}
-                </span>
-
-                <div>
-                  <strong>
-                    {issue.tag ||
-                      "Verified finding"}
-                  </strong>
-
-                  <p>
-                    {issue.whatToSay ||
-                      "Open the full Mini Audit for the verified detail."}
-                  </p>
-                </div>
-
-                <b
-                  className={`rf-mini-audit-severity rf-mini-audit-severity--${normalizeStatus(
-                    issue.severity ||
-                      getIssueSeverity(
-                        index
-                      )
-                  )}`}
-                >
-                  {formatLabel(
-                    issue.severity ||
-                      getIssueSeverity(
-                        index
-                      )
-                  )}
-                </b>
-              </article>
-            )
-          )}
-        </section>
-
-        <div className="rf-mini-audit-compact__actions">
-          <button
-            type="button"
-            className="rf-mini-audit-compact__primary"
-            onClick={() =>
-              setExpandedReport(
-                true
-              )
-            }
-          >
-            Open full Mini Audit
-          </button>
-
-          {report.pdfUrl ? (
-            <a
-              href={report.pdfUrl}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Download PDF
-            </a>
-          ) : null}
-        </div>
-
-        <AuditActionGrid
-          campaignType={campaignType}
-          auditReady
-          generating={generating}
-          generatingFullAudit={
-            generatingFullAudit
-          }
-          generatingCompetitorAnalysis={
-            generatingCompetitorAnalysis
-          }
-          onGenerateMiniAudit={
-            onGenerateMiniAudit
-          }
-          onGenerateFullAudit={
-            onGenerateFullAudit
-          }
-          onGenerateCompetitorAnalysis={
-            onGenerateCompetitorAnalysis
-          }
-        />
-      </section>
-    );
-  }
-
   return (
     <section className="rf-mini-audit-panel">
       <AuditPanelHeader
         report={report}
         status="completed"
+        campaignType={campaignType}
       />
-
-      {compact ? (
-        <button
-          type="button"
-          className="rf-mini-audit-collapse"
-          onClick={() =>
-            setExpandedReport(
-              false
-            )
-          }
-        >
-          ← Back to call summary
-        </button>
-      ) : null}
 
       <AuditReportBanner
         report={report}
       />
 
-      <AuditGenerationSource
-        report={report}
-      />
+      <AuditCallHook report={report} />
 
       <BusinessSnapshot
         snapshot={report.snapshot}
@@ -426,6 +251,8 @@ export default function MiniAuditPanel({
 
       <IssuesList
         issues={report.issues}
+        noMajorIssues={report.noMajorIssues}
+        workingWell={report.workingWell}
         expandedIssue={expandedIssue}
         onToggleIssue={(issueId) =>
           setExpandedIssue(
@@ -473,19 +300,20 @@ export default function MiniAuditPanel({
 function AuditPanelHeader({
   report,
   status,
+  campaignType = "website",
 }) {
+  const trackLabel = campaignType === "gmb" ? "GMB" : "Website";
   return (
     <header className="rf-mini-audit-panel__header">
       <div>
         <p className="rf-mini-audit-eyebrow">
-          Internal sales intelligence
+          Default pre-call intelligence · {trackLabel} track
         </p>
 
-        <h2>Mini audit report</h2>
+        <h2>{trackLabel} Mini Audit</h2>
 
         <p>
-          Verified website findings for
-          call preparation.
+          Verified {campaignType === "gmb" ? "Google Business Profile / local" : "website"} findings only. Website and GMB scores are never blended.
         </p>
       </div>
 
@@ -582,42 +410,18 @@ function AuditReportBanner({
   );
 }
 
-function AuditGenerationSource({
-  report,
-}) {
-  const fallback =
-    report.provider ===
-    "deterministic-fallback";
-
-  if (
-    !fallback &&
-    !report.generationNote &&
-    !report.providerError
-  ) {
-    return null;
-  }
-
+function AuditCallHook({ report }) {
+  if (!report?.hook && !report?.suggestedOpener && !report?.currentStanding) return null;
   return (
-    <div
-      className={`rf-workspace-alert ${
-        fallback
-          ? "rf-workspace-alert--warning"
-          : "rf-workspace-alert--success"
-      }`}
-    >
-      <strong>
-        {fallback
-          ? "Claude generation fallback used"
-          : "Claude audit generation"}
-      </strong>
-      {report.providerError ||
-      report.generationNote ? (
-        <span>
-          {report.providerError ||
-            report.generationNote}
-        </span>
-      ) : null}
-    </div>
+    <section className="rf-mini-audit-section">
+      <SectionHeader number="00" title="Call opener" subtitle="The strongest verified angle before you dial." />
+      <div className="rf-mini-audit-snapshot">
+        {report.currentStanding ? <SnapshotRow label="Current standing" value={report.currentStanding} wide /> : null}
+        {report.hook ? <SnapshotRow label="The hook" value={report.hook} wide /> : null}
+        {report.suggestedOpener ? <SnapshotRow label="Suggested opener" value={report.suggestedOpener} wide /> : null}
+        {report.grade ? <SnapshotRow label="Audit grade" value={`${report.grade}${Number(report.score10) ? ` · ${report.score10}/10` : ""}`} /> : null}
+      </div>
+    </section>
   );
 }
 
@@ -640,6 +444,22 @@ function BusinessSnapshot({
             "Not identified"
           }
         />
+
+        {snapshot.category ? (
+          <SnapshotRow label="Category" value={snapshot.category} />
+        ) : null}
+
+        {snapshot.rating !== null && snapshot.rating !== undefined ? (
+          <SnapshotRow label="Google rating" value={`${snapshot.rating}${snapshot.reviewCount !== null && snapshot.reviewCount !== undefined ? ` · ${snapshot.reviewCount} reviews` : ""}`} />
+        ) : null}
+
+        {snapshot.address ? (
+          <SnapshotRow label="Address / market" value={snapshot.address} wide />
+        ) : null}
+
+        {snapshot.mobilePageSpeed !== null && snapshot.mobilePageSpeed !== undefined ? (
+          <SnapshotRow label="Mobile PageSpeed" value={`${snapshot.mobilePageSpeed}/100`} />
+        ) : null}
 
         <SnapshotRow
           label="Phone"
@@ -717,6 +537,8 @@ function BusinessSnapshot({
 
 function IssuesList({
   issues,
+  noMajorIssues = false,
+  workingWell = "",
   expandedIssue,
   onToggleIssue,
 }) {
@@ -724,16 +546,32 @@ function IssuesList({
     <section className="rf-mini-audit-section">
       <SectionHeader
         number="02"
-        title="Issues found"
-        subtitle="Technical finding first, followed by the business consequence."
+        title={
+          noMajorIssues
+            ? "Talking points"
+            : "Issues found"
+        }
+        subtitle={
+          noMajorIssues
+            ? "Verified strengths are shown when no material issue is confirmed."
+            : "Technical finding first, followed by the business consequence."
+        }
         count={issues.length}
       />
 
       {!issues.length ? (
         <AuditEmptyState
           icon="OK"
-          title="No verified issues returned"
-          description="The report completed, but no structured findings were available. Review the source report or regenerate the audit."
+          title={
+            noMajorIssues
+              ? "✓ No major issues found"
+              : "No verified issues returned"
+          }
+          description={
+            noMajorIssues && workingWell
+              ? workingWell
+              : "The report completed, but no structured findings were available. Review the source report or regenerate the audit."
+          }
           compact
         />
       ) : (
@@ -858,9 +696,9 @@ function AuditSourceFooter({
         the client. Findings were sourced
         from{" "}
         {report.domain ||
-          "the public website"}{" "}
+          "verified public sources"}{" "}
         and publicly available
-        information on{" "}
+        evidence on{" "}
         {formatReportDate(
           report.reportDate
         )}
@@ -1006,8 +844,8 @@ function AuditActionGrid({
             {generating
               ? "Generating mini audit"
               : auditReady
-                ? "Regenerate mini audit"
-                : "Generate mini audit"}
+                ? `Regenerate ${campaignType === "gmb" ? "GMB" : "Website"} Mini Audit`
+                : `Generate ${campaignType === "gmb" ? "GMB" : "Website"} Mini Audit`}
           </strong>
 
           <small>
@@ -1038,7 +876,7 @@ function AuditActionGrid({
           <strong>
             {generatingCompetitorAnalysis
               ? "Generating analysis"
-              : "Competitor analysis"}
+              : `${campaignType === "gmb" ? "GMB" : "Website"} Competitor Analysis`}
           </strong>
 
           <small>
@@ -1068,14 +906,14 @@ function AuditActionGrid({
             {generatingFullAudit
               ? "Generating full audit"
               : campaignType === "gmb"
-                ? "Full GMB audit"
-                : "Full Website audit"}
+                ? "GMB Full Audit"
+                : "Website Full Audit"}
           </strong>
 
           <small>
             {campaignType === "gmb"
-              ? "Detailed local visibility report"
-              : "Detailed website / technology report"}
+              ? "Internal detailed GMB opportunity analysis"
+              : "Internal detailed Website opportunity analysis"}
           </small>
         </div>
       </button>
@@ -1142,7 +980,7 @@ function AuditProgressState({
 
       <div className="rf-mini-audit-progress__content">
         <p className="rf-mini-audit-eyebrow">
-          Background audit job
+          Real-time audit job
         </p>
 
         <h3>
@@ -1292,45 +1130,12 @@ function SnapshotRow({
   );
 }
 
-function getAuditFindingCount(audit) {
-  if (!audit || typeof audit !== "object") {
-    return 0;
-  }
-
-  const payload =
-    audit.report &&
-    typeof audit.report === "object"
-      ? audit.report
-      : audit;
-
-  const findings =
-    payload.issues ||
-    payload.findings ||
-    payload.auditFindings ||
-    [];
-
-  return Array.isArray(findings)
-    ? findings.length
-    : 0;
-}
-
 function normalizeMiniAudit({
   audit,
   lead,
 }) {
-  // lead-audit-service returns an envelope:
-  // { id, status, brand, provider, report: { snapshot, issues, footer, ... } }
-  // Older UI code read the envelope itself, which hid Claude's generated findings.
-  const envelope =
-    audit && typeof audit === "object"
-      ? audit
-      : {};
-
-  const source =
-    envelope.report &&
-    typeof envelope.report === "object"
-      ? envelope.report
-      : envelope;
+  const envelope = audit || {};
+  const source = envelope.report || envelope;
 
   const snapshotSource =
     source.businessSnapshot ||
@@ -1358,138 +1163,100 @@ function normalizeMiniAudit({
     : [];
 
   const workspace =
-    envelope.workspace ||
     envelope.brand ||
     source.workspace ||
     source.brand ||
-    envelope.organization ||
     source.organization ||
     {};
 
   const website =
     snapshotSource.website ||
     source.website ||
-    envelope.website ||
     lead?.website ||
     "";
 
-  const auditId =
-    envelope.id ||
-    envelope.auditId ||
-    source.id ||
-    source.auditId ||
-    "";
-
-  const status =
-    envelope.status ||
-    source.status ||
-    lead?.miniAuditStatus ||
-    "";
-
-  const readyForPdf = [
-    "ready",
-    "ready_for_caller",
-    "crm_audit_ready",
-    "complete",
-    "completed",
-    "success",
-  ].includes(
-    normalizeStatus(status)
-  );
-
-  const generatedPdfUrl =
-    auditId && readyForPdf
-      ? `/api/lead-audits/${encodeURIComponent(
-          auditId
-        )}/pdf`
-      : "";
-
   return {
-    id: auditId,
-    status,
+    id:
+      envelope.id ||
+      source.id ||
+      source.auditId ||
+      "",
+    track:
+      envelope.track ||
+      envelope.campaignType ||
+      source.track ||
+      "",
+    hook:
+      source.hook ||
+      "",
+    suggestedOpener:
+      source.suggestedOpener ||
+      "",
+    noMajorIssues:
+      Boolean(source.noMajorIssues),
+    workingWell:
+      source.workingWell ||
+      "",
+    currentStanding:
+      source.currentStanding ||
+      "",
+    score10:
+      Number(source.score10 || 0),
+    grade:
+      source.grade ||
+      "",
+    status:
+      envelope.status ||
+      source.status ||
+      lead?.miniAuditStatus ||
+      "",
     generatedAt:
-      envelope.generatedAt ||
-      envelope.completedAt ||
-      envelope.updatedAt ||
       source.generatedAt ||
       source.completedAt ||
       source.updatedAt ||
       "",
     reportDate:
       source.reportDate ||
-      envelope.reportDate ||
-      envelope.generatedAt ||
-      envelope.completedAt ||
       source.generatedAt ||
       source.completedAt ||
       new Date().toISOString(),
     workspaceName:
-      envelope.workspaceName ||
-      envelope.brandName ||
       source.workspaceName ||
       source.brandName ||
       workspace.name ||
-      envelope.parentAccountName ||
       source.parentAccountName ||
       "ReachFly AI",
     workspaceDomain:
-      envelope.workspaceDomain ||
-      envelope.brandDomain ||
       source.workspaceDomain ||
       source.brandDomain ||
-      workspace.website ||
       workspace.domain ||
       "",
     domain: getDomain(website),
     pdfUrl:
-      envelope.pdfUrl ||
-      envelope.downloadUrl ||
-      envelope.reportPdfUrl ||
       source.pdfUrl ||
       source.downloadUrl ||
       source.reportPdfUrl ||
-      generatedPdfUrl,
+      "",
     textUrl:
-      envelope.textUrl ||
-      envelope.reportTextUrl ||
       source.textUrl ||
       source.reportTextUrl ||
-      "",
-    provider:
-      envelope.provider ||
-      source.provider ||
-      "",
-    providerError:
-      envelope.providerError ||
-      source.providerError ||
-      "",
-    generationNote:
-      source.generationNote ||
-      envelope.generationNote ||
-      "",
-    footer:
-      source.footer ||
-      envelope.footer ||
       "",
     snapshot: {
       businessName:
         snapshotSource.businessName ||
         snapshotSource.name ||
         source.businessName ||
-        envelope.businessName ||
         lead?.business ||
         lead?.name ||
         "",
       phone:
         snapshotSource.phone ||
         source.phone ||
-        envelope.phone ||
         lead?.phone ||
         "",
       email:
         snapshotSource.email ||
         source.email ||
-        envelope.email ||
         lead?.email ||
         "",
       website,
@@ -1516,6 +1283,24 @@ function normalizeMiniAudit({
         source.whatTheyDo ||
         lead?.description ||
         "",
+      category:
+        snapshotSource.category ||
+        source.category ||
+        lead?.category ||
+        lead?.primaryType ||
+        "",
+      address:
+        snapshotSource.address ||
+        source.address ||
+        lead?.address ||
+        lead?.formattedAddress ||
+        "",
+      rating:
+        snapshotSource.rating ?? source.rating ?? null,
+      reviewCount:
+        snapshotSource.reviewCount ?? source.reviewCount ?? null,
+      mobilePageSpeed:
+        snapshotSource.mobilePageSpeed ?? source.mobilePageSpeed ?? null,
     },
     issues,
   };

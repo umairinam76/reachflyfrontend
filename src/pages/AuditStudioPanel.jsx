@@ -13,39 +13,25 @@ import {
 
 const REPORTS = [
   {
-    kind: "website",
-    label: "Website / Technology Audit",
-    eyebrow: "Required · Website calls",
-    description:
-      "Manager-approved format for Website campaign leads. Upload a PDF example; every generated audit still uses the current lead's own verified evidence.",
-  },
-  {
-    kind: "gmb",
-    label: "GMB / Local Visibility Audit",
-    eyebrow: "Required · GMB calls",
-    description:
-      "Manager-approved format for GMB campaign leads. Upload a PDF example; every report is generated dynamically for that business and market.",
-  },
-  {
     kind: "mini",
     label: "Mini Audit",
-    eyebrow: "Pre-call intelligence",
+    eyebrow: "DEFAULT · Website + GMB",
     description:
-      "Fast, factual intelligence a caller can scan before dialing.",
+      "The default pre-call audit for every Website and GMB lead; one screen, verified evidence only.",
   },
   {
     kind: "competitor",
     label: "Competitor Analysis",
-    eyebrow: "Market intelligence",
+    eyebrow: "Website + GMB",
     description:
-      "Verified competitor and market-positioning analysis for the lead's local market.",
+      "Client-facing competitor analysis generated separately for the lead's Website or GMB track.",
   },
   {
     kind: "full",
     label: "Full Audit",
-    eyebrow: "Detailed opportunity analysis",
+    eyebrow: "INTERNAL · Website + GMB",
     description:
-      "Evidence-grounded technical, SEO, conversion, trust, and roadmap analysis.",
+      "Detailed internal Full Audit generated separately for Website or GMB, with verified evidence and roadmap.",
   },
 ];
 
@@ -53,7 +39,7 @@ export default function AuditStudioPanel() {
   const [studio, setStudio] =
     useState(null);
   const [activeKind, setActiveKind] =
-    useState("website");
+    useState("mini");
   const [drafts, setDrafts] =
     useState({});
   const [systemPrompt, setSystemPrompt] =
@@ -188,8 +174,7 @@ export default function AuditStudioPanel() {
           method: "PUT",
           body: {
             name: draft.name,
-            enabled:
-              draft.enabled !== false,
+            enabled: true,
             lengthGuidance:
               draft.lengthGuidance,
             instructions:
@@ -262,7 +247,7 @@ export default function AuditStudioPanel() {
       );
       body.append(
         "enabled",
-        String(draft.enabled !== false)
+        "true"
       );
       body.append(
         "lengthGuidance",
@@ -377,7 +362,7 @@ export default function AuditStudioPanel() {
           </p>
           <h2>Audit Studio</h2>
           <p>
-            Control the required Website / Technology and GMB / Local Visibility caller-audit formats, plus Mini, Competitor, and Full reports. Upload one approved PDF example per type. PDFs control format/style only; every report is generated dynamically from the current lead's own verified public evidence.
+            Every lead has the same three audit levels on its own track: Mini Audit (default), Competitor Analysis, and Full Audit. Website and GMB are separate evidence tracks and their scores/findings are never blended. PDFs are optional layout/style references only and never block caller work.
           </p>
         </div>
 
@@ -394,11 +379,6 @@ export default function AuditStudioPanel() {
             Verified evidence only
           </strong>
         </div>
-      </div>
-
-      <div style={requiredFormatNoteStyle}>
-        <strong>Required daily-call formats:</strong>{" "}
-        Website calls use the Website / Technology template and GMB calls use the GMB / Local Visibility template. Upload an approved PDF example for both before callers work those queues.
       </div>
 
       {error ? (
@@ -464,6 +444,12 @@ export default function AuditStudioPanel() {
         })}
       </div>
 
+      <div style={trackPolicyStyle}>
+        <div><strong>Website track</strong><span>Mini Audit → Competitor Analysis → Full Audit</span></div>
+        <div><strong>GMB track</strong><span>Mini Audit → Competitor Analysis → Full Audit</span></div>
+        <small>Mini Audit is the default pre-call gate. Competitor Analysis is client-facing. Full Audit is internal-only.</small>
+      </div>
+
       <div style={studioGridStyle}>
         <div style={editorStyle}>
           <div style={editorHeaderStyle}>
@@ -498,28 +484,10 @@ export default function AuditStudioPanel() {
               />
             </Field>
 
-            <Field label="Status">
-              <select
-                value={
-                  draft.enabled === false
-                    ? "disabled"
-                    : "enabled"
-                }
-                onChange={(event) =>
-                  setDraftField(
-                    "enabled",
-                    event.target.value ===
-                      "enabled"
-                  )
-                }
-              >
-                <option value="enabled">
-                  Enabled
-                </option>
-                <option value="disabled">
-                  Disabled
-                </option>
-              </select>
+            <Field label="Availability">
+              <div style={alwaysOnStyle}>
+                Always available · report formats can be customized, but caller audit access is never disabled.
+              </div>
             </Field>
           </div>
 
@@ -612,7 +580,7 @@ export default function AuditStudioPanel() {
             Example PDF
           </h3>
           <p style={referenceDescriptionStyle}>
-            Upload one manager-approved PDF for this report type. Claude uses its structure, layout direction, and presentation style only; names, facts, findings, metrics, and competitors are regenerated from the current lead.
+            Optional: upload one manager-approved PDF as a presentation/style reference. No PDF is required to call a lead or generate an audit. Facts, findings, metrics, scores, and competitors are always regenerated from the current lead's verified evidence.
           </p>
 
           {activeTemplate?.examplePdf ? (
@@ -876,13 +844,24 @@ const qualityBadgeStyle = {
     "1px solid rgba(127,127,127,.22)",
 };
 
-const requiredFormatNoteStyle = {
-  margin: "0 0 16px",
-  padding: "12px 14px",
-  border: "1px solid rgba(127,127,127,.24)",
-  borderRadius: 12,
+const alwaysOnStyle = {
+  minHeight: 42,
+  display: "flex",
+  alignItems: "center",
+  padding: "0 12px",
+  border: "1px solid rgba(148,163,184,.24)",
+  borderRadius: 10,
   fontSize: 13,
-  lineHeight: 1.5,
+  opacity: 0.82,
+};
+
+const trackPolicyStyle = {
+  display: "grid",
+  gap: 8,
+  margin: "16px 0 20px",
+  padding: 14,
+  border: "1px solid rgba(148,163,184,.2)",
+  borderRadius: 12,
 };
 
 const reportCardGridStyle = {

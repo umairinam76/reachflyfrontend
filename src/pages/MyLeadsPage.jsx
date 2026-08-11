@@ -924,14 +924,13 @@ export default function MyLeadsPage() {
         );
 
       if (
-        !isAuditPendingStatus(
-          currentStatus
-        ) &&
         !isAuditReviewStatus(
           currentStatus
         )
       ) {
         try {
+          // Realtime mode: opening this one lead creates/promotes only this
+          // lead's Mini Audit. No other Today leads are queued in the background.
           openedAssignment =
             await ensureDefaultMiniAudit(
               openedAssignment
@@ -981,9 +980,6 @@ export default function MyLeadsPage() {
     if (
       isCallerAuditReady(
         assignment
-      ) ||
-      isAuditPendingStatus(
-        currentStatus
       )
     ) {
       return assignment;
@@ -1019,7 +1015,17 @@ export default function MyLeadsPage() {
             auditKind:
               "mini",
             auditType:
-              "Mini Audit",
+              campaignType === "gmb"
+                ? "GMB Mini Audit"
+                : "Website Mini Audit",
+            priority:
+              true,
+            interactive:
+              true,
+            automatic:
+              false,
+            source:
+              "caller-open-realtime",
             niche:
               lead?.dailyNiche ||
               assignment?.niche ||
@@ -1051,41 +1057,17 @@ export default function MyLeadsPage() {
         }
       );
 
-    const nextStatus =
-      normalizeAuditStatus(
-        report?.status ||
-          "queued"
-      ) || "queued";
+    const updated = mergeMiniAuditJobIntoAssignment(
+      assignment,
+      report
+    );
 
-    const updated = {
-      ...assignment,
-      auditKind:
-        "mini",
-      auditType:
-        "Mini Audit",
-      auditStatus:
-        nextStatus,
-      miniAudit:
-        report ||
-        assignment?.miniAudit ||
-        null,
-      miniAuditStatus:
-        nextStatus,
-      lead: {
-        ...lead,
-        auditKind:
-          "mini",
-        auditType:
-          "Mini Audit",
-        auditStatus:
-          nextStatus,
-        miniAudit:
-          report ||
-          lead?.miniAudit ||
-          null,
-        miniAuditStatus:
-          nextStatus,
-      },
+    // Keep the direct response on the opened card so queued/generating state is
+    // immediately visible without waiting for the next 30-second queue refresh.
+    updated.miniAudit = report || updated.miniAudit || null;
+    updated.lead = {
+      ...(updated.lead || {}),
+      miniAudit: report || updated.lead?.miniAudit || null,
     };
 
     replaceAssignment(
@@ -2488,6 +2470,47 @@ function isAuditReadyStatus(value) {
   );
 }
 
+function getCallerMiniAuditJobId(assignment) {
+  return String(
+    assignment?.miniAuditReportId ||
+      assignment?.auditReportId ||
+      assignment?.lead?.miniAuditReportId ||
+      assignment?.lead?.auditReportId ||
+      assignment?.miniAudit?.id ||
+      ""
+  ).trim();
+}
+
+function mergeMiniAuditJobIntoAssignment(assignment, report) {
+  const campaignType = getCampaignType(assignment) ||
+    String(report?.campaignType || "website").toLowerCase();
+  const status = normalizeAuditStatus(report?.status || "queued") || "queued";
+  const auditType = campaignType === "gmb"
+    ? "GMB Mini Audit"
+    : "Website Mini Audit";
+
+  return {
+    ...assignment,
+    auditKind: "mini",
+    auditTrack: campaignType,
+    auditType,
+    auditStatus: status,
+    auditReportId: report?.id || assignment?.auditReportId || "",
+    miniAuditStatus: status,
+    miniAuditReportId: report?.id || assignment?.miniAuditReportId || "",
+    lead: {
+      ...(assignment?.lead || {}),
+      auditKind: "mini",
+      auditTrack: campaignType,
+      auditType,
+      auditStatus: status,
+      auditReportId: report?.id || assignment?.lead?.auditReportId || "",
+      miniAuditStatus: status,
+      miniAuditReportId: report?.id || assignment?.lead?.miniAuditReportId || "",
+    },
+  };
+}
+
 function isAuditPendingStatus(value) {
   return [
     "queued",
@@ -2540,6 +2563,12 @@ function getCallerMiniAuditStatus(
     );
 
   if (miniStatus) {
+    if (
+      isAuditPendingStatus(miniStatus) &&
+      !getCallerMiniAuditJobId(assignment)
+    ) {
+      return "";
+    }
     return miniStatus;
   }
 
@@ -2639,9 +2668,10 @@ function hasCallerReadyMiniAuditContent(
     payload.auditFindings ||
     [];
 
-  return (
-    Array.isArray(findings) &&
-    findings.length > 0
+  return Boolean(
+    (Array.isArray(findings) && findings.length > 0) ||
+      (payload.noMajorIssues === true && String(payload.workingWell || "").trim()) ||
+      String(payload.summary || payload.strongestHook || "").trim()
   );
 }
 
@@ -2700,6 +2730,10 @@ function formatAuditStatus(
     return "Technical Review Required";
   }
 
+  if (status === "queued" || status === "pending") {
+    return "Mini Audit Queued";
+  }
+
   if (
     isAuditPendingStatus(
       status
@@ -2708,7 +2742,7 @@ function formatAuditStatus(
     return "Generating Mini Audit";
   }
 
-  return "Default Mini Audit";
+  return "Mini Audit — open to generate";
 }
 
 function getAuditPendingTitle(
@@ -2737,6 +2771,10 @@ function getAuditPendingTitle(
     return "Technical review required";
   }
 
+  if (status === "queued" || status === "pending") {
+    return "Default Mini Audit is queued";
+  }
+
   if (
     isAuditPendingStatus(
       status
@@ -2745,7 +2783,7 @@ function getAuditPendingTitle(
     return "Default Mini Audit is being prepared";
   }
 
-  return "Default Mini Audit will be generated automatically";
+  return "Mini Audit will generate when this lead is opened";
 }
 
 function getAuditBlockedMessage(
@@ -2787,7 +2825,7 @@ function getAuditBlockedMessage(
       assignment
     );
 
-  return `ReachFly will generate the built-in Mini Audit for this ${campaign} lead automatically. Manager uploads are optional and only change future audit formatting.`;
+  return `Opening this ${campaign} lead generates its built-in Mini Audit in real time. No other leads are queued. Manager uploads are optional and only change future audit formatting.`;
 }
 
 function getLeadName(
