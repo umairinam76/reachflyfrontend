@@ -17,6 +17,7 @@ import {
 } from "../lib/workspace-platform-client.js";
 
 import "../styles.css";
+import "../styles/caller-workspace-refresh.css";
 // import "../styles/assigned-lead-filters.css";
 
 const BUCKETS = [
@@ -24,13 +25,13 @@ const BUCKETS = [
     value:
       "current",
     label:
-      "Current tasks",
+      "Today",
   },
   {
     value:
       "due",
     label:
-      "Due now",
+      "Retry queue",
   },
   {
     value:
@@ -48,7 +49,7 @@ const BUCKETS = [
     value:
       "completed",
     label:
-      "Completed",
+      "History",
   },
   {
     value:
@@ -671,11 +672,42 @@ export default function MyLeadsPage() {
     loadDailyDay,
   ]);
 
+  const queueRecords =
+    useMemo(() => {
+      if (
+        bucket !== "current" ||
+        !dailyDay?.dateKey
+      ) {
+        return records;
+      }
+
+      // "Today" is a true daily queue. Historical/legacy active assignments
+      // stay accessible in the other buckets, but they do not flood the
+      // caller's 100-lead working list.
+      return records.filter(
+        (assignment) =>
+          String(
+            assignment.dailyQueueDate ||
+              assignment.assignmentDate ||
+              assignment.lead?.dailyQueueDate ||
+              assignment.lead?.assignmentDate ||
+              ""
+          ) ===
+          String(
+            dailyDay.dateKey
+          )
+      );
+    }, [
+      bucket,
+      dailyDay?.dateKey,
+      records,
+    ]);
+
   const campaignOptions =
     useMemo(() => {
       const map = new Map();
 
-      for (const assignment of records) {
+      for (const assignment of queueRecords) {
         if (assignment.campaignId) {
           map.set(
             assignment.campaignId,
@@ -691,7 +723,7 @@ export default function MyLeadsPage() {
             right[1]
           )
       );
-    }, [records]);
+    }, [queueRecords]);
 
   const filtered =
     useMemo(
@@ -701,7 +733,7 @@ export default function MyLeadsPage() {
             .trim()
             .toLowerCase();
 
-        const next = records.filter(
+        const next = queueRecords.filter(
           (assignment) => {
             const lead =
               assignment.lead ||
@@ -822,7 +854,7 @@ export default function MyLeadsPage() {
       [
         campaignFilter,
         priorityFilter,
-        records,
+        queueRecords,
         search,
         sortBy,
       ]
@@ -1855,88 +1887,155 @@ function DailyWorkPanel({
     dailyDay.submission?.status ===
     "submitted";
 
+  const target =
+    Math.max(
+      1,
+      Number(
+        dailyDay.leadsPerCaller ||
+        100
+      )
+    );
+
+  const assigned =
+    Math.min(
+      target,
+      Math.max(
+        0,
+        Number(
+          dailyDay.assigned ||
+          0
+        )
+      )
+    );
+
+  const worked =
+    Math.min(
+      assigned,
+      Math.max(
+        0,
+        Number(
+          dailyDay.worked ||
+          0
+        )
+      )
+    );
+
+  const remaining =
+    Math.max(
+      0,
+      assigned - worked
+    );
+
+  const progress =
+    Math.min(
+      100,
+      Math.round(
+        (worked / target) * 100
+      )
+    );
+
   return (
-    <section
-      className="cardish"
-      style={{ marginBottom: 16 }}
-    >
-      <div className="section-title-row">
+    <section className="rf-daily-queue-card">
+      <div className="rf-daily-queue-card__top">
         <div>
           <span className="eyebrow">
-            Daily assignment
+            Today's calling queue
           </span>
-          <h3>
-            {dailyDay.assigned || 0}/
-            {dailyDay.leadsPerCaller || 100}
-            {" "}leads assigned
-          </h3>
+
+          <h2>
+            {assigned} of {target} leads ready
+          </h2>
+
           <p>
-            Call mix: {dailyDay.websiteCalls ?? 0} Website
-            {" · "}
-            {dailyDay.gmbCalls ?? 0} GMB
-            {" · "}
-            Today: {dailyDay.websiteAssigned ?? 0} Website
-            {" · "}
-            {dailyDay.gmbAssigned ?? 0} GMB
-          </p>
-          <p>
-            Current niche: {dailyDay.currentNiche || "Not assigned"}
-            {dailyDay.currentResourceType
-              ? ` · ${formatResourceType(dailyDay.currentResourceType)}`
-              : ""}
-            {dailyDay.currentLocation
-              ? ` · ${dailyDay.currentLocation}`
-              : ""}
-            {dailyDay.currentCountry &&
-            !String(dailyDay.currentLocation || "")
-              .toLowerCase()
-              .includes(
-                String(dailyDay.currentCountry).toLowerCase()
-              )
-              ? ` · ${dailyDay.currentCountry}`
-              : ""}
-          </p>
-          <p>
-            Next assignment: {dailyDay.nextNiche || "Use manager default niche"}
-            {dailyDay.nextResourceType
-              ? ` · ${formatResourceType(dailyDay.nextResourceType)}`
-              : ""}
-            {dailyDay.nextLocation
-              ? ` · ${dailyDay.nextLocation}`
-              : dailyDay.nextResourceType === "local"
-                ? " · Pakistan (auto city)"
-                : ""}
-          </p>
-          <p>
-            Lead delivery time: {formatDailyClock(
-              dailyDay.assignmentHour,
-              dailyDay.assignmentMinute
-            )}
-            {" "}
-            ({dailyDay.timezone || ""})
-            {" · "}
-            Next scheduled delivery: {formatDailyDateTime(
-              dailyDay.nextRefreshAt
-            )}
-          </p>
-          <p>
-            Worked: {dailyDay.worked || 0}
-            {" · "}
-            Remaining: {dailyDay.remaining || 0}
+            Work today's queue first. ReachFly reuses existing AH Growth
+            inventory before requesting new Google Places leads.
           </p>
         </div>
 
-        <span className="badge badge-neutral">
+        <span
+          className={`rf-daily-queue-status ${
+            submitted
+              ? "is-complete"
+              : assigned >= target
+                ? "is-ready"
+                : "is-filling"
+          }`}
+        >
           {submitted
-            ? "Submitted"
-            : dailyDay.submission?.status ===
-                "missed_deadline"
-              ? "Missed deadline"
-              : "Open day"}
+            ? "Day submitted"
+            : assigned >= target
+              ? "Ready to call"
+              : "Filling queue"}
         </span>
       </div>
 
-      <div className="flex flex-gap flex-wrap mt16">
+      <div className="rf-daily-queue-metrics">
+        <div>
+          <span>Assigned today</span>
+          <strong>{assigned}</strong>
+          <small>Target {target}</small>
+        </div>
+
+        <div>
+          <span>Worked</span>
+          <strong>{worked}</strong>
+          <small>{progress}% complete</small>
+        </div>
+
+        <div>
+          <span>Remaining</span>
+          <strong>{remaining}</strong>
+          <small>Today's queue</small>
+        </div>
+
+        <div>
+          <span>Call mix</span>
+          <strong>
+            {dailyDay.websiteAssigned ?? 0}
+            {" / "}
+            {dailyDay.gmbAssigned ?? 0}
+          </strong>
+          <small>Website / GMB</small>
+        </div>
+      </div>
+
+      <div
+        className="rf-daily-queue-progress"
+        aria-label={`${progress}% of today's queue worked`}
+      >
+        <span
+          style={{
+            width: `${progress}%`,
+          }}
+        />
+      </div>
+
+      <div className="rf-daily-queue-meta">
+        <span>
+          <b>Market:</b>{" "}
+          {dailyDay.currentLocation ||
+            dailyDay.currentCountry ||
+            "Existing inventory"}
+        </span>
+
+        <span>
+          <b>Resource:</b>{" "}
+          {dailyDay.currentResourceType
+            ? formatResourceType(
+                dailyDay.currentResourceType
+              )
+            : "Existing leads first"}
+        </span>
+
+        <span>
+          <b>Next delivery:</b>{" "}
+          {formatDailyDateTime(
+            dailyDay.nextRefreshAt
+          )}
+        </span>
+      </div>
+
+      <div className="rf-daily-queue-card__actions">
         <button
           type="button"
           className="btn primary"

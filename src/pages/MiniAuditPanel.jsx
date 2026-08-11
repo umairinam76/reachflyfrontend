@@ -27,9 +27,12 @@ export default function MiniAuditPanel({
   onGenerateMiniAudit,
   onGenerateFullAudit,
   onGenerateCompetitorAnalysis,
+  compact = false,
 }) {
   const [expandedIssue, setExpandedIssue] =
     useState("");
+  const [expandedReport, setExpandedReport] =
+    useState(false);
 
   const normalizedStatus = normalizeStatus(
     status ||
@@ -229,12 +232,185 @@ export default function MiniAuditPanel({
     );
   }
 
+  if (
+    compact &&
+    !expandedReport
+  ) {
+    const topIssues =
+      report.issues.slice(
+        0,
+        4
+      );
+
+    return (
+      <section className="rf-mini-audit-panel rf-mini-audit-panel--compact">
+        <AuditPanelHeader
+          report={report}
+          status="completed"
+        />
+
+        <div className="rf-mini-audit-compact__summary">
+          <div>
+            <span>Verified findings</span>
+            <strong>{report.issues.length}</strong>
+          </div>
+
+          <div>
+            <span>Decision maker</span>
+            <strong>
+              {report.snapshot.decisionMaker ||
+                "Verify on call"}
+            </strong>
+          </div>
+        </div>
+
+        <div className="rf-mini-audit-compact__snapshot">
+          <span>
+            <small>Business</small>
+            <strong>
+              {report.snapshot.businessName ||
+                "Not identified"}
+            </strong>
+          </span>
+
+          <span>
+            <small>Platform</small>
+            <strong>
+              {report.snapshot.platform ||
+                "Not identified"}
+            </strong>
+          </span>
+        </div>
+
+        <section className="rf-mini-audit-compact__issues">
+          <div className="rf-mini-audit-compact__heading">
+            <div>
+              <small>CALL PREP</small>
+              <h3>Top talking points</h3>
+            </div>
+
+            <span>
+              {report.issues.length} findings
+            </span>
+          </div>
+
+          {topIssues.map(
+            (issue, index) => (
+              <article
+                key={
+                  issue.id ||
+                  `compact-${index}`
+                }
+              >
+                <span>
+                  {String(
+                    index + 1
+                  ).padStart(
+                    2,
+                    "0"
+                  )}
+                </span>
+
+                <div>
+                  <strong>
+                    {issue.tag ||
+                      "Verified finding"}
+                  </strong>
+
+                  <p>
+                    {issue.whatToSay ||
+                      "Open the full Mini Audit for the verified detail."}
+                  </p>
+                </div>
+
+                <b
+                  className={`rf-mini-audit-severity rf-mini-audit-severity--${normalizeStatus(
+                    issue.severity ||
+                      getIssueSeverity(
+                        index
+                      )
+                  )}`}
+                >
+                  {formatLabel(
+                    issue.severity ||
+                      getIssueSeverity(
+                        index
+                      )
+                  )}
+                </b>
+              </article>
+            )
+          )}
+        </section>
+
+        <div className="rf-mini-audit-compact__actions">
+          <button
+            type="button"
+            className="rf-mini-audit-compact__primary"
+            onClick={() =>
+              setExpandedReport(
+                true
+              )
+            }
+          >
+            Open full Mini Audit
+          </button>
+
+          {report.pdfUrl ? (
+            <a
+              href={report.pdfUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Download PDF
+            </a>
+          ) : null}
+        </div>
+
+        <AuditActionGrid
+          campaignType={campaignType}
+          auditReady
+          generating={generating}
+          generatingFullAudit={
+            generatingFullAudit
+          }
+          generatingCompetitorAnalysis={
+            generatingCompetitorAnalysis
+          }
+          onGenerateMiniAudit={
+            onGenerateMiniAudit
+          }
+          onGenerateFullAudit={
+            onGenerateFullAudit
+          }
+          onGenerateCompetitorAnalysis={
+            onGenerateCompetitorAnalysis
+          }
+        />
+      </section>
+    );
+  }
+
   return (
     <section className="rf-mini-audit-panel">
       <AuditPanelHeader
         report={report}
         status="completed"
       />
+
+      {compact ? (
+        <button
+          type="button"
+          className="rf-mini-audit-collapse"
+          onClick={() =>
+            setExpandedReport(
+              false
+            )
+          }
+        >
+          ← Back to call summary
+        </button>
+      ) : null}
 
       <AuditReportBanner
         report={report}

@@ -11,6 +11,7 @@ import { apiRequest, onWorkspaceSocket } from "../lib/workspace-platform-client.
 import MiniAuditPanel from "./MiniAuditPanel.jsx";
 import TelnyxDialer from "./TelnyxDialer.jsx";
 import "../styles.css";
+// import "../styles/caller-workspace-refresh.css";
 
 const OUTCOMES = [
   ["contacted", "Contacted"],
@@ -58,6 +59,7 @@ export default function CallWorkspacePage() {
   const [lead, setLead] = useState(null);
   const [miniAudit, setMiniAudit] = useState(null);
   const [callHistory, setCallHistory] = useState([]);
+  const [dailyDay, setDailyDay] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -113,16 +115,18 @@ export default function CallWorkspacePage() {
       setNotes(nextAssignment.notes || nextLead.notes || "");
       setFollowUpAt(toLocalDateTimeInput(nextAssignment.nextActionAt || nextAssignment.followUpAt));
 
-      const [callsResponse, auditsResponse] = await Promise.all([
+      const [callsResponse, auditsResponse, dailyResponse] = await Promise.all([
         apiRequest(`/telnyx/calls?leadId=${encodeURIComponent(nextLead.id)}&limit=30`),
         nextLead.website
           ? apiRequest(
               `/lead-audits?website=${encodeURIComponent(nextLead.website)}&kind=mini`
             )
           : Promise.resolve({ reports: [] }),
+        apiRequest("/daily-leads/my-day").catch(() => null),
       ]);
 
       setCallHistory(callsResponse.calls || []);
+      setDailyDay(dailyResponse);
 
       const reports = auditsResponse.reports || [];
       const latestMiniAudit = reports.find((report) => report.kind === "mini") ||
@@ -383,7 +387,9 @@ export default function CallWorkspacePage() {
     miniAuditNeedsRepair,
   ]);
 
-  async function saveOutcome() {
+  async function saveOutcome({
+    advance = false,
+  } = {}) {
     if (!resolvedAssignmentId) return;
 
     if (["callback", "follow_up"].includes(outcome) && !followUpAt) {
@@ -419,7 +425,40 @@ export default function CallWorkspacePage() {
         setAssignment(response.assignment);
         setLead(response.assignment.lead || lead);
       }
-      setSuccess("The call outcome was saved.");
+      setSuccess(
+        advance
+          ? "Outcome saved. Opening the next lead…"
+          : "The call outcome was saved."
+      );
+
+      if (advance) {
+        const nextResponse =
+          await apiRequest(
+            "/caller-queue/next?bucket=current"
+          ).catch(() => null);
+
+        const nextAssignment =
+          nextResponse?.assignment;
+
+        if (nextAssignment?.id) {
+          const nextLeadId =
+            nextAssignment.leadId ||
+            nextAssignment.lead?.id ||
+            "";
+
+          navigate(
+            `/app/call-workspace?assignmentId=${encodeURIComponent(
+              nextAssignment.id
+            )}${
+              nextLeadId
+                ? `&leadId=${encodeURIComponent(nextLeadId)}`
+                : ""
+            }`
+          );
+        } else {
+          navigate("/app/my-leads");
+        }
+      }
     } catch (requestError) {
       setError(requestError?.message || "The call outcome could not be saved.");
     } finally {
@@ -452,10 +491,20 @@ export default function CallWorkspacePage() {
       <header className="rf-call-header">
         <div className="rf-call-header__identity">
           <div>
-            <p className="rf-call-eyebrow">Live Telnyx call workspace</p>
+            <p className="rf-call-eyebrow">Today's calling workspace</p>
             <h1>{lead.business || lead.name || "Business lead"}</h1>
             <p>{lead.phone || "No phone"} · {lead.website || "No website"}</p>
           </div>
+
+          {dailyDay ? (
+            <div className="rf-call-day-progress">
+              <strong>
+                {dailyDay.worked || 0}/{dailyDay.leadsPerCaller || 100}
+              </strong>
+              <span>worked today</span>
+              <small>{dailyDay.remaining || 0} remaining</small>
+            </div>
+          ) : null}
         </div>
         <div className="rf-call-header__actions">
           <button type="button" onClick={() => navigate("/app/my-leads")}>Back to leads</button>
@@ -474,10 +523,32 @@ export default function CallWorkspacePage() {
 
       <section className="rf-call-layout">
         <div className="rf-call-layout__primary">
-          <section className="cardish" style={{ marginBottom: 12 }}>
-            <p className="rf-call-eyebrow">Manual caller phone</p>
-            <h2>Telnyx dialer & keypad</h2>
-            <p>The dialer unlocks as soon as the default Mini Audit is ready. During an active call the End call button and dial pad are available below.</p>
+          <section className="rf-call-lead-summary">
+            <div>
+              <p className="rf-call-eyebrow">Current lead</p>
+              <h2>{lead.business || lead.name || "Business lead"}</h2>
+              <p>
+                {lead.address ||
+                  lead.formattedAddress ||
+                  assignment.campaignName ||
+                  "Assigned lead"}
+              </p>
+            </div>
+
+            <div className="rf-call-lead-summary__meta">
+              <span>
+                <small>Phone</small>
+                <strong>{lead.phone || "Not available"}</strong>
+              </span>
+              <span>
+                <small>Attempts</small>
+                <strong>{assignment.callAttempts || 0}</strong>
+              </span>
+              <span>
+                <small>Audit</small>
+                <strong>{miniAuditReady ? "Ready" : miniAuditPending ? "Preparing" : "Required"}</strong>
+              </span>
+            </div>
           </section>
 
           {miniAuditReady ? (
@@ -548,9 +619,31 @@ export default function CallWorkspacePage() {
               />
             </label>
 
-            <button type="button" disabled={savingOutcome} onClick={() => void saveOutcome()}>
-              {savingOutcome ? "Saving…" : "Save outcome"}
-            </button>
+            <div className="rf-call-outcome-actions">
+              <button
+                type="button"
+                className="rf-call-secondary-action"
+                disabled={savingOutcome}
+                onClick={() =>
+                  void saveOutcome()
+                }
+              >
+                {savingOutcome ? "Saving…" : "Save only"}
+              </button>
+
+              <button
+                type="button"
+                className="rf-call-primary-action"
+                disabled={savingOutcome}
+                onClick={() =>
+                  void saveOutcome({
+                    advance: true,
+                  })
+                }
+              >
+                {savingOutcome ? "Saving…" : "Save & next lead"}
+              </button>
+            </div>
           </section>
 
           <section className="rf-call-history-card">
@@ -601,6 +694,7 @@ export default function CallWorkspacePage() {
             onGenerateMiniAudit={() => void generateReport("mini", { force: true })}
             onGenerateFullAudit={() => void generateReport("full", { force: true })}
             onGenerateCompetitorAnalysis={() => void generateReport("competitor", { force: true })}
+            compact
           />
         </aside>
       </section>
