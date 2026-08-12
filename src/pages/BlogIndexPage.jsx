@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { BLOG_POSTS } from "../content/blog-posts.js";
-import "../styles/blog.css";
+import "../styles.css";
 
 export default function BlogIndexPage() {
   const [query, setQuery] = useState("");
