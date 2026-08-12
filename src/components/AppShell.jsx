@@ -198,10 +198,25 @@ export default function AppShell() {
       ]
     );
 
+  const isCodesyncWorkspace = useMemo(() => {
+    const values = [
+      user?.workspaceId,
+      user?.companyId,
+      user?.workspaceSlug,
+      user?.companySlug,
+      user?.workspaceName,
+      user?.companyName,
+    ]
+      .filter(Boolean)
+      .map((value) => String(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, ""));
+    return values.includes("codesync_labs_workspace") || values.includes("codesync_labs") || values.includes("codesynclabs");
+  }, [user?.workspaceId, user?.companyId, user?.workspaceSlug, user?.companySlug, user?.workspaceName, user?.companyName]);
+
   const canUseVoiceAgent =
-    !isAhGrowthWorkspace &&
-    (canManageWorkspace ||
-      isIndividualAccount);
+    isCodesyncWorkspace && canManageWorkspace;
+
+  const canUsePlatformAdmin =
+    isCodesyncWorkspace && (isOwner || isAdmin);
 
   useEffect(() => {
     if (!user?.id) {
@@ -756,6 +771,21 @@ export default function AppShell() {
         ],
       });
 
+      if (canUsePlatformAdmin) {
+        groups.push({
+          label: "Platform",
+          items: [
+            {
+              label: "Platform admin",
+              to: "/app/platform-admin",
+              icon: LayoutDashboard,
+              matchPrefix: "/app/platform-admin",
+              visible: true,
+            },
+          ],
+        });
+      }
+
       groups.push({
         label: "Intelligence",
 
@@ -797,6 +827,17 @@ export default function AppShell() {
         label: "Account",
 
         items: [
+          {
+            label:
+              "Credits & usage",
+            to:
+              "/app/billing",
+            icon: Zap,
+            matchPrefix:
+              "/app/billing",
+            visible: true,
+          },
+
           {
             label:
               "Profile settings",
@@ -846,6 +887,7 @@ export default function AppShell() {
       canViewContacts,
       canViewInbox,
       canUseVoiceAgent,
+      canUsePlatformAdmin,
       counters,
       isCaller,
       isManager,

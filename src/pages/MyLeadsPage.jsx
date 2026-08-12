@@ -2278,9 +2278,15 @@ function CampaignAudit({
   const summary =
     report.summary ||
     report.executiveSummary ||
+    report.currentStanding ||
     audit?.summary ||
     audit?.executiveSummary ||
     "";
+
+  const hook = report.hook || "";
+  const opener = report.suggestedOpener || "";
+  const workingWell = report.workingWell || "";
+  const verificationRequired = report.verificationRequired === true;
 
   return (
     <div className="caller-mini-audit">
@@ -2296,6 +2302,18 @@ function CampaignAudit({
         <p>
           {summary}
         </p>
+      ) : null}
+
+      {verificationRequired ? (
+        <p><b>Verification:</b> Live evidence was limited in this run. Use only confirmed details below and verify unknowns on the call.</p>
+      ) : null}
+
+      {hook ? (
+        <p><b>Hook:</b> {hook}</p>
+      ) : null}
+
+      {workingWell && !findings.length ? (
+        <p><b>Verified / status note:</b> {workingWell}</p>
       ) : null}
 
       {findings
@@ -2323,11 +2341,11 @@ function CampaignAudit({
                 ""}
             </p>
 
-            {finding.businessImpact &&
-            finding.businessImpact !== finding.impact ? (
+            {(finding.businessImpact || finding.pain) &&
+            (finding.businessImpact || finding.pain) !== finding.impact ? (
               <p>
                 <b>Business impact:</b>{" "}
-                {finding.businessImpact}
+                {finding.businessImpact || finding.pain}
               </p>
             ) : null}
 
@@ -2342,7 +2360,11 @@ function CampaignAudit({
           </article>
         ))}
 
-      {!findings.length && !summary ? (
+      {opener ? (
+        <p><b>Suggested opener:</b> {opener}</p>
+      ) : null}
+
+      {!findings.length && !summary && !workingWell ? (
         <p>
           The campaign audit is ready. Open the full report from this lead if more detail is required.
         </p>
@@ -2586,8 +2608,8 @@ function hasCallerReadyMiniAuditContent(
   // A healthy audit is intentionally allowed to return no issues. Treat the
   // verified positive finding as ready content instead of blocking the caller.
   return Boolean(
-    payload.noMajorIssues === true &&
-      String(payload.workingWell || "").trim()
+    String(payload.workingWell || "").trim() &&
+      (payload.noMajorIssues === true || payload.verificationRequired === true)
   );
 }
 
