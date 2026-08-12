@@ -1,7 +1,7 @@
 import { Link, Navigate, useParams } from "react-router-dom";
 import { useEffect } from "react";
 import { getBlogPost, getRelatedPosts } from "../content/blog-posts.js";
-import "../styles/blog.css";
+import "../styles.css";
 
 export default function BlogPostPage() {
   const { slug } = useParams();
