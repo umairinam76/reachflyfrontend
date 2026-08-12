@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { apiRequest } from "../lib/workspace-platform-client.js";
-import "../styles/codesync-admin.css";
+import "../styles.css";
 
 const TABS = [
   ["overview", "Overview"],
