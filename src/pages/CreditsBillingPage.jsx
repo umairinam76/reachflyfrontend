@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiRequest } from "../lib/workspace-platform-client.js";
-import "../styles/credits-billing.css";
+import "../styles.css";
 
 export default function CreditsBillingPage() {
   const [data, setData] = useState(null);
