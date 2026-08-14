@@ -9,6 +9,7 @@ import {
 import {
   Link,
   useNavigate,
+  useSearchParams,
 } from "react-router-dom";
 
 import {
@@ -21,10 +22,9 @@ import {
 } from "../lib/workspace-platform-client.js";
 
 import "../styles.css";
-// import "../styles/manager-resource-boar.css";
 
 const BOARD_CACHE_KEY =
-  "reachfly:manager-resource-board:v1";
+  "reachfly:manager-resource-board:v2";
 const BOARD_CACHE_TTL_MS = 5 * 60 * 1000;
 const VISIBILITY_REFRESH_MIN_MS = 60_000;
 const SOCKET_REFRESH_DEBOUNCE_MS = 250;
@@ -76,8 +76,9 @@ export default function ManagerResourceBoard() {
   } = useAuth();
 
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const initialCacheRef = useRef(
-    readBoardCache(user?.id)
+    readBoardCache(user)
   );
   const refreshTimerRef = useRef(null);
   const loadPromiseRef = useRef(null);
@@ -90,7 +91,9 @@ export default function ManagerResourceBoard() {
   const [board, setBoard] = useState(
     () => initialCacheRef.current?.board || null
   );
-  const [activeTab, setActiveTab] = useState("leads");
+  const [activeTab, setActiveTab] = useState(
+    () => normalizeBoardTab(searchParams.get("tab")) || "leads"
+  );
   const [search, setSearch] = useState("");
   const [leadStatus, setLeadStatus] = useState("all");
   const [campaignId, setCampaignId] = useState("all");
@@ -127,6 +130,30 @@ export default function ManagerResourceBoard() {
       );
     };
   }, []);
+
+  useEffect(() => {
+    const requestedTab = normalizeBoardTab(
+      searchParams.get("tab")
+    );
+
+    if (requestedTab && requestedTab !== activeTab) {
+      setActiveTab(requestedTab);
+    }
+  }, [activeTab, searchParams]);
+
+  const selectTab = useCallback(
+    (value) => {
+      const nextTab = normalizeBoardTab(value) || "leads";
+      setActiveTab(nextTab);
+
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.set("tab", nextTab);
+      setSearchParams(nextParams, {
+        replace: true,
+      });
+    },
+    [searchParams, setSearchParams]
+  );
 
   const loadBoard = useCallback(
     async ({
@@ -182,7 +209,7 @@ export default function ManagerResourceBoard() {
             lastLoadedAtRef.current =
               Date.now();
             writeBoardCache(
-              user.id,
+              user,
               response
             );
 
@@ -226,7 +253,13 @@ export default function ManagerResourceBoard() {
         }
       }
     },
-    [user?.id]
+    [
+      user?.id,
+      user?.workspaceId,
+      user?.workspace?.id,
+      user?.workspaceSlug,
+      user?.companyId,
+    ]
   );
 
   /*
@@ -331,9 +364,15 @@ export default function ManagerResourceBoard() {
       "resource-board:lead-updated",
       "resource-board:resource-updated",
       "lead:updated",
+      "lead:assignment-updated",
       "lead:call-updated",
       "team:task-created",
       "team:task-updated",
+      "team:task-deleted",
+      "team:callback-updated",
+      "telnyx-ai-agent:call-updated",
+      "telnyx-ai-agent:meeting-booked",
+      "presence:update",
       "presence:updated",
       "profile:updated",
     ];
@@ -375,9 +414,10 @@ export default function ManagerResourceBoard() {
 
   const tasks = useMemo(
     () =>
-      Array.isArray(board?.tasks)
+      (Array.isArray(board?.tasks)
         ? board.tasks
-        : [],
+        : []
+      ).map(normalizeBoardTask),
     [board?.tasks]
   );
 
@@ -462,25 +502,35 @@ export default function ManagerResourceBoard() {
   const filteredTasks = useMemo(() => {
     const query = search.trim().toLowerCase();
 
-    if (!query) {
-      return tasks;
-    }
+    const visible = !query
+      ? tasks
+      : tasks.filter((task) =>
+          [
+            task.title,
+            task.description,
+            task.lead?.business,
+            task.lead?.name,
+            task.assigneeName,
+            task.status,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(query)
+        );
 
-    return tasks.filter((task) =>
-      [
-        task.title,
-        task.description,
-        task.lead?.business,
-        task.lead?.name,
-        task.assigneeName,
-        task.status,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(query)
-    );
+    return [...visible].sort(compareTasks);
   }, [search, tasks]);
+
+  const followUps = useMemo(
+    () =>
+      buildFollowUpTimeline({
+        assignments,
+        tasks,
+        search,
+      }),
+    [assignments, search, tasks]
+  );
 
   async function moveLead(
     assignmentId,
@@ -600,7 +650,9 @@ export default function ManagerResourceBoard() {
       setBoard((current) =>
         replaceBoardTask(
           current,
-          response.task || response
+          normalizeBoardTask(
+            response.task || response
+          )
         )
       );
     } catch (requestError) {
@@ -645,11 +697,9 @@ export default function ManagerResourceBoard() {
             title: taskForm.title.trim(),
             description:
               taskForm.description.trim(),
-            dueAt: taskForm.dueAt
-              ? new Date(
-                  taskForm.dueAt
-                ).toISOString()
-              : null,
+            dueAt: toIsoOrNull(
+              taskForm.dueAt
+            ),
             lead: assignment?.lead || null,
             leadId:
               assignment?.leadId ||
@@ -665,7 +715,9 @@ export default function ManagerResourceBoard() {
         ...(current || {}),
         tasks: upsertById(
           current?.tasks || [],
-          response.task || response
+          normalizeBoardTask(
+            response.task || response
+          )
         ),
       }));
 
@@ -814,6 +866,31 @@ export default function ManagerResourceBoard() {
     }
 
     if (payload.type === "lead") {
+      const assignment = assignments.find(
+        (item) => item.id === payload.id
+      );
+
+      const target = resources.find(
+        (item) => item.id === resourceId
+      );
+
+      const movingToNewResource =
+        Boolean(resourceId) &&
+        getAssigneeId(assignment) !== resourceId;
+
+      if (
+        target &&
+        movingToNewResource &&
+        Number(target.activeLeadCount || 0) >=
+          Number(target.dailyLeadLimit || 0)
+      ) {
+        setError(
+          `${target.name || "This caller"} is at lead capacity. Increase the capacity or choose another caller.`
+        );
+        setDragPayload(null);
+        return;
+      }
+
       void moveLead(payload.id, resourceId);
     }
 
@@ -905,12 +982,14 @@ export default function ManagerResourceBoard() {
       <BoardSummary
         summary={board?.summary}
         loading={loading}
+        followUps={followUps}
       />
 
       <nav className="rf-resource-board-tabs">
         {[
           ["leads", "Lead board"],
           ["tasks", "Task board"],
+          ["follow-ups", "Follow-ups"],
           ["resources", "Resources & channels"],
           ["activity", "Live activity"],
         ].map(([value, label]) => (
@@ -923,7 +1002,7 @@ export default function ManagerResourceBoard() {
                 : ""
             }
             onClick={() =>
-              setActiveTab(value)
+              selectTab(value)
             }
           >
             {label}
@@ -1039,6 +1118,18 @@ export default function ManagerResourceBoard() {
             />
           ) : null}
 
+          {activeTab === "follow-ups" ? (
+            <FollowUpPanel
+              items={followUps}
+              onOpenTasks={() =>
+                selectTab("tasks")
+              }
+              onOpenLeads={() =>
+                selectTab("leads")
+              }
+            />
+          ) : null}
+
           {activeTab === "resources" ? (
             <ResourcesPanel
               resources={resources}
@@ -1088,12 +1179,23 @@ export default function ManagerResourceBoard() {
   );
 }
 
-function BoardSummary({ summary = {}, loading }) {
+function BoardSummary({
+  summary = {},
+  loading,
+  followUps = [],
+}) {
+  const dueFollowUps = followUps.filter(
+    (item) =>
+      item.overdue ||
+      isWithinHours(item.dueAt, 24)
+  ).length;
+
   const cards = [
     ["Caller resources", summary.resources || 0],
     ["Active leads", summary.activeLeads || 0],
     ["Unassigned", summary.unassignedLeads || 0],
     ["Open tasks", summary.openTasks || 0],
+    ["Follow-ups due", dueFollowUps],
     ["Spare numbers", summary.sparePhoneNumbers || 0],
     ["Email accounts", summary.connectedEmailAccounts || 0],
   ];
@@ -1589,11 +1691,16 @@ function TaskBoardCard({
   onAssign,
   onStatus,
 }) {
+  const dueAt = getTaskDueAt(task);
+  const overdue = isTaskOverdue(task);
+
   return (
     <article
       className={`rf-board-card rf-board-card--task priority-${
         task.priority || "normal"
-      } ${busy ? "is-busy" : ""}`}
+      } ${overdue ? "is-overdue" : ""} ${
+        busy ? "is-busy" : ""
+      }`}
       draggable={!busy}
       onDragStart={(event) =>
         onDragStart(event, {
@@ -1623,8 +1730,10 @@ function TaskBoardCard({
       <div className="rf-board-card__meta">
         <span>{formatLabel(task.priority)}</span>
         <span>
-          {task.dueAt
-            ? `Due ${formatDateTime(task.dueAt)}`
+          {dueAt
+            ? overdue
+              ? `Overdue · ${formatDateTime(dueAt)}`
+              : `Due ${formatDateTime(dueAt)}`
             : "No due date"}
         </span>
       </div>
@@ -1696,8 +1805,8 @@ function ResourcesPanel({
             Capacity, email and phone assignments
           </h2>
           <p>
-            Each Telnyx number can be assigned to only one caller. Email
-            accounts shown here are connected through the Email setup page.
+            Each business calling number can be assigned to only one caller.
+            Email accounts shown here are connected through the Email setup page.
           </p>
         </div>
         <button
@@ -1765,7 +1874,17 @@ function ResourceSettingsCard({
         <ResourceAvatar resource={resource} />
         <div>
           <h3>{resource.name}</h3>
-          <p>{resource.email}</p>
+          <p>
+            {resource.jobTitle ||
+              formatLabel(
+                resource.workspaceRole ||
+                  resource.role ||
+                  "caller"
+              )}
+            {resource.email
+              ? ` · ${resource.email}`
+              : ""}
+          </p>
         </div>
         <PresenceBadge
           presence={resource.presence}
@@ -1811,7 +1930,7 @@ function ResourceSettingsCard({
       </label>
 
       <label>
-        <span>Telnyx caller number</span>
+        <span>Business calling number</span>
         <select
           value={values.phoneNumber}
           onChange={(event) =>
@@ -2317,7 +2436,7 @@ function replaceBoardTask(board, task) {
     ...board,
     tasks: upsertById(
       board.tasks || [],
-      task
+      normalizeBoardTask(task)
     ),
   };
 }
@@ -2343,15 +2462,15 @@ function upsertById(items, item) {
     : [item, ...items];
 }
 
-function readBoardCache(userId) {
-  if (!userId || typeof window === "undefined") {
+function readBoardCache(user) {
+  const cacheKey = getBoardCacheKey(user);
+
+  if (!cacheKey || typeof window === "undefined") {
     return null;
   }
 
   try {
-    const raw = window.sessionStorage.getItem(
-      `${BOARD_CACHE_KEY}:${userId}`
-    );
+    const raw = window.sessionStorage.getItem(cacheKey);
     const parsed = raw ? JSON.parse(raw) : null;
 
     if (
@@ -2368,14 +2487,16 @@ function readBoardCache(userId) {
   }
 }
 
-function writeBoardCache(userId, board) {
-  if (!userId || typeof window === "undefined") {
+function writeBoardCache(user, board) {
+  const cacheKey = getBoardCacheKey(user);
+
+  if (!cacheKey || typeof window === "undefined") {
     return;
   }
 
   try {
     window.sessionStorage.setItem(
-      `${BOARD_CACHE_KEY}:${userId}`,
+      cacheKey,
       JSON.stringify({
         board,
         savedAt: Date.now(),
@@ -2386,19 +2507,39 @@ function writeBoardCache(userId, board) {
   }
 }
 
+function getBoardCacheKey(user) {
+  const userId = String(user?.id || "").trim();
+  const workspaceId = String(
+    user?.workspaceId ||
+      user?.workspace?.id ||
+      user?.companyId ||
+      user?.workspaceSlug ||
+      "default"
+  ).trim();
+
+  return userId
+    ? `${BOARD_CACHE_KEY}:${workspaceId}:${userId}`
+    : "";
+}
+
 function getAssigneeId(assignment) {
   return String(
-    assignment.assigneeId ||
-      assignment.assignedTo ||
-      assignment.assignedToUserId ||
+    assignment?.assigneeId ||
+      assignment?.assignedTo ||
+      assignment?.assignedToUserId ||
+      assignment?.assignedResourceId ||
+      assignment?.resourceId ||
       ""
   );
 }
 
 function getTaskAssigneeId(task) {
   return String(
-    task.assigneeId ||
-      task.assignedToUserId ||
+    task?.assigneeId ||
+      task?.assignedToUserId ||
+      task?.assignedTo ||
+      task?.assignedToId ||
+      task?.resourceId ||
       ""
   );
 }
@@ -2412,6 +2553,354 @@ function getLeadName(assignment) {
     lead.email ||
     "Unnamed lead"
   );
+}
+
+function normalizeBoardTab(value) {
+  const tab = normalizeStatus(value);
+
+  return [
+    "leads",
+    "tasks",
+    "follow_ups",
+    "resources",
+    "activity",
+  ].includes(tab)
+    ? tab === "follow_ups"
+      ? "follow-ups"
+      : tab
+    : value === "follow-ups"
+      ? "follow-ups"
+      : "";
+}
+
+function normalizeBoardTask(task = {}) {
+  return {
+    ...task,
+    assigneeId: getTaskAssigneeId(task),
+    dueAt: getTaskDueAt(task),
+  };
+}
+
+function getTaskDueAt(task = {}) {
+  return (
+    task.dueAt ||
+    task.dueDate ||
+    task.scheduledAt ||
+    task.nextActionAt ||
+    task.callbackAt ||
+    ""
+  );
+}
+
+function getAssignmentNextActionAt(assignment = {}) {
+  const lead = assignment.lead || {};
+
+  return (
+    assignment.nextActionAt ||
+    assignment.callbackAt ||
+    assignment.followUpAt ||
+    assignment.scheduledAt ||
+    assignment.nextAction?.at ||
+    lead.nextActionAt ||
+    lead.callbackAt ||
+    lead.followUpAt ||
+    ""
+  );
+}
+
+function isTaskTerminal(task = {}) {
+  return [
+    "completed",
+    "cancelled",
+    "canceled",
+    "closed",
+  ].includes(normalizeStatus(task.status));
+}
+
+function isTaskOverdue(task = {}) {
+  if (isTaskTerminal(task)) {
+    return false;
+  }
+
+  const dueAt = getTaskDueAt(task);
+  if (!dueAt) {
+    return false;
+  }
+
+  const timestamp = new Date(dueAt).getTime();
+
+  return (
+    Number.isFinite(timestamp) &&
+    timestamp < Date.now()
+  );
+}
+
+function compareTasks(left, right) {
+  const leftTerminal = isTaskTerminal(left);
+  const rightTerminal = isTaskTerminal(right);
+
+  if (leftTerminal !== rightTerminal) {
+    return leftTerminal ? 1 : -1;
+  }
+
+  const leftOverdue = isTaskOverdue(left);
+  const rightOverdue = isTaskOverdue(right);
+
+  if (leftOverdue !== rightOverdue) {
+    return leftOverdue ? -1 : 1;
+  }
+
+  const leftTime = toTimestamp(getTaskDueAt(left));
+  const rightTime = toTimestamp(getTaskDueAt(right));
+
+  if (leftTime !== rightTime) {
+    if (!leftTime) return 1;
+    if (!rightTime) return -1;
+    return leftTime - rightTime;
+  }
+
+  return priorityRank(right.priority) - priorityRank(left.priority);
+}
+
+function buildFollowUpTimeline({
+  assignments = [],
+  tasks = [],
+  search = "",
+}) {
+  const query = String(search || "")
+    .trim()
+    .toLowerCase();
+
+  const assignmentItems = assignments
+    .map((assignment) => {
+      const dueAt = getAssignmentNextActionAt(assignment);
+
+      if (!dueAt) {
+        return null;
+      }
+
+      const status = normalizeStatus(
+        assignment.status ||
+          assignment.lead?.status
+      );
+
+      if (
+        [
+          "completed",
+          "cancelled",
+          "canceled",
+          "closed",
+        ].includes(status)
+      ) {
+        return null;
+      }
+
+      return {
+        id: `lead:${assignment.id}`,
+        type: "lead",
+        sourceId: assignment.id,
+        title: getLeadName(assignment),
+        detail:
+          assignment.nextActionLabel ||
+          assignment.nextAction?.label ||
+          assignment.nextActionType ||
+          "Lead follow-up",
+        assignee:
+          assignment.assignedToName ||
+          assignment.assigneeName ||
+          "",
+        dueAt,
+        status:
+          assignment.status ||
+          assignment.lead?.status ||
+          "follow_up",
+      };
+    })
+    .filter(Boolean);
+
+  const taskItems = tasks
+    .filter((task) => {
+      if (isTaskTerminal(task)) {
+        return false;
+      }
+
+      return Boolean(getTaskDueAt(task));
+    })
+    .map((task) => ({
+      id: `task:${task.id}`,
+      type: "task",
+      sourceId: task.id,
+      title: task.title || "Task",
+      detail:
+        task.lead?.business ||
+        task.lead?.name ||
+        task.description ||
+        "Task deadline",
+      assignee:
+        task.assigneeName ||
+        task.assignedToName ||
+        "",
+      dueAt: getTaskDueAt(task),
+      status: task.status || "assigned",
+    }));
+
+  return [...assignmentItems, ...taskItems]
+    .filter((item) => {
+      if (!query) {
+        return true;
+      }
+
+      return [
+        item.title,
+        item.detail,
+        item.assignee,
+        item.status,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(query);
+    })
+    .map((item) => ({
+      ...item,
+      overdue:
+        toTimestamp(item.dueAt) > 0 &&
+        toTimestamp(item.dueAt) < Date.now(),
+    }))
+    .sort((left, right) => {
+      if (left.overdue !== right.overdue) {
+        return left.overdue ? -1 : 1;
+      }
+
+      return (
+        toTimestamp(left.dueAt) -
+        toTimestamp(right.dueAt)
+      );
+    });
+}
+
+function FollowUpPanel({
+  items,
+  onOpenTasks,
+  onOpenLeads,
+}) {
+  return (
+    <section className="rf-activity-panel">
+      <header>
+        <div>
+          <span className="eyebrow">
+            Follow-up timeline
+          </span>
+          <h2>Callbacks, next actions and deadlines</h2>
+          <p>
+            Upcoming lead actions and open task deadlines are shown together so
+            managers can spot overdue work without losing the original lead or
+            task context.
+          </p>
+        </div>
+        <div className="rf-resource-board-header__actions">
+          <button
+            type="button"
+            className="btn light"
+            onClick={onOpenLeads}
+          >
+            Open lead board
+          </button>
+          <button
+            type="button"
+            className="btn light"
+            onClick={onOpenTasks}
+          >
+            Open task board
+          </button>
+        </div>
+      </header>
+
+      <div className="rf-activity-list">
+        {items.slice(0, 100).map((item) => (
+          <article key={item.id}>
+            <span className="rf-activity-icon">
+              {item.type === "lead" ? "CB" : "TK"}
+            </span>
+
+            <div>
+              <strong>{item.title}</strong>
+              <small>
+                {item.detail}
+                {item.assignee
+                  ? ` · ${item.assignee}`
+                  : ""}
+                {" · "}
+                {item.overdue ? "Overdue " : ""}
+                {formatDateTime(item.dueAt)}
+              </small>
+            </div>
+
+            <StatusBadge
+              status={
+                item.overdue
+                  ? "overdue"
+                  : item.status
+              }
+            />
+          </article>
+        ))}
+
+        {!items.length ? (
+          <LaneEmpty text="No scheduled follow-ups or task deadlines" />
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function toIsoOrNull(value) {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+
+  return Number.isNaN(date.getTime())
+    ? null
+    : date.toISOString();
+}
+
+function toTimestamp(value) {
+  if (!value) {
+    return 0;
+  }
+
+  const timestamp = new Date(value).getTime();
+
+  return Number.isFinite(timestamp)
+    ? timestamp
+    : 0;
+}
+
+function isWithinHours(value, hours) {
+  const timestamp = toTimestamp(value);
+
+  if (!timestamp) {
+    return false;
+  }
+
+  const delta = timestamp - Date.now();
+
+  return (
+    delta >= 0 &&
+    delta <= Number(hours || 0) * 60 * 60 * 1000
+  );
+}
+
+function priorityRank(value) {
+  return {
+    urgent: 4,
+    high: 3,
+    normal: 2,
+    medium: 2,
+    low: 1,
+  }[normalizeStatus(value)] || 0;
 }
 
 function normalizeRole(value) {

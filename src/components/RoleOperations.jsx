@@ -2,10 +2,16 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../api";
+import {
+  getRoleDashboard,
+  onWorkspaceSocket,
+} from "../lib/workspace-platform-client.js";
 import TeamCommunication from "./TeamCommunication";
 import "../styles.css";
 
@@ -64,22 +70,26 @@ const EMPTY_SENDER = {
 
 export default function RoleOperations() {
   const { user } = useAuth();
-  const role =
+  const [searchParams, setSearchParams] = useSearchParams();
+  const refreshTimerRef = useRef(null);
+
+  const role = normalizeRole(
     user?.workspaceRole ||
-    user?.role ||
-    "caller";
+      user?.role ||
+      "caller"
+  );
 
   const isOwner = role === "owner";
   const canManage =
     ["owner", "admin", "manager"].includes(role);
 
-  const [tab, setTab] = useState(
-    isOwner
-      ? "owner"
-      : canManage
-        ? "daily-work"
-        : "my-work"
-  );
+  const defaultTab = isOwner
+    ? "owner"
+    : canManage
+      ? "daily-work"
+      : "my-work";
+
+  const [tab, setTab] = useState(defaultTab);
 
   const [dashboard, setDashboard] =
     useState(null);
@@ -95,6 +105,7 @@ export default function RoleOperations() {
   const [sender, setSender] =
     useState(EMPTY_SENDER);
   const [error, setError] = useState("");
+  const [warning, setWarning] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] =
@@ -123,60 +134,126 @@ export default function RoleOperations() {
       setError("");
 
       try {
-        const requests = [
-          api.salesDashboard(),
-          api.dialers(),
-          api.senders(),
+        /*
+         * getRoleDashboard() is the supported role-aware dashboard contract.
+         * Keep Team Operations on this shared client contract so older frontend
+         * API bundles cannot crash the page when an optional helper is missing.
+         */
+        const roleDashboard =
+          await getRoleDashboard();
+
+        const optionalRequests = [
+          loadOptionalApi("dialers"),
+          loadOptionalApi("senders"),
+          canManage
+            ? loadOptionalApi("team")
+            : Promise.resolve(
+                optionalSuccess(null)
+              ),
+          canManage
+            ? loadOptionalApi(
+                "dailyLeadStatus"
+              )
+            : Promise.resolve(
+                optionalSuccess(null)
+              ),
+          isOwner
+            ? loadOptionalApi(
+                "ownerOverview"
+              )
+            : Promise.resolve(
+                optionalSuccess(null)
+              ),
         ];
 
-        if (canManage) {
-          requests.push(
-            api.team(),
-            api.dailyLeadStatus()
-          );
-        }
-
         const [
-          sales,
-          dialerData,
-          senderData,
-          teamData,
-          automationData,
-        ] = await Promise.all(requests);
-
-        setDashboard(sales || null);
-        setDialers(
-          dialerData?.dialers || []
-        );
-        setSenders(
-          senderData?.senders || []
+          dialerResult,
+          senderResult,
+          teamResult,
+          automationResult,
+          ownerResult,
+        ] = await Promise.all(
+          optionalRequests
         );
 
-        if (canManage) {
-          setTeam(
-            teamData?.members || []
+        const normalizedDashboard =
+          normalizeOperationsDashboard(
+            roleDashboard
           );
 
+        const resolvedTeam =
+          normalizeTeamMembers(
+            teamResult.data?.members ||
+              normalizedDashboard.members ||
+              normalizedDashboard.team ||
+              []
+          );
+
+        setDashboard({
+          ...normalizedDashboard,
+          ...(ownerResult.data
+            ? {
+                owner:
+                  ownerResult.data,
+              }
+            : {}),
+        });
+
+        setDialers(
+          Array.isArray(
+            dialerResult.data?.dialers
+          )
+            ? dialerResult.data.dialers
+            : []
+        );
+
+        setSenders(
+          Array.isArray(
+            senderResult.data?.senders
+          )
+            ? senderResult.data.senders
+            : []
+        );
+
+        setTeam(resolvedTeam);
+
+        if (canManage) {
           setDailyStatus(
-            automationData || null
+            automationResult.data ||
+              null
           );
 
           setDailyConfig({
             ...DEFAULT_CONFIG,
-            ...(automationData?.config ||
-              {}),
+            ...(automationResult.data
+              ?.config || {}),
           });
         }
 
-        if (isOwner) {
-          const owner =
-            await api.ownerOverview();
+        const optionalErrors = [
+          dialerResult,
+          senderResult,
+          teamResult,
+          automationResult,
+          ownerResult,
+        ]
+          .filter(
+            (result) =>
+              !result.ok &&
+              result.message
+          )
+          .map(
+            (result) =>
+              result.message
+          );
 
-          setDashboard((current) => ({
-            ...(current || {}),
-            owner,
-          }));
-        }
+        setWarning(
+          optionalErrors.length
+            ? `Some optional workspace resources could not be refreshed: ${optionalErrors.join(
+                " · "
+              )}`
+            : ""
+        );
       } catch (loadError) {
         setError(
           loadError?.message ||
@@ -192,25 +269,84 @@ export default function RoleOperations() {
   );
 
   useEffect(() => {
-    load();
+    void load();
 
-    // Slow refresh avoids the previous 429 request storm.
-    const timer = setInterval(
-      () =>
-        load({
+    // Slow fallback refresh avoids the previous 429 request storm.
+    const timer = window.setInterval(
+      () => {
+        void load({
           silent: true,
-        }),
+        });
+      },
       60_000
     );
 
-    return () =>
-      clearInterval(timer);
+    return () => {
+      window.clearInterval(timer);
+      window.clearTimeout(
+        refreshTimerRef.current
+      );
+    };
+  }, [load]);
+
+  useEffect(() => {
+    const refreshSoon = () => {
+      window.clearTimeout(
+        refreshTimerRef.current
+      );
+
+      refreshTimerRef.current =
+        window.setTimeout(() => {
+          void load({
+            silent: true,
+          });
+        }, 400);
+    };
+
+    const events = [
+      "lead:updated",
+      "lead:assigned",
+      "task:created",
+      "task:updated",
+      "task:completed",
+      "attendance:checked-in",
+      "attendance:checked-out",
+      "attendance:reviewed",
+      "profile:updated",
+      "profile:availability-updated",
+      "presence:update",
+      "message:new",
+      "webrtc:call:ended",
+      "telnyx-ai-agent:call-updated",
+      "telnyx-ai-agent:meeting-booked",
+    ];
+
+    const unsubscribers =
+      events.map((eventName) =>
+        onWorkspaceSocket(
+          eventName,
+          refreshSoon
+        )
+      );
+
+    return () => {
+      window.clearTimeout(
+        refreshTimerRef.current
+      );
+
+      unsubscribers.forEach(
+        (unsubscribe) =>
+          unsubscribe?.()
+      );
+    };
   }, [load]);
 
   const tabs = useMemo(() => {
     if (!canManage) {
       return [
         ["my-work", "My work"],
+        ["tasks", "My tasks"],
+        ["callbacks", "Callbacks"],
         [
           "communication",
           "Team communication",
@@ -226,7 +362,9 @@ export default function RoleOperations() {
       ],
       ["team", "Caller setup"],
       ["assignments", "Assignments"],
-      ["dialers", "Dialers"],
+      ["tasks", "Tasks"],
+      ["callbacks", "Callbacks"],
+      ["dialers", "Calling resources"],
       ["senders", "Sender IDs"],
       [
         "communication",
@@ -245,6 +383,50 @@ export default function RoleOperations() {
     return rows;
   }, [canManage, isOwner]);
 
+  useEffect(() => {
+    const requested =
+      String(
+        searchParams.get("tab") ||
+          ""
+      ).trim();
+
+    const allowed = new Set(
+      tabs.map(([id]) => id)
+    );
+
+    if (
+      requested &&
+      allowed.has(requested) &&
+      requested !== tab
+    ) {
+      setTab(requested);
+      return;
+    }
+
+    if (!allowed.has(tab)) {
+      setTab(defaultTab);
+    }
+  }, [
+    defaultTab,
+    searchParams,
+    tab,
+    tabs,
+  ]);
+
+  function selectTab(id) {
+    setTab(id);
+
+    const next =
+      new URLSearchParams(
+        searchParams
+      );
+
+    next.set("tab", id);
+    setSearchParams(next, {
+      replace: true,
+    });
+  }
+
   async function saveDailySchedule() {
     try {
       setBusy(true);
@@ -252,7 +434,8 @@ export default function RoleOperations() {
       setMessage("");
 
       const response =
-        await api.saveDailyLeadConfig(
+        await invokeRequiredApi(
+          "saveDailyLeadConfig",
           dailyConfig
         );
 
@@ -286,9 +469,10 @@ export default function RoleOperations() {
       );
 
       const response =
-        await api.runDailyLeadAutomation({
-          force: true,
-        });
+        await invokeRequiredApi(
+          "runDailyLeadAutomation",
+          { force: true }
+        );
 
       setMessage(
         `Allocation completed: ${
@@ -315,7 +499,8 @@ export default function RoleOperations() {
       setBusy(true);
       setError("");
 
-      await api.updateTeamMember(
+      await invokeRequiredApi(
+        "updateTeamMember",
         member.id,
         patch
       );
@@ -338,7 +523,8 @@ export default function RoleOperations() {
       setError("");
       setMessage("");
 
-      await api.saveDialer(
+      await invokeRequiredApi(
+        "saveDialer",
         dialer
       );
 
@@ -365,7 +551,8 @@ export default function RoleOperations() {
       setError("");
       setMessage("");
 
-      await api.saveSender(
+      await invokeRequiredApi(
+        "saveSender",
         sender
       );
 
@@ -417,9 +604,29 @@ export default function RoleOperations() {
   }
 
   const assignments =
-    dashboard?.assignments || [];
+    normalizeAssignments(
+      dashboard?.assignments ||
+        dashboard?.assignedLeads ||
+        []
+    );
+
+  const tasks = sortTasks(
+    dashboard?.tasks || []
+  );
+
+  const callbacks =
+    normalizeCallbacks(
+      dashboard?.upcomingCallbacks ||
+        dashboard?.callbacks ||
+        []
+    );
+
   const calls =
-    dashboard?.calls || [];
+    normalizeCalls(
+      dashboard?.calls ||
+        dashboard?.recentCalls ||
+        []
+    );
 
   return (
     <div className="role-ops-page">
@@ -438,10 +645,11 @@ export default function RoleOperations() {
           </h1>
 
           <p>
-            Schedule daily real-lead
-            allocation, connect caller
-            dialers, assign sender IDs and
-            review performance.
+            Coordinate daily lead allocation,
+            assignments, tasks, callbacks,
+            calling resources, team communication
+            and sales performance from one
+            workspace.
           </p>
         </div>
 
@@ -463,6 +671,12 @@ export default function RoleOperations() {
         </div>
       ) : null}
 
+      {warning ? (
+        <div className="role-error">
+          {warning}
+        </div>
+      ) : null}
+
       {message ? (
         <div className="role-success">
           {message}
@@ -481,7 +695,7 @@ export default function RoleOperations() {
                   : ""
               }
               onClick={() =>
-                setTab(id)
+                selectTab(id)
               }
             >
               {label}
@@ -519,7 +733,12 @@ export default function RoleOperations() {
               value={
                 dashboard?.owner
                   ?.totals
-                  ?.members || 0
+                  ?.members ??
+                dashboard?.summary
+                  ?.teamMembers ??
+                dashboard?.members
+                  ?.length ??
+                0
               }
             />
 
@@ -528,7 +747,16 @@ export default function RoleOperations() {
               value={
                 dashboard?.owner
                   ?.totals
-                  ?.callers || 0
+                  ?.callers ??
+                dashboard?.summary
+                  ?.callers ??
+                team.filter(
+                  (member) =>
+                    normalizeRole(
+                      member.workspaceRole ||
+                        member.role
+                    ) === "caller"
+                ).length
               }
             />
 
@@ -537,7 +765,10 @@ export default function RoleOperations() {
               value={
                 dashboard?.owner
                   ?.totals
-                  ?.totalCalls || 0
+                  ?.totalCalls ??
+                dashboard?.summary
+                  ?.callsToday ??
+                calls.length
               }
             />
 
@@ -546,7 +777,9 @@ export default function RoleOperations() {
               value={
                 dashboard?.owner
                   ?.totals
-                  ?.generatedAudits ||
+                  ?.generatedAudits ??
+                dashboard?.summary
+                  ?.auditsGenerated ??
                 0
               }
             />
@@ -604,13 +837,21 @@ export default function RoleOperations() {
                   </b>
 
                   <small>
-                    {item.lead
-                      ?.phone ||
+                    {item.lead?.phone ||
                       "No phone"}
                     {" · "}
-                    {item.lead
-                      ?.address ||
-                      "No address"}
+                    {item.assigneeName ||
+                      item.lead?.address ||
+                      "Unassigned"}
+                    {getAssignmentNextAt(
+                      item
+                    )
+                      ? ` · Next ${formatDateTime(
+                          getAssignmentNextAt(
+                            item
+                          )
+                        )}`
+                      : ""}
                   </small>
                 </span>
 
@@ -621,6 +862,19 @@ export default function RoleOperations() {
             )}
           />
         </section>
+      ) : null}
+
+      {tab === "tasks" ? (
+        <TasksPanel
+          tasks={tasks}
+          canManage={canManage}
+        />
+      ) : null}
+
+      {tab === "callbacks" ? (
+        <CallbacksPanel
+          callbacks={callbacks}
+        />
       ) : null}
 
       {tab === "dialers" ? (
@@ -680,20 +934,30 @@ export default function RoleOperations() {
               <>
                 <span>
                   <b>
-                    {call.lead
-                      ?.business ||
-                      call.lead
-                        ?.name ||
+                    {call.leadName ||
+                      call.lead?.business ||
+                      call.lead?.name ||
+                      call.companyName ||
                       "Lead"}
                   </b>
 
                   <small>
                     {call.destinationNumber ||
+                      call.toNumber ||
                       "No number"}
                     {" · "}
                     {formatDateTime(
-                      call.createdAt
+                      call.startedAt ||
+                        call.createdAt
                     )}
+                    {Number(
+                      call.durationSeconds ||
+                        0
+                    ) > 0
+                      ? ` · ${formatDuration(
+                          call.durationSeconds
+                        )}`
+                      : ""}
                   </small>
                 </span>
 
@@ -709,6 +973,143 @@ export default function RoleOperations() {
         </section>
       ) : null}
     </div>
+  );
+}
+
+function TasksPanel({
+  tasks,
+  canManage,
+}) {
+  return (
+    <section className="role-panel">
+      <div className="panel-heading">
+        <div>
+          <span className="eyebrow">
+            Work management
+          </span>
+
+          <h2>
+            {canManage
+              ? "Team tasks"
+              : "My tasks"}
+          </h2>
+
+          <p>
+            Deadlines are resolved from the
+            canonical due time first, with
+            compatible legacy scheduling
+            fields used only as fallbacks.
+          </p>
+        </div>
+      </div>
+
+      <SimpleRows
+        items={tasks}
+        empty="No tasks found."
+        render={(task) => {
+          const dueAt =
+            getTaskDueAt(task);
+          const overdue =
+            isOverdueTask(task);
+
+          return (
+            <>
+              <span>
+                <b>
+                  {task.title ||
+                    "Task"}
+                </b>
+
+                <small>
+                  {dueAt
+                    ? `${overdue ? "Overdue" : "Due"} ${formatDateTime(
+                        dueAt
+                      )}`
+                    : "No due date"}
+                  {getTaskLeadName(
+                    task
+                  )
+                    ? ` · ${getTaskLeadName(
+                        task
+                      )}`
+                    : ""}
+                </small>
+              </span>
+
+              <em>
+                {overdue
+                  ? "overdue"
+                  : task.priority ||
+                    task.status ||
+                    "pending"}
+              </em>
+            </>
+          );
+        }}
+      />
+    </section>
+  );
+}
+
+function CallbacksPanel({
+  callbacks,
+}) {
+  return (
+    <section className="role-panel">
+      <div className="panel-heading">
+        <div>
+          <span className="eyebrow">
+            Follow-up queue
+          </span>
+
+          <h2>Callbacks</h2>
+
+          <p>
+            Scheduled follow-ups are ordered
+            by their next action time.
+          </p>
+        </div>
+      </div>
+
+      <SimpleRows
+        items={callbacks}
+        empty="No callbacks scheduled."
+        render={(callback) => (
+          <>
+            <span>
+              <b>
+                {callback.leadName ||
+                  callback.companyName ||
+                  callback.lead?.business ||
+                  callback.lead?.name ||
+                  "Follow-up"}
+              </b>
+
+              <small>
+                {formatDateTime(
+                  getCallbackAt(
+                    callback
+                  )
+                )}
+                {callback.phone ||
+                callback.lead?.phone
+                  ? ` · ${
+                      callback.phone ||
+                      callback.lead?.phone
+                    }`
+                  : ""}
+              </small>
+            </span>
+
+            <em>
+              {callback.priority ||
+                callback.status ||
+                "scheduled"}
+            </em>
+          </>
+        )}
+      />
+    </section>
   );
 }
 
@@ -1324,15 +1725,15 @@ function DialerPanel({
         <div className="panel-heading">
           <div>
             <span className="eyebrow">
-              Calling integration
+              Calling resources
             </span>
 
-            <h2>Dialers</h2>
+            <h2>Calling connections</h2>
 
             <p>
-              Add a Telnyx or Vonage
-              connection once, then
-              assign it to callers.
+              Add an approved calling
+              connection once, then assign
+              it to the callers who need it.
             </p>
           </div>
         </div>
@@ -1973,6 +2374,430 @@ function Metric({
       <strong>{value}</strong>
     </article>
   );
+}
+
+function normalizeRole(value) {
+  const normalized = String(
+    value || "caller"
+  )
+    .trim()
+    .toLowerCase();
+
+  return [
+    "owner",
+    "admin",
+    "manager",
+    "caller",
+  ].includes(normalized)
+    ? normalized
+    : "caller";
+}
+
+async function loadOptionalApi(
+  methodName,
+  ...args
+) {
+  const method =
+    api?.[methodName];
+
+  if (
+    typeof method !==
+    "function"
+  ) {
+    return {
+      ok: false,
+      data: null,
+      message: `${formatLabel(
+        methodName
+      )} is not available in this frontend build.`,
+    };
+  }
+
+  try {
+    return {
+      ok: true,
+      data: await method.apply(
+        api,
+        args
+      ),
+      message: "",
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      data: null,
+      message:
+        error?.message ||
+        `${formatLabel(
+          methodName
+        )} could not be loaded.`,
+    };
+  }
+}
+
+function optionalSuccess(data) {
+  return {
+    ok: true,
+    data,
+    message: "",
+  };
+}
+
+async function invokeRequiredApi(
+  methodName,
+  ...args
+) {
+  const method =
+    api?.[methodName];
+
+  if (
+    typeof method !==
+    "function"
+  ) {
+    throw new Error(
+      `${formatLabel(
+        methodName
+      )} is not available in this frontend build. Refresh after deploying the matching API client.`
+    );
+  }
+
+  return method.apply(
+    api,
+    args
+  );
+}
+
+function normalizeOperationsDashboard(
+  value
+) {
+  const dashboard =
+    value &&
+    typeof value ===
+      "object"
+      ? value
+      : {};
+
+  return {
+    ...dashboard,
+    assignments:
+      dashboard.assignments ||
+      dashboard.assignedLeads ||
+      [],
+    calls:
+      dashboard.calls ||
+      dashboard.recentCalls ||
+      [],
+    tasks:
+      dashboard.tasks || [],
+    callbacks:
+      dashboard.callbacks ||
+      dashboard.upcomingCallbacks ||
+      [],
+    members:
+      dashboard.members || [],
+  };
+}
+
+function normalizeTeamMembers(
+  records
+) {
+  if (!Array.isArray(records)) {
+    return [];
+  }
+
+  return records
+    .map((record) => {
+      if (
+        record?.member &&
+        typeof record.member ===
+          "object"
+      ) {
+        return {
+          ...record.member,
+          performance:
+            record.metrics ||
+            record.performance ||
+            record.member
+              ?.performance,
+          attendance:
+            record.attendance,
+          online:
+            record.online,
+        };
+      }
+
+      return record;
+    })
+    .filter(
+      (record) =>
+        record &&
+        (record.id ||
+          record.email)
+    );
+}
+
+function normalizeAssignments(
+  records
+) {
+  if (!Array.isArray(records)) {
+    return [];
+  }
+
+  return records.map(
+    (assignment) => ({
+      ...assignment,
+      assigneeName:
+        assignment.assigneeName ||
+        assignment.assignedToName ||
+        assignment.userName ||
+        assignment.assignee?.name ||
+        assignment.member?.name ||
+        "",
+    })
+  );
+}
+
+function normalizeCalls(
+  records
+) {
+  if (!Array.isArray(records)) {
+    return [];
+  }
+
+  return records
+    .map((call) => ({
+      ...call,
+      destinationNumber:
+        call.destinationNumber ||
+        call.toNumber ||
+        call.phone ||
+        "",
+      startedAt:
+        call.startedAt ||
+        call.answeredAt ||
+        call.createdAt ||
+        "",
+      durationSeconds:
+        Number(
+          call.durationSeconds ??
+            call.duration ??
+            0
+        ) || 0,
+      leadName:
+        call.leadName ||
+        call.contactName ||
+        call.lead?.business ||
+        call.lead?.name ||
+        "",
+    }))
+    .sort(
+      (left, right) =>
+        dateNumber(
+          right.startedAt
+        ) -
+        dateNumber(
+          left.startedAt
+        )
+    );
+}
+
+function normalizeCallbacks(
+  records
+) {
+  if (!Array.isArray(records)) {
+    return [];
+  }
+
+  return [...records].sort(
+    (left, right) =>
+      dateNumber(
+        getCallbackAt(left)
+      ) -
+      dateNumber(
+        getCallbackAt(right)
+      )
+  );
+}
+
+function sortTasks(records) {
+  if (!Array.isArray(records)) {
+    return [];
+  }
+
+  return [...records].sort(
+    (left, right) => {
+      const leftClosed =
+        isClosedTask(left);
+      const rightClosed =
+        isClosedTask(right);
+
+      if (
+        leftClosed !==
+        rightClosed
+      ) {
+        return leftClosed
+          ? 1
+          : -1;
+      }
+
+      const leftDue =
+        dateNumber(
+          getTaskDueAt(left)
+        );
+      const rightDue =
+        dateNumber(
+          getTaskDueAt(right)
+        );
+
+      if (
+        leftDue &&
+        rightDue
+      ) {
+        return (
+          leftDue - rightDue
+        );
+      }
+
+      if (leftDue) return -1;
+      if (rightDue) return 1;
+
+      return (
+        dateNumber(
+          right.createdAt
+        ) -
+        dateNumber(
+          left.createdAt
+        )
+      );
+    }
+  );
+}
+
+function getTaskDueAt(task) {
+  return (
+    task?.dueAt ||
+    task?.dueDate ||
+    task?.scheduledAt ||
+    task?.nextActionAt ||
+    task?.callbackAt ||
+    ""
+  );
+}
+
+function getTaskLeadName(task) {
+  return (
+    task?.leadName ||
+    task?.companyName ||
+    task?.lead?.business ||
+    task?.lead?.name ||
+    ""
+  );
+}
+
+function getAssignmentNextAt(
+  assignment
+) {
+  return (
+    assignment?.nextActionAt ||
+    assignment?.dueAt ||
+    assignment?.callbackAt ||
+    ""
+  );
+}
+
+function getCallbackAt(
+  callback
+) {
+  return (
+    callback?.nextActionAt ||
+    callback?.scheduledAt ||
+    callback?.dueAt ||
+    callback?.callbackAt ||
+    ""
+  );
+}
+
+function isClosedTask(task) {
+  const status =
+    String(
+      task?.status || ""
+    )
+      .trim()
+      .toLowerCase();
+
+  return [
+    "completed",
+    "complete",
+    "closed",
+    "cancelled",
+    "canceled",
+  ].includes(status);
+}
+
+function isOverdueTask(task) {
+  const dueAt =
+    dateNumber(
+      getTaskDueAt(task)
+    );
+
+  return Boolean(
+    dueAt &&
+    !isClosedTask(task) &&
+    dueAt < Date.now()
+  );
+}
+
+function dateNumber(value) {
+  if (!value) return 0;
+
+  const valueOf =
+    new Date(value).getTime();
+
+  return Number.isFinite(
+    valueOf
+  )
+    ? valueOf
+    : 0;
+}
+
+function formatDuration(seconds) {
+  const total = Math.max(
+    0,
+    Number(seconds || 0)
+  );
+
+  if (total < 60) {
+    return `${Math.round(
+      total
+    )} sec`;
+  }
+
+  const hours = Math.floor(
+    total / 3600
+  );
+  const minutes =
+    Math.floor(
+      (total % 3600) / 60
+    );
+
+  return hours
+    ? `${hours}h ${minutes}m`
+    : `${minutes} min`;
+}
+
+function formatLabel(value) {
+  return String(value || "")
+    .replace(
+      /([a-z])([A-Z])/g,
+      "$1 $2"
+    )
+    .replace(/[_-]+/g, " ")
+    .trim()
+    .replace(
+      /\b\w/g,
+      (letter) =>
+        letter.toUpperCase()
+    );
 }
 
 function formatDateTime(value) {
