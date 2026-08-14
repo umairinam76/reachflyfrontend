@@ -8,7 +8,12 @@ import {
 
 import {
   useNavigate,
+  useSearchParams,
 } from "react-router-dom";
+
+import {
+  useAuth,
+} from "../auth/AuthContext";
 
 import {
   apiRequest,
@@ -58,12 +63,32 @@ const BUCKETS = [
   },
 ];
 
-const QUEUE_CACHE_VERSION = 3;
+const QUEUE_CACHE_VERSION = 4;
 const QUEUE_CACHE_TTL_MS =
   5 * 60 * 1000;
 const QUEUE_PAGE_LIMIT = 200;
 
-function getQueueCacheKey(bucket) {
+function getQueueCacheScope(user) {
+  return [
+    user?.workspaceId ||
+      user?.workspace?.id ||
+      user?.workspace?.workspaceId ||
+      "",
+    user?.id || user?.userId || "",
+  ]
+    .filter(Boolean)
+    .map((value) =>
+      String(value)
+        .trim()
+        .replace(/[^a-zA-Z0-9_-]+/g, "-")
+    )
+    .join(":") || "workspace";
+}
+
+function getQueueCacheKey(
+  bucket,
+  scope = "workspace"
+) {
   const token =
     getAccessToken() || "anonymous";
 
@@ -74,12 +99,16 @@ function getQueueCacheKey(bucket) {
     "reachfly",
     "caller-queue",
     QUEUE_CACHE_VERSION,
+    String(scope || "workspace"),
     sessionKey,
     bucket,
   ].join(":");
 }
 
-function readQueueCache(bucket) {
+function readQueueCache(
+  bucket,
+  scope = "workspace"
+) {
   if (
     typeof window === "undefined"
   ) {
@@ -89,7 +118,10 @@ function readQueueCache(bucket) {
   try {
     const raw =
       window.sessionStorage.getItem(
-        getQueueCacheKey(bucket)
+        getQueueCacheKey(
+          bucket,
+          scope
+        )
       );
 
     if (!raw) {
@@ -117,6 +149,7 @@ function readQueueCache(bucket) {
 
 function writeQueueCache(
   bucket,
+  scope,
   {
     records = [],
     counts = {},
@@ -130,7 +163,10 @@ function writeQueueCache(
 
   try {
     window.sessionStorage.setItem(
-      getQueueCacheKey(bucket),
+      getQueueCacheKey(
+        bucket,
+        scope
+      ),
       JSON.stringify({
         updatedAt: Date.now(),
         records:
@@ -199,13 +235,50 @@ export default function MyLeadsPage() {
   const navigate =
     useNavigate();
 
+  const {
+    user,
+  } = useAuth();
+
+  const [
+    searchParams,
+    setSearchParams,
+  ] = useSearchParams();
+
+  const cacheScope =
+    useMemo(
+      () =>
+        getQueueCacheScope(
+          user
+        ),
+      [
+        user?.id,
+        user?.userId,
+        user?.workspaceId,
+        user?.workspace?.id,
+        user?.workspace?.workspaceId,
+      ]
+    );
+
+  const requestedAssignmentId =
+    String(
+      searchParams.get(
+        "assignment"
+      ) || ""
+    ).trim();
+
   const initialCacheRef =
     useRef(
-      readQueueCache("current")
+      readQueueCache(
+        "current",
+        cacheScope
+      )
     );
 
   const loadSequenceRef =
     useRef(0);
+
+  const openedRouteAssignmentRef =
+    useRef("");
 
   const socketRefreshTimerRef =
     useRef(null);
@@ -452,6 +525,7 @@ export default function MyLeadsPage() {
 
           writeQueueCache(
             bucket,
+            cacheScope,
             {
               records:
                 nextRecords,
@@ -488,13 +562,14 @@ export default function MyLeadsPage() {
 
           const cached =
             readQueueCache(
-              bucket
+              bucket,
+              cacheScope
             );
 
           /*
            * A caller must not lose the task list because one refresh is slow.
            * Keep the last successful daily queue on screen and retry on the
-           * normal focus/socket/30-second refresh cycle.
+           * normal focus/socket refresh cycle.
            */
           if (
             cached?.records?.length
@@ -530,13 +605,17 @@ export default function MyLeadsPage() {
       },
       [
         bucket,
+        cacheScope,
         request,
       ]
     );
 
   useEffect(() => {
     const cached =
-      readQueueCache(bucket);
+      readQueueCache(
+        bucket,
+        cacheScope
+      );
 
     if (cached) {
       setRecords(
@@ -561,6 +640,7 @@ export default function MyLeadsPage() {
     void loadDailyDay();
   }, [
     bucket,
+    cacheScope,
     load,
     loadDailyDay,
   ]);
@@ -581,7 +661,7 @@ export default function MyLeadsPage() {
     const timer =
       window.setInterval(
         refreshWhenVisible,
-        30_000
+        60_000
       );
 
     window.addEventListener(
@@ -626,19 +706,29 @@ export default function MyLeadsPage() {
           }, 250);
       };
 
-    const subscriptions = [
-      onWorkspaceSocket(
-        "lead:updated",
-        scheduleRefresh
-      ),
-      onWorkspaceSocket(
-        "lead:call-updated",
-        scheduleRefresh
-      ),
-      onWorkspaceSocket(
-        "lead:audit-updated",
-        scheduleRefresh
-      ),
+    const queueEvents = [
+      "lead:updated",
+      "lead:call-updated",
+      "lead:audit-updated",
+      "resource-board:lead-updated",
+      "resource-board:updated",
+      "team:task-created",
+      "team:task-updated",
+      "team:task-deleted",
+      "telnyx-ai-agent:call-updated",
+      "telnyx-ai-agent:meeting-booked",
+    ];
+
+    const subscriptions =
+      queueEvents.map(
+        (eventName) =>
+          onWorkspaceSocket(
+            eventName,
+            scheduleRefresh
+          )
+      );
+
+    subscriptions.push(
       onWorkspaceSocket(
         "daily-leads:completed",
         () => {
@@ -653,8 +743,8 @@ export default function MyLeadsPage() {
       onWorkspaceSocket(
         "daily-leads:submitted",
         () => void loadDailyDay()
-      ),
-    ];
+      )
+    );
 
     return () => {
       window.clearTimeout(
@@ -692,7 +782,7 @@ export default function MyLeadsPage() {
 
     const timer = window.setInterval(
       refreshAudit,
-      2_000
+      3_000
     );
 
     return () => {
@@ -784,6 +874,12 @@ export default function MyLeadsPage() {
               assignment.assignedByName,
               assignment.status,
               assignment.priority,
+              getNextActionAt(
+                assignment
+              ),
+              getLastCallSnapshot(
+                assignment
+              ).outcome,
             ]
               .filter(Boolean)
               .join(" ")
@@ -834,24 +930,27 @@ export default function MyLeadsPage() {
             }
 
             const leftTime =
-              Date.parse(
-                left.nextActionAt ||
-                  left.followUpAt ||
-                  left.callbackAt ||
-                  left.assignedAt ||
-                  0
-              ) || Number.MAX_SAFE_INTEGER;
+              parseDateMs(
+                getNextActionAt(
+                  left
+                ) ||
+                  left.assignedAt
+              );
 
             const rightTime =
-              Date.parse(
-                right.nextActionAt ||
-                  right.followUpAt ||
-                  right.callbackAt ||
-                  right.assignedAt ||
-                  0
-              ) || Number.MAX_SAFE_INTEGER;
+              parseDateMs(
+                getNextActionAt(
+                  right
+                ) ||
+                  right.assignedAt
+              );
 
-            return leftTime - rightTime;
+            return (
+              (leftTime ??
+                Number.MAX_SAFE_INTEGER) -
+              (rightTime ??
+                Number.MAX_SAFE_INTEGER)
+            );
           }
         );
       },
@@ -864,10 +963,93 @@ export default function MyLeadsPage() {
       ]
     );
 
+  function updateAssignmentRoute(
+    assignmentId
+  ) {
+    const nextParams =
+      new URLSearchParams(
+        searchParams
+      );
+
+    if (assignmentId) {
+      nextParams.set(
+        "assignment",
+        assignmentId
+      );
+    } else {
+      nextParams.delete(
+        "assignment"
+      );
+    }
+
+    setSearchParams(
+      nextParams,
+      {
+        replace: true,
+      }
+    );
+  }
+
+  function closeLead() {
+    setSelected(null);
+    openedRouteAssignmentRef.current =
+      "";
+    updateAssignmentRoute("");
+  }
+
+  useEffect(() => {
+    if (!requestedAssignmentId) {
+      openedRouteAssignmentRef.current =
+        "";
+      return;
+    }
+
+    if (bucket !== "all") {
+      setBucket("all");
+      return;
+    }
+
+    if (
+      openedRouteAssignmentRef.current ===
+        requestedAssignmentId &&
+      selected?.id ===
+        requestedAssignmentId
+    ) {
+      return;
+    }
+
+    const assignment =
+      records.find(
+        (item) =>
+          String(item.id) ===
+          requestedAssignmentId
+      );
+
+    if (!assignment) {
+      return;
+    }
+
+    openedRouteAssignmentRef.current =
+      requestedAssignmentId;
+
+    void openLead(
+      assignment,
+      {
+        syncRoute: false,
+      }
+    );
+  }, [
+    bucket,
+    records,
+    requestedAssignmentId,
+    selected?.id,
+  ]);
+
   async function openLead(
     assignment,
     {
       ensureAudit = true,
+      syncRoute = true,
     } = {}
   ) {
     let openedAssignment =
@@ -876,6 +1058,17 @@ export default function MyLeadsPage() {
     setSelected(
       assignment
     );
+
+    if (
+      syncRoute &&
+      assignment?.id
+    ) {
+      updateAssignmentRoute(
+        String(
+          assignment.id
+        )
+      );
+    }
 
     setNotes(
       assignment.notes ||
@@ -1229,6 +1422,23 @@ export default function MyLeadsPage() {
       return;
     }
 
+    const nextActionIso =
+      requiresDate
+        ? toIsoDateTime(
+            callbackAt
+          )
+        : null;
+
+    if (
+      requiresDate &&
+      !nextActionIso
+    ) {
+      setError(
+        "Select a valid callback or follow-up date and time."
+      );
+      return;
+    }
+
     setSaving(true);
     setError("");
     setSuccess("");
@@ -1241,18 +1451,14 @@ export default function MyLeadsPage() {
           "callback"
           ? {
               callbackAt:
-                new Date(
-                  callbackAt
-                ).toISOString(),
+                nextActionIso,
             }
           : {}),
         ...(outcome ===
           "follow_up"
           ? {
               followUpAt:
-                new Date(
-                  callbackAt
-                ).toISOString(),
+                nextActionIso,
             }
           : {}),
       };
@@ -1276,20 +1482,23 @@ export default function MyLeadsPage() {
       );
 
       const completed =
-        response.assignment;
+        response?.assignment ||
+        selected;
+
+      const completedId =
+        completed?.id ||
+        selected.id;
 
       setRecords(
         (current) =>
           current.filter(
             (item) =>
               item.id !==
-              completed.id
+              completedId
           )
       );
 
-      setSelected(
-        null
-      );
+      closeLead();
 
       /*
        * The outcome is already durably saved at this point. Release the caller
@@ -1350,9 +1559,7 @@ export default function MyLeadsPage() {
           )
       );
 
-      setSelected(
-        null
-      );
+      closeLead();
 
       setSaving(false);
 
@@ -1500,9 +1707,7 @@ export default function MyLeadsPage() {
                 setBucket(
                   item.value
                 );
-                setSelected(
-                  null
-                );
+                closeLead();
               }}
             >
               <span>
@@ -1660,9 +1865,7 @@ export default function MyLeadsPage() {
         <div
           className="caller-workspace-backdrop"
           onClick={() =>
-            setSelected(
-              null
-            )
+            closeLead()
           }
         >
           <section
@@ -1696,9 +1899,7 @@ export default function MyLeadsPage() {
                 type="button"
                 className="caller-workspace__close"
                 onClick={() =>
-                  setSelected(
-                    null
-                  )
+                  closeLead()
                 }
               >
                 ×
@@ -2056,9 +2257,17 @@ function LeadCard({
           )}
         </div>
 
-        <span className={`status status-${assignment.status}`}>
+        <span
+          className={`status status-${normalizeLeadStatus(
+            assignment.status ||
+              assignment.lead?.status
+          )}`}
+        >
           {formatLabel(
-            assignment.status
+            normalizeLeadStatus(
+              assignment.status ||
+                assignment.lead?.status
+            )
           )}
         </span>
 
@@ -2132,11 +2341,27 @@ function LeadCard({
 
         <div>
           <dt>
+            Last outcome
+          </dt>
+          <dd>
+            {formatLabel(
+              getLastCallSnapshot(
+                assignment
+              ).outcome ||
+                "No call yet"
+            )}
+          </dd>
+        </div>
+
+        <div>
+          <dt>
             Next action
           </dt>
           <dd>
-            {formatDateTime(
-              assignment.nextActionAt
+            {formatNextAction(
+              getNextActionAt(
+                assignment
+              )
             )}
           </dd>
         </div>
@@ -2250,6 +2475,47 @@ function LeadSummary({
         </small>
         <strong>
           {formatAuditStatus(assignment)}
+        </strong>
+      </div>
+
+      <div>
+        <small>
+          Next action
+        </small>
+        <strong>
+          {formatNextAction(
+            getNextActionAt(
+              assignment
+            )
+          )}
+        </strong>
+      </div>
+
+      {getTaskDueAt(
+        assignment
+      ) ? (
+        <div>
+          <small>
+            Task due
+          </small>
+          <strong>
+            {formatDeadline(
+              getTaskDueAt(
+                assignment
+              )
+            )}
+          </strong>
+        </div>
+      ) : null}
+
+      <div>
+        <small>
+          Last call
+        </small>
+        <strong>
+          {formatCallSnapshot(
+            assignment
+          )}
         </strong>
       </div>
     </section>
@@ -2758,6 +3024,247 @@ function getAuditBlockedMessage(
   return `ReachFly will generate the built-in Mini Audit for this ${campaign} lead automatically. Manager uploads are optional and only change future audit formatting.`;
 }
 
+function normalizeLeadStatus(
+  value
+) {
+  return String(
+    value || "assigned"
+  )
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+}
+
+function parseDateMs(value) {
+  if (!value) {
+    return null;
+  }
+
+  const time =
+    Date.parse(value);
+
+  return Number.isFinite(time)
+    ? time
+    : null;
+}
+
+function firstValidDate(
+  ...values
+) {
+  for (const value of values) {
+    if (
+      parseDateMs(value) !==
+      null
+    ) {
+      return value;
+    }
+  }
+
+  return "";
+}
+
+function getNextActionAt(
+  assignment
+) {
+  const lead =
+    assignment?.lead || {};
+
+  return firstValidDate(
+    assignment?.nextActionAt,
+    assignment?.followUpAt,
+    assignment?.callbackAt,
+    assignment?.scheduledAt,
+    assignment?.task?.nextActionAt,
+    assignment?.task?.dueAt,
+    lead?.nextActionAt,
+    lead?.followUpAt,
+    lead?.callbackAt,
+    lead?.scheduledAt
+  );
+}
+
+function getTaskDueAt(
+  assignment
+) {
+  const task =
+    assignment?.task ||
+    assignment?.nextTask ||
+    null;
+
+  return firstValidDate(
+    assignment?.taskDueAt,
+    task?.dueAt,
+    task?.dueDate,
+    task?.scheduledAt,
+    task?.nextActionAt,
+    task?.callbackAt
+  );
+}
+
+function formatNextAction(
+  value
+) {
+  if (!value) {
+    return "Not scheduled";
+  }
+
+  const time =
+    parseDateMs(value);
+
+  if (time === null) {
+    return "Not scheduled";
+  }
+
+  const prefix =
+    time < Date.now()
+      ? "Due now · "
+      : "";
+
+  return `${prefix}${formatDateTime(
+    value
+  )}`;
+}
+
+function formatDeadline(
+  value
+) {
+  const time =
+    parseDateMs(value);
+
+  if (time === null) {
+    return "Not scheduled";
+  }
+
+  return `${
+    time < Date.now()
+      ? "Overdue · "
+      : ""
+  }${formatDateTime(value)}`;
+}
+
+function toIsoDateTime(
+  value
+) {
+  if (!value) {
+    return null;
+  }
+
+  const date =
+    new Date(value);
+
+  return Number.isNaN(
+    date.getTime()
+  )
+    ? null
+    : date.toISOString();
+}
+
+function getLastCallSnapshot(
+  assignment
+) {
+  const lead =
+    assignment?.lead || {};
+
+  const call =
+    assignment?.lastCall ||
+    assignment?.latestCall ||
+    assignment?.aiCall ||
+    assignment?.voiceCall ||
+    lead?.lastCall ||
+    lead?.latestCall ||
+    {};
+
+  return {
+    outcome:
+      call?.outcome ||
+      call?.disposition ||
+      assignment?.lastCallOutcome ||
+      assignment?.callOutcome ||
+      lead?.lastCallOutcome ||
+      "",
+    status:
+      call?.status ||
+      assignment?.lastCallStatus ||
+      lead?.lastCallStatus ||
+      "",
+    at:
+      firstValidDate(
+        call?.endedAt,
+        call?.startedAt,
+        call?.createdAt,
+        assignment?.lastCallAt,
+        lead?.lastCallAt
+      ),
+    durationSeconds:
+      Number(
+        call?.durationSeconds ||
+        call?.duration ||
+        0
+      ) || 0,
+    isAi:
+      Boolean(
+        assignment?.aiCall ||
+        assignment?.voiceAgentCall ||
+        call?.ai === true ||
+        [
+          "ai",
+          "ai_voice",
+          "voice_agent",
+          "voice-agent",
+        ].includes(
+          String(
+            call?.mode ||
+              call?.channel ||
+              call?.type ||
+              ""
+          )
+            .trim()
+            .toLowerCase()
+        )
+      ),
+  };
+}
+
+function formatCallSnapshot(
+  assignment
+) {
+  const call =
+    getLastCallSnapshot(
+      assignment
+    );
+
+  if (
+    !call.outcome &&
+    !call.status &&
+    !call.at
+  ) {
+    return "No call recorded";
+  }
+
+  const label =
+    formatLabel(
+      call.outcome ||
+        call.status ||
+        "Call"
+    );
+
+  const parts = [
+    call.isAi
+      ? `AI voice · ${label}`
+      : label,
+  ];
+
+  if (call.at) {
+    parts.push(
+      formatDateTime(
+        call.at
+      )
+    );
+  }
+
+  return parts.join(" · ");
+}
+
 function getLeadName(
   assignment
 ) {
@@ -2834,4 +3341,3 @@ function formatDateTime(
         }
       );
 }
-

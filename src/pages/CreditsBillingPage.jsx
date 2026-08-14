@@ -1,3 +1,8 @@
+Library
+/
+CreditsBillingPage.jsx
+
+
 import {
   useCallback,
   useEffect,
@@ -141,6 +146,46 @@ export default function CreditsBillingPage() {
   const wallet =
     data?.wallet || {};
 
+  const aiCalling =
+    data?.aiCalling &&
+    typeof data.aiCalling === "object"
+      ? data.aiCalling
+      : null;
+
+  const aiCallWallet =
+    aiCalling?.wallet &&
+    typeof aiCalling.wallet === "object"
+      ? aiCalling.wallet
+      : null;
+
+  const aiCallPolicy =
+    aiCalling?.policy &&
+    typeof aiCalling.policy === "object"
+      ? aiCalling.policy
+      : null;
+
+  const aiCallUsage =
+    useMemo(
+      () =>
+        Array.isArray(
+          aiCalling?.usage
+        )
+          ? aiCalling.usage
+          : [],
+      [aiCalling?.usage]
+    );
+
+  const aiCallLedger =
+    useMemo(
+      () =>
+        Array.isArray(
+          aiCalling?.ledger
+        )
+          ? aiCalling.ledger
+          : [],
+      [aiCalling?.ledger]
+    );
+
   const activePacks =
     useMemo(
       () =>
@@ -183,34 +228,21 @@ export default function CreditsBillingPage() {
       [data?.rateCard]
     );
 
-  const voiceRates =
+  const callingRateEntries =
     useMemo(
       () =>
         rateCard.filter(
-          (rate) => {
-            const haystack =
-              [
-                rate?.feature,
-                rate?.label,
-                rate?.unit,
-                rate?.description,
-              ]
-                .filter(Boolean)
-                .join(" ")
-                .toLowerCase();
+          isCallingRate
+        ),
+      [rateCard]
+    );
 
-            return (
-              haystack.includes(
-                "voice"
-              ) ||
-              haystack.includes(
-                "call"
-              ) ||
-              haystack.includes(
-                "phone"
-              )
-            );
-          }
+  const generalRates =
+    useMemo(
+      () =>
+        rateCard.filter(
+          (rate) =>
+            !isCallingRate(rate)
         ),
       [rateCard]
     );
@@ -304,15 +336,14 @@ export default function CreditsBillingPage() {
           </h1>
 
           <p>
-            See the workspace
-            balance, current
-            published feature
-            rates, recent usage and
-            credit purchases. Prices
-            and credit quantities for
-            checkout are always
-            loaded from ReachFly&apos;s
-            server-owned catalog.
+            Track general ReachFly
+            workspace credits and AI
+            call credits separately.
+            Rates, balances, connected
+            call charging rules and
+            checkout values are loaded
+            from ReachFly&apos;s
+            server-owned billing data.
           </p>
         </div>
 
@@ -349,54 +380,87 @@ export default function CreditsBillingPage() {
         </div>
       ) : null}
 
-      <section
-        className="rf-credit-metrics"
-        aria-label="Credit balance"
-      >
-        <Metric
-          label="Available credits"
-          value={formatCredits(
-            wallet.balance
-          )}
-          note="Available for new billable work"
-        />
+      <section className="rf-credit-panel">
+        <div className="rf-credit-panel-head">
+          <div>
+            <h2>
+              ReachFly workspace credits
+            </h2>
 
-        <Metric
-          label="Reserved"
-          value={formatCredits(
-            wallet.reserved
-          )}
-          note="Temporarily held for work in progress"
-        />
+            <p>
+              General credits fund
+              published ReachFly
+              features. AI calling
+              uses the separate call
+              wallet shown below.
+            </p>
+          </div>
 
-        <Metric
-          label="Consumed"
-          value={formatCredits(
-            wallet.totalConsumed
-          )}
-          note="Successfully settled usage"
-        />
+          <span className="rf-credit-status ready">
+            General wallet
+          </span>
+        </div>
 
-        <Metric
-          label="Purchased"
-          value={formatCredits(
-            wallet.totalPurchased
-          )}
-          note="Credits bought by this workspace"
-        />
-
-        {Number(
-          wallet.debt || 0
-        ) > 0 ? (
+        <section
+          className="rf-credit-metrics"
+          aria-label="ReachFly workspace credit balance"
+        >
           <Metric
-            label="Credit debt"
+            label="Available"
             value={formatCredits(
-              wallet.debt
+              wallet.balance
             )}
-            note="Future purchased credits may first reduce this balance"
+            note="Available for general billable ReachFly work"
           />
-        ) : null}
+
+          <Metric
+            label="Reserved"
+            value={formatCredits(
+              wallet.reserved
+            )}
+            note="Temporarily held for work in progress"
+          />
+
+          <Metric
+            label="Consumed"
+            value={formatCredits(
+              wallet.totalConsumed
+            )}
+            note="Successfully settled general usage"
+          />
+
+          <Metric
+            label="Purchased"
+            value={formatCredits(
+              wallet.totalPurchased
+            )}
+            note="General workspace credits purchased"
+          />
+
+          {Number(
+            wallet.debt || 0
+          ) > 0 ? (
+            <Metric
+              label="Credit debt"
+              value={formatCredits(
+                wallet.debt
+              )}
+              note="Future purchased workspace credits may first reduce this balance"
+            />
+          ) : null}
+        </section>
       </section>
+
+      <AiCallingPanel
+        aiCalling={aiCalling}
+        wallet={aiCallWallet}
+        policy={aiCallPolicy}
+        usage={aiCallUsage}
+        ledger={aiCallLedger}
+        callingRateEntries={
+          callingRateEntries
+        }
+      />
 
       <section className="rf-credit-panel">
         <div className="rf-credit-panel-head">
@@ -409,6 +473,12 @@ export default function CreditsBillingPage() {
               {getGrantMessage(
                 data
               )}
+              {" "}Paid packs in
+              this section add only
+              to the general
+              ReachFly workspace
+              wallet; they do not
+              add AI call credits.
             </p>
           </div>
 
@@ -499,15 +569,16 @@ export default function CreditsBillingPage() {
 
       <section className="rf-credit-panel">
         <h2>
-          Published feature rates
+          General ReachFly feature rates
         </h2>
 
         <p className="rf-credit-muted">
-          This table is loaded from
-          the current ReachFly rate
-          card. The browser does not
-          hard-code commercial
-          rates.
+          These rates apply to the
+          general workspace wallet.
+          AI calling is intentionally
+          excluded here because it is
+          settled from the separate
+          AI call-credit wallet above.
         </p>
 
         <div className="rf-credit-table-wrap">
@@ -530,8 +601,8 @@ export default function CreditsBillingPage() {
             </thead>
 
             <tbody>
-              {rateCard.length ? (
-                rateCard.map(
+              {generalRates.length ? (
+                generalRates.map(
                   (rate) => (
                     <tr
                       key={
@@ -582,7 +653,8 @@ export default function CreditsBillingPage() {
                   <td
                     colSpan="4"
                   >
-                    No feature
+                    No general
+                    ReachFly feature
                     rates are
                     currently
                     published.
@@ -596,96 +668,7 @@ export default function CreditsBillingPage() {
 
       <section className="rf-credit-panel">
         <h2>
-          AI calling &amp; credits
-        </h2>
-
-        {voiceRates.length ? (
-          <>
-            <p className="rf-credit-muted">
-              ReachFly currently
-              publishes the following
-              calling-related rate
-              entries. These server
-              values are the source
-              of truth for this
-              wallet.
-            </p>
-
-            <div className="rf-credit-table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>
-                      Calling item
-                    </th>
-                    <th>
-                      Unit
-                    </th>
-                    <th>
-                      Credits
-                    </th>
-                    <th>
-                      Status
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {voiceRates.map(
-                    (rate) => (
-                      <tr
-                        key={
-                          rate.feature
-                        }
-                      >
-                        <td>
-                          {rate.label ||
-                            formatFeature(
-                              rate.feature
-                            )}
-                        </td>
-
-                        <td>
-                          {rate.unit ||
-                            "—"}
-                        </td>
-
-                        <td>
-                          {rate.billable
-                            ? formatCredits(
-                                rate.creditsPerUnit
-                              )
-                            : "—"}
-                        </td>
-
-                        <td>
-                          {rate.billable
-                            ? "Published"
-                            : "Not billed from this wallet"}
-                        </td>
-                      </tr>
-                    )
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </>
-        ) : (
-          <div className="rf-credit-empty">
-            No AI-calling rate is
-            currently published in
-            this workspace credit
-            wallet. Do not infer
-            voice-call pricing from
-            the general ReachFly
-            feature rates above.
-          </div>
-        )}
-      </section>
-
-      <section className="rf-credit-panel">
-        <h2>
-          Recent usage
+          Recent general-credit usage
         </h2>
 
         <div className="rf-credit-table-wrap">
@@ -763,7 +746,7 @@ export default function CreditsBillingPage() {
 
       <section className="rf-credit-panel">
         <h2>
-          Credit purchases
+          General credit purchases
         </h2>
 
         <div className="rf-credit-table-wrap">
@@ -846,7 +829,7 @@ export default function CreditsBillingPage() {
 
       <section className="rf-credit-panel">
         <h2>
-          Balance activity
+          General wallet activity
         </h2>
 
         <div className="rf-credit-table-wrap">
@@ -947,6 +930,469 @@ export default function CreditsBillingPage() {
   );
 }
 
+
+function AiCallingPanel({
+  aiCalling,
+  wallet,
+  policy,
+  usage,
+  ledger,
+  callingRateEntries,
+}) {
+  if (!aiCalling || !wallet || !policy) {
+    return (
+      <section className="rf-credit-panel">
+        <div className="rf-credit-panel-head">
+          <div>
+            <h2>
+              AI calling &amp; call credits
+            </h2>
+
+            <p>
+              AI calling uses a
+              dedicated connected-call
+              wallet, separate from
+              general ReachFly credits.
+            </p>
+          </div>
+
+          <span className="rf-credit-status pending">
+            Wallet unavailable
+          </span>
+        </div>
+
+        <div className="rf-credit-empty">
+          This workspace did not
+          return an AI call-credit
+          snapshot. ReachFly will not
+          infer calling entitlement or
+          price from the general
+          workspace wallet.
+        </div>
+      </section>
+    );
+  }
+
+  const testGrant =
+    Number(
+      policy.testCreditGrant || 0
+    );
+
+  const testGrantApplied =
+    Boolean(
+      wallet.testGrantAppliedAt
+    );
+
+  const testGrantAvailable =
+    Boolean(
+      aiCalling.testGrantAvailable
+    ) &&
+    !testGrantApplied;
+
+  const creditsPerConnectedCall =
+    Number(
+      policy.creditsPerConnectedCall ||
+        0
+    );
+
+  const pricePublished =
+    Number(
+      policy.connectedCallPriceMinor ||
+        0
+    ) > 0;
+
+  const durationConfigured =
+    Boolean(
+      policy.durationPolicyConfigured &&
+      Number(
+        policy.maxConnectedSeconds ||
+          0
+      ) > 0
+    );
+
+  return (
+    <section className="rf-credit-panel">
+      <div className="rf-credit-panel-head">
+        <div>
+          <h2>
+            AI calling &amp; call credits
+          </h2>
+
+          <p>
+            This is a dedicated
+            connected-call wallet.
+            General ReachFly credit
+            packs do not increase this
+            balance.
+          </p>
+        </div>
+
+        <span
+          className={`rf-credit-status ${
+            Number(wallet.balance || 0) >
+            0
+              ? "ready"
+              : "pending"
+          }`}
+        >
+          {Number(wallet.balance || 0) >
+          0
+            ? "Call credits available"
+            : "No call credits"}
+        </span>
+      </div>
+
+      <section
+        className="rf-credit-metrics"
+        aria-label="AI call credit balance"
+      >
+        <Metric
+          label="AI call credits"
+          value={formatCredits(
+            wallet.balance
+          )}
+          note="Available for future connected AI calls"
+        />
+
+        <Metric
+          label="Consumed"
+          value={formatCredits(
+            wallet.totalConsumed
+          )}
+          note="Call credits settled on connected calls"
+        />
+
+        <Metric
+          label="Granted"
+          value={formatCredits(
+            wallet.totalGranted
+          )}
+          note="AI call credits granted to this workspace"
+        />
+
+        <Metric
+          label="Purchased"
+          value={formatCredits(
+            wallet.totalPurchased
+          )}
+          note="Dedicated AI call credits purchased, if supported"
+        />
+      </section>
+
+      <div className="rf-credit-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>
+                AI calling policy
+              </th>
+              <th>
+                Current value
+              </th>
+              <th>
+                What it means
+              </th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr>
+              <td>
+                Connected-call charge
+              </td>
+              <td>
+                {creditsPerConnectedCall >
+                0
+                  ? `${formatCredits(
+                      creditsPerConnectedCall
+                    )} call credit${
+                      creditsPerConnectedCall ===
+                      1
+                        ? ""
+                        : "s"
+                    }`
+                  : "Not published"}
+              </td>
+              <td>
+                {policy.chargingRule ||
+                  "ReachFly has not published a connected-call charging rule."}
+              </td>
+            </tr>
+
+            <tr>
+              <td>
+                Connected-call price
+              </td>
+              <td>
+                {pricePublished
+                  ? formatMoneyMinor(
+                      policy.connectedCallPriceMinor,
+                      policy.currency
+                    )
+                  : "Not published"}
+              </td>
+              <td>
+                Server-published
+                commercial metadata
+                for one connected-call
+                billing unit.
+              </td>
+            </tr>
+
+            <tr>
+              <td>
+                Duration policy
+              </td>
+              <td>
+                {durationConfigured
+                  ? formatCallDuration(
+                      policy.maxConnectedSeconds
+                    )
+                  : "Not configured"}
+              </td>
+              <td>
+                {durationConfigured
+                  ? "The active billing policy publishes a maximum connected-call duration."
+                  : "No maximum connected-call duration or overage rule is currently published in billing. Do not assume unlimited duration."}
+              </td>
+            </tr>
+
+            <tr>
+              <td>
+                One-time test grant
+              </td>
+              <td>
+                {testGrant > 0
+                  ? `${formatCredits(
+                      testGrant
+                    )} call credits`
+                  : "Not published"}
+              </td>
+              <td>
+                {testGrantApplied
+                  ? `Applied ${formatDate(
+                      wallet.testGrantAppliedAt
+                    )}.`
+                  : testGrantAvailable
+                    ? "This workspace has not used its one-time AI calling test grant yet."
+                    : "No unused AI calling test grant is currently reported for this workspace."}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {callingRateEntries.length ? (
+        <div className="rf-credit-alert">
+          {callingRateEntries.length}{" "}
+          calling-related{" "}
+          {callingRateEntries.length ===
+          1
+            ? "entry"
+            : "entries"}{" "}
+          also exist in the
+          general ReachFly rate card.
+          They are not used here to
+          infer the dedicated AI
+          call-wallet charge; the AI
+          calling policy above remains
+          authoritative.
+        </div>
+      ) : null}
+
+      <div className="rf-credit-empty">
+        Dedicated AI call-credit
+        checkout is not exposed by
+        this page yet. Do not buy
+        general workspace credit packs
+        expecting them to increase the
+        AI call-credit balance.
+      </div>
+
+      <h3>
+        Recent AI connected-call usage
+      </h3>
+
+      <div className="rf-credit-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>
+                Activity
+              </th>
+              <th>
+                Duration
+              </th>
+              <th>
+                Call credits
+              </th>
+              <th>
+                Policy
+              </th>
+              <th>
+                Date
+              </th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {usage.length ? (
+              usage
+                .slice(0, 50)
+                .map(
+                  (item, index) => (
+                    <tr
+                      key={
+                        item.id ||
+                        `${item.createdAt}-${index}`
+                      }
+                    >
+                      <td>
+                        Connected AI call
+                      </td>
+
+                      <td>
+                        {formatCallDuration(
+                          item.durationSeconds
+                        )}
+                      </td>
+
+                      <td>
+                        {formatCredits(
+                          item.credits
+                        )}
+                      </td>
+
+                      <td>
+                        {item.overDurationPolicy
+                          ? "Exceeded published duration policy"
+                          : durationConfigured
+                            ? "Within published duration policy"
+                            : "No duration policy published"}
+                      </td>
+
+                      <td>
+                        {formatDate(
+                          item.createdAt
+                        )}
+                      </td>
+                    </tr>
+                  )
+                )
+            ) : (
+              <tr>
+                <td colSpan="5">
+                  No connected AI call
+                  credits have been
+                  settled yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <h3>
+        AI call-credit activity
+      </h3>
+
+      <div className="rf-credit-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>
+                Activity
+              </th>
+              <th>
+                Change
+              </th>
+              <th>
+                Balance after
+              </th>
+              <th>
+                Duration
+              </th>
+              <th>
+                Date
+              </th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {ledger.length ? (
+              ledger
+                .slice(0, 50)
+                .map(
+                  (item, index) => (
+                    <tr
+                      key={
+                        item.id ||
+                        `${item.createdAt}-${index}`
+                      }
+                    >
+                      <td>
+                        {formatAiCallLedgerActivity(
+                          item
+                        )}
+                      </td>
+
+                      <td>
+                        {formatSignedCredits(
+                          item.delta
+                        )}
+                      </td>
+
+                      <td>
+                        {formatCredits(
+                          item.balanceAfter
+                        )}
+                      </td>
+
+                      <td>
+                        {Number(
+                          item.durationSeconds ||
+                            0
+                        ) > 0
+                          ? formatCallDuration(
+                              item.durationSeconds
+                            )
+                          : "—"}
+                      </td>
+
+                      <td>
+                        {formatDate(
+                          item.createdAt
+                        )}
+                      </td>
+                    </tr>
+                  )
+                )
+            ) : (
+              <tr>
+                <td colSpan="5">
+                  No AI call-credit
+                  activity yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {wallet.updatedAt ? (
+        <p className="rf-credit-muted">
+          AI call wallet last updated{" "}
+          {formatDate(
+            wallet.updatedAt
+          )}
+          .
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+
 function Metric({
   label,
   value,
@@ -971,13 +1417,111 @@ function Metric({
   );
 }
 
+
+function isCallingRate(rate) {
+  const haystack =
+    [
+      rate?.feature,
+      rate?.label,
+      rate?.unit,
+      rate?.description,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+  return (
+    haystack.includes("voice") ||
+    haystack.includes("call") ||
+    haystack.includes("phone")
+  );
+}
+
+function formatCallDuration(
+  value
+) {
+  const seconds = Math.max(
+    0,
+    Math.round(
+      Number(value || 0)
+    )
+  );
+
+  if (!seconds) {
+    return "0 sec";
+  }
+
+  if (seconds < 60) {
+    return `${seconds} sec`;
+  }
+
+  const minutes =
+    Math.floor(
+      seconds / 60
+    );
+
+  const remainder =
+    seconds % 60;
+
+  if (minutes < 60) {
+    return remainder
+      ? `${minutes}m ${remainder}s`
+      : `${minutes} min`;
+  }
+
+  const hours =
+    Math.floor(
+      minutes / 60
+    );
+
+  const minuteRemainder =
+    minutes % 60;
+
+  return minuteRemainder
+    ? `${hours}h ${minuteRemainder}m`
+    : `${hours}h`;
+}
+
+function formatAiCallLedgerActivity(
+  item
+) {
+  const type =
+    String(
+      item?.type || ""
+    )
+      .trim()
+      .toLowerCase();
+
+  if (
+    type === "connected_call"
+  ) {
+    return "Connected AI call";
+  }
+
+  if (
+    type === "test_grant"
+  ) {
+    return "One-time AI calling test grant";
+  }
+
+  if (item?.description) {
+    return item.description;
+  }
+
+  return formatFeature(
+    type ||
+      "AI call credit activity"
+  );
+}
+
+
 function getGrantMessage(
   data
 ) {
   if (
     !data?.testGrantEnabled
   ) {
-    return "Automatic test-credit grants are disabled in this environment.";
+    return "Automatic general workspace test-credit grants are disabled in this environment.";
   }
 
   const amount =
@@ -989,10 +1533,10 @@ function getGrantMessage(
   if (amount > 0) {
     return `This environment may apply one non-renewing test grant of ${formatCredits(
       amount
-    )} credits per eligible workspace.`;
+    )} general workspace credits per eligible workspace.`;
   }
 
-  return "This environment may apply a one-time, non-renewing test-credit grant to eligible workspaces.";
+  return "This environment may apply a one-time, non-renewing general workspace credit grant to eligible workspaces.";
 }
 
 function clearPaymentQuery() {

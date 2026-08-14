@@ -16,6 +16,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { useAuth } from "../auth/AuthContext";
+import { apiRequest, getAccessToken } from "../lib/workspace-platform-client.js";
 import "../styles.css";
 
 const initial = {
@@ -25,6 +26,7 @@ const initial = {
   limit: 100,
   qualityLevel: "balanced",
   goal: "both",
+  voiceEnabled: false,
   offer: "",
   emailAccountId: "",
 };
@@ -169,13 +171,7 @@ function writePersistedBuilderState(state) {
 }
 
 function getAuthToken() {
-  return (
-    localStorage.getItem("reachflyToken") ||
-    localStorage.getItem("token") ||
-    sessionStorage.getItem("reachflyToken") ||
-    sessionStorage.getItem("token") ||
-    ""
-  );
+  return getAccessToken() || "";
 }
 
 async function requestGoogleLeadsStream(
@@ -397,168 +393,15 @@ async function requestGoogleLeadsStream(
 
 
 async function requestWorkspaceTeamResources() {
-  const token =
-    getAuthToken();
-
-  const paths = [
+  const data = await apiRequest(
     "/team",
-    "/sales/dashboard",
-  ];
-
-  let lastError = null;
-
-  console.groupCollapsed(
-    "[Builder] Loading caller resources"
+    { timeoutMs: 15_000 }
   );
 
-  console.log(
-    "[Builder] API base URL:",
-    API_BASE_URL
-  );
-
-  console.log(
-    "[Builder] Candidate endpoints:",
-    paths
-  );
-
-  console.log(
-    "[Builder] Token present:",
-    Boolean(token)
-  );
-
-  for (const path of paths) {
-    try {
-      const requestUrl =
-        `${API_BASE_URL}${path}`;
-
-      console.log(
-        "[Builder] Requesting team endpoint:",
-        requestUrl
-      );
-
-      const response =
-        await fetch(
-          requestUrl,
-          {
-            method: "GET",
-
-            headers: {
-              Accept:
-                "application/json",
-
-              ...(token
-                ? {
-                    Authorization:
-                      `Bearer ${token}`,
-                  }
-                : {}),
-            },
-          }
-        );
-
-      const rawBody =
-        await response.text();
-
-      let data = null;
-
-      try {
-        data = rawBody
-          ? JSON.parse(rawBody)
-          : null;
-      } catch {
-        data = rawBody;
-      }
-
-      console.log(
-        "[Builder] Team endpoint response:",
-        {
-          path,
-          status:
-            response.status,
-          ok:
-            response.ok,
-          data,
-        }
-      );
-
-      if (!response.ok) {
-        const error =
-          new Error(
-            data?.error ||
-              data?.message ||
-              `Team request failed with status ${response.status}.`
-          );
-
-        error.status =
-          response.status;
-
-        throw error;
-      }
-
-      const members =
-        extractTeamMembers(
-          data
-        );
-
-      console.log(
-        "[Builder] Extracted raw members:",
-        {
-          path,
-          count:
-            members.length,
-          members,
-        }
-      );
-
-      if (
-        members.length > 0 ||
-        path === paths[
-          paths.length - 1
-        ]
-      ) {
-        console.groupEnd();
-
-        return {
-          ...(
-            data &&
-            typeof data ===
-              "object"
-              ? data
-              : {}
-          ),
-
-          members,
-        };
-      }
-    } catch (error) {
-      console.error(
-        "[Builder] Team endpoint failed:",
-        {
-          path,
-          message:
-            error?.message ||
-            String(error),
-          status:
-            error?.status ||
-            error?.statusCode ||
-            0,
-          error,
-        }
-      );
-
-      lastError =
-        error;
-    }
-  }
-
-  console.groupEnd();
-
-  throw (
-    lastError ||
-    new Error(
-      "Caller resources could not be loaded."
-    )
-  );
+  return {
+    ...(data && typeof data === "object" ? data : {}),
+    members: extractTeamMembers(data),
+  };
 }
 
 async function auditApi(
@@ -1003,8 +846,11 @@ export default function Builder() {
       ""
   );
 
-  const isManager =
-    role === "manager";
+  const canManage = [
+    "owner",
+    "admin",
+    "manager",
+  ].includes(role);
 
   const showingResults =
     searchParams.get("view") ===
@@ -1039,6 +885,14 @@ export default function Builder() {
   const [assignmentMessage, setAssignmentMessage] = useState("");
   const [assignmentError, setAssignmentError] = useState("");
 
+  const [voiceWorkspace, setVoiceWorkspace] = useState(null);
+  const [billingData, setBillingData] = useState(null);
+  const [voiceLaunchCount, setVoiceLaunchCount] = useState(10);
+  const [voiceLaunchConfirmed, setVoiceLaunchConfirmed] = useState(false);
+  const [voiceLaunching, setVoiceLaunching] = useState(false);
+  const [voiceLaunchMessage, setVoiceLaunchMessage] = useState("");
+  const [voiceLaunchError, setVoiceLaunchError] = useState("");
+
   const isCompany =
   user?.accountType === "company" ||
   user?.workspaceType === "company" ||
@@ -1062,8 +916,33 @@ export default function Builder() {
     };
   }, [isCompany, user]);
 
+  const voiceAgent = voiceWorkspace?.agent || {};
+  const voiceDiagnostics = voiceWorkspace?.diagnostics || {};
+  const voiceNumber =
+    voiceAgent.fromNumber ||
+    voiceDiagnostics.selectedFromNumber ||
+    "";
+  const voiceReady = Boolean(
+    voiceWorkspace &&
+      voiceAgent.enabled !== false &&
+      voiceAgent.complianceConfirmed === true &&
+      voiceNumber &&
+      (
+        voiceDiagnostics.configured === true ||
+        voiceWorkspace?.ready === true ||
+        voiceWorkspace?.status?.ready === true
+      )
+  );
+  const aiCalling = billingData?.aiCalling || null;
+  const aiCallBalance = Number(
+    aiCalling?.wallet?.balance ??
+      aiCalling?.wallet?.available ??
+      0
+  );
+  const aiCallCreditsKnown = Boolean(aiCalling?.wallet);
+
   useEffect(() => {
-    if (!isManager) {
+    if (!canManage) {
       setCampaigns([]);
       setEmailAccounts([]);
       setCallers([]);
@@ -1101,9 +980,6 @@ export default function Builder() {
          * Reuse the existing request, but still await and process
          * its results in the currently active effect.
          */
-        console.log(
-          "[Builder] Reusing active bootstrap request."
-        );
 
         requestPromise =
           cached.promise;
@@ -1113,6 +989,14 @@ export default function Builder() {
             api.campaigns(),
             api.emailSettings(),
             requestWorkspaceTeamResources(),
+            apiRequest(
+              "/telnyx/ai-agent/dashboard",
+              { timeoutMs: 20_000 }
+            ),
+            apiRequest(
+              "/billing/credits",
+              { timeoutMs: 15_000 }
+            ),
           ]);
 
         builderBootstrapRef.current =
@@ -1132,6 +1016,8 @@ export default function Builder() {
         campaignResult,
         emailResult,
         teamResult,
+        voiceResult,
+        billingResult,
       ] =
         await requestPromise;
 
@@ -1208,10 +1094,6 @@ export default function Builder() {
           );
         }
       } else {
-        console.warn(
-          "[Builder] Email settings were not available:",
-          emailResult.reason
-        );
 
         setEmailAccounts([]);
       }
@@ -1245,73 +1127,6 @@ export default function Builder() {
                 "suspended"
           );
 
-        console.groupCollapsed(
-          "[Builder] Caller resource filtering"
-        );
-
-        console.log(
-          "[Builder] Authenticated manager:",
-          {
-            id:
-              user?.id ||
-              "",
-            email:
-              user?.email ||
-              "",
-            workspaceId:
-              user?.workspaceId ||
-              "",
-            role,
-          }
-        );
-
-        console.log(
-          "[Builder] Full team response:",
-          teamResult.value
-        );
-
-        console.log(
-          "[Builder] Extracted members:",
-          extractedMembers
-        );
-
-        console.log(
-          "[Builder] Normalized members:",
-          normalizedMembers
-        );
-
-        console.log(
-          "[Builder] Active callers after filtering:",
-          members
-        );
-
-        console.table(
-          normalizedMembers.map(
-            (member) => ({
-              id:
-                member.id,
-              name:
-                member.name,
-              email:
-                member.email,
-              role:
-                member.role,
-              workspaceRole:
-                member.workspaceRole,
-              active:
-                member.active,
-              isActive:
-                member.isActive,
-              status:
-                member.status,
-              jobTitle:
-                member.jobTitle,
-            })
-          )
-        );
-
-        console.groupEnd();
-
         setCallers(
           members
         );
@@ -1337,10 +1152,6 @@ export default function Builder() {
           );
         }
       } else {
-        console.error(
-          "[Builder] Team bootstrap request rejected:",
-          teamResult.reason
-        );
 
         setCallers([]);
         setSelectedCallerId("");
@@ -1351,6 +1162,18 @@ export default function Builder() {
             "Caller resources could not be loaded."
         );
       }
+
+      setVoiceWorkspace(
+        voiceResult?.status === "fulfilled"
+          ? voiceResult.value || null
+          : null
+      );
+
+      setBillingData(
+        billingResult?.status === "fulfilled"
+          ? billingResult.value || null
+          : null
+      );
     }
 
     void loadBuilderData();
@@ -1359,7 +1182,7 @@ export default function Builder() {
       active = false;
     };
   }, [
-    isManager,
+    canManage,
     role,
     user?.id,
     user?.workspaceId,
@@ -1393,7 +1216,7 @@ export default function Builder() {
 }, []);
 
 useEffect(() => {
-  if (!user || isManager) {
+  if (!user || canManage) {
     return;
   }
 
@@ -1404,7 +1227,7 @@ useEffect(() => {
     replace: true,
   });
 }, [
-  isManager,
+  canManage,
   navigate,
   user,
 ]);
@@ -1607,7 +1430,7 @@ const set = (key, value) => {
   }
 
   async function submit() {
-  if (!isManager) {
+  if (!canManage) {
     setError(
       "Only workspace managers can generate leads and create campaigns."
     );
@@ -1769,6 +1592,13 @@ const set = (key, value) => {
       emailAccountId:
         form.emailAccountId ||
         "",
+      voiceEnabled:
+        form.voiceEnabled === true,
+      outreachPlan: {
+        aiVoice: form.voiceEnabled === true,
+        digitalChannel: form.goal || "both",
+        pipeline: buildBuilderPipeline(form),
+      },
       source:
         "external-import",
       externalImport:
@@ -1960,6 +1790,167 @@ async function assignLeadsToCaller() {
   }
 }
 
+async function launchGeneratedLeadsWithVoice() {
+  const leads = Array.isArray(leadResult?.leads)
+    ? leadResult.leads
+    : [];
+  const eligible = leads
+    .filter((lead) => String(lead?.phone || "").trim())
+    .slice(0, Math.max(1, Math.min(100, Number(voiceLaunchCount || 1))));
+
+  if (!form.voiceEnabled) {
+    setVoiceLaunchError(
+      "Enable AI Voice in the campaign settings before launching automated calls."
+    );
+    return;
+  }
+
+  if (!voiceReady) {
+    setVoiceLaunchError(
+      "The Voice Agent is not launch-ready. Complete agent identity, verified business number, calling policy, and activation first."
+    );
+    return;
+  }
+
+  if (aiCallCreditsKnown && aiCallBalance <= 0) {
+    setVoiceLaunchError(
+      "This workspace has no AI call credits available. Review Credits & usage before launching calls."
+    );
+    return;
+  }
+
+  if (!voiceLaunchConfirmed) {
+    setVoiceLaunchError(
+      "Confirm the AI calling disclosure and recording-aware launch acknowledgement first."
+    );
+    return;
+  }
+
+  if (!eligible.length) {
+    setVoiceLaunchError(
+      "No generated leads with phone numbers are available for AI calling."
+    );
+    return;
+  }
+
+  setVoiceLaunching(true);
+  setVoiceLaunchError("");
+  setVoiceLaunchMessage("");
+
+  try {
+    const campaignId = await createAssignmentCampaign(eligible);
+    const queueResults = await mapWithConcurrency(
+      eligible,
+      4,
+      async (lead) =>
+        apiRequest(
+          "/telnyx/ai-agent/leads/custom",
+          {
+            method: "POST",
+            body: {
+              contactName: lead.contactName || lead.name || "",
+              companyName: lead.business || lead.companyName || lead.name || "",
+              phone: lead.phone,
+              email: isDisplayableEmail(lead.email) ? lead.email : "",
+              website: lead.website || "",
+              location: lead.address || lead.location || form.location || "",
+              timezone: lead.timezone || lead.timeZone || "",
+              context: [
+                `Campaign: ${form.niche} in ${form.location}`,
+                form.offer ? `Offer: ${form.offer}` : "",
+                lead.category ? `Lead category: ${lead.category}` : "",
+              ].filter(Boolean).join(" · "),
+              callNow: false,
+              testCall: false,
+              testCallConfirmed: false,
+              defaultTimezone: voiceAgent.defaultLeadTimezone || "",
+              maxAttempts: Number(voiceAgent.maxAttempts || 3),
+              dailyCallLimit: Number(voiceAgent.dailyCallLimit || 25),
+              fromNumber: voiceNumber,
+              campaignId,
+            },
+            timeoutMs: 30_000,
+          }
+        )
+    );
+
+    const queued = queueResults.filter(
+      (item) => item.status === "fulfilled"
+    );
+    const failed = queueResults.filter(
+      (item) => item.status === "rejected"
+    );
+
+    if (!queued.length) {
+      throw new Error(
+        failed[0]?.reason?.message ||
+          "No generated leads could be added to the AI calling queue."
+      );
+    }
+
+    const queueIds = queued
+      .map((item) => item.value?.queueId)
+      .filter(Boolean);
+
+    const launch = await apiRequest(
+      "/telnyx/ai-agent/campaigns/start",
+      {
+        method: "POST",
+        body: {
+          queueIds,
+          limit: queued.length,
+          concurrency: Number(voiceAgent.concurrency || 1),
+          dailyCallLimit: Number(voiceAgent.dailyCallLimit || 25),
+          fromNumber: voiceNumber,
+        },
+        timeoutMs: 60_000,
+      }
+    );
+
+    const launched = Number(launch?.started || 0);
+    const deferred = Number(launch?.deferred || 0);
+    const launchFailed = Number(launch?.failed || 0);
+
+    setVoiceLaunchMessage(
+      `${queued.length} lead${queued.length === 1 ? "" : "s"} queued for AI Voice. ` +
+        `${launched} call${launched === 1 ? "" : "s"} started` +
+        `${deferred ? ` · ${deferred} deferred by policy` : ""}` +
+        `${launchFailed || failed.length ? ` · ${launchFailed + failed.length} not started` : ""}.`
+    );
+
+    const launchedKeys = new Set(
+      eligible.map(leadIdentity).filter(Boolean)
+    );
+    setLeadResult((current) => ({
+      ...(current || {}),
+      leads: (current?.leads || []).map((lead) =>
+        launchedKeys.has(leadIdentity(lead))
+          ? { ...lead, aiVoiceQueued: true, campaignId }
+          : lead
+      ),
+    }));
+
+    const [voiceRefresh, billingRefresh] = await Promise.allSettled([
+      apiRequest("/telnyx/ai-agent/dashboard", { timeoutMs: 20_000 }),
+      apiRequest("/billing/credits", { timeoutMs: 15_000 }),
+    ]);
+
+    if (voiceRefresh.status === "fulfilled") {
+      setVoiceWorkspace(voiceRefresh.value);
+    }
+    if (billingRefresh.status === "fulfilled") {
+      setBillingData(billingRefresh.value);
+    }
+  } catch (requestError) {
+    setVoiceLaunchError(
+      requestError?.message ||
+        "The AI Voice campaign could not be launched."
+    );
+  } finally {
+    setVoiceLaunching(false);
+  }
+}
+
 function clearLeadResponse() {
     streamControllerRef.current?.abort();
     streamControllerRef.current = null;
@@ -2069,7 +2060,7 @@ function clearLeadResponse() {
 
   const WorkspaceIcon = workspace.icon;
 
-if (!isManager) {
+if (!canManage) {
   return (
     <div className="page builder-page">
       <div className="card">
@@ -2078,12 +2069,11 @@ if (!isManager) {
         </span>
 
         <h1>
-          Manager access required
+          Campaign management access required
         </h1>
 
         <p className="text-muted">
-          Lead generation, campaign creation, and lead assignment are
-          available only to workspace managers.
+          Lead generation and campaign controls are available to workspace owners, administrators, and managers.
         </p>
 
         <button
@@ -2146,6 +2136,21 @@ if (showingResults) {
           assignmentCampaignId={
             assignmentCampaignId
           }
+          voiceEnabled={form.voiceEnabled === true}
+          voiceReady={voiceReady}
+          voiceNumber={voiceNumber}
+          voiceLaunchCount={voiceLaunchCount}
+          onVoiceLaunchCount={setVoiceLaunchCount}
+          voiceLaunchConfirmed={voiceLaunchConfirmed}
+          onVoiceLaunchConfirmed={setVoiceLaunchConfirmed}
+          voiceLaunching={voiceLaunching}
+          voiceLaunchMessage={voiceLaunchMessage}
+          voiceLaunchError={voiceLaunchError}
+          aiCallBalance={aiCallBalance}
+          aiCallCreditsKnown={aiCallCreditsKnown}
+          onLaunchVoice={() => void launchGeneratedLeadsWithVoice()}
+          onOpenVoice={() => navigate("/app/voice-agent")}
+          onOpenBilling={() => navigate("/app/billing")}
           onDownload={() =>
             downloadLeads(
               leadResult?.leads || []
@@ -2157,6 +2162,10 @@ if (showingResults) {
           lead={selectedCallLead}
           form={form}
           workspace={workspace}
+          voiceWorkspace={voiceWorkspace}
+          billingData={billingData}
+          onOpenVoice={() => navigate("/app/voice-agent")}
+          onOpenBilling={() => navigate("/app/billing")}
           onOpenAudit={() => {
             setSelectedLead(selectedCallLead);
             setSelectedCallLead(null);
@@ -2277,7 +2286,7 @@ if (showingResults) {
     <Step
       eyebrow="Click 3 of 4"
       title="How should this campaign run?"
-      text="Set the lead volume, quality level, and preferred outreach channel."
+      text="Set lead volume, digital follow-up, and whether the ReachFly AI Voice Agent should call generated leads."
     >
       <div className="launch-settings">
         <label>
@@ -2307,7 +2316,7 @@ if (showingResults) {
         </label>
 
         <label>
-          <span>Outreach channel</span>
+          <span>Digital follow-up</span>
           <select
             value={form.goal}
             onChange={(event) => set("goal", event.target.value)}
@@ -2318,6 +2327,17 @@ if (showingResults) {
           </select>
         </label>
       </div>
+
+      <CampaignVoiceOption
+        enabled={form.voiceEnabled === true}
+        onChange={(enabled) => set("voiceEnabled", enabled)}
+        ready={voiceReady}
+        number={voiceNumber}
+        aiCallBalance={aiCallBalance}
+        creditsKnown={aiCallCreditsKnown}
+        onSetup={() => navigate("/app/voice-agent")}
+        onBilling={() => navigate("/app/billing")}
+      />
 
       {["email", "both"].includes(form.goal) ? (
         <EmailAccountSelector
@@ -2339,7 +2359,7 @@ if (showingResults) {
     <Step
       eyebrow="Click 4 of 4"
       title="Ready to build your market?"
-      text="Review the campaign context and launch. You will see live backend progress on the campaign screen."
+      text="Review lead discovery and outreach readiness. Generated leads can then be assigned to callers or launched through AI Voice from the results screen."
     >
       <div className="sentence-card">
         <span className="sentence-card-eyebrow">Campaign summary</span>
@@ -2378,7 +2398,15 @@ if (showingResults) {
           ["Radius", `${form.radiusKm} km`],
           ["Lead goal", `${form.limit} leads`],
           ["Search depth", form.qualityLevel],
-          ["Channel", formatChannel(form.goal)],
+          ["Digital follow-up", formatChannel(form.goal)],
+          [
+            "AI Voice",
+            form.voiceEnabled
+              ? voiceReady
+                ? "Enabled · ready to launch"
+                : "Enabled · setup required"
+              : "Not enabled",
+          ],
           [
             "Sender email",
             getSelectedEmailLabel(emailAccounts, form.emailAccountId) ||
@@ -2396,10 +2424,10 @@ if (showingResults) {
       <div className="page-top">
         <div>
           <span className="eyebrow">Campaign builder</span>
-          <h1>Four clicks to your next market.</h1>
+          <h1>Four clicks from market to outreach.</h1>
           <p className="builder-subtitle">
             Your signup details are already saved, so this builder only asks for
-            campaign-specific details.
+            campaign-specific targeting and outreach details.
           </p>
         </div>
 
@@ -2466,7 +2494,7 @@ if (showingResults) {
       </div>
 
       <p className="builder-promise">
-        <Check /> Direct Google Places API · Official business websites
+        <Check /> Google Places lead discovery · Official business websites
       </p>
     </div>
   );
@@ -2585,6 +2613,190 @@ function LocationField({
   );
 }
 
+function CampaignVoiceOption({
+  enabled,
+  onChange,
+  ready,
+  number,
+  aiCallBalance,
+  creditsKnown,
+  onSetup,
+  onBilling,
+}) {
+  return (
+    <section className="builder-email-empty" aria-label="AI Voice campaign option">
+      <span className="live-lead-detail-symbol" aria-hidden="true">☎</span>
+
+      <div>
+        <b>ReachFly AI Voice Agent</b>
+        <small>
+          {enabled
+            ? ready
+              ? `Ready${number ? ` · ${number}` : ""}. Calls identify the agent as AI and follow the workspace calling policy.`
+              : "Enabled for this campaign, but Voice Agent setup must be completed before calls can launch."
+            : "Optional. Enable automated AI calls alongside your selected digital follow-up."}
+        </small>
+        {enabled ? (
+          <small>
+            AI call credits: {creditsKnown ? formatCompactNumber(aiCallBalance) : "Check billing at launch"}.
+            Connected-call charging remains server-authoritative.
+          </small>
+        ) : null}
+      </div>
+
+      <div className="flex flex-gap flex-wrap">
+        <label className="option-card" style={{ margin: 0 }}>
+          <input
+            type="checkbox"
+            checked={enabled}
+            onChange={(event) => onChange(event.target.checked)}
+          />
+          <span><b>{enabled ? "AI Voice enabled" : "Enable AI Voice"}</b></span>
+        </label>
+
+        {enabled && !ready ? (
+          <button className="btn small" type="button" onClick={onSetup}>
+            Complete Voice Agent setup
+          </button>
+        ) : null}
+
+        {enabled ? (
+          <button className="btn small light" type="button" onClick={onBilling}>
+            Credits & usage
+          </button>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function AiVoiceLaunchPanel({
+  enabled,
+  ready,
+  number,
+  phoneLeadCount,
+  value,
+  max,
+  onChange,
+  confirmed,
+  onConfirmed,
+  launching,
+  message,
+  error,
+  aiCallBalance,
+  creditsKnown,
+  onLaunch,
+  onSetup,
+  onBilling,
+}) {
+  const safeMax = Math.max(1, Number(max || 1));
+
+  return (
+    <section className="live-assignment-panel">
+      <div className="live-assignment-header">
+        <div>
+          <span className="eyebrow">AI Voice launch</span>
+          <h2>Launch generated leads through the Voice Agent</h2>
+          <p>
+            Queue leads with phone numbers, then start calls under the Voice Agent's
+            configured calling window, suppression rules, concurrency and daily limit.
+          </p>
+        </div>
+        <span className="live-lead-detail-symbol" aria-hidden="true">☎</span>
+      </div>
+
+      {error ? <div className="error-banner" role="alert">{error}</div> : null}
+      {message ? <div className="success-banner" role="status">{message}</div> : null}
+
+      {!enabled ? (
+        <div className="safe-note-v54">
+          AI Voice is not enabled for this campaign. Return to campaign settings if you want automated calls.
+        </div>
+      ) : null}
+
+      {enabled && !ready ? (
+        <div className="safe-note-v54">
+          Voice Agent setup is incomplete. A verified business number, AI disclosure,
+          calling policy and active voice runtime are required before launch.
+        </div>
+      ) : null}
+
+      <div className="live-assignment-form">
+        <label className="field">
+          <span>Leads to call</span>
+          <input
+            type="number"
+            min="1"
+            max={safeMax}
+            value={Math.max(1, Math.min(safeMax, Number(value || 1)))}
+            onChange={(event) =>
+              onChange(
+                Math.max(1, Math.min(safeMax, Number(event.target.value || 1)))
+              )
+            }
+          />
+          <small>{phoneLeadCount} generated leads currently have phone numbers.</small>
+        </label>
+
+        <div className="field">
+          <span>Launch readiness</span>
+          <div className="safe-note-v54">
+            {ready ? `Ready${number ? ` · ${number}` : ""}` : "Voice Agent setup required"}
+            {" · "}AI call credits: {creditsKnown ? formatCompactNumber(aiCallBalance) : "unknown until billing loads"}
+          </div>
+        </div>
+      </div>
+
+      <label className="option-card">
+        <input
+          type="checkbox"
+          checked={confirmed}
+          onChange={(event) => onConfirmed(event.target.checked)}
+          disabled={!enabled || !ready || launching}
+        />
+        <span>
+          <b>Confirm automated AI calling launch</b>
+          <small>
+            I understand these are automated AI sales calls. The agent must identify
+            itself as AI at the start of the call, and calls may be recorded when the
+            workspace recording policy allows it.
+          </small>
+        </span>
+      </label>
+
+      <div className="flex flex-gap flex-wrap mt16">
+        <button
+          type="button"
+          className="btn primary"
+          disabled={
+            launching || !enabled || !ready || !confirmed || !phoneLeadCount ||
+            (creditsKnown && aiCallBalance <= 0)
+          }
+          onClick={onLaunch}
+        >
+          {launching ? "Launching AI calls…" : "Launch AI calls"}
+        </button>
+
+        {!ready ? (
+          <button type="button" className="btn light" onClick={onSetup}>
+            Open Voice Agent setup
+          </button>
+        ) : null}
+
+        <button type="button" className="btn light" onClick={onBilling}>
+          Credits & usage
+        </button>
+      </div>
+
+      <small className="location-helper">
+        ReachFly charges AI call credits only according to the billing service's
+        connected-call policy. Ringing, failed, suppressed or quota-rejected calls
+        must not be treated as connected by this page.
+      </small>
+    </section>
+  );
+}
+
 function EmailAccountSelector({ accounts, value, onChange, onSetup }) {
   if (!accounts.length) {
     return (
@@ -2685,6 +2897,21 @@ function LiveLeadResultsPage({
   assignmentMessage,
   assignmentError,
   assignmentCampaignId,
+  voiceEnabled,
+  voiceReady,
+  voiceNumber,
+  voiceLaunchCount,
+  onVoiceLaunchCount,
+  voiceLaunchConfirmed,
+  onVoiceLaunchConfirmed,
+  voiceLaunching,
+  voiceLaunchMessage,
+  voiceLaunchError,
+  aiCallBalance,
+  aiCallCreditsKnown,
+  onLaunchVoice,
+  onOpenVoice,
+  onOpenBilling,
 }) {
   const leads = Array.isArray(
     result?.leads
@@ -3169,6 +3396,28 @@ function LiveLeadResultsPage({
       </section>
     ) : null}
 
+    {!isLoading && leads.length > 0 ? (
+      <AiVoiceLaunchPanel
+        enabled={voiceEnabled}
+        ready={voiceReady}
+        number={voiceNumber}
+        phoneLeadCount={phoneCount}
+        value={voiceLaunchCount}
+        max={phoneCount}
+        onChange={onVoiceLaunchCount}
+        confirmed={voiceLaunchConfirmed}
+        onConfirmed={onVoiceLaunchConfirmed}
+        launching={voiceLaunching}
+        message={voiceLaunchMessage}
+        error={voiceLaunchError}
+        aiCallBalance={aiCallBalance}
+        creditsKnown={aiCallCreditsKnown}
+        onLaunch={onLaunchVoice}
+        onSetup={onOpenVoice}
+        onBilling={onOpenBilling}
+      />
+    ) : null}
+
     <section className="live-results-content">
         <div className="live-results-toolbar">
           <div>
@@ -3240,7 +3489,7 @@ function LiveLeadResultsPage({
       </section>
 
       <p className="builder-promise live-results-promise">
-        <Check /> Direct Google Places API · Results update live · Official business websites
+        <Check /> Google Places lead discovery · Results update live · Official business websites
       </p>
     </div>
   );
@@ -3462,116 +3711,186 @@ function CallLeadDrawer({
   lead,
   form,
   workspace,
+  voiceWorkspace,
+  billingData,
+  onOpenVoice,
+  onOpenBilling,
   onOpenAudit,
   onClose,
 }) {
   const [call, setCall] = useState(null);
-  const [policy, setPolicy] = useState(null);
   const [error, setError] = useState("");
   const [starting, setStarting] = useState(false);
-  const [notes, setNotes] = useState("");
-  const [outcome, setOutcome] = useState("follow_up");
+  const [confirmed, setConfirmed] = useState(false);
   const [callMiniReport, setCallMiniReport] = useState(null);
   const [callMiniLoading, setCallMiniLoading] = useState(false);
   const pollRef = useRef(null);
+
+  const agent = voiceWorkspace?.agent || {};
+  const diagnostics = voiceWorkspace?.diagnostics || {};
+  const fromNumber = agent.fromNumber || diagnostics.selectedFromNumber || "";
+  const ready = Boolean(
+    voiceWorkspace &&
+      agent.enabled !== false &&
+      agent.complianceConfirmed === true &&
+      fromNumber &&
+      (diagnostics.configured === true || voiceWorkspace?.ready === true || voiceWorkspace?.status?.ready === true)
+  );
+  const aiWallet = billingData?.aiCalling?.wallet || null;
+  const aiBalance = Number(aiWallet?.balance ?? aiWallet?.available ?? 0);
+  const creditsKnown = Boolean(aiWallet);
 
   useEffect(() => {
     window.clearInterval(pollRef.current);
     setCall(null);
     setError("");
-    setNotes("");
+    setConfirmed(false);
+    setCallMiniReport(null);
     if (!lead) return undefined;
-    const encoded = encodeURIComponent(JSON.stringify({
-      id: lead.id,
-      name: lead.name || lead.business,
-      phone: lead.phone,
-      email: lead.email,
-      website: lead.website,
-      address: lead.address,
-    }));
-    auditApi(`/vonage/contact-policy?lead=${encoded}`)
-      .then(setPolicy)
-      .catch((e) => setError(e.message));
+
     if (lead.website) {
       setCallMiniLoading(true);
       auditApi(`/lead-audits?website=${encodeURIComponent(lead.website)}`)
         .then(async (data) => {
-          const existing = (data.reports || []).find((report) => report.kind === "mini" && ["complete", "completed"].includes(report.status));
+          const existing = (data.reports || []).find(
+            (report) => report.kind === "mini" && ["complete", "completed"].includes(report.status)
+          );
           if (existing) return existing;
-          return auditApi("/lead-audits/mini", { method: "POST", body: { lead, niche: form?.niche || lead.category || "", location: form?.location || lead.address || "", brand: workspace } });
+          return auditApi("/lead-audits/mini", {
+            method: "POST",
+            body: {
+              lead,
+              niche: form?.niche || lead.category || "",
+              location: form?.location || lead.address || "",
+              brand: workspace,
+            },
+          });
         })
         .then(async (report) => {
           let current = report;
-          for (let attempt = 0; attempt < 40 && current?.id && !["complete", "completed", "failed"].includes(current.status); attempt += 1) {
-            await new Promise((resolve) => window.setTimeout(resolve, 1500));
+          for (
+            let attempt = 0;
+            attempt < 30 &&
+            current?.id &&
+            !["complete", "completed", "failed"].includes(current.status);
+            attempt += 1
+          ) {
+            await new Promise((resolve) => window.setTimeout(resolve, 2000));
             current = await auditApi(`/lead-audits/${encodeURIComponent(current.id)}`);
           }
           setCallMiniReport(current);
         })
-        .catch((e) => setError((current) => current || e.message))
+        .catch((requestError) =>
+          setError((current) => current || requestError?.message || "The Mini Audit could not be loaded.")
+        )
         .finally(() => setCallMiniLoading(false));
     }
+
     return () => window.clearInterval(pollRef.current);
-  }, [lead]);
+  }, [lead?.phone, lead?.website]);
 
   useEffect(() => {
-    if (!call?.id || ["completed", "failed", "rejected", "busy", "unanswered", "cancelled", "disconnected"].includes(call.status)) {
-      window.clearInterval(pollRef.current);
-      return undefined;
-    }
-    pollRef.current = window.setInterval(() => {
-      auditApi(`/vonage/calls/${encodeURIComponent(call.id)}`)
-        .then(setCall)
+    if (!lead?.phone || !call) return undefined;
+    if (isTerminalVoiceCallStatus(call.status)) return undefined;
+
+    const refresh = () => {
+      apiRequest("/telnyx/ai-agent/dashboard", { timeoutMs: 20_000 })
+        .then((dashboard) => {
+          const next = findVoiceCallForLead(dashboard, lead, call?.id);
+          if (next) setCall(next);
+        })
         .catch(() => {});
-    }, 1800);
+    };
+
+    pollRef.current = window.setInterval(refresh, 3000);
     return () => window.clearInterval(pollRef.current);
-  }, [call?.id, call?.status]);
+  }, [call?.id, call?.status, lead?.phone]);
 
   if (!lead) return null;
 
   const startCall = async () => {
+    if (!ready) {
+      setError(
+        "The Voice Agent is not ready. Complete the verified business number, AI disclosure, calling policy and activation first."
+      );
+      return;
+    }
+    if (creditsKnown && aiBalance <= 0) {
+      setError("No AI call credits are available for this workspace.");
+      return;
+    }
+    if (!confirmed) {
+      setError("Confirm the automated AI calling acknowledgement before starting the call.");
+      return;
+    }
+
     setStarting(true);
     setError("");
     try {
-      const response = await auditApi("/vonage/calls", {
+      const response = await apiRequest("/telnyx/ai-agent/leads/custom", {
         method: "POST",
         body: {
-          lead,
-          campaignId: lead.campaignId || "",
-          leadId: lead.id || lead.placeId || "",
-          destinationNumber: lead.phone,
+          contactName: lead.contactName || lead.name || "",
+          companyName: lead.business || lead.companyName || lead.name || "",
+          phone: lead.phone,
+          email: isDisplayableEmail(lead.email) ? lead.email : "",
+          website: lead.website || "",
+          location: lead.address || lead.location || form?.location || "",
+          timezone: lead.timezone || lead.timeZone || "",
+          context: [
+            `Campaign: ${form?.niche || lead.category || "Business"} in ${form?.location || lead.address || "target market"}`,
+            form?.offer ? `Offer: ${form.offer}` : "",
+          ].filter(Boolean).join(" · "),
+          callNow: true,
+          testCall: false,
+          testCallConfirmed: false,
+          defaultTimezone: agent.defaultLeadTimezone || "",
+          maxAttempts: Number(agent.maxAttempts || 3),
+          dailyCallLimit: Number(agent.dailyCallLimit || 25),
+          fromNumber,
         },
+        timeoutMs: 60_000,
       });
-      setCall(response);
-      setPolicy((current) => ({ ...(current || {}), canContact: false, reason: "Call in progress." }));
-    } catch (e) {
-      setError(e.message);
+
+      const initialCall =
+        response?.activeCall ||
+        response?.callResult?.calls?.[0] ||
+        response?.callResult?.call ||
+        response?.call ||
+        {
+          id: response?.callResult?.callIds?.[0] || response?.queueId || "",
+          status: response?.callResult?.started ? "starting" : "queued",
+          destinationNumber: lead.phone,
+        };
+      setCall(initialCall);
+    } catch (requestError) {
+      setError(requestError?.message || "The AI call could not be started.");
     } finally {
       setStarting(false);
     }
   };
 
-  const saveOutcome = async () => {
-    if (!call?.id) return;
-    try {
-      const updated = await auditApi(`/vonage/calls/${encodeURIComponent(call.id)}`, {
-        method: "PATCH",
-        body: { outcome, notes, status: "completed" },
-      });
-      setCall(updated);
-    } catch (e) {
-      setError(e.message);
-    }
-  };
-
   const business = lead.business || lead.name || "Lead";
+
   return (
     <AnimatePresence>
-      <motion.div className="audit-drawer-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onMouseDown={onClose}>
-        <motion.aside className="call-drawer" initial={{ x: 80, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 80, opacity: 0 }} onMouseDown={(event) => event.stopPropagation()}>
+      <motion.div
+        className="audit-drawer-backdrop"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onMouseDown={onClose}
+      >
+        <motion.aside
+          className="call-drawer"
+          initial={{ x: 80, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          exit={{ x: 80, opacity: 0 }}
+          onMouseDown={(event) => event.stopPropagation()}
+        >
           <div className="call-drawer-header">
             <div>
-              <span className="eyebrow">Live call workspace</span>
+              <span className="eyebrow">ReachFly AI Voice</span>
               <h2>{business}</h2>
               <p>{lead.phone || "No phone number"} · {safeHostname(lead.website) || "Website unavailable"}</p>
             </div>
@@ -3579,50 +3898,130 @@ function CallLeadDrawer({
           </div>
 
           <div className="call-status-panel">
-            <div className={`call-status-dot ${call?.status || "ready"}`} />
+            <div className={`call-status-dot ${call?.status || (ready ? "ready" : "blocked")}`} />
             <div>
-              <small>Call status</small>
-              <strong>{call?.status ? call.status.replace(/_/g, " ") : "Ready to call"}</strong>
-              <span>{policy?.reason || "ReachFly will call your phone first, then connect the lead."}</span>
+              <small>AI call status</small>
+              <strong>
+                {call?.status
+                  ? formatVoiceStatus(call.status)
+                  : ready
+                    ? "Ready to call"
+                    : "Voice Agent setup required"}
+              </strong>
+              <span>
+                {call
+                  ? "ReachFly updates the final outcome from the AI call record."
+                  : ready
+                    ? "The AI agent identifies itself as AI at the start of the call and follows the configured calling policy."
+                    : "Open Voice Agent setup to finish activation before calling."}
+              </span>
             </div>
-            <button type="button" className="btn primary call-now-button" disabled={starting || !lead.phone || policy?.canContact === false || Boolean(call?.id)} onClick={startCall}>
-              {starting ? "Starting…" : "☎ Start call"}
-            </button>
           </div>
 
-          {error ? <div className="live-results-error">{error}</div> : null}
+          {error ? <div className="live-results-error" role="alert">{error}</div> : null}
 
           <section className="call-mini-audit-embedded">
-            <header><div><span className="eyebrow">Mini audit · call intelligence</span><h3>{callMiniReport?.report?.header?.title || callMiniReport?.content?.header?.title || `${business} - Mini Audit`}</h3></div><button type="button" className="mini-audit-button" disabled={!lead.website} onClick={onOpenAudit}>Open full view <ArrowRight /></button></header>
-            {callMiniLoading ? <div className="call-mini-loading">Preparing verified talking points…</div> : (() => { const content = callMiniReport?.report || callMiniReport?.content || callMiniReport?.result || {}; const snapshot = content.snapshot || {}; const issues = content.issues || []; return <><div className="snapshot"><div><small>Website</small><b>{snapshot.website || safeHostname(lead.website)}</b></div><div><small>Platform</small><b>{snapshot.platform || "Not identified"}</b></div><div><small>Decision maker</small><b>{snapshot.decisionMaker || "Verify on call"}</b></div><div><small>Business hours</small><b>{snapshot.businessHours || "Verify on call"}</b></div></div>{issues.slice(0,4).map((issue,index)=><div className="issue" key={`${issue.tag}-${index}`}><b>{index+1}. {issue.tag}</b><p>{issue.finding}</p><p><strong>Business consequence:</strong> {issue.pain}</p></div>)}{!issues.length ? <div className="call-mini-loading">The mini audit is being generated in the background. The full view will update automatically.</div> : null}</>; })()}
+            <header>
+              <div>
+                <span className="eyebrow">Mini audit · call intelligence</span>
+                <h3>{callMiniReport?.report?.header?.title || callMiniReport?.content?.header?.title || `${business} - Mini Audit`}</h3>
+              </div>
+              <button type="button" className="mini-audit-button" disabled={!lead.website} onClick={onOpenAudit}>
+                Open full view <ArrowRight />
+              </button>
+            </header>
+            {callMiniLoading ? (
+              <div className="call-mini-loading">Preparing verified talking points…</div>
+            ) : (() => {
+              const content = callMiniReport?.report || callMiniReport?.content || callMiniReport?.result || {};
+              const snapshot = content.snapshot || {};
+              const issues = content.issues || [];
+              return (
+                <>
+                  <div className="snapshot">
+                    <div><small>Website</small><b>{snapshot.website || safeHostname(lead.website) || "Not available"}</b></div>
+                    <div><small>Platform</small><b>{snapshot.platform || "Not identified"}</b></div>
+                    <div><small>Decision maker</small><b>{snapshot.decisionMaker || "Verify on call"}</b></div>
+                    <div><small>Business hours</small><b>{snapshot.businessHours || "Verify on call"}</b></div>
+                  </div>
+                  {issues.slice(0, 4).map((issue, index) => (
+                    <div className="issue" key={`${issue.tag || "issue"}-${index}`}>
+                      <b>{index + 1}. {issue.tag || issue.title || "Finding"}</b>
+                      <p>{issue.finding || issue.description || ""}</p>
+                      <p><strong>Business consequence:</strong> {issue.pain || issue.businessImpact || "Discuss on the call"}</p>
+                    </div>
+                  ))}
+                  {!issues.length ? (
+                    <div className="call-mini-loading">The Mini Audit is not ready yet. The AI call service remains responsible for its configured business context and disclosure.</div>
+                  ) : null}
+                </>
+              );
+            })()}
           </section>
 
           <section className="call-script-card">
-            <span className="eyebrow">Call context</span>
+            <span className="eyebrow">Launch policy</span>
             <h3>{form?.niche || lead.category || "Business"} · {form?.location || lead.address || "Target market"}</h3>
-            <p>Open with one verified issue from the mini audit, confirm the business impact, then ask permission to send the full report.</p>
+            <p>
+              Calls use the saved Voice Agent policy, including suppression checks,
+              calling windows, AI disclosure and recording settings. This page does
+              not bypass those backend controls.
+            </p>
           </section>
 
-          {call?.id ? (
+          {!call ? (
             <section className="call-outcome-card">
-              <label>
-                <span>Outcome</span>
-                <select value={outcome} onChange={(event) => setOutcome(event.target.value)}>
-                  <option value="follow_up">Follow up</option>
-                  <option value="interested">Interested</option>
-                  <option value="meeting_booked">Meeting booked</option>
-                  <option value="not_interested">Not interested</option>
-                  <option value="wrong_number">Wrong number</option>
-                  <option value="no_answer">No answer</option>
-                </select>
+              <label className="option-card">
+                <input
+                  type="checkbox"
+                  checked={confirmed}
+                  onChange={(event) => setConfirmed(event.target.checked)}
+                  disabled={!ready || starting}
+                />
+                <span>
+                  <b>Confirm automated AI call</b>
+                  <small>
+                    I understand this starts an automated AI sales call. The agent
+                    identifies itself as AI and the call may be recorded when the
+                    workspace recording policy allows it.
+                  </small>
+                </span>
               </label>
-              <label>
-                <span>Call notes</span>
-                <textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Capture objections, timing, decision maker, and next step…" />
-              </label>
-              <button type="button" className="btn primary" onClick={saveOutcome}>Save call outcome</button>
+
+              <div className="flex flex-gap flex-wrap">
+                <button
+                  type="button"
+                  className="btn primary call-now-button"
+                  disabled={
+                    starting || !lead.phone || !ready || !confirmed ||
+                    (creditsKnown && aiBalance <= 0)
+                  }
+                  onClick={startCall}
+                >
+                  {starting ? "Starting AI call…" : "☎ Start AI call"}
+                </button>
+                {!ready ? (
+                  <button type="button" className="btn light" onClick={onOpenVoice}>
+                    Open Voice Agent setup
+                  </button>
+                ) : null}
+                <button type="button" className="btn light" onClick={onOpenBilling}>
+                  AI call credits: {creditsKnown ? formatCompactNumber(aiBalance) : "View"}
+                </button>
+              </div>
             </section>
-          ) : null}
+          ) : (
+            <section className="call-outcome-card">
+              <p>
+                This call is now tracked by the Voice Agent workspace. Outcomes,
+                transcripts, recordings and meetings should come from the authoritative
+                AI call record rather than a manual outcome entered here.
+              </p>
+              <button type="button" className="btn primary" onClick={onOpenVoice}>
+                Open Voice Agent workspace
+              </button>
+            </section>
+          )}
         </motion.aside>
       </motion.div>
     </AnimatePresence>
@@ -4701,15 +5100,28 @@ Should I send it over?`,
     enabled: true,
   };
 
-  if (form.goal === "email") {
-    return [emailIntro, emailFollowUp];
+  const digital =
+    form.goal === "email"
+      ? [emailIntro, emailFollowUp]
+      : form.goal === "whatsapp"
+        ? [whatsappNudge]
+        : [emailIntro, emailFollowUp, whatsappNudge];
+
+  if (!form.voiceEnabled) {
+    return digital;
   }
 
-  if (form.goal === "whatsapp") {
-    return [whatsappNudge];
-  }
-
-  return [emailIntro, emailFollowUp, whatsappNudge];
+  return [
+    {
+      name: "ReachFly AI Voice",
+      channel: "ai_voice",
+      delayMinutes: 0,
+      enabled: true,
+      disclosureRequired: true,
+      chargingRule: "connected_call_policy",
+    },
+    ...digital,
+  ];
 }
 function formatChannel(value) {
   if (value === "email") return "Email";
@@ -4725,6 +5137,88 @@ function getSelectedEmailLabel(accounts, id) {
   return account.fromEmail || account.username || account.label || "";
 }
 
+
+async function mapWithConcurrency(items, concurrency, worker) {
+  const safeItems = Array.isArray(items) ? items : [];
+  const limit = Math.max(1, Math.min(8, Number(concurrency || 1)));
+  const results = new Array(safeItems.length);
+  let cursor = 0;
+
+  async function run() {
+    while (true) {
+      const index = cursor;
+      cursor += 1;
+      if (index >= safeItems.length) return;
+      try {
+        results[index] = {
+          status: "fulfilled",
+          value: await worker(safeItems[index], index),
+        };
+      } catch (reason) {
+        results[index] = { status: "rejected", reason };
+      }
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(limit, safeItems.length || 1) }, run)
+  );
+  return results;
+}
+
+function findVoiceCallForLead(dashboard, lead, preferredId = "") {
+  const calls = Array.isArray(dashboard?.calls) ? dashboard.calls : [];
+  const preferred = String(preferredId || "").trim();
+  if (preferred) {
+    const exact = calls.find(
+      (call) => String(call?.id || call?.callId || "") === preferred
+    );
+    if (exact) return exact;
+  }
+
+  const phone = String(lead?.phone || "").replace(/\D/g, "");
+  if (!phone) return null;
+
+  return (
+    calls.find((call) => {
+      const destination = String(
+        call?.destinationNumber || call?.toNumber || call?.phone || ""
+      ).replace(/\D/g, "");
+      return destination && destination === phone;
+    }) || null
+  );
+}
+
+function isTerminalVoiceCallStatus(value) {
+  return [
+    "completed",
+    "failed",
+    "rejected",
+    "busy",
+    "unanswered",
+    "cancelled",
+    "canceled",
+    "disconnected",
+    "ended",
+  ].includes(
+    String(value || "").trim().toLowerCase().replace(/[\s-]+/g, "_")
+  );
+}
+
+function formatVoiceStatus(value) {
+  const normalized = String(value || "")
+    .trim()
+    .replace(/[_-]+/g, " ");
+  return normalized
+    ? normalized.replace(/\b\w/g, (character) => character.toUpperCase())
+    : "Unknown";
+}
+
+function formatCompactNumber(value) {
+  return new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: 2,
+  }).format(Number(value || 0));
+}
 
 function extractTeamMembers(
   response
