@@ -6,7 +6,7 @@ import {
 } from "react";
 
 import { apiRequest } from "../lib/workspace-platform-client.js";
-import "../styles/credits-billing.css";
+import "../styles.css";
 
 const PAYMENT_REFRESH_DELAYS_MS = [
   1500,
