@@ -2,10 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 import { api } from "../api";
+import { useAuth } from "../auth/AuthContext";
+import { apiRequest } from "../lib/workspace-platform-client.js";
 import {
   Clock3,
   GitBranch,
   Mail,
+  Phone,
   Rocket,
   Search,
   Settings,
@@ -18,7 +21,7 @@ const steps = [
   "Lead source",
   "Map fields",
   "Campaign setup",
-  "Review & launch",
+  "Review & save",
 ];
 
 const standardFields = [
@@ -41,15 +44,7 @@ I help startup and mid-sized businesses improve websites, connect leads into CRM
 
 Would you like me to send 2-3 quick fixes for {{company}}?`;
 
-const DEFAULT_SHEET_PITCH_FORMAT = `{{sheetPitch}}
-
-A few relevant links:
-Loom intro: https://www.loom.com/share/52001dc60f894d359eecb85814618ab2
-LinkedIn: https://www.linkedin.com/in/umair-inam-b1a064158/
-Upwork: https://www.upwork.com/freelancers/~01d25155cf2184ac9c
-
-Best,
-Muhammad Umair`;
+const DEFAULT_SHEET_PITCH_FORMAT = `{{sheetPitch}}`;
 
 const nicheRules = [
   {
@@ -193,6 +188,15 @@ const nicheRules = [
 
 export default function ExternalLeadCampaign() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const role = normalizeWorkspaceRole(
+    user?.workspaceRole ||
+      user?.role ||
+      ""
+  );
+
+  const canManage = ["owner", "admin", "manager"].includes(role);
 
   const [step, setStep] = useState(0);
   const [sourceType, setSourceType] = useState("file");
@@ -224,27 +228,87 @@ export default function ExternalLeadCampaign() {
 
   const [emailAccounts, setEmailAccounts] = useState([]);
   const [selectedEmailAccountId, setSelectedEmailAccountId] = useState("");
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [voiceWorkspace, setVoiceWorkspace] = useState(null);
+  const [billingData, setBillingData] = useState(null);
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState("");
 
   useEffect(() => {
-    api
-      .emailSettings()
-      .then((settings) => {
+    if (!canManage) {
+      setEmailAccounts([]);
+      setSelectedEmailAccountId("");
+      setVoiceWorkspace(null);
+      setBillingData(null);
+      return undefined;
+    }
+
+    let active = true;
+
+    async function loadWorkspaceReadiness() {
+      const [emailResult, voiceResult, billingResult] =
+        await Promise.allSettled([
+          api.emailSettings(),
+          apiRequest(
+            "/telnyx/ai-agent/dashboard",
+            { timeoutMs: 20_000 }
+          ),
+          apiRequest(
+            "/billing/credits",
+            { timeoutMs: 15_000 }
+          ),
+        ]);
+
+      if (!active) return;
+
+      if (emailResult.status === "fulfilled") {
+        const settings = emailResult.value || {};
         const accounts = Array.isArray(settings.accounts)
           ? settings.accounts
-          : [];
+          : settings.fromEmail || settings.username
+            ? [settings]
+            : [];
 
         setEmailAccounts(accounts);
         setSelectedEmailAccountId(
-          settings.activeAccountId || accounts[0]?.id || ""
+          settings.activeAccountId ||
+            settings.activeAccount?.id ||
+            accounts[0]?.id ||
+            ""
         );
-      })
-      .catch(() => {
+      } else {
         setEmailAccounts([]);
         setSelectedEmailAccountId("");
-      });
-  }, []);
+      }
+
+      setVoiceWorkspace(
+        voiceResult.status === "fulfilled"
+          ? voiceResult.value || null
+          : null
+      );
+
+      setBillingData(
+        billingResult.status === "fulfilled"
+          ? billingResult.value || null
+          : null
+      );
+    }
+
+    void loadWorkspaceReadiness();
+
+    return () => {
+      active = false;
+    };
+  }, [canManage]);
+
+  useEffect(() => {
+    if (!user || canManage) return;
+
+    navigate("/app/dashboard", {
+      replace: true,
+    });
+  }, [canManage, navigate, user]);
+
 
   const selectedEmailAccount = useMemo(() => {
     return (
@@ -253,8 +317,56 @@ export default function ExternalLeadCampaign() {
     );
   }, [emailAccounts, selectedEmailAccountId]);
 
+
+  const emailEnabled =
+    channel === "email" ||
+    channel === "multi-channel";
+
+  const whatsappEnabled =
+    channel === "whatsapp" ||
+    channel === "multi-channel";
+
+  const digitalEnabled =
+    emailEnabled || whatsappEnabled;
+
+  const voiceAgent =
+    voiceWorkspace?.agent || {};
+
+  const voiceDiagnostics =
+    voiceWorkspace?.diagnostics || {};
+
+  const voiceNumber =
+    voiceAgent.fromNumber ||
+    voiceDiagnostics.selectedFromNumber ||
+    "";
+
+  const voiceReady = Boolean(
+    voiceWorkspace &&
+      voiceAgent.enabled !== false &&
+      voiceAgent.complianceConfirmed === true &&
+      voiceNumber &&
+      (
+        voiceDiagnostics.configured === true ||
+        voiceWorkspace?.ready === true ||
+        voiceWorkspace?.status?.ready === true
+      )
+  );
+
+  const aiCalling =
+    billingData?.aiCalling || null;
+
+  const aiCallBalance = Number(
+    aiCalling?.wallet?.balance ??
+      aiCalling?.wallet?.available ??
+      0
+  );
+
+  const aiCallCreditsKnown =
+    Boolean(aiCalling?.wallet);
+
   const stats = useMemo(() => {
     const emailHeader = fieldMap.email;
+    const phoneHeader = fieldMap.phone;
     const companyHeader = fieldMap.company;
     const websiteHeader = fieldMap.website;
 
@@ -265,6 +377,10 @@ export default function ExternalLeadCampaign() {
     const normalizedEmails = validEmails.map((email) => email.toLowerCase());
     const duplicateEmails =
       normalizedEmails.length - new Set(normalizedEmails).size;
+
+    const validPhones = records
+      .map((row) => normalizePhone(getValue(row, phoneHeader)))
+      .filter(isCallablePhone);
 
     const companies = new Set(
       records
@@ -286,6 +402,8 @@ export default function ExternalLeadCampaign() {
       validEmails: validEmails.length,
       missingEmails: Math.max(records.length - validEmails.length, 0),
       duplicateEmails,
+      validPhones: validPhones.length,
+      missingPhones: Math.max(records.length - validPhones.length, 0),
       companies: companies.size,
       websites: websites.size,
     };
@@ -339,38 +457,95 @@ export default function ExternalLeadCampaign() {
     );
   }, [selectedSegmentKey, segments, records]);
 
-  const validImportedLeads = useMemo(() => {
-    return records
-      .map((row, index) =>
-        mapImportedLead(row, fieldMap, index, {
-          useSheetPitch: messageMode === "sheet",
-          sheetPitchFormat,
-          fallbackTemplate:
-            messageMode === "sheet"
-              ? messageTemplate || DEFAULT_SHEET_FALLBACK_MESSAGE
-              : messageTemplate,
-        })
-      )
-      .filter((lead) => isValidEmail(lead.email));
-  }, [records, fieldMap, messageMode, messageTemplate, sheetPitchFormat]);
+  const importedSegmentLeads = useMemo(() => {
+    const sourceRows =
+      Array.isArray(selectedSegment?.records)
+        ? selectedSegment.records
+        : records;
+
+    return sourceRows.map((row, index) =>
+      mapImportedLead(row, fieldMap, index, {
+        useSheetPitch: messageMode === "sheet",
+        sheetPitchFormat,
+        fallbackTemplate:
+          messageMode === "sheet"
+            ? messageTemplate || DEFAULT_SHEET_FALLBACK_MESSAGE
+            : messageTemplate,
+      })
+    );
+  }, [
+    selectedSegment,
+    records,
+    fieldMap,
+    messageMode,
+    messageTemplate,
+    sheetPitchFormat,
+  ]);
+
+  const campaignEligibleLeads = useMemo(() => {
+    return importedSegmentLeads.filter((lead) => {
+      const emailReady =
+        emailEnabled && isValidEmail(lead.email);
+
+      const phoneReady =
+        (whatsappEnabled || voiceEnabled) &&
+        isCallablePhone(lead.phone);
+
+      return emailReady || phoneReady;
+    });
+  }, [
+    importedSegmentLeads,
+    emailEnabled,
+    whatsappEnabled,
+    voiceEnabled,
+  ]);
+
+  const selectedEmailReadyCount = useMemo(
+    () =>
+      importedSegmentLeads.filter((lead) =>
+        isValidEmail(lead.email)
+      ).length,
+    [importedSegmentLeads]
+  );
+
+  const selectedPhoneReadyCount = useMemo(
+    () =>
+      importedSegmentLeads.filter((lead) =>
+        isCallablePhone(lead.phone)
+      ).length,
+    [importedSegmentLeads]
+  );
+
 
   const canContinue = useMemo(() => {
     if (step === 0) return records.length > 0;
 
     if (step === 2) {
-      const hasSubject = subjectLine.trim().length > 0;
-      const hasCustomMessage = messageTemplate.trim().length > 0;
+      const hasSubject =
+        !emailEnabled ||
+        subjectLine.trim().length > 0;
+
+      const hasCustomMessage =
+        messageTemplate.trim().length > 0;
+
       const hasSheetPitch =
+        emailEnabled &&
         messageMode === "sheet" &&
         fieldMap.sheetPitch &&
         sheetPitchStats.rowsWithPitch > 0 &&
         sheetPitchFormat.trim().length > 0 &&
         sheetPitchFormat.includes("{{sheetPitch}}");
 
+      const digitalMessageReady =
+        !digitalEnabled ||
+        hasCustomMessage ||
+        hasSheetPitch;
+
       return (
         campaignName.trim().length > 0 &&
+        (digitalEnabled || voiceEnabled) &&
         hasSubject &&
-        (hasCustomMessage || hasSheetPitch)
+        digitalMessageReady
       );
     }
 
@@ -385,7 +560,11 @@ export default function ExternalLeadCampaign() {
     fieldMap.sheetPitch,
     sheetPitchStats.rowsWithPitch,
     sheetPitchFormat,
+    emailEnabled,
+    digitalEnabled,
+    voiceEnabled,
   ]);
+
 
   const applySheet = (sheet) => {
     setSelectedSheet(sheet.name);
@@ -489,6 +668,7 @@ export default function ExternalLeadCampaign() {
     setTableSearch("");
     setCampaignName("");
     setChannel("email");
+    setVoiceEnabled(false);
     setGoal("Book meetings");
     setDailyLimit(30);
     setMessageMode("custom");
@@ -514,11 +694,11 @@ export default function ExternalLeadCampaign() {
     });
   };
 
-  const writeAiMessage = () => {
+  const writeSuggestedMessage = () => {
     setMessageMode("ai");
     setIsWritingMessage(true);
 
-    window.setTimeout(() => {
+    try {
       const draft = generateNicheEmail({
         segment: selectedSegment,
         goal,
@@ -527,21 +707,41 @@ export default function ExternalLeadCampaign() {
 
       setSubjectLine(draft.subject);
       setMessageTemplate(draft.body);
+    } finally {
       setIsWritingMessage(false);
-    }, 650);
+    }
   };
+
 
   const launchCampaign = async () => {
     try {
       setLaunchError("");
 
-      if (!selectedEmailAccountId) {
-        setLaunchError("Please select a sender email account before launching.");
+      if (!canManage) {
+        setLaunchError(
+          "Only workspace owners, administrators, and managers can create campaigns."
+        );
         return;
       }
 
-      if (!validImportedLeads.length) {
-        setLaunchError("No valid email leads found in this file.");
+      if (!digitalEnabled && !voiceEnabled) {
+        setLaunchError(
+          "Select at least one outreach path: digital follow-up or AI Voice."
+        );
+        return;
+      }
+
+      if (emailEnabled && !selectedEmailAccountId) {
+        setLaunchError(
+          "Please select a sender email account for email follow-up."
+        );
+        return;
+      }
+
+      if (!campaignEligibleLeads.length) {
+        setLaunchError(
+          "No imported leads are eligible for the selected outreach paths. Map a valid email for email outreach or a callable phone number for WhatsApp / AI Voice."
+        );
         return;
       }
 
@@ -551,8 +751,12 @@ export default function ExternalLeadCampaign() {
       }
 
       if (
+        emailEnabled &&
         messageMode === "sheet" &&
-        (!sheetPitchFormat.trim() || !sheetPitchFormat.includes("{{sheetPitch}}"))
+        (
+          !sheetPitchFormat.trim() ||
+          !sheetPitchFormat.includes("{{sheetPitch}}")
+        )
       ) {
         setLaunchError(
           "Sheet pitch email format must include {{sheetPitch}} so each row pitch can be inserted."
@@ -562,9 +766,31 @@ export default function ExternalLeadCampaign() {
 
       setLaunching(true);
 
-      const location = getImportedCampaignLocation(records, fieldMap);
+      const selectedRows =
+        Array.isArray(selectedSegment?.records)
+          ? selectedSegment.records
+          : records;
+
+      const location = getImportedCampaignLocation(
+        selectedRows,
+        fieldMap
+      );
+
       const senderEmail =
-        selectedEmailAccount?.fromEmail || selectedEmailAccount?.username || "";
+        emailEnabled
+          ? selectedEmailAccount?.fromEmail ||
+            selectedEmailAccount?.username ||
+            ""
+          : "";
+
+      const pipeline = buildExternalCampaignPipeline({
+        channel,
+        voiceEnabled,
+        messageMode,
+        subjectLine,
+        messageTemplate,
+        sheetPitchFormat,
+      });
 
       const created = await api.createCampaign({
         source: "external-import",
@@ -576,61 +802,106 @@ export default function ExternalLeadCampaign() {
         goal,
         offer: "External lead outreach campaign",
 
-        emailAccountId: selectedEmailAccountId,
+        emailAccountId:
+          emailEnabled
+            ? selectedEmailAccountId
+            : "",
         senderEmail,
 
         messageMode,
         sheetPitchField: fieldMap.sheetPitch || "",
         sheetPitchFormat,
-        usesSheetPitch: messageMode === "sheet",
+        usesSheetPitch:
+          emailEnabled &&
+          messageMode === "sheet",
 
-        limit: validImportedLeads.length,
-        totalRows: records.length,
-        validEmails: stats.validEmails,
-        missingEmails: stats.missingEmails,
+        voiceEnabled,
+        aiVoiceEnabled: voiceEnabled,
+        dailyLimit: Number(dailyLimit || 30),
+        outreachPlan: {
+          aiVoice: voiceEnabled,
+          digitalChannel: channel,
+          disclosureRequired: voiceEnabled,
+          recordingPolicy:
+            voiceEnabled
+              ? "workspace_policy"
+              : "",
+        },
+
+        limit: campaignEligibleLeads.length,
+        totalRows: selectedRows.length,
+        validEmails: selectedEmailReadyCount,
+        missingEmails: Math.max(
+          selectedRows.length - selectedEmailReadyCount,
+          0
+        ),
+        validPhones: selectedPhoneReadyCount,
+        missingPhones: Math.max(
+          selectedRows.length - selectedPhoneReadyCount,
+          0
+        ),
         duplicateEmails: stats.duplicateEmails,
         selectedSegment: selectedSegment.label,
 
-        leads: validImportedLeads,
-
-        pipeline: [
-          {
-            name:
-              messageMode === "sheet"
-                ? "Sheet personalized intro"
-                : "Imported lead intro",
-            channel: channel === "whatsapp" ? "whatsapp" : "email",
-            delayMinutes: 0,
-            subject: toPipelineTemplate(subjectLine),
-            body:
-              messageMode === "sheet"
-                ? toPipelineTemplate(sheetPitchFormat || "{{sheetPitch}}")
-                : toPipelineTemplate(messageTemplate),
-            usesLeadPersonalizedMessage: messageMode === "sheet",
-            dynamicBodyField: messageMode === "sheet" ? "firstImprovement" : "",
-            enabled: true,
-          },
-          {
-            name: "Helpful follow-up",
-            channel: "email",
-            delayMinutes: 2880,
-            subject: "Quick follow-up for {business}",
-            body:
-              "Hi {name},\n\nJust following up on my previous note about {business}.\n\nI noticed one website/lead-capture issue that may be affecting trust, conversions, or inquiries.\n\nIf useful, I can send a short 2–3 point improvement plan.\n\nShould I send it over?",
-            enabled: true,
-          },
-        ],
+        leads: campaignEligibleLeads,
+        pipeline,
       });
 
-      navigate(`/app/campaigns/${created.id}/pipeline`);
+      const campaignId =
+        created?.id ||
+        created?.campaign?.id ||
+        "";
+
+      if (!campaignId) {
+        throw new Error(
+          "The campaign was saved without a campaign ID."
+        );
+      }
+
+      navigate(
+        `/app/campaigns/${campaignId}/pipeline`
+      );
     } catch (error) {
-      setLaunchError(error.message || "Could not launch campaign.");
+      setLaunchError(
+        error?.message ||
+          "Could not save the campaign."
+      );
     } finally {
       setLaunching(false);
     }
   };
 
-  const firstRecord = records[0] || {};
+
+  const firstRecord = selectedSegment?.records?.[0] || records[0] || {};
+
+  if (!canManage) {
+    return (
+      <div className="page">
+        <div className="card">
+          <span className="eyebrow">
+            Restricted workspace feature
+          </span>
+          <h1>
+            Campaign management access required
+          </h1>
+          <p className="text-muted">
+            External lead imports and campaign creation are available to workspace owners, administrators, and managers.
+          </p>
+          <button
+            type="button"
+            className="btn primary mt16"
+            onClick={() =>
+              navigate("/app/dashboard", {
+                replace: true,
+              })
+            }
+          >
+            Return to dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="external-campaign-page">
@@ -639,9 +910,10 @@ export default function ExternalLeadCampaign() {
           <span className="eyebrow">External lead campaigns</span>
           <h1>Run campaigns from your own lead lists</h1>
           <p>
-            Upload any Excel/CSV file, preview every row and column, map fields
-            dynamically, detect lead niches, generate relevant campaign messages,
-            choose a sender email, and launch into the pipeline builder.
+            Upload an Excel/CSV lead list, map email and phone fields, segment the
+            audience, configure digital follow-up and optional AI Voice, then save
+            the campaign into the same pipeline and Voice Agent workflow used by
+            discovered leads.
           </p>
         </div>
 
@@ -674,8 +946,8 @@ export default function ExternalLeadCampaign() {
             <div>
               <h2>Choose lead source</h2>
               <p>
-                Start from a spreadsheet or connect a source where your leads
-                already live.
+                Start from a spreadsheet. Connector-based imports are shown as
+                unavailable until a real connector API is wired.
               </p>
             </div>
           </div>
@@ -702,19 +974,19 @@ export default function ExternalLeadCampaign() {
 
             <button
               type="button"
-              onClick={() => setSourceType("external")}
-              className={`external-source-card ${
-                sourceType === "external" ? "active" : ""
-              }`}
+              className="external-source-card"
+              disabled
+              title="Connector import is not enabled in this build."
             >
               <span>
                 <GitBranch />
               </span>
               <div>
-                <b>External source</b>
+                <b>Connected source</b>
                 <small>
-                  Connect Google Sheets, Airtable, Apollo export, CRM, webhook,
-                  API, or another external database.
+                  Connector-based imports are not enabled in this build. Use Excel
+                  or CSV so the page only offers an import path that is actually
+                  available.
                 </small>
               </div>
             </button>
@@ -756,21 +1028,12 @@ export default function ExternalLeadCampaign() {
               )}
             </>
           ) : (
-            <div className="external-integration-grid">
-              {[
-                "Google Sheets",
-                "Airtable",
-                "Webhook / API",
-                "CRM Export",
-              ].map((item) => (
-                <button key={item} type="button">
-                  <span>
-                    <Settings />
-                  </span>
-                  <b>{item}</b>
-                  <small>Import and sync leads from {item}.</small>
-                </button>
-              ))}
+            <div className="external-warning">
+              <GitBranch />
+              <div>
+                <b>Connected imports are not enabled.</b>
+                <p>Use Excel or CSV for this campaign. This screen does not claim an external connector until a real connector API is wired.</p>
+              </div>
             </div>
           )}
         </div>
@@ -836,11 +1099,22 @@ export default function ExternalLeadCampaign() {
                 </label>
 
                 <label className="field">
-                  <span>Outreach channel</span>
+                  <span>Digital follow-up</span>
                   <select
                     value={channel}
-                    onChange={(event) => setChannel(event.target.value)}
+                    onChange={(event) => {
+                      const nextChannel = event.target.value;
+                      setChannel(nextChannel);
+
+                      if (
+                        nextChannel === "whatsapp" &&
+                        messageMode === "sheet"
+                      ) {
+                        setMessageMode("custom");
+                      }
+                    }}
                   >
+                    <option value="none">No digital follow-up</option>
                     <option value="email">Email</option>
                     <option value="whatsapp">WhatsApp</option>
                     <option value="multi-channel">Email + WhatsApp</option>
@@ -863,7 +1137,7 @@ export default function ExternalLeadCampaign() {
                 </label>
 
                 <label className="field">
-                  <span>Daily sending limit</span>
+                  <span>Digital daily limit</span>
                   <input
                     type="number"
                     min="1"
@@ -874,6 +1148,99 @@ export default function ExternalLeadCampaign() {
                 </label>
               </div>
 
+              <div className="external-card">
+                <div className="external-card-head">
+                  <div>
+                    <h3>ReachFly AI Voice</h3>
+                    <p>
+                      Optionally call imported leads that have a mapped phone
+                      number. Calls use the dedicated Voice Agent workflow,
+                      calling policy, and AI call-credit wallet.
+                    </p>
+                  </div>
+                  <Phone />
+                </div>
+
+                <label className="field">
+                  <span>AI Voice calling</span>
+                  <select
+                    value={voiceEnabled ? "enabled" : "disabled"}
+                    onChange={(event) =>
+                      setVoiceEnabled(
+                        event.target.value === "enabled"
+                      )
+                    }
+                  >
+                    <option value="disabled">Not enabled</option>
+                    <option value="enabled">Enable AI Voice stage</option>
+                  </select>
+                </label>
+
+                <div className="external-summary-grid">
+                  <SummaryItem
+                    label="Voice Agent"
+                    value={
+                      voiceReady
+                        ? "Ready"
+                        : "Setup required"
+                    }
+                  />
+                  <SummaryItem
+                    label="Business number"
+                    value={
+                      voiceNumber ||
+                      "Not selected"
+                    }
+                  />
+                  <SummaryItem
+                    label="Phone-ready leads"
+                    value={selectedPhoneReadyCount}
+                  />
+                  <SummaryItem
+                    label="AI call credits"
+                    value={
+                      aiCallCreditsKnown
+                        ? aiCallBalance
+                        : "Not available"
+                    }
+                  />
+                </div>
+
+                {voiceEnabled ? (
+                  <div className="external-warning">
+                    <Phone />
+                    <div>
+                      <b>
+                        Automated AI calling disclosure is required.
+                      </b>
+                      <p>
+                        The Voice Agent must identify itself as an AI sales agent.
+                        Recording behavior follows the workspace recording policy.
+                        Voice call limits come from Voice Agent settings, not the
+                        digital daily limit above. Saving this campaign does not
+                        bypass calling windows, suppression rules, number
+                        verification, or call-credit checks.
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="flex flex-gap mt16">
+                  <Link
+                    className="btn light"
+                    to="/app/voice-agent"
+                  >
+                    Voice Agent
+                  </Link>
+                  <Link
+                    className="btn light"
+                    to="/app/billing"
+                  >
+                    Credits &amp; usage
+                  </Link>
+                </div>
+              </div>
+
               <LeadSegmentPanel
                 records={records}
                 segments={segments}
@@ -881,10 +1248,11 @@ export default function ExternalLeadCampaign() {
                 setSelectedSegmentKey={setSelectedSegmentKey}
               />
 
+              {digitalEnabled ? (
               <div className="external-message-composer">
                 <div className="external-message-head">
                   <div>
-                    <h3>Campaign message</h3>
+                    <h3>Digital follow-up message</h3>
                     <p>
                       Write your own message, let ReachFly AI create one, or use
                       a personalized pitch directly from your uploaded sheet.
@@ -905,9 +1273,10 @@ export default function ExternalLeadCampaign() {
                       className={messageMode === "ai" ? "active" : ""}
                       onClick={() => setMessageMode("ai")}
                     >
-                      AI writer
+                      Smart template
                     </button>
 
+                    {emailEnabled ? (
                     <button
                       type="button"
                       className={messageMode === "sheet" ? "active" : ""}
@@ -925,19 +1294,20 @@ export default function ExternalLeadCampaign() {
                     >
                       Sheet pitch
                     </button>
+                    ) : null}
                   </div>
                 </div>
 
                 {messageMode === "ai" && (
                   <div className="external-ai-writer">
                     <label className="field">
-                      <span>AI instructions</span>
+                      <span>Template guidance</span>
                       <textarea
                         value={aiInstruction}
                         onChange={(event) =>
                           setAiInstruction(event.target.value)
                         }
-                        placeholder="Tell AI what kind of pitch to write..."
+                        placeholder="Describe the tone or focus for the starter template..."
                       />
                     </label>
 
@@ -948,8 +1318,8 @@ export default function ExternalLeadCampaign() {
                       <div>
                         <b>{selectedSegment.label}</b>
                         <small>
-                          AI will write for this segment using mapped fields,
-                          niche signal, location, company, website, and notes.
+                          This screen uses a deterministic niche template based on
+                          the selected segment. It does not call a generative model.
                         </small>
                       </div>
                     </div>
@@ -957,13 +1327,13 @@ export default function ExternalLeadCampaign() {
                     <button
                       type="button"
                       className="btn primary"
-                      onClick={writeAiMessage}
+                      onClick={writeSuggestedMessage}
                       disabled={isWritingMessage}
                     >
                       <Zap />
                       {isWritingMessage
-                        ? "Writing message..."
-                        : "AI write best message"}
+                        ? "Preparing template..."
+                        : "Generate starter template"}
                     </button>
                   </div>
                 )}
@@ -1047,14 +1417,16 @@ export default function ExternalLeadCampaign() {
                   </div>
                 )}
 
-                <label className="field external-message-field">
-                  <span>Subject line</span>
-                  <input
-                    value={subjectLine}
-                    onChange={(event) => setSubjectLine(event.target.value)}
-                    placeholder="Quick idea for {{company}}"
-                  />
-                </label>
+                {emailEnabled ? (
+                  <label className="field external-message-field">
+                    <span>Subject line</span>
+                    <input
+                      value={subjectLine}
+                      onChange={(event) => setSubjectLine(event.target.value)}
+                      placeholder="Quick idea for {{company}}"
+                    />
+                  </label>
+                ) : null}
 
                 <label className="field external-message-field">
                   <span>
@@ -1114,6 +1486,19 @@ export default function ExternalLeadCampaign() {
                   </p>
                 </div>
               </div>
+              ) : (
+                <div className="external-warning">
+                  <Phone />
+                  <div>
+                    <b>No digital follow-up selected.</b>
+                    <p>
+                      This campaign will save the imported lead context for AI Voice.
+                      Email and WhatsApp execution remain disabled until you add a
+                      digital stage in Pipeline Builder.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1124,9 +1509,14 @@ export default function ExternalLeadCampaign() {
               <div className="external-data-health">
                 <SummaryItem label="Total leads" value={stats.total} />
                 <SummaryItem label="Valid emails" value={stats.validEmails} />
+                <SummaryItem label="Callable phones" value={stats.validPhones} />
                 <SummaryItem
                   label="Missing emails"
                   value={stats.missingEmails}
+                />
+                <SummaryItem
+                  label="Missing phones"
+                  value={stats.missingPhones}
                 />
                 <SummaryItem
                   label="Duplicates"
@@ -1172,19 +1562,32 @@ export default function ExternalLeadCampaign() {
             <div>
               <h2>Review and launch</h2>
               <p>
-                Confirm the campaign setup, select a sender email, and launch
-                this imported lead list into the pipeline builder.
+                Confirm contact eligibility and outreach readiness, then save this
+                imported campaign into Pipeline Builder. AI Voice execution remains
+                in the dedicated Voice Agent workflow.
               </p>
             </div>
           </div>
 
           <div className="external-summary-grid">
             <SummaryItem label="Campaign" value={campaignName || "Untitled"} />
-            <SummaryItem label="Channel" value={channel} />
+            <SummaryItem label="Digital follow-up" value={formatDigitalChannel(channel)} />
+            <SummaryItem
+              label="AI Voice"
+              value={
+                voiceEnabled
+                  ? voiceReady
+                    ? "Enabled · ready"
+                    : "Enabled · setup required"
+                  : "Not enabled"
+              }
+            />
             <SummaryItem label="Goal" value={goal} />
-            <SummaryItem label="Daily limit" value={dailyLimit} />
-            <SummaryItem label="Total leads" value={stats.total} />
-            <SummaryItem label="Valid emails" value={stats.validEmails} />
+            <SummaryItem label="Digital daily limit" value={dailyLimit} />
+            <SummaryItem label="Selected rows" value={importedSegmentLeads.length} />
+            <SummaryItem label="Email-ready" value={selectedEmailReadyCount} />
+            <SummaryItem label="Phone-ready" value={selectedPhoneReadyCount} />
+            <SummaryItem label="Campaign-ready" value={campaignEligibleLeads.length} />
             <SummaryItem label="Selected segment" value={selectedSegment.label} />
             <SummaryItem
               label="Message source"
@@ -1192,16 +1595,18 @@ export default function ExternalLeadCampaign() {
                 messageMode === "sheet"
                   ? "Personalized pitch from sheet"
                   : messageMode === "ai"
-                  ? "AI writer"
+                  ? "Smart niche template"
                   : "Custom message"
               }
             />
             <SummaryItem
               label="Sender"
               value={
-                selectedEmailAccount?.fromEmail ||
-                selectedEmailAccount?.username ||
-                "Not selected"
+                emailEnabled
+                  ? selectedEmailAccount?.fromEmail ||
+                    selectedEmailAccount?.username ||
+                    "Not selected"
+                  : "Not required"
               }
             />
           </div>
@@ -1210,12 +1615,21 @@ export default function ExternalLeadCampaign() {
             <div>
               <h3>Sender email account</h3>
               <p>
-                Choose which configured email account should be linked to this
-                campaign before it moves to the pipeline builder.
+                {emailEnabled
+                  ? "Choose the configured email account for email stages."
+                  : "Email is not selected, so no sender account is required."}
               </p>
             </div>
 
-            {emailAccounts.length ? (
+            {!emailEnabled ? (
+              <div className="external-email-empty">
+                <Mail />
+                <div>
+                  <b>No sender required</b>
+                  <small>Add an email stage later in Pipeline Builder if needed.</small>
+                </div>
+              </div>
+            ) : emailAccounts.length ? (
               <label className="field">
                 <span>Send from</span>
                 <select
@@ -1249,33 +1663,84 @@ export default function ExternalLeadCampaign() {
 
           {launchError ? <div className="error-banner">{launchError}</div> : null}
 
-          <div className="external-message-preview">
-            <h3>Final message preview</h3>
-            <small>Subject</small>
-            <b>{personalizeMessage(subjectLine, firstRecord, fieldMap)}</b>
-            <p>
-              {getPreviewBody({
-                messageMode,
-                messageTemplate,
-                sheetPitchFormat,
-                row: firstRecord,
-                fieldMap,
-              })}
-            </p>
-          </div>
+          {digitalEnabled ? (
+            <div className="external-message-preview">
+              <h3>Digital message preview</h3>
+              {emailEnabled ? (
+                <>
+                  <small>Subject</small>
+                  <b>{personalizeMessage(subjectLine, firstRecord, fieldMap)}</b>
+                </>
+              ) : null}
+              <p>
+                {getPreviewBody({
+                  messageMode,
+                  messageTemplate,
+                  sheetPitchFormat,
+                  row: firstRecord,
+                  fieldMap,
+                })}
+              </p>
+            </div>
+          ) : null}
 
-          {stats.missingEmails > 0 && (
+          {emailEnabled && selectedEmailReadyCount < importedSegmentLeads.length ? (
             <div className="external-warning">
               <Clock3 />
               <div>
-                <b>{stats.missingEmails} leads do not have valid emails.</b>
+                <b>
+                  {importedSegmentLeads.length - selectedEmailReadyCount} selected leads do not have valid emails.
+                </b>
                 <p>
-                  These records can still stay in your list, but email outreach
-                  will only run for leads with valid email addresses.
+                  They are kept only when another selected path, such as AI Voice
+                  or WhatsApp, has a usable phone number.
                 </p>
               </div>
             </div>
-          )}
+          ) : null}
+
+          {(voiceEnabled || whatsappEnabled) &&
+          selectedPhoneReadyCount < importedSegmentLeads.length ? (
+            <div className="external-warning">
+              <Phone />
+              <div>
+                <b>
+                  {importedSegmentLeads.length - selectedPhoneReadyCount} selected leads do not have callable phone numbers.
+                </b>
+                <p>
+                  AI Voice and WhatsApp can only use records with a mapped,
+                  callable phone number.
+                </p>
+              </div>
+            </div>
+          ) : null}
+
+          {voiceEnabled && !voiceReady ? (
+            <div className="external-warning">
+              <Phone />
+              <div>
+                <b>AI Voice setup is not launch-ready.</b>
+                <p>
+                  You can save the campaign and configure its sequence, but complete
+                  the Voice Agent identity, verified business number, compliance
+                  confirmation, and activation before starting calls.
+                </p>
+              </div>
+            </div>
+          ) : null}
+
+          {voiceEnabled && aiCallCreditsKnown && aiCallBalance <= 0 ? (
+            <div className="external-warning">
+              <Clock3 />
+              <div>
+                <b>No AI call credits are currently available.</b>
+                <p>
+                  Saving the campaign is still allowed. Calls remain blocked by the
+                  Voice Agent until the dedicated AI call-credit wallet is funded.
+                </p>
+              </div>
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -1297,7 +1762,7 @@ export default function ExternalLeadCampaign() {
               ? "Edit sheet pitch format or fallback message"
               : "Add a subject and campaign message"
             : step === 3
-            ? `${validImportedLeads.length} valid email leads will be saved`
+            ? `${campaignEligibleLeads.length} campaign-ready leads will be saved`
             : ""}
         </span>
 
@@ -1315,10 +1780,16 @@ export default function ExternalLeadCampaign() {
             type="button"
             className="btn primary"
             onClick={launchCampaign}
-            disabled={launching || !selectedEmailAccountId}
+            disabled={
+              launching ||
+              !campaignEligibleLeads.length ||
+              (emailEnabled && !selectedEmailAccountId)
+            }
           >
             <Rocket />
-            {launching ? "Saving campaign..." : "Launch campaign"}
+            {launching
+              ? "Saving campaign..."
+              : "Save campaign & open pipeline"}
           </button>
         )}
       </div>
@@ -1366,6 +1837,7 @@ function LeadPreview({
         <RecordStat label="Rows" value={stats.total} />
         <RecordStat label="Columns" value={stats.columns} />
         <RecordStat label="Valid emails" value={stats.validEmails} />
+        <RecordStat label="Callable phones" value={stats.validPhones} />
         <RecordStat label="Companies" value={stats.companies} />
       </div>
 
@@ -1436,8 +1908,8 @@ function LeadSegmentPanel({
         <div>
           <h3>Detected lead segments</h3>
           <p>
-            ReachFly groups leads by niche so the AI writer can create a more
-            relevant email instead of sending one generic pitch to everyone.
+            ReachFly groups leads by niche so the starter message can be more
+            relevant instead of using one generic pitch for every audience.
           </p>
         </div>
       </div>
@@ -1519,7 +1991,11 @@ function MappedLeadPreview({ records, fieldMap }) {
                   <em>{niche.label}</em>
                 </div>
 
-                <p>{primaryEmail || rawEmail || "No email"}</p>
+                <p>
+                  {primaryEmail || rawEmail || "No email"}
+                  {" · "}
+                  {getValue(row, fieldMap.phone) || "No phone"}
+                </p>
 
                 <div>
                   <small>Company</small>
@@ -1821,7 +2297,7 @@ function mapImportedLead(row, fieldMap, index, options = {}) {
     emailRaw: rawEmail,
     emailCandidates: extractEmails(rawEmail),
 
-    phone: getValue(row, fieldMap.phone),
+    phone: normalizePhone(getValue(row, fieldMap.phone)),
     website: getValue(row, fieldMap.website),
     address: location,
     location,
@@ -1853,8 +2329,148 @@ function mapImportedLead(row, fieldMap, index, options = {}) {
     pipelineStatus: "new",
     timeline: [],
     stageStatus: {},
-    signals: ["external_import", "email_found"],
+    signals: [
+      "external_import",
+      ...(primaryEmail ? ["email_found"] : []),
+      ...(isCallablePhone(
+        normalizePhone(getValue(row, fieldMap.phone))
+      )
+        ? ["phone_found"]
+        : []),
+    ],
   };
+}
+
+
+function normalizePhone(value) {
+  const raw = formatCell(value);
+
+  if (!raw) return "";
+
+  const hasPlus = raw.trim().startsWith("+");
+  const digits = raw.replace(/\D/g, "");
+
+  if (!digits) return "";
+
+  return `${hasPlus ? "+" : ""}${digits}`;
+}
+
+function isCallablePhone(value) {
+  const digits = normalizePhone(value).replace(/\D/g, "");
+  return digits.length >= 7 && digits.length <= 15;
+}
+
+function formatDigitalChannel(value) {
+  if (value === "email") return "Email";
+  if (value === "whatsapp") return "WhatsApp";
+  if (value === "multi-channel") return "Email + WhatsApp";
+  return "None";
+}
+
+function buildExternalCampaignPipeline({
+  channel,
+  voiceEnabled,
+  messageMode,
+  subjectLine,
+  messageTemplate,
+  sheetPitchFormat,
+}) {
+  const stages = [];
+  const emailEnabled =
+    channel === "email" ||
+    channel === "multi-channel";
+  const whatsappEnabled =
+    channel === "whatsapp" ||
+    channel === "multi-channel";
+
+  if (voiceEnabled) {
+    stages.push({
+      name: "ReachFly AI Voice",
+      channel: "ai_voice",
+      delayMinutes: 0,
+      subject: "",
+      body:
+        "Use the imported lead profile, mapped business context, notes, and campaign goal as Voice Agent context.",
+      enabled: true,
+      executionMode: "voice_agent",
+      disclosureRequired: true,
+      recordingPolicy: "workspace_policy",
+    });
+  }
+
+  if (emailEnabled) {
+    stages.push({
+      name:
+        messageMode === "sheet"
+          ? "Sheet personalized intro"
+          : "Imported lead intro",
+      channel: "email",
+      delayMinutes: 0,
+      subject: toPipelineTemplate(subjectLine),
+      body:
+        messageMode === "sheet"
+          ? toPipelineTemplate(
+              sheetPitchFormat || "{{sheetPitch}}"
+            )
+          : toPipelineTemplate(messageTemplate),
+      usesLeadPersonalizedMessage:
+        messageMode === "sheet",
+      dynamicBodyField:
+        messageMode === "sheet"
+          ? "firstImprovement"
+          : "",
+      enabled: true,
+    });
+
+    stages.push({
+      name: "Helpful email follow-up",
+      channel: "email",
+      delayMinutes: 2880,
+      subject: "Quick follow-up for {business}",
+      body:
+        "Hi {name},\n\nJust following up on my previous note about {business}.\n\nIf useful, I can send a short 2–3 point improvement plan.\n\nShould I send it over?",
+      enabled: true,
+    });
+  }
+
+  if (whatsappEnabled) {
+    stages.push({
+      name: "Short WhatsApp follow-up",
+      channel: "whatsapp",
+      delayMinutes:
+        emailEnabled ? 1440 : 0,
+      subject: "",
+      body:
+        toPipelineTemplate(messageTemplate) ||
+        "Hi {name}, I noticed one opportunity for {business}. Want me to send the quick notes?",
+      enabled: true,
+    });
+  }
+
+  return stages;
+}
+
+function normalizeWorkspaceRole(value) {
+  const role = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_")
+    .replace(/-/g, "_");
+
+  if (role.includes("owner")) return "owner";
+  if (role.includes("admin")) return "admin";
+  if (role.includes("manager")) return "manager";
+  if (
+    role === "caller" ||
+    role.includes("cold_caller") ||
+    role.includes("sales_representative") ||
+    role.includes("sales_rep") ||
+    role.includes("telemarketer")
+  ) {
+    return "caller";
+  }
+
+  return role || "caller";
 }
 
 function getImportedCampaignLocation(records, fieldMap) {
