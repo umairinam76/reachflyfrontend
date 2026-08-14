@@ -653,17 +653,15 @@ function DashboardRoute() {
 }
 
 /**
- * Campaign-management route.
+ * Manager-only route.
  *
- * Owners, administrators and managers can manage:
+ * Used for:
  * - lead generation
  * - campaigns
  * - lead assignment pages
  * - pipelines
  * - territories
  * - campaign contacts
- *
- * Callers remain restricted to their assigned-work surfaces.
  */
 function ManagerOnlyRoute({
   children,
@@ -727,27 +725,56 @@ function WorkspaceManagementRoute({
 }
 
 /**
- * Customer Voice Agent route.
+ * Paid AI voice-agent route.
  *
- * Voice Agent is a workspace product surface, not a CodeSync-internal page.
- * Owners, administrators and managers may open it. Backend workspace,
- * entitlement, telephony and billing checks remain authoritative.
+ * Customer workspaces are allowed here. Commercial access is enforced by the
+ * backend: owners/admins can purchase numbers and call credits, managers may
+ * operate configured Voice Agents, and individual accounts may manage their
+ * own paid Voice Agent.
  */
 function VoiceAgentRoute({
   children,
 }) {
-  return (
-    <RoleAccess
-      allowedRoles={[
-        "owner",
-        "admin",
-        "manager",
-      ]}
-      fallbackPath="/app/dashboard"
-    >
-      {children}
-    </RoleAccess>
+  const { user, initializing } = useAuth();
+
+  if (initializing) {
+    return (
+      <div className="route-loading-state">
+        Loading voice agent…
+      </div>
+    );
+  }
+
+  const role = normalizeRole(
+    user?.workspaceRole ||
+      user?.role ||
+      "caller"
   );
+  const accountType = String(
+    user?.accountType ||
+      user?.workspaceType ||
+      ""
+  )
+    .trim()
+    .toLowerCase();
+
+  const allowedRole = [
+    "owner",
+    "admin",
+    "manager",
+  ].includes(role);
+  const individual = accountType === "individual";
+
+  if (!allowedRole && !individual) {
+    return (
+      <Navigate
+        to="/app/dashboard"
+        replace
+      />
+    );
+  }
+
+  return children;
 }
 
 function CodesyncAdminRoute({ children }) {
@@ -770,24 +797,8 @@ function isCodesyncWorkspace(user) {
     user?.companyName,
   ]
     .filter(Boolean)
-    .map((value) =>
-      String(value)
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "_")
-        .replace(/^_+|_+$/g, "")
-    );
-
-  const email = String(user?.email || "")
-    .trim()
-    .toLowerCase();
-
-  return (
-    values.includes("codesync_labs_workspace") ||
-    values.includes("codesync_labs") ||
-    values.includes("codesynclabs") ||
-    email.endsWith("@codesynclabs.com")
-  );
+    .map((value) => String(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, ""));
+  return values.includes("codesync_labs_workspace") || values.includes("codesync_labs") || values.includes("codesynclabs");
 }
 
 

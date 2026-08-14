@@ -130,7 +130,7 @@ export default function AppShell() {
     isAdmin;
 
   const canManageCampaigns =
-    canManageWorkspace;
+    isManager;
 
   const canViewAllAnalytics =
     isOwner ||
@@ -143,8 +143,18 @@ export default function AppShell() {
     isManager;
 
   const canViewContacts =
-    canManageWorkspace ||
+    isManager ||
     isCaller;
+
+  const isIndividualAccount =
+    String(
+      user?.accountType ||
+        user?.workspaceType ||
+        ""
+    )
+      .trim()
+      .toLowerCase() ===
+    "individual";
 
   const isAhGrowthWorkspace =
     useMemo(
@@ -190,63 +200,8 @@ export default function AppShell() {
 
   const canUseVoiceAgent =
     !isAhGrowthWorkspace &&
-    canManageWorkspace;
-
-  const isCodesyncWorkspace =
-    useMemo(
-      () => {
-        const values = [
-          user?.workspaceId,
-          user?.companyId,
-          user?.workspaceSlug,
-          user?.companySlug,
-          user?.workspaceName,
-          user?.companyName,
-        ]
-          .filter(Boolean)
-          .map((value) =>
-            String(value)
-              .trim()
-              .toLowerCase()
-              .replace(/[^a-z0-9]+/g, "_")
-              .replace(/^_+|_+$/g, "")
-          );
-
-        const email = String(
-          user?.email || ""
-        )
-          .trim()
-          .toLowerCase();
-
-        return (
-          values.includes(
-            "codesync_labs_workspace"
-          ) ||
-          values.includes(
-            "codesync_labs"
-          ) ||
-          values.includes(
-            "codesynclabs"
-          ) ||
-          email.endsWith(
-            "@codesynclabs.com"
-          )
-        );
-      },
-      [
-        user?.workspaceId,
-        user?.companyId,
-        user?.workspaceSlug,
-        user?.companySlug,
-        user?.workspaceName,
-        user?.companyName,
-        user?.email,
-      ]
-    );
-
-  const canUsePlatformAdmin =
-    isCodesyncWorkspace &&
-    (isOwner || isAdmin);
+    (canManageWorkspace ||
+      isIndividualAccount);
 
   useEffect(() => {
     if (!user?.id) {
@@ -801,26 +756,6 @@ export default function AppShell() {
         ],
       });
 
-      if (canUsePlatformAdmin) {
-        groups.push({
-          label: "Platform",
-
-          items: [
-            {
-              label:
-                "Platform admin",
-              to:
-                "/app/platform-admin",
-              icon:
-                Building2,
-              matchPrefix:
-                "/app/platform-admin",
-              visible: true,
-            },
-          ],
-        });
-      }
-
       groups.push({
         label: "Intelligence",
 
@@ -862,17 +797,6 @@ export default function AppShell() {
         label: "Account",
 
         items: [
-          {
-            label:
-              "Credits & usage",
-            to: "/app/billing",
-            icon: Building2,
-            matchPrefix:
-              "/app/billing",
-            visible:
-              canManageCompanySettings,
-          },
-
           {
             label:
               "Profile settings",
@@ -922,7 +846,6 @@ export default function AppShell() {
       canViewContacts,
       canViewInbox,
       canUseVoiceAgent,
-      canUsePlatformAdmin,
       counters,
       isCaller,
       isManager,

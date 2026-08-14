@@ -8,6 +8,7 @@ import {
 
 import {
   Navigate,
+  useSearchParams,
 } from "react-router-dom";
 
 import {
@@ -60,7 +61,7 @@ const DEFAULT_FORM = {
   dailyCallLimit: 25,
   concurrency: 1,
   maxAttempts: 3,
-  maxCallSeconds: 600,
+  maxCallSeconds: 300,
   ringTimeoutSeconds: 45,
   recordingEnabled: false,
   enabled: true,
@@ -107,10 +108,14 @@ const LIVE_CALL_STATES = new Set([
 
 export default function TelnyxAIAgentPage() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const onboardingMode = searchParams.get("onboarding") === "1";
   const refreshTimerRef = useRef(null);
   const mountedRef = useRef(true);
 
   const [dashboard, setDashboard] = useState(null);
+  const [voiceCommerce, setVoiceCommerce] = useState(null);
+  const [billingData, setBillingData] = useState(null);
   const [voices, setVoices] = useState([]);
   const [elevenLabsAgents, setElevenLabsAgents] = useState([]);
   const [form, setForm] = useState(DEFAULT_FORM);
@@ -193,6 +198,48 @@ export default function TelnyxAIAgentPage() {
     },
     []
   );
+
+  const loadVoiceCommerce = useCallback(async () => {
+    try {
+      const response = await apiRequest(
+        "/voice-commerce",
+        { timeoutMs: 20_000 }
+      );
+      if (!mountedRef.current) return null;
+      setVoiceCommerce(response);
+      return response;
+    } catch (requestError) {
+      if (!mountedRef.current) return null;
+      if (![403, 404].includes(Number(requestError?.status))) {
+        setError(
+          requestError?.message ||
+            "Business-number purchase status could not be loaded."
+        );
+      }
+      return null;
+    }
+  }, []);
+
+  const loadBillingData = useCallback(async () => {
+    try {
+      const response = await apiRequest(
+        "/billing/credits",
+        { timeoutMs: 20_000 }
+      );
+      if (!mountedRef.current) return null;
+      setBillingData(response);
+      return response;
+    } catch (requestError) {
+      if (!mountedRef.current) return null;
+      if (![403, 404].includes(Number(requestError?.status))) {
+        setError(
+          requestError?.message ||
+            "AI call-credit balance could not be loaded."
+        );
+      }
+      return null;
+    }
+  }, []);
 
   const loadVoices = useCallback(async () => {
     try {
@@ -285,6 +332,8 @@ export default function TelnyxAIAgentPage() {
     mountedRef.current = true;
     void Promise.all([
       loadDashboard(),
+      loadVoiceCommerce(),
+      loadBillingData(),
       loadVoices(),
       loadElevenLabsAgents(),
     ]);
@@ -293,13 +342,23 @@ export default function TelnyxAIAgentPage() {
       mountedRef.current = false;
       window.clearTimeout(refreshTimerRef.current);
     };
-  }, [loadDashboard, loadVoices, loadElevenLabsAgents]);
+  }, [
+    loadDashboard,
+    loadVoiceCommerce,
+    loadBillingData,
+    loadVoices,
+    loadElevenLabsAgents,
+  ]);
 
   useEffect(() => {
     const scheduleSilentRefresh = () => {
       window.clearTimeout(refreshTimerRef.current);
       refreshTimerRef.current = window.setTimeout(() => {
-        void loadDashboard({ silent: true });
+        void Promise.all([
+          loadDashboard({ silent: true }),
+          loadVoiceCommerce(),
+          loadBillingData(),
+        ]);
       }, 250);
     };
 
@@ -307,6 +366,8 @@ export default function TelnyxAIAgentPage() {
       "telnyx-ai-agent:updated",
       "telnyx-ai-agent:call-updated",
       "telnyx-ai-agent:meeting-booked",
+      "voice-commerce:number-active",
+      "billing:ai-call-credits-updated",
       "lead:updated",
     ];
     const unsubscribers = events.map((eventName) =>
@@ -315,7 +376,11 @@ export default function TelnyxAIAgentPage() {
 
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
-        void loadDashboard({ silent: true });
+        void Promise.all([
+          loadDashboard({ silent: true }),
+          loadVoiceCommerce(),
+          loadBillingData(),
+        ]);
       }
     };
     document.addEventListener(
@@ -332,7 +397,136 @@ export default function TelnyxAIAgentPage() {
         handleVisibility
       );
     };
-  }, [loadDashboard]);
+  }, [loadDashboard, loadVoiceCommerce, loadBillingData]);
+
+  useEffect(() => {
+    if (onboardingMode) {
+      setActiveTab("setup");
+    }
+  }, [onboardingMode]);
+
+  useEffect(() => {
+    const numberPayment = searchParams.get("numberPayment");
+    const orderId = searchParams.get("order");
+    const voicePayment = searchParams.get("voicePayment");
+    let cancelled = false;
+
+    const clearCommerceReturnParams = (...names) => {
+      const next = new URLSearchParams(searchParams);
+      names.forEach((name) => next.delete(name));
+      setSearchParams(next, { replace: true });
+    };
+
+    async function pollNumberOrder() {
+      if (numberPayment === "cancelled") {
+        setSuccess("");
+        setError("Business-number purchase was cancelled. No number was provisioned.");
+        clearCommerceReturnParams("numberPayment", "order");
+        return;
+      }
+
+      if (numberPayment !== "success" || !orderId) return;
+
+      setError("");
+      setSuccess(
+        "Payment returned successfully. ReachFly is verifying payment and provisioning your business number."
+      );
+
+      for (let attempt = 0; attempt < 30 && !cancelled; attempt += 1) {
+        try {
+          const response = await apiRequest(
+            `/voice-commerce/orders/${encodeURIComponent(orderId)}`,
+            { timeoutMs: 20_000 }
+          );
+          const order = response?.order || response;
+          const status = normalizeStatus(order?.status);
+
+          if (status === "active") {
+            await Promise.all([
+              loadVoiceCommerce(),
+              loadBillingData(),
+              loadDashboard({ silent: true }),
+            ]);
+            if (!cancelled) {
+              setSuccess(
+                `${formatPhone(order.phoneNumber)} is active and linked to this workspace. Buy AI call credits next, then save the Voice Agent.`
+              );
+              clearCommerceReturnParams("numberPayment", "order");
+            }
+            return;
+          }
+
+          if ([
+            "payment_failed",
+            "provision_failed",
+            "failure",
+            "refund_review_required",
+          ].includes(status)) {
+            if (!cancelled) {
+              setSuccess("");
+              setError(
+                order?.error ||
+                  "Payment was received but the business number could not be activated automatically. Use Retry provisioning or contact support before calling."
+              );
+              await loadVoiceCommerce();
+              clearCommerceReturnParams("numberPayment", "order");
+            }
+            return;
+          }
+        } catch (requestError) {
+          if (attempt >= 29 && !cancelled) {
+            setError(
+              requestError?.message ||
+                "Number provisioning status could not be verified. Refresh this page to check the order."
+            );
+          }
+        }
+
+        await new Promise((resolve) => window.setTimeout(resolve, 2000));
+      }
+    }
+
+    async function refreshVoiceCredits() {
+      if (voicePayment === "cancelled") {
+        setSuccess("");
+        setError("AI call-credit purchase was cancelled. No call credits were added.");
+        clearCommerceReturnParams("voicePayment", "purchase");
+        return;
+      }
+      if (voicePayment !== "success") return;
+
+      setError("");
+      setSuccess(
+        "AI call-credit payment returned successfully. ReachFly is verifying the payment and funding the dedicated call wallet."
+      );
+      for (const delay of [1200, 3000, 6000]) {
+        await new Promise((resolve) => window.setTimeout(resolve, delay));
+        if (cancelled) return;
+        const nextBilling = await loadBillingData();
+        if (Number(nextBilling?.aiCalling?.wallet?.balance || 0) > 0) {
+          setSuccess(
+            `${formatCreditsCompact(nextBilling.aiCalling.wallet.balance)} AI call credits are available. You can now finish Voice Agent setup.`
+          );
+          clearCommerceReturnParams("voicePayment", "purchase");
+          return;
+        }
+      }
+      clearCommerceReturnParams("voicePayment", "purchase");
+    }
+
+    void pollNumberOrder();
+    void refreshVoiceCredits();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    searchParams,
+    setSearchParams,
+    loadVoiceCommerce,
+    loadBillingData,
+    loadDashboard,
+  ]);
 
   const assignableLeads = useMemo(() => {
     const value = leadSearch.trim().toLowerCase();
@@ -399,6 +593,29 @@ export default function TelnyxAIAgentPage() {
     : [];
   const diagnostics = dashboard?.diagnostics || {};
   const agent = dashboard?.agent || null;
+  const onboardingState = useMemo(
+    () =>
+      buildVoiceOnboardingState({
+        form,
+        agent,
+        diagnostics,
+        voiceCommerce,
+        billingData,
+        workspaceName:
+          dashboard?.workspace?.name ||
+          user?.companyName ||
+          "",
+      }),
+    [
+      form,
+      agent,
+      diagnostics,
+      voiceCommerce,
+      billingData,
+      dashboard?.workspace?.name,
+      user?.companyName,
+    ]
+  );
   const recommendedVoice = useMemo(
     () => chooseFrontendRecommendedVoice(voices),
     [voices]
@@ -771,6 +988,22 @@ export default function TelnyxAIAgentPage() {
   }
 
   async function ensureVoiceAgentReady() {
+    const activePurchasedNumber = voiceCommerce?.activeNumber;
+    if (!activePurchasedNumber || normalizeStatus(activePurchasedNumber.status) !== "active") {
+      throw new Error(
+        "Buy and activate a ReachFly business number before configuring or launching the Voice Agent."
+      );
+    }
+
+    const aiCallBalance = Number(
+      billingData?.aiCalling?.wallet?.balance || 0
+    );
+    if (aiCallBalance <= 0) {
+      throw new Error(
+        "Buy AI call credits before configuring or launching paid Voice Agent calls. General ReachFly credits cannot fund AI calls."
+      );
+    }
+
     if (agent?.elevenLabsAgentId && agent?.elevenLabsPhoneNumberId) {
       return agent;
     }
@@ -885,6 +1118,40 @@ export default function TelnyxAIAgentPage() {
     }
   }
 
+  function closeOnboarding(nextTab = "setup", announcement = "") {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("onboarding");
+    setSearchParams(nextParams, { replace: true });
+    setActiveTab(nextTab);
+    setError("");
+
+    if (announcement) {
+      setSuccess(announcement);
+    }
+  }
+
+  function finishOnboarding() {
+    if (!onboardingState.ready) {
+      const remaining = onboardingState.steps
+        .filter((step) => step.required && !step.done)
+        .map((step) => step.title);
+
+      setActiveTab("setup");
+      setSuccess("");
+      setError(
+        remaining.length
+          ? `Finish the required setup items first: ${remaining.join(", ")}.`
+          : "Finish the required Voice Agent setup before continuing."
+      );
+      return;
+    }
+
+    closeOnboarding(
+      "leads",
+      "Voice Agent setup is ready. Add or select a lead, then use a controlled test call before launching a larger campaign."
+    );
+  }
+
   async function cancelCall(callId) {
     setBusyCallId(callId);
     setError("");
@@ -932,11 +1199,16 @@ export default function TelnyxAIAgentPage() {
     <main className="rf-agent-page">
       <header className="rf-agent-header">
         <div>
-          <span className="eyebrow">ReachFly Voice</span>
-          <h1>Outbound voice agent</h1>
+          <span className="eyebrow">
+            {onboardingMode ? "Voice Agent onboarding" : "ReachFly Voice"}
+          </span>
+          <h1>
+            {onboardingMode ? "Set up your AI voice agent" : "Outbound voice agent"}
+          </h1>
           <p>
-            Qualify leads, run compliant AI conversations, monitor live calls,
-            record outcomes and book confirmed meetings from one workspace.
+            {onboardingMode
+              ? "Buy and activate a business number, fund AI call credits, configure the agent and business context, approve calling policy, then save the runtime before adding leads."
+              : "Qualify leads, run compliant AI conversations, monitor live calls, record outcomes and book confirmed meetings from one workspace."}
           </p>
         </div>
 
@@ -947,9 +1219,13 @@ export default function TelnyxAIAgentPage() {
             }`}
           >
             <i />
-            {diagnostics.configured
-              ? "Voice stack configured"
-              : "Configuration required"}
+            {onboardingMode
+              ? onboardingState.ready
+                ? "Setup ready"
+                : "Setup in progress"
+              : diagnostics.configured
+                ? "Voice stack configured"
+                : "Configuration required"}
           </span>
 
           <button
@@ -981,6 +1257,49 @@ export default function TelnyxAIAgentPage() {
         </div>
       ) : null}
 
+      {onboardingMode ? (
+        <>
+          <VoiceCommerceOnboarding
+            commerce={voiceCommerce}
+            billing={billingData}
+            onRefresh={async () => {
+              await Promise.all([
+                loadVoiceCommerce(),
+                loadBillingData(),
+                loadDashboard({ silent: true }),
+              ]);
+            }}
+            onError={setError}
+            onSuccess={setSuccess}
+          />
+
+          <VoiceAgentOnboardingGuide
+            state={onboardingState}
+            form={form}
+            diagnostics={diagnostics}
+            commerce={voiceCommerce}
+            billing={billingData}
+            saving={saving}
+            analyzingWebsite={analyzingWebsite}
+            onFinish={finishOnboarding}
+            onExit={() => closeOnboarding("setup")}
+          />
+
+          <AgentSetup
+            form={form}
+            voices={voices}
+            elevenLabsAgents={elevenLabsAgents}
+            recommendedVoice={recommendedVoice}
+            diagnostics={diagnostics}
+            saving={saving}
+            analyzingWebsite={analyzingWebsite}
+            onChange={updateForm}
+            onAnalyzeWebsite={() => void analyzeWebsite()}
+            onSave={() => void saveAgent()}
+          />
+        </>
+      ) : (
+        <>
       <section className="rf-agent-metrics">
         <Metric
           label="Ready leads"
@@ -1132,7 +1451,734 @@ export default function TelnyxAIAgentPage() {
       {activeTab === "meetings" ? (
         <MeetingsPanel meetings={meetings} />
       ) : null}
+        </>
+      )}
     </main>
+  );
+}
+
+function VoiceCommerceOnboarding({
+  commerce,
+  billing,
+  onRefresh,
+  onError,
+  onSuccess,
+}) {
+  const [searchForm, setSearchForm] = useState({
+    countryCode: "US",
+    areaCode: "",
+    locality: "",
+    administrativeArea: "",
+    phoneNumberType: "local",
+  });
+  const [quote, setQuote] = useState(null);
+  const [searching, setSearching] = useState(false);
+  const [buyingNumber, setBuyingNumber] = useState("");
+  const [buyingBundle, setBuyingBundle] = useState("");
+  const [buyingCredits, setBuyingCredits] = useState("");
+  const [retryingOrder, setRetryingOrder] = useState("");
+
+  const activeNumber = commerce?.activeNumber || null;
+  const callWallet = billing?.aiCalling?.wallet || {};
+  const callBalance = Number(callWallet.balance || 0);
+  const callPacks = (Array.isArray(billing?.aiCalling?.packs)
+    ? billing.aiCalling.packs
+    : []
+  )
+    .filter(
+      (pack) =>
+        pack?.active === true &&
+        Number(pack?.credits || 0) > 0 &&
+        Number(pack?.amountMinor || 0) > 0
+    )
+    .sort(
+      (left, right) =>
+        Number(left?.credits || 0) - Number(right?.credits || 0)
+    );
+
+  const failedOrder = (Array.isArray(commerce?.orders)
+    ? commerce.orders
+    : []
+  ).find((order) =>
+    [
+      "provision_failed",
+      "failure",
+      "pending_activation",
+      "paid",
+    ].includes(normalizeStatus(order?.status))
+  );
+
+  async function searchNumbers() {
+    if (!commerce?.canPurchase) {
+      onError?.("Only a workspace owner or administrator can buy a business number.");
+      return;
+    }
+
+    setSearching(true);
+    onError?.("");
+    onSuccess?.("");
+
+    try {
+      const response = await apiRequest(
+        "/voice-commerce/numbers/search",
+        {
+          method: "POST",
+          body: {
+            countryCode: searchForm.countryCode,
+            areaCode: searchForm.areaCode,
+            locality: searchForm.locality,
+            administrativeArea: searchForm.administrativeArea,
+            phoneNumberType: searchForm.phoneNumberType,
+            limit: 12,
+          },
+          timeoutMs: 30_000,
+        }
+      );
+      setQuote(response);
+      if (!response?.items?.length) {
+        onSuccess?.("No matching voice-capable numbers were returned. Try a broader area or another location.");
+      }
+    } catch (requestError) {
+      setQuote(null);
+      onError?.(
+        requestError?.message ||
+          "Available business numbers could not be loaded."
+      );
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  async function buyNumber(item) {
+    if (!quote?.quoteId || !item?.phoneNumber || buyingNumber) return;
+
+    setBuyingNumber(item.phoneNumber);
+    onError?.("");
+    onSuccess?.("");
+
+    try {
+      const response = await apiRequest(
+        "/voice-commerce/numbers/checkout",
+        {
+          method: "POST",
+          body: {
+            quoteId: quote.quoteId,
+            phoneNumber: item.phoneNumber,
+          },
+          timeoutMs: 30_000,
+        }
+      );
+
+      if (!response?.checkoutUrl || !/^https?:\/\//i.test(response.checkoutUrl)) {
+        throw new Error("Secure business-number checkout could not be opened.");
+      }
+
+      window.location.assign(response.checkoutUrl);
+    } catch (requestError) {
+      setBuyingNumber("");
+      onError?.(
+        requestError?.message ||
+          "Business-number checkout could not be started."
+      );
+    }
+  }
+
+  async function buyNumberBundle(item, bundle) {
+    const busyKey = `${item?.phoneNumber || ""}:${bundle?.id || ""}`;
+    if (
+      !quote?.quoteId ||
+      !item?.phoneNumber ||
+      !bundle?.id ||
+      buyingBundle
+    ) {
+      return;
+    }
+
+    setBuyingBundle(busyKey);
+    onError?.("");
+    onSuccess?.("");
+
+    try {
+      const response = await apiRequest(
+        "/voice-commerce/bundles/checkout",
+        {
+          method: "POST",
+          body: {
+            quoteId: quote.quoteId,
+            phoneNumber: item.phoneNumber,
+            bundleId: bundle.id,
+          },
+          timeoutMs: 30_000,
+        }
+      );
+
+      if (
+        !response?.checkoutUrl ||
+        !/^https?:\/\//i.test(response.checkoutUrl)
+      ) {
+        throw new Error("Secure Voice Agent bundle checkout could not be opened.");
+      }
+
+      window.location.assign(response.checkoutUrl);
+    } catch (requestError) {
+      setBuyingBundle("");
+      onError?.(
+        requestError?.message ||
+          "Voice Agent bundle checkout could not be started."
+      );
+    }
+  }
+
+  async function buyCallCredits(pack) {
+    if (!pack?.id || buyingCredits) return;
+
+    setBuyingCredits(pack.id);
+    onError?.("");
+    onSuccess?.("");
+
+    try {
+      const response = await apiRequest(
+        "/billing/ai-calling/checkout",
+        {
+          method: "POST",
+          body: {
+            packId: pack.id,
+            returnPath: "/app/voice-agent?onboarding=1",
+          },
+          timeoutMs: 30_000,
+        }
+      );
+
+      if (!response?.checkoutUrl || !/^https?:\/\//i.test(response.checkoutUrl)) {
+        throw new Error("Secure AI call-credit checkout could not be opened.");
+      }
+
+      window.location.assign(response.checkoutUrl);
+    } catch (requestError) {
+      setBuyingCredits("");
+      onError?.(
+        requestError?.message ||
+          "AI call-credit checkout could not be started."
+      );
+    }
+  }
+
+  async function retryProvision(orderId) {
+    if (!orderId || retryingOrder) return;
+    setRetryingOrder(orderId);
+    onError?.("");
+    onSuccess?.("");
+
+    try {
+      const response = await apiRequest(
+        `/voice-commerce/orders/${encodeURIComponent(orderId)}/retry`,
+        {
+          method: "POST",
+          timeoutMs: 60_000,
+        }
+      );
+      await onRefresh?.();
+      const order = response?.order || response;
+      if (normalizeStatus(order?.status) === "active") {
+        onSuccess?.(
+          `${formatPhone(order.phoneNumber)} is now active and linked to your Voice Agent.`
+        );
+      } else {
+        onSuccess?.(
+          "Provisioning retry was accepted. Refresh this page to check the latest number status."
+        );
+      }
+    } catch (requestError) {
+      onError?.(
+        requestError?.message ||
+          "Business-number provisioning could not be retried."
+      );
+    } finally {
+      setRetryingOrder("");
+    }
+  }
+
+  return (
+    <section className="rf-agent-card rf-agent-form-card">
+      <div className="rf-agent-card-heading">
+        <div>
+          <span>Commerce activation</span>
+          <h2>Buy the calling identity and fund the Voice Agent first</h2>
+        </div>
+        <span className="rf-agent-section-number">PAY</span>
+      </div>
+
+      <p className="rf-agent-google-copy">
+        Voice Agent activation is locked until this workspace owns an active
+        ReachFly-purchased business number and has a positive dedicated AI
+        call-credit balance. General ReachFly credits cannot fund AI calls.
+      </p>
+
+      <section className="rf-agent-metrics">
+        <Metric
+          label="1. Business number"
+          value={activeNumber ? "Active" : "Required"}
+          text={
+            activeNumber
+              ? formatPhone(activeNumber.phoneNumber)
+              : "Search inventory, pay securely, then ReachFly provisions the number."
+          }
+        />
+        <Metric
+          label="2. AI call credits"
+          value={formatCreditsCompact(callBalance)}
+          text={
+            callBalance > 0
+              ? "Dedicated paid call credits available"
+              : "Buy a server-priced AI call-credit pack before activation"
+          }
+        />
+        <Metric
+          label="3. Voice Agent"
+          value={activeNumber && callBalance > 0 ? "Unlocked" : "Locked"}
+          text="Agent configuration and paid calling remain server-gated."
+        />
+      </section>
+
+      <article className="rf-agent-card" style={{ marginTop: 16 }}>
+        <div className="rf-agent-card-heading">
+          <div>
+            <span>Step 1</span>
+            <h3>{activeNumber ? "Business number active" : "Find and buy a business number"}</h3>
+          </div>
+        </div>
+
+        {activeNumber ? (
+          <section className="rf-agent-provider-card">
+            <div>
+              <span className="rf-agent-provider-logo">RF</span>
+              <div>
+                <b>{formatPhone(activeNumber.phoneNumber)}</b>
+                <small>Purchased and activated for this workspace</small>
+              </div>
+            </div>
+            <dl>
+              <div>
+                <dt>Status</dt>
+                <dd>{formatLabel(activeNumber.status || "active")}</dd>
+              </div>
+              <div>
+                <dt>Provider monthly cost</dt>
+                <dd>
+                  {formatMoneyMinorVoice(
+                    activeNumber.providerMonthlyMinor,
+                    activeNumber.currency
+                  )}
+                </dd>
+              </div>
+            </dl>
+          </section>
+        ) : (
+          <>
+            <div className="rf-agent-field-grid three">
+              <Field
+                label="Country code"
+                value={searchForm.countryCode}
+                onChange={(value) =>
+                  setSearchForm((current) => ({
+                    ...current,
+                    countryCode: String(value || "").toUpperCase().slice(0, 2),
+                  }))
+                }
+                placeholder="US"
+              />
+              <Field
+                label="Area code"
+                value={searchForm.areaCode}
+                onChange={(value) =>
+                  setSearchForm((current) => ({
+                    ...current,
+                    areaCode: String(value || "").replace(/\D/g, "").slice(0, 8),
+                  }))
+                }
+                placeholder="213"
+              />
+              <Field
+                label="City / locality"
+                value={searchForm.locality}
+                onChange={(value) =>
+                  setSearchForm((current) => ({ ...current, locality: value }))
+                }
+                placeholder="Los Angeles"
+              />
+              <Field
+                label="State / region"
+                value={searchForm.administrativeArea}
+                onChange={(value) =>
+                  setSearchForm((current) => ({
+                    ...current,
+                    administrativeArea: value,
+                  }))
+                }
+                placeholder="CA"
+              />
+              <label className="rf-agent-field">
+                <span>Number type</span>
+                <select
+                  value={searchForm.phoneNumberType}
+                  onChange={(event) =>
+                    setSearchForm((current) => ({
+                      ...current,
+                      phoneNumberType: event.target.value,
+                    }))
+                  }
+                >
+                  <option value="local">Local</option>
+                  <option value="toll_free">Toll-free</option>
+                  <option value="mobile">Mobile</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="rf-agent-website-actions">
+              <button
+                type="button"
+                className="btn primary"
+                disabled={searching || !commerce?.canPurchase}
+                onClick={() => void searchNumbers()}
+              >
+                {searching ? "Searching…" : "Find available numbers"}
+              </button>
+            </div>
+
+            {!commerce?.canPurchase ? (
+              <small className="rf-agent-field-note">
+                Only a workspace owner or administrator can purchase the calling number.
+              </small>
+            ) : null}
+
+            {quote?.items?.length ? (
+              <div className="rf-agent-queue-list" style={{ marginTop: 16 }}>
+                {quote.items.map((item) => (
+                  <article className="rf-agent-queue-row" key={item.phoneNumber}>
+                    <div>
+                      <b>{formatPhone(item.phoneNumber)}</b>
+                      <small>
+                        {(item.regionInformation || [])
+                          .map((region) => region.name)
+                          .filter(Boolean)
+                          .slice(0, 2)
+                          .join(" · ") || "Voice-capable business number"}
+                      </small>
+                    </div>
+                    <div>
+                      <small>Initial activation</small>
+                      <b>
+                        {formatMoneyMinorVoice(
+                          item.initialChargeMinor,
+                          item.currency
+                        )}
+                      </b>
+                      <small>
+                        First provider month {formatMoneyMinorVoice(
+                          item.providerMonthlyMinor,
+                          item.currency
+                        )}
+                      </small>
+                    </div>
+                    <div
+                      style={{
+                        display: "grid",
+                        gap: 8,
+                        minWidth: 230,
+                      }}
+                    >
+                      <button
+                        type="button"
+                        className="btn light"
+                        disabled={Boolean(buyingNumber || buyingBundle)}
+                        onClick={() => void buyNumber(item)}
+                      >
+                        {buyingNumber === item.phoneNumber
+                          ? "Opening checkout…"
+                          : `Number only · ${formatMoneyMinorVoice(
+                              item.initialChargeMinor,
+                              item.currency
+                            )}`}
+                      </button>
+
+                      {(Array.isArray(item.bundles) ? item.bundles : [])
+                        .filter((bundle) => bundle?.active !== false)
+                        .map((bundle) => {
+                          const busyKey = `${item.phoneNumber}:${bundle.id}`;
+                          return (
+                            <button
+                              key={bundle.id}
+                              type="button"
+                              className={bundle.recommended ? "btn primary" : "btn light"}
+                              disabled={Boolean(buyingNumber || buyingBundle)}
+                              onClick={() => void buyNumberBundle(item, bundle)}
+                            >
+                              {buyingBundle === busyKey
+                                ? "Opening checkout…"
+                                : `${bundle.label} · ${formatMoneyMinorVoice(
+                                    bundle.totalInitialChargeMinor,
+                                    bundle.currency || item.currency
+                                  )}`}
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : null}
+
+            {quote?.pricingNote ? (
+              <small className="rf-agent-field-note">
+                {quote.pricingNote} Bundle totals are also calculated by the
+                backend from that live number quote plus the server-owned AI
+                call-credit price. The browser cannot override either amount.
+              </small>
+            ) : null}
+          </>
+        )}
+
+        {failedOrder && !activeNumber ? (
+          <div className="rf-agent-alert error" style={{ marginTop: 16 }}>
+            <span>
+              {failedOrder.error ||
+                `Number order ${formatLabel(failedOrder.status)}. Provisioning may require another attempt or regulatory review.`}
+            </span>
+            {["provision_failed", "paid", "pending_activation"].includes(
+              normalizeStatus(failedOrder.status)
+            ) ? (
+              <button
+                type="button"
+                disabled={retryingOrder === failedOrder.id}
+                onClick={() => void retryProvision(failedOrder.id)}
+              >
+                {retryingOrder === failedOrder.id ? "Retrying…" : "Retry provisioning"}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
+        <small className="rf-agent-field-note">
+          The number checkout covers initial activation, including the provider
+          upfront charge and first provider monthly charge when returned by the
+          inventory quote. Automatic recurring customer renewal billing is not
+          part of this first commerce build and must be added before recurring
+          number fees are collected from customers.
+        </small>
+      </article>
+
+      <article className="rf-agent-card" style={{ marginTop: 16 }}>
+        <div className="rf-agent-card-heading">
+          <div>
+            <span>Step 2</span>
+            <h3>Fund the dedicated AI calling wallet</h3>
+          </div>
+          <span className="rf-agent-section-number">
+            {formatCreditsCompact(callBalance)}
+          </span>
+        </div>
+
+        <p className="rf-agent-google-copy">
+          AI Voice uses a separate prepaid call-credit wallet. The browser sends
+          only the selected pack ID; pack size and amount are controlled by the
+          backend. The current workspace policy prices one connected AI call at{" "}
+          <b>
+            {formatMoneyMinorVoice(
+              commerce?.pricing?.aiConnectedCallPriceMinor ||
+                billing?.aiCalling?.policy?.connectedCallPriceMinor ||
+                100,
+              commerce?.pricing?.aiConnectedCallCurrency ||
+                billing?.aiCalling?.policy?.currency ||
+                "USD"
+            )}
+          </b>{" "}
+          per connected call.
+        </p>
+
+        {!activeNumber ? (
+          <div className="rf-agent-empty">
+            Buy and activate the business number first. Call-credit funding is
+            the next activation step.
+          </div>
+        ) : !billing?.aiCalling?.canPurchase ? (
+          <div className="rf-agent-empty">
+            Only a workspace owner or administrator can buy AI call credits.
+          </div>
+        ) : !billing?.safepay?.configured ? (
+          <div className="rf-agent-empty">
+            Secure payment checkout is not configured for this workspace.
+          </div>
+        ) : !callPacks.length ? (
+          <div className="rf-agent-empty">
+            No AI call-credit packs are active. Configure server-owned packs before launch.
+          </div>
+        ) : (
+          <div className="rf-agent-queue-list">
+            {callPacks.map((pack) => (
+              <article className="rf-agent-queue-row" key={pack.id}>
+                <div>
+                  <b>{formatCreditsCompact(pack.credits)} AI call credits</b>
+                  <small>Dedicated Voice Agent wallet</small>
+                </div>
+                <div>
+                  <b>{formatMoneyMinorVoice(pack.amountMinor, pack.currency)}</b>
+                  <small>Server-priced pack</small>
+                </div>
+                <button
+                  type="button"
+                  className="btn primary"
+                  disabled={Boolean(buyingCredits)}
+                  onClick={() => void buyCallCredits(pack)}
+                >
+                  {buyingCredits === pack.id
+                    ? "Opening checkout…"
+                    : "Buy call credits"}
+                </button>
+              </article>
+            ))}
+          </div>
+        )}
+      </article>
+    </section>
+  );
+}
+
+function VoiceAgentOnboardingGuide({
+  state,
+  form,
+  diagnostics,
+  commerce,
+  billing,
+  saving,
+  analyzingWebsite,
+  onFinish,
+  onExit,
+}) {
+  const progress = state.total
+    ? Math.round((state.completed / state.total) * 100)
+    : 0;
+
+  return (
+    <section className="rf-agent-card rf-agent-form-card">
+      <div className="rf-agent-card-heading">
+        <div>
+          <span>First-run setup</span>
+          <h2>Get the Voice Agent ready before you dial a lead</h2>
+        </div>
+
+        <span className="rf-agent-section-number">
+          {state.completed}/{state.total}
+        </span>
+      </div>
+
+      <p className="rf-agent-google-copy">
+        Complete the required items below, then save and synchronize the agent.
+        Website intelligence is recommended and becomes required automatically
+        when you enter a website URL.
+      </p>
+
+      <progress
+        value={progress}
+        max="100"
+        aria-label={`${progress}% setup complete`}
+        style={{ width: "100%" }}
+      />
+
+      <section className="rf-agent-metrics">
+        {state.steps.map((step) => (
+          <Metric
+            key={step.key}
+            label={step.title}
+            value={step.done ? "Ready" : step.required ? "Required" : "Optional"}
+            text={step.text}
+          />
+        ))}
+      </section>
+
+      <section className="rf-agent-provider-card">
+        <div>
+          <span className="rf-agent-provider-logo">RF</span>
+          <div>
+            <b>Activation readiness</b>
+            <small>
+              {state.ready
+                ? "Required setup is complete"
+                : "Finish the required setup items below"}
+            </small>
+          </div>
+        </div>
+
+        <dl>
+          <div>
+            <dt>Agent identity</dt>
+            <dd>{form.name || "Not configured"}</dd>
+          </div>
+
+          <div>
+            <dt>Business context</dt>
+            <dd>
+              {form.websiteIntelligence?.analyzedAt
+                ? "Website profile ready"
+                : form.websiteUrl
+                  ? "Website analysis required"
+                  : "Website context recommended"}
+            </dd>
+          </div>
+
+          <div>
+            <dt>Business number</dt>
+            <dd>
+              {commerce?.activeNumber?.phoneNumber ||
+                diagnostics.selectedFromNumber ||
+                "Purchase required"}
+            </dd>
+          </div>
+
+          <div>
+            <dt>AI call credits</dt>
+            <dd>
+              {Number(billing?.aiCalling?.wallet?.balance || 0) > 0
+                ? `${formatCreditsCompact(billing.aiCalling.wallet.balance)} available`
+                : "Purchase required"}
+            </dd>
+          </div>
+
+          <div>
+            <dt>Calling policy</dt>
+            <dd>{form.complianceConfirmed ? "Approved" : "Approval required"}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <div className="rf-agent-website-actions">
+        <button
+          type="button"
+          className="btn light"
+          disabled={saving || analyzingWebsite}
+          onClick={onExit}
+        >
+          Open full workspace
+        </button>
+
+        <button
+          type="button"
+          className="btn primary"
+          disabled={!state.ready || saving || analyzingWebsite}
+          onClick={onFinish}
+        >
+          {state.ready ? "Finish setup and add leads" : "Complete required setup first"}
+        </button>
+      </div>
+
+      {!state.ready ? (
+        <small className="rf-agent-field-note">
+          The finish button does not bypass activation requirements. Saving the
+          agent, verified calling identity, disclosure/suppression approval, and
+          runtime linkage remain authoritative.
+        </small>
+      ) : null}
+    </section>
   );
 }
 
@@ -1426,31 +2472,26 @@ function AgentSetup({
 
         <label className="rf-agent-field">
           <span>Outbound business number</span>
-          {numberOptions.length ? (
-            <select
-              value={form.fromNumber}
-              onChange={(event) =>
-                onChange("fromNumber", event.target.value)
-              }
-            >
-              <option value="">Use server default</option>
-              {numberOptions.map((number) => (
-                <option key={number} value={number}>
-                  {formatPhone(number)}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <input
-              value={form.fromNumber}
-              onChange={(event) =>
-                onChange("fromNumber", event.target.value)
-              }
-              placeholder="+1…"
-            />
-          )}
+          <select
+            value={form.fromNumber}
+            disabled={!numberOptions.length}
+            onChange={(event) =>
+              onChange("fromNumber", event.target.value)
+            }
+          >
+            <option value="">
+              {numberOptions.length
+                ? "Select purchased business number"
+                : "Buy a business number in onboarding first"}
+            </option>
+            {numberOptions.map((number) => (
+              <option key={number} value={number}>
+                {formatPhone(number)}
+              </option>
+            ))}
+          </select>
           <small>
-            Select the verified business number ReachFly should use for outbound calls.
+            Only a ReachFly-purchased, successfully activated business number can be used for outbound Voice Agent calls in this build.
           </small>
         </label>
 
@@ -3962,6 +5003,122 @@ function EmptyState({ title, text }) {
   );
 }
 
+function buildVoiceOnboardingState({
+  form = {},
+  agent = null,
+  diagnostics = {},
+  voiceCommerce = null,
+  billingData = null,
+  workspaceName = "",
+} = {}) {
+  const identityDone = Boolean(
+    String(form.name || "").trim() &&
+      String(form.voice || "").trim() &&
+      String(form.companyName || workspaceName || "").trim()
+  );
+
+  const websiteEntered = Boolean(
+    String(form.websiteUrl || "").trim()
+  );
+
+  const contextDone = Boolean(
+    form.websiteIntelligence?.analyzedAt
+  );
+
+  const numberDone = Boolean(
+    voiceCommerce?.activeNumber?.phoneNumber &&
+      normalizeStatus(voiceCommerce.activeNumber.status) === "active"
+  );
+
+  const creditsDone =
+    Number(billingData?.aiCalling?.wallet?.balance || 0) > 0;
+
+  const complianceDone =
+    form.complianceConfirmed === true;
+
+  const runtimeDone = Boolean(
+    diagnostics.configured &&
+      agent?.elevenLabsAgentId &&
+      agent?.elevenLabsPhoneNumberId
+  );
+
+  const steps = [
+    {
+      key: "identity",
+      title: "Identity & voice",
+      required: true,
+      done: identityDone,
+      text: identityDone
+        ? "Agent identity and customer-facing voice selected."
+        : "Add the agent/company identity and choose the voice.",
+    },
+    {
+      key: "context",
+      title: "Business context",
+      required: websiteEntered,
+      done: websiteEntered ? contextDone : false,
+      text: contextDone
+        ? "Website intelligence is ready for calls."
+        : websiteEntered
+          ? "Analyze the website before saving the agent."
+          : "Add and analyze a website when you want the agent grounded in public business context.",
+    },
+    {
+      key: "number",
+      title: "Business number",
+      required: true,
+      done: numberDone,
+      text: numberDone
+        ? "A paid ReachFly business number is active for this workspace."
+        : "Buy and activate a business number before saving the Voice Agent.",
+    },
+    {
+      key: "credits",
+      title: "AI call credits",
+      required: true,
+      done: creditsDone,
+      text: creditsDone
+        ? `${formatCreditsCompact(billingData?.aiCalling?.wallet?.balance)} dedicated call credits are available.`
+        : "Buy dedicated AI call credits before Voice Agent activation.",
+    },
+    {
+      key: "policy",
+      title: "Calling policy",
+      required: true,
+      done: complianceDone,
+      text: complianceDone
+        ? "Calling, suppression, caller-ID and recording policy approved."
+        : "Review and approve the campaign calling and suppression policy.",
+    },
+    {
+      key: "runtime",
+      title: "Save & activate",
+      required: true,
+      done: runtimeDone,
+      text: runtimeDone
+        ? "Voice runtime and business phone linkage are ready."
+        : "Save the agent so ReachFly can synchronize the voice runtime and phone linkage.",
+    },
+  ];
+
+  const requiredSteps = steps.filter(
+    (step) => step.required
+  );
+
+  return {
+    steps,
+    total: steps.length,
+    completed: steps.filter(
+      (step) => step.done
+    ).length,
+    ready:
+      requiredSteps.length > 0 &&
+      requiredSteps.every(
+        (step) => step.done
+      ),
+  };
+}
+
 function normalizeAgentForm(value = {}) {
   return {
     ...DEFAULT_FORM,
@@ -3991,7 +5148,7 @@ function normalizeAgentForm(value = {}) {
     dailyCallLimit: safeNumber(value.dailyCallLimit, 25),
     concurrency: safeNumber(value.concurrency, 1),
     maxAttempts: safeNumber(value.maxAttempts, 3),
-    maxCallSeconds: safeNumber(value.maxCallSeconds, 600),
+    maxCallSeconds: safeNumber(value.maxCallSeconds, 300),
     ringTimeoutSeconds: safeNumber(
       value.ringTimeoutSeconds,
       45
@@ -4186,6 +5343,26 @@ function normalizePhoneKey(value) {
   if (!raw) return "";
   const digits = raw.replace(/\D/g, "");
   return digits ? `+${digits}` : "";
+}
+
+function formatMoneyMinorVoice(value, currency = "USD") {
+  const amount = Number(value || 0) / 100;
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: String(currency || "USD").toUpperCase(),
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `${String(currency || "USD").toUpperCase()} ${amount.toFixed(2)}`;
+  }
+}
+
+function formatCreditsCompact(value) {
+  return new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: 3,
+  }).format(Number(value || 0));
 }
 
 function formatPhone(value) {
