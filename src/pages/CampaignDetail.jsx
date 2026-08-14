@@ -31,11 +31,14 @@ export default function CampaignDetail() {
       ""
   );
 
-  const isManager =
-    role === "manager";
+  const canManageCampaigns =
+    ["owner", "admin", "manager"].includes(role);
+
+  const isPrivilegedAdmin =
+    ["owner", "admin"].includes(role);
 
   const load = () => {
-    if (!isManager || !id) {
+    if (!canManageCampaigns || !id) {
       return Promise.resolve(null);
     }
 
@@ -58,7 +61,7 @@ export default function CampaignDetail() {
   };
 
   useEffect(() => {
-    if (!isManager || !id) {
+    if (!canManageCampaigns || !id) {
       return undefined;
     }
 
@@ -73,7 +76,13 @@ export default function CampaignDetail() {
     source.onmessage = (event) => {
       if (!mounted) return;
 
-      const parsed = JSON.parse(event.data);
+      let parsed;
+
+      try {
+        parsed = JSON.parse(event.data);
+      } catch {
+        return;
+      }
 
       if (parsed.campaign) {
         setCampaign((current) => ({
@@ -89,6 +98,10 @@ export default function CampaignDetail() {
           "pipeline_started",
           "pipeline_progress",
           "pipeline_complete",
+          "lead_updated",
+          "call_updated",
+          "voice_call_updated",
+          "meeting_booked",
         ].includes(parsed.type)
       ) {
         load();
@@ -103,11 +116,11 @@ export default function CampaignDetail() {
     };
   }, [
     id,
-    isManager,
+    canManageCampaigns,
   ]);
 
   useEffect(() => {
-    if (!user || isManager) {
+    if (!user || canManageCampaigns) {
       return;
     }
 
@@ -115,7 +128,7 @@ export default function CampaignDetail() {
       replace: true,
     });
   }, [
-    isManager,
+    canManageCampaigns,
     navigate,
     user,
   ]);
@@ -140,12 +153,15 @@ export default function CampaignDetail() {
       : [];
 
   const canAssign =
-    isManager &&
-    permissions.includes(
-      "assign_leads"
+    canManageCampaigns &&
+    (
+      isPrivilegedAdmin ||
+      permissions.includes(
+        "assign_leads"
+      )
     );
 
-  if (!isManager) {
+  if (!canManageCampaigns) {
     return (
       <div className="page">
         <div className="card">
@@ -154,12 +170,13 @@ export default function CampaignDetail() {
           </span>
 
           <h1>
-            Manager access required
+            Campaign access required
           </h1>
 
           <p className="text-muted">
-            Campaign details, lead audits, pipeline controls, and
-            lead assignment are available only to workspace managers.
+            Campaign details, lead audits, pipeline controls, and lead
+            assignment are available to workspace owners, administrators,
+            and managers.
           </p>
 
           <button
@@ -227,6 +244,28 @@ export default function CampaignDetail() {
   const statusLabel = getStatusLabel(campaign, isImported);
   const statusClass = getStatusClass(campaign, isImported);
   const leadsLabel = isImported ? "imported leads" : "leads discovered";
+  const voiceEnabled = isAiVoiceEnabled(campaign);
+  const phoneReadyCount = leads.filter((lead) => Boolean(lead?.phone)).length;
+  const assignedCount = getAssignedLeadCount(campaign);
+  const connectedCount = leads.filter((lead) =>
+    ["connected", "qualified", "interested", "meeting_booked"].includes(
+      getLeadOutcome(lead)
+    )
+  ).length;
+  const meetingCount = leads.filter((lead) =>
+    getLeadOutcome(lead) === "meeting_booked" ||
+    Boolean(lead?.meetingId || lead?.meeting?.id || lead?.meetingBookedAt)
+  ).length;
+  const followUpCount = leads.filter((lead) =>
+    ["callback", "follow_up", "call_due", "send_information"].includes(
+      getLeadOutcome(lead)
+    )
+  ).length;
+  const unansweredCount = leads.filter((lead) =>
+    ["no_answer", "busy", "voicemail", "unanswered"].includes(
+      getLeadOutcome(lead)
+    )
+  ).length;
 
   return (
     <div className="detail-page">
@@ -234,7 +273,7 @@ export default function CampaignDetail() {
         visible={showLoader}
         percent={progress.percent || 2}
         message={progress.message || "Processing campaign"}
-        title={isSending ? "Sending campaign emails" : "Processing campaign"}
+        title={isSending ? "Running campaign outreach" : "Processing campaign"}
       />
 
       <Link className="back-link" to={backTarget}>
@@ -274,6 +313,15 @@ export default function CampaignDetail() {
             <Send /> Pipeline builder
           </Link>
 
+          {voiceEnabled ? (
+            <Link
+              className="btn light"
+              to="/app/voice-agent"
+            >
+              <Phone /> Voice Agent
+            </Link>
+          ) : null}
+
           <div className="big-metric">
             <Users />
             <span>
@@ -293,8 +341,9 @@ export default function CampaignDetail() {
           <Globe2 />
           <div>
             <b>Imported lead list is ready.</b>
-            These leads came from your uploaded sheet. Open Pipeline Builder to
-            review the sequence and run outreach.
+            These leads came from your uploaded sheet. Review assignments and
+            outreach readiness below, then open Pipeline Builder when you need to
+            adjust the digital sequence.
           </div>
         </div>
       ) : null}
@@ -314,11 +363,13 @@ export default function CampaignDetail() {
         <div className="lead-quality-note">
           <Send />
           <div>
-            <b>Campaign sending is running.</b>
+            <b>Campaign outreach is running.</b>
             {progress.message ||
-              `Emails are being processed from ${
-                senderEmail || "selected sender"
-              }.`}
+              (voiceEnabled
+                ? "AI Voice and configured follow-up activity are being processed."
+                : `Digital outreach is being processed from ${
+                    senderEmail || "the configured sender"
+                  }.`)}
           </div>
         </div>
       ) : null}
@@ -326,8 +377,37 @@ export default function CampaignDetail() {
       {isComplete ? (
         <div className="success-banner">
           <Send />
-          Campaign completed. Emails were processed from{" "}
-          {senderEmail || "the selected sender"}.
+          Campaign outreach completed. Review connected calls, follow-ups,
+          meetings, assignments, and lead-level outcomes below.
+        </div>
+      ) : null}
+
+      {leads.length > 0 ? (
+        <div className="grid4 mt24">
+          <MetricCard label="Leads" value={leads.length} />
+          <MetricCard label="Phone ready" value={phoneReadyCount} />
+          <MetricCard label="Assigned" value={assignedCount} />
+          <MetricCard label="Connected" value={connectedCount} />
+          <MetricCard label="Meetings" value={meetingCount} />
+          <MetricCard label="Follow-ups" value={followUpCount} />
+          <MetricCard label="Unanswered" value={unansweredCount} />
+          <MetricCard
+            label="AI Voice"
+            value={voiceEnabled ? "Enabled" : "Not enabled"}
+          />
+        </div>
+      ) : null}
+
+      {voiceEnabled ? (
+        <div className="lead-quality-note">
+          <Phone />
+          <div>
+            <b>AI Voice is enabled for this campaign.</b>
+            Voice Agent call state is authoritative. Use the Voice Agent workspace
+            for live calls, transcripts, recordings, meetings, and call-level
+            diagnostics. This campaign view summarizes outcomes already attached
+            to campaign leads.
+          </div>
         </div>
       ) : null}
 
@@ -380,14 +460,14 @@ export default function CampaignDetail() {
         </>
       ) : null}
 
-      {isManager &&
+      {role === "manager" &&
       !canAssign &&
       leads.length > 0 &&
       !isDiscoveryRunning ? (
         <div className="error-banner">
-          Your manager account does not currently have the
-          assign_leads permission. Rerun the AH Growth seed and sign
-          in again before assigning leads.
+          Your manager account does not currently have the assign_leads
+          permission. Assignment controls remain hidden until the workspace grants
+          that permission.
         </div>
       ) : null}
 
@@ -426,10 +506,10 @@ export default function CampaignDetail() {
               <tr>
                 <th>Business</th>
                 <th>Contact</th>
-                <th>Sender</th>
+                <th>Outreach</th>
                 <th>Rating</th>
                 <th>Website</th>
-                <th>Calling status</th>
+                <th>Outcome / next action</th>
                 <th>Assigned to</th>
                 <th>Source / Map</th>
               </tr>
@@ -481,16 +561,25 @@ export default function CampaignDetail() {
                     </td>
 
                     <td>
-                      {senderEmail ? (
-                        <div className="contact-stack">
+                      <div className="contact-stack">
+                        {voiceEnabled ? (
+                          <span>
+                            <Phone /> AI Voice enabled
+                          </span>
+                        ) : null}
+
+                        {senderEmail ? (
                           <span>
                             <Mail /> {senderEmail}
                           </span>
-                          <small>Campaign sender</small>
-                        </div>
-                      ) : (
-                        <span className="muted">No sender selected</span>
-                      )}
+                        ) : null}
+
+                        {!voiceEnabled && !senderEmail ? (
+                          <span className="muted">
+                            No outreach channel configured
+                          </span>
+                        ) : null}
+                      </div>
                     </td>
 
                     <td>
@@ -522,16 +611,29 @@ export default function CampaignDetail() {
                     </td>
 
                     <td>
-                      <span className={`badge ${leadStatusBadge(lead.status)}`}>
-                        {leadStatusLabel(lead.status)}
-                      </span>
-                      {(lead.tags || []).length ? (
-                        <div className="rf-table-tags">
-                          {(lead.tags || []).slice(0, 3).map((tag) => (
-                            <span key={tag}>{tag}</span>
-                          ))}
-                        </div>
-                      ) : null}
+                      <div className="contact-stack">
+                        <span
+                          className={`badge ${leadStatusBadge(
+                            getLeadOutcome(lead)
+                          )}`}
+                        >
+                          {leadStatusLabel(getLeadOutcome(lead))}
+                        </span>
+
+                        {getNextActionAt(lead) ? (
+                          <small>
+                            Next: {formatDateTime(getNextActionAt(lead))}
+                          </small>
+                        ) : null}
+
+                        {(lead.tags || []).length ? (
+                          <div className="rf-table-tags">
+                            {(lead.tags || []).slice(0, 3).map((tag) => (
+                              <span key={tag}>{tag}</span>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
                     </td>
 
                     <td>
@@ -545,8 +647,12 @@ export default function CampaignDetail() {
                           </span>
 
                           <small>
-                            {lead.callAttempts ||
-                              0}{" "}
+                            {Number(
+                              lead.callAttempts ??
+                                lead.attempts ??
+                                lead.voiceCallAttempts ??
+                                0
+                            )}{" "}
                             attempts
                           </small>
                         </div>
@@ -616,6 +722,75 @@ function getAssignedUserName(lead = {}) {
     lead.assignedUser?.name ||
     ""
   );
+}
+
+function getAssignedLeadCount(campaign) {
+  const leads =
+    Array.isArray(campaign?.leads)
+      ? campaign.leads
+      : [];
+
+  return leads.filter((lead) =>
+    Boolean(
+      lead?.assignedTo ||
+        lead?.assigneeId ||
+        lead?.assignedUserId ||
+        lead?.assignmentId
+    )
+  ).length;
+}
+
+function isAiVoiceEnabled(campaign) {
+  return Boolean(
+    campaign?.outreachPlan?.aiVoice ||
+      campaign?.aiVoiceEnabled ||
+      campaign?.voiceEnabled ||
+      campaign?.voiceCampaignEnabled ||
+      campaign?.channels?.includes?.("ai_voice")
+  );
+}
+
+function getLeadOutcome(lead = {}) {
+  const value =
+    lead.lastCallOutcome ||
+    lead.callOutcome ||
+    lead.outcome ||
+    lead.disposition ||
+    lead.lastDisposition ||
+    lead.voiceOutcome ||
+    lead.aiCall?.outcome ||
+    lead.lastCall?.outcome ||
+    lead.latestCall?.outcome ||
+    lead.status ||
+    "new";
+
+  return String(value || "new")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+}
+
+function getNextActionAt(lead = {}) {
+  return (
+    lead.nextActionAt ||
+    lead.followUpAt ||
+    lead.callbackAt ||
+    lead.scheduledAt ||
+    lead.task?.dueAt ||
+    lead.task?.dueDate ||
+    lead.lead?.nextActionAt ||
+    ""
+  );
+}
+
+function formatDateTime(value) {
+  if (!value) return "";
+
+  const date = new Date(value);
+
+  return Number.isNaN(date.getTime())
+    ? ""
+    : date.toLocaleString();
 }
 
 function MetricCard({ label, value }) {
@@ -692,8 +867,30 @@ function leadStatusLabel(value) {
 }
 
 function leadStatusBadge(value) {
-  if (["qualified", "meeting_booked", "connected"].includes(value)) return "badge-green";
-  if (["callback", "send_information", "call_due"].includes(value)) return "badge-amber";
-  if (["not_interested", "wrong_number", "do_not_call"].includes(value)) return "badge-red";
+  const status = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+
+  if (
+    ["qualified", "meeting_booked", "connected", "interested"].includes(status)
+  ) {
+    return "badge-green";
+  }
+
+  if (
+    ["callback", "follow_up", "send_information", "call_due"].includes(status)
+  ) {
+    return "badge-amber";
+  }
+
+  if (
+    ["not_interested", "wrong_number", "invalid_number", "do_not_call"].includes(
+      status
+    )
+  ) {
+    return "badge-red";
+  }
+
   return "badge-gray";
 }

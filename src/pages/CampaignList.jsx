@@ -89,8 +89,11 @@ export default function CampaignList({
         ""
     );
 
-  const isManager =
-    role === "manager";
+  const canManageCampaignsRole =
+    ["owner", "admin", "manager"].includes(role);
+
+  const isPrivilegedAdmin =
+    ["owner", "admin"].includes(role);
 
   const permissions =
     Array.isArray(
@@ -100,14 +103,18 @@ export default function CampaignList({
       : [];
 
   const canManageCampaigns =
-    isManager &&
-    permissions.includes(
-      "manage_campaigns"
+    canManageCampaignsRole &&
+    (
+      isPrivilegedAdmin ||
+      permissions.includes(
+        "manage_campaigns"
+      )
     );
 
   const canDeleteCampaigns =
-    isManager &&
+    canManageCampaignsRole &&
     (
+      isPrivilegedAdmin ||
       permissions.includes(
         "manage_campaigns"
       ) ||
@@ -120,7 +127,7 @@ export default function CampaignList({
     silent = false,
   } = {}) {
     if (
-      !isManager ||
+      !canManageCampaignsRole ||
       !status
     ) {
       setItems([]);
@@ -174,7 +181,7 @@ export default function CampaignList({
       return;
     }
 
-    if (!isManager) {
+    if (!canManageCampaignsRole) {
       navigate(
         "/app/dashboard",
         {
@@ -194,7 +201,7 @@ export default function CampaignList({
             silent: true,
           });
         },
-        10_000
+        30_000
       );
 
     return () => {
@@ -203,7 +210,7 @@ export default function CampaignList({
       );
     };
   }, [
-    isManager,
+    canManageCampaignsRole,
     navigate,
     status,
     user,
@@ -283,6 +290,9 @@ export default function CampaignList({
             campaign.selectedSegment,
             campaign.status,
             campaign.pipelineStatus,
+            campaign.aiVoiceStatus,
+            campaign.voiceStatus,
+            JSON.stringify(campaign.outreachPlan || {}),
           ]
             .filter(Boolean)
             .join(" ")
@@ -300,7 +310,7 @@ export default function CampaignList({
       "Manage your workspace campaigns.",
     ];
 
-  if (!isManager) {
+  if (!canManageCampaignsRole) {
     return (
       <div className="page">
         <div className="card">
@@ -309,14 +319,13 @@ export default function CampaignList({
           </span>
 
           <h1>
-            Manager access required
+            Campaign access required
           </h1>
 
           <p className="text-muted">
-            Campaign lists, lead generation,
-            pipeline management, and lead
-            assignment are available only to
-            workspace managers.
+            Campaign lists, lead generation, pipeline management, and lead
+            assignment are available to workspace owners, administrators,
+            and managers.
           </p>
 
           <button
@@ -393,15 +402,14 @@ export default function CampaignList({
         </div>
       ) : null}
 
-      {!canManageCampaigns ? (
+      {role === "manager" && !canManageCampaigns ? (
         <div
           className="error-banner mb16"
           role="alert"
         >
-          Your manager account does not have
-          the manage_campaigns permission.
-          Rerun the AH Growth seed and sign
-          in again.
+          Your manager account does not currently have the
+          manage_campaigns permission. Campaigns remain visible, but management
+          actions may be limited until that permission is granted.
         </div>
       ) : null}
 
@@ -466,6 +474,9 @@ export default function CampaignList({
                 canDelete={
                   canDeleteCampaigns
                 }
+                canManage={
+                  canManageCampaigns
+                }
                 deleting={
                   deletingId ===
                   campaign.id
@@ -487,6 +498,7 @@ export default function CampaignList({
 function CampaignCard({
   campaign,
   canDelete,
+  canManage,
   deleting,
   onDelete,
 }) {
@@ -551,14 +563,55 @@ function CampaignCard({
       campaign
     );
 
+  const voiceEnabled =
+    isAiVoiceEnabled(campaign);
+
+  const leads =
+    Array.isArray(campaign?.leads)
+      ? campaign.leads
+      : [];
+
+  const phoneReadyCount =
+    leads.filter((lead) =>
+      Boolean(lead?.phone)
+    ).length;
+
+  const connectedCount =
+    leads.filter((lead) =>
+      ["connected", "qualified", "interested", "meeting_booked"].includes(
+        getLeadOutcome(lead)
+      )
+    ).length;
+
+  const meetingCount =
+    leads.filter((lead) =>
+      getLeadOutcome(lead) === "meeting_booked" ||
+      Boolean(lead?.meetingId || lead?.meeting?.id || lead?.meetingBookedAt)
+    ).length;
+
+  const followUpCount =
+    leads.filter((lead) =>
+      ["callback", "follow_up", "call_due", "send_information"].includes(
+        getLeadOutcome(lead)
+      )
+    ).length;
+
   return (
     <article className="campaign-card">
       <div className="campaign-card-top">
-        <span
-          className={`status ${statusClass}`}
-        >
-          {statusLabel}
-        </span>
+        <div className="flex flex-gap flex-wrap">
+          <span
+            className={`status ${statusClass}`}
+          >
+            {statusLabel}
+          </span>
+
+          {voiceEnabled ? (
+            <span className="badge badge-neutral">
+              AI Voice
+            </span>
+          ) : null}
+        </div>
 
         {canDelete ? (
           <button
@@ -600,18 +653,20 @@ function CampaignCard({
           : ""}
       </p>
 
-      {senderEmail ? (
+      {voiceEnabled || senderEmail ? (
         <p>
-          <Mail />
+          {voiceEnabled ? <PhoneGlyph /> : <Mail />}
 
-          Sending from{" "}
-          {senderEmail}
+          {voiceEnabled && senderEmail
+            ? `AI Voice + ${senderEmail}`
+            : voiceEnabled
+              ? "AI Voice enabled"
+              : `Sending from ${senderEmail}`}
         </p>
       ) : (
         <p>
           <Mail />
-
-          No sender email selected
+          No outreach channel configured
         </p>
       )}
 
@@ -656,6 +711,30 @@ function CampaignCard({
           </small>
         </span>
       </div>
+
+      {voiceEnabled ? (
+        <div className="campaign-stats">
+          <span>
+            <b>{phoneReadyCount}</b>
+            <small>phone ready</small>
+          </span>
+
+          <span>
+            <b>{connectedCount}</b>
+            <small>connected</small>
+          </span>
+
+          <span>
+            <b>{meetingCount}</b>
+            <small>meetings</small>
+          </span>
+
+          <span>
+            <b>{followUpCount}</b>
+            <small>follow-ups</small>
+          </span>
+        </div>
+      ) : null}
 
       {isImported ? (
         <div className="card-progress imported">
@@ -723,9 +802,9 @@ function CampaignCard({
 
           <small>
             Outreach completed.
-            Open the campaign to
-            review leads, assignments,
-            and replies.
+            Open the campaign to review
+            calls, meetings, follow-ups,
+            assignments, and replies.
           </small>
         </div>
       ) : null}
@@ -739,18 +818,58 @@ function CampaignCard({
           <ArrowRight />
         </Link>
 
-        {isReady ? (
+        {isReady && canManage ? (
           <Link
             to={`/app/campaigns/${campaign.id}/pipeline`}
           >
             <Workflow />
-
             Pipeline
+          </Link>
+        ) : null}
+
+        {voiceEnabled ? (
+          <Link to="/app/voice-agent">
+            <span aria-hidden="true">☎</span>
+            Voice Agent
           </Link>
         ) : null}
       </div>
     </article>
   );
+}
+
+function PhoneGlyph() {
+  return <span aria-hidden="true">☎</span>;
+}
+
+function isAiVoiceEnabled(campaign) {
+  return Boolean(
+    campaign?.outreachPlan?.aiVoice ||
+      campaign?.aiVoiceEnabled ||
+      campaign?.voiceEnabled ||
+      campaign?.voiceCampaignEnabled ||
+      campaign?.channels?.includes?.("ai_voice")
+  );
+}
+
+function getLeadOutcome(lead = {}) {
+  const value =
+    lead.lastCallOutcome ||
+    lead.callOutcome ||
+    lead.outcome ||
+    lead.disposition ||
+    lead.lastDisposition ||
+    lead.voiceOutcome ||
+    lead.aiCall?.outcome ||
+    lead.lastCall?.outcome ||
+    lead.latestCall?.outcome ||
+    lead.status ||
+    "new";
+
+  return String(value || "new")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
 }
 
 function getAssignedLeadCount(
