@@ -6,6 +6,7 @@ import {
 } from "react";
 
 import {
+  apiRequest,
   getRoleDashboard,
   onWorkspaceSocket,
 } from "../lib/workspace-platform-client.js";
@@ -34,6 +35,95 @@ export default function RoleDashboard() {
   const [error, setError] =
     useState("");
 
+  const [workspacePulse, setWorkspacePulse] =
+    useState({
+      voice: null,
+      billing: null,
+      loaded: false,
+    });
+
+  const loadWorkspacePulse = useCallback(
+    async (role) => {
+      const normalizedRole =
+        String(role || "")
+          .trim()
+          .toLowerCase();
+
+      const canUseVoice =
+        ["owner", "admin", "manager"].includes(
+          normalizedRole
+        );
+
+      const canViewBilling =
+        ["owner", "admin"].includes(
+          normalizedRole
+        );
+
+      if (!canUseVoice && !canViewBilling) {
+        setWorkspacePulse({
+          voice: null,
+          billing: null,
+          loaded: true,
+        });
+        return;
+      }
+
+      const [voiceResult, billingResult] =
+        await Promise.all([
+          canUseVoice
+            ? apiRequest(
+                "/telnyx/ai-agent/dashboard",
+                {
+                  timeoutMs: 15_000,
+                }
+              )
+                .then((value) => ({
+                  ok: true,
+                  value,
+                }))
+                .catch(() => ({
+                  ok: false,
+                  value: null,
+                }))
+            : Promise.resolve({
+                ok: false,
+                value: null,
+              }),
+
+          canViewBilling
+            ? apiRequest(
+                "/billing/credits",
+                {
+                  timeoutMs: 15_000,
+                }
+              )
+                .then((value) => ({
+                  ok: true,
+                  value,
+                }))
+                .catch(() => ({
+                  ok: false,
+                  value: null,
+                }))
+            : Promise.resolve({
+                ok: false,
+                value: null,
+              }),
+        ]);
+
+      setWorkspacePulse({
+        voice: voiceResult.ok
+          ? voiceResult.value
+          : null,
+        billing: billingResult.ok
+          ? billingResult.value
+          : null,
+        loaded: true,
+      });
+    },
+    []
+  );
+
   const loadDashboard = useCallback(
     async ({
       silent = false,
@@ -51,6 +141,10 @@ export default function RoleDashboard() {
           await getRoleDashboard();
 
         setDashboard(result);
+
+        void loadWorkspacePulse(
+          result?.role || "viewer"
+        );
       } catch (requestError) {
         setError(
           requestError?.message ||
@@ -61,7 +155,7 @@ export default function RoleDashboard() {
         setRefreshing(false);
       }
     },
-    []
+    [loadWorkspacePulse]
   );
 
   useEffect(() => {
@@ -79,6 +173,13 @@ export default function RoleDashboard() {
       "presence:update",
       "message:new",
       "webrtc:call:ended",
+      "lead:updated",
+      "task:created",
+      "task:updated",
+      "task:completed",
+      "telnyx-ai-agent:updated",
+      "telnyx-ai-agent:call-updated",
+      "telnyx-ai-agent:meeting-booked",
     ];
 
     const unsubscribe = events.map(
@@ -145,6 +246,15 @@ export default function RoleDashboard() {
             Retry
           </button>
         </div>
+      ) : null}
+
+      {["owner", "admin", "manager"].includes(
+        role
+      ) ? (
+        <WorkspaceSalesPulse
+          role={role}
+          pulse={workspacePulse}
+        />
       ) : null}
 
       {role === "owner" ? (
@@ -225,9 +335,9 @@ function DashboardHeader({
           <span className="rf-status-dot" />
 
           <div>
-            <strong>Workspace live</strong>
+            <strong>Workspace data</strong>
             <small>
-              Real-time updates enabled
+              Live updates + manual refresh
             </small>
           </div>
         </div>
@@ -244,6 +354,249 @@ function DashboardHeader({
         </button>
       </div>
     </header>
+  );
+}
+
+function WorkspaceSalesPulse({
+  role,
+  pulse = {},
+}) {
+  const voice = pulse.voice;
+  const billing = pulse.billing;
+
+  const voiceSummary =
+    voice?.summary || {};
+
+  const voiceDiagnostics =
+    voice?.diagnostics || {};
+
+  const voiceAgent =
+    voice?.agent || null;
+
+  const billingWallet =
+    billing?.wallet || null;
+
+  const callWallet =
+    billing?.aiCalling?.wallet || null;
+
+  const canViewBilling =
+    ["owner", "admin"].includes(
+      String(role || "")
+        .trim()
+        .toLowerCase()
+    );
+
+  if (
+    pulse.loaded &&
+    !voice &&
+    !billing
+  ) {
+    return (
+      <section className="rf-panel">
+        <PanelHeader
+          title="Sales command center"
+          subtitle="Voice Agent and billing status will appear here when those workspace services are available."
+          action={
+            <a
+              href="/app/voice-agent"
+              className="rf-text-link"
+            >
+              Open Voice Agent
+            </a>
+          }
+        />
+
+        <EmptyState
+          title="Workspace services still connecting"
+          description="The main dashboard is available. Voice Agent and billing are loaded independently so a temporary optional-service error does not block the workspace."
+        />
+      </section>
+    );
+  }
+
+  const items = [];
+
+  if (voice) {
+    items.push(
+      {
+        label: "Voice Agent",
+        value:
+          voiceDiagnostics.configured &&
+          voiceAgent
+            ? "Ready"
+            : "Setup",
+        note:
+          voiceAgent?.name ||
+          "Configuration required",
+        icon: "VA",
+      },
+      {
+        label: "AI calls live",
+        value: firstNumber(
+          voiceSummary,
+          [
+            "activeCalls",
+            "liveCalls",
+          ],
+          0
+        ),
+        note: "Current conversations",
+        icon: "AI",
+      },
+      {
+        label: "Voice queue",
+        value: firstNumber(
+          voiceSummary,
+          [
+            "queuedLeads",
+            "queued",
+          ],
+          0
+        ),
+        note: "Waiting to be called",
+        icon: "VQ",
+      },
+      {
+        label: "Meetings",
+        value: firstNumber(
+          voiceSummary,
+          [
+            "meetingsUpcoming",
+            "upcomingMeetings",
+          ],
+          0
+        ),
+        note: "Upcoming AI-booked meetings",
+        icon: "MT",
+      }
+    );
+  }
+
+  if (
+    canViewBilling &&
+    billingWallet
+  ) {
+    items.push({
+      label: "ReachFly credits",
+      value: formatCreditNumber(
+        billingWallet.balance
+      ),
+      note: `${formatCreditNumber(
+        billingWallet.reserved
+      )} reserved`,
+      icon: "CR",
+    });
+  }
+
+  if (
+    canViewBilling &&
+    callWallet
+  ) {
+    items.push({
+      label: "AI call credits",
+      value: formatCreditNumber(
+        callWallet.balance
+      ),
+      note: callWallet.testGrantAppliedAt
+        ? "Dedicated calling balance"
+        : "Onboarding grant available",
+      icon: "CC",
+    });
+  }
+
+  if (!items.length) {
+    return null;
+  }
+
+  return (
+    <>
+      <MetricGrid items={items} />
+
+      <section className="rf-panel">
+        <PanelHeader
+          title="Sales command center"
+          subtitle="Current Voice Agent, calling and workspace-credit status."
+          action={
+            <div className="rf-dashboard-header__actions">
+              <a
+                href="/app/voice-agent"
+                className="rf-text-link"
+              >
+                Voice Agent
+              </a>
+
+              {canViewBilling ? (
+                <a
+                  href="/app/billing"
+                  className="rf-text-link"
+                >
+                  Credits & usage
+                </a>
+              ) : null}
+            </div>
+          }
+        />
+
+        <div className="rf-tool-card-list">
+          <ToolRow
+            label="Voice configuration"
+            value={
+              voice
+                ? voiceDiagnostics.configured
+                  ? "Ready"
+                  : "Needs setup"
+                : "Unavailable"
+            }
+            secondary={
+              voiceAgent?.name || ""
+            }
+          />
+
+          <ToolRow
+            label="Business number"
+            value={
+              voice?.diagnostics
+                ?.selectedFromNumber ||
+              voiceAgent?.fromNumber ||
+              "Not connected"
+            }
+          />
+
+          <ToolRow
+            label="Callable leads"
+            value={
+              voice
+                ? firstNumber(
+                    voiceSummary,
+                    [
+                      "assignableLeads",
+                      "readyLeads",
+                    ],
+                    0
+                  )
+                : "—"
+            }
+          />
+
+          {canViewBilling ? (
+            <ToolRow
+              label="Billing"
+              value={
+                billing
+                  ? "Connected"
+                  : "Unavailable"
+              }
+              secondary={
+                billing?.safepay
+                  ?.configured
+                  ? "Checkout configured"
+                  : "Usage tracking available"
+              }
+            />
+          ) : null}
+        </div>
+      </section>
+    </>
   );
 }
 
@@ -1037,7 +1390,7 @@ function AssignedLeadCard({
 }
 
 function AssignmentsCard({
-  assignments,
+  assignments = [],
 }) {
   return (
     <section className="rf-panel">
@@ -1046,7 +1399,7 @@ function AssignmentsCard({
         subtitle="Recently assigned and active leads."
         action={
           <a
-            href="/app/assignments"
+            href="/app/resource-board"
             className="rf-text-link"
           >
             Manage
@@ -1063,65 +1416,124 @@ function AssignmentsCard({
         <div className="rf-compact-list">
           {assignments
             .slice(0, 10)
-            .map((assignment) => (
-              <div
-                className="rf-compact-row"
-                key={assignment.id}
-              >
-                <div>
-                  <strong>
-                    Lead assignment
-                  </strong>
+            .map((assignment) => {
+              const lead =
+                assignment.lead || {};
 
-                  <small>
-                    {assignment.leadId ||
-                      "Lead"}
-                  </small>
-                </div>
+              const leadName =
+                lead.business ||
+                lead.companyName ||
+                lead.name ||
+                assignment.leadName ||
+                assignment.companyName ||
+                "Lead";
 
-                <StatusBadge
-                  value={
-                    assignment.status
+              const assignee =
+                assignment.assigneeName ||
+                assignment.memberName ||
+                assignment.callerName ||
+                assignment.assignee?.name ||
+                "";
+
+              const nextActionAt =
+                assignment.nextActionAt ||
+                assignment.callbackAt ||
+                assignment.dueAt ||
+                "";
+
+              return (
+                <div
+                  className="rf-compact-row"
+                  key={
+                    assignment.id ||
+                    assignment.assignmentId ||
+                    `${leadName}-${assignee}`
                   }
-                />
-              </div>
-            ))}
+                >
+                  <div>
+                    <strong>
+                      {leadName}
+                    </strong>
+
+                    <small>
+                      {[
+                        assignee
+                          ? `Assigned to ${assignee}`
+                          : "",
+                        nextActionAt
+                          ? `Next ${formatDateTime(
+                              nextActionAt
+                            )}`
+                          : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" · ") ||
+                        "Assignment active"}
+                    </small>
+                  </div>
+
+                  <StatusBadge
+                    value={
+                      assignment.status ||
+                      "assigned"
+                    }
+                  />
+                </div>
+              );
+            })}
         </div>
       )}
     </section>
   );
 }
 
+
 function TaskListCard({
-  tasks,
+  tasks = [],
   title = "Team tasks",
 }) {
+  const visibleTasks =
+    [...tasks]
+      .sort(compareDashboardTasks)
+      .slice(0, 10);
+
   return (
     <section className="rf-panel">
       <PanelHeader
         title={title}
-        subtitle="Priority work and upcoming deadlines."
+        subtitle="Overdue work first, then the nearest upcoming deadlines."
       />
 
-      {!tasks.length ? (
+      {!visibleTasks.length ? (
         <EmptyState
           title="No pending tasks"
           description="Assigned tasks will appear here."
         />
       ) : (
         <div className="rf-task-list">
-          {tasks
-            .slice(0, 10)
-            .map((task) => (
+          {visibleTasks.map((task) => {
+            const dueAt =
+              resolveTaskDueAt(task);
+
+            const completed =
+              normalizeSimpleStatus(
+                task.status
+              ) === "completed";
+
+            const overdue =
+              !completed &&
+              isPastDate(dueAt);
+
+            return (
               <article
-                key={task.id}
+                key={
+                  task.id ||
+                  `${task.title}-${dueAt}`
+                }
                 className="rf-task-item"
               >
                 <div className="rf-task-check">
-                  {task.status ===
-                  "completed"
-                    ? "✓"
-                    : ""}
+                  {completed ? "✓" : ""}
                 </div>
 
                 <div>
@@ -1131,51 +1543,116 @@ function TaskListCard({
                   </strong>
 
                   <small>
-                    {task.dueAt
-                      ? `Due ${formatDateTime(
-                          task.dueAt
+                    {dueAt
+                      ? `${
+                          overdue
+                            ? "Overdue"
+                            : "Due"
+                        } ${formatDateTime(
+                          dueAt
                         )}`
                       : "No due date"}
+                    {task.leadName
+                      ? ` · ${task.leadName}`
+                      : ""}
                   </small>
                 </div>
 
-                <StatusBadge
-                  value={
-                    task.priority ||
-                    task.status
-                  }
-                />
+                {overdue ? (
+                  <span className="rf-overdue-label">
+                    Overdue
+                  </span>
+                ) : (
+                  <StatusBadge
+                    value={
+                      task.priority ||
+                      task.status ||
+                      "pending"
+                    }
+                  />
+                )}
               </article>
-            ))}
+            );
+          })}
         </div>
       )}
     </section>
   );
 }
 
+
 function RecentCallsCard({
-  calls,
+  calls = [],
   title = "Recent calls",
 }) {
+  const visibleCalls =
+    [...calls]
+      .sort((left, right) => {
+        const rightTime =
+          dateValue(
+            right.startedAt ||
+              right.createdAt ||
+              right.updatedAt
+          );
+
+        const leftTime =
+          dateValue(
+            left.startedAt ||
+              left.createdAt ||
+              left.updatedAt
+          );
+
+        return rightTime - leftTime;
+      })
+      .slice(0, 12);
+
   return (
     <section className="rf-panel">
       <PanelHeader
         title={title}
-        subtitle="Latest call activity and outcomes."
+        subtitle="Latest human and AI call activity with the recorded outcome."
       />
 
-      {!calls.length ? (
+      {!visibleCalls.length ? (
         <EmptyState
           title="No calls recorded"
           description="Completed and attempted calls will appear here."
         />
       ) : (
         <div className="rf-call-list">
-          {calls
-            .slice(0, 12)
-            .map((call) => (
+          {visibleCalls.map((call) => {
+            const destination =
+              call.leadName ||
+              call.contactName ||
+              call.companyName ||
+              call.destinationNumber ||
+              call.toNumber ||
+              call.phone ||
+              "Call";
+
+            const number =
+              call.destinationNumber ||
+              call.toNumber ||
+              call.phone ||
+              "";
+
+            const startedAt =
+              call.startedAt ||
+              call.createdAt ||
+              call.updatedAt;
+
+            const duration =
+              call.durationSeconds ??
+              call.duration ??
+              0;
+
+            return (
               <article
-                key={call.id}
+                key={
+                  call.id ||
+                  call.callId ||
+                  `${number}-${startedAt}`
+                }
                 className="rf-call-item"
               >
                 <div className="rf-call-icon">
@@ -1184,14 +1661,21 @@ function RecentCallsCard({
 
                 <div className="rf-call-item__content">
                   <strong>
-                    {call.destinationNumber ||
-                      "Internal call"}
+                    {destination}
                   </strong>
 
                   <small>
-                    {formatDateTime(
-                      call.startedAt
-                    )}
+                    {[
+                      number &&
+                      number !== destination
+                        ? number
+                        : "",
+                      formatDateTime(
+                        startedAt
+                      ),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </small>
                 </div>
 
@@ -1199,28 +1683,48 @@ function RecentCallsCard({
                   <StatusBadge
                     value={
                       call.outcome ||
-                      call.status
+                      call.disposition ||
+                      call.status ||
+                      "unknown"
                     }
                   />
 
                   <small>
                     {formatDuration(
-                      call.durationSeconds ||
-                        0
+                      duration
                     )}
                   </small>
                 </div>
               </article>
-            ))}
+            );
+          })}
         </div>
       )}
     </section>
   );
 }
 
+
 function CallbacksCard({
-  callbacks,
+  callbacks = [],
 }) {
+  const visibleCallbacks =
+    [...callbacks]
+      .sort(
+        (left, right) =>
+          dateValue(
+            resolveCallbackAt(
+              left
+            )
+          ) -
+          dateValue(
+            resolveCallbackAt(
+              right
+            )
+          )
+      )
+      .slice(0, 10);
+
   return (
     <section className="rf-panel">
       <PanelHeader
@@ -1228,45 +1732,62 @@ function CallbacksCard({
         subtitle="Scheduled follow-ups requiring attention."
       />
 
-      {!callbacks.length ? (
+      {!visibleCallbacks.length ? (
         <EmptyState
           title="No callbacks due"
           description="Scheduled callbacks will appear here."
         />
       ) : (
         <div className="rf-compact-list">
-          {callbacks
-            .slice(0, 10)
-            .map((callback) => (
-              <div
-                className="rf-compact-row"
-                key={callback.id}
-              >
-                <div>
-                  <strong>
-                    Follow-up
-                  </strong>
+          {visibleCallbacks.map(
+            (callback) => {
+              const callbackAt =
+                resolveCallbackAt(
+                  callback
+                );
 
-                  <small>
-                    {formatDateTime(
-                      callback.nextActionAt
-                    )}
-                  </small>
-                </div>
-
-                <StatusBadge
-                  value={
-                    callback.priority ||
-                    callback.status
+              return (
+                <div
+                  className="rf-compact-row"
+                  key={
+                    callback.id ||
+                    `${callback.leadId}-${callbackAt}`
                   }
-                />
-              </div>
-            ))}
+                >
+                  <div>
+                    <strong>
+                      {callback.leadName ||
+                        callback.companyName ||
+                        callback.title ||
+                        "Follow-up"}
+                    </strong>
+
+                    <small>
+                      {callbackAt
+                        ? formatDateTime(
+                            callbackAt
+                          )
+                        : "Not scheduled"}
+                    </small>
+                  </div>
+
+                  <StatusBadge
+                    value={
+                      callback.priority ||
+                      callback.status ||
+                      "scheduled"
+                    }
+                  />
+                </div>
+              );
+            }
+          )}
         </div>
       )}
     </section>
   );
 }
+
 
 function OverdueActionsCard({
   actions,
@@ -1300,7 +1821,10 @@ function OverdueActionsCard({
                   <small>
                     Due{" "}
                     {formatDateTime(
-                      action.dueAt
+                      action.dueAt ||
+                        action.nextActionAt ||
+                        action.callbackAt ||
+                        action.scheduledAt
                     )}
                   </small>
                 </div>
@@ -1482,7 +2006,7 @@ function TeamDirectoryCard({
 }
 
 function ActivityCard({
-  items,
+  items = [],
   title = "Recent activity",
 }) {
   return (
@@ -1501,20 +2025,32 @@ function ActivityCard({
         <div className="rf-activity-list">
           {items
             .slice(0, 30)
-            .map((item) => (
+            .map((item, index) => (
               <article
-                key={item.id}
+                key={
+                  item.id ||
+                  `${item.createdAt}-${index}`
+                }
                 className="rf-activity-item"
               >
                 <div className="rf-activity-dot" />
 
                 <div>
                   <strong>
-                    {formatStatus(
-                      item.action ||
-                        item.type
-                    )}
+                    {item.title ||
+                      formatStatus(
+                        item.action ||
+                          item.type
+                      )}
                   </strong>
+
+                  {item.detail ||
+                  item.description ? (
+                    <span>
+                      {item.detail ||
+                        item.description}
+                    </span>
+                  ) : null}
 
                   <small>
                     {formatDateTime(
@@ -1529,6 +2065,7 @@ function ActivityCard({
     </section>
   );
 }
+
 
 function PanelHeader({
   title,
@@ -1739,6 +2276,192 @@ function DashboardError({
         Try again
       </button>
     </main>
+  );
+}
+
+function firstNumber(
+  source = {},
+  keys = [],
+  fallback = 0
+) {
+  for (const key of keys) {
+    const value =
+      source?.[key];
+
+    if (
+      value !== null &&
+      value !== undefined &&
+      value !== "" &&
+      Number.isFinite(
+        Number(value)
+      )
+    ) {
+      return Number(value);
+    }
+  }
+
+  return fallback;
+}
+
+function formatCreditNumber(
+  value
+) {
+  return new Intl.NumberFormat(
+    undefined,
+    {
+      maximumFractionDigits: 3,
+    }
+  ).format(
+    Number(value || 0)
+  );
+}
+
+function normalizeSimpleStatus(
+  value
+) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_");
+}
+
+function resolveTaskDueAt(
+  task = {}
+) {
+  return (
+    task.dueAt ||
+    task.dueDate ||
+    task.scheduledAt ||
+    task.nextActionAt ||
+    task.callbackAt ||
+    ""
+  );
+}
+
+function compareDashboardTasks(
+  left,
+  right
+) {
+  const leftStatus =
+    normalizeSimpleStatus(
+      left?.status
+    );
+
+  const rightStatus =
+    normalizeSimpleStatus(
+      right?.status
+    );
+
+  const completedStates =
+    new Set([
+      "completed",
+      "done",
+      "closed",
+      "cancelled",
+      "canceled",
+    ]);
+
+  const leftClosed =
+    completedStates.has(
+      leftStatus
+    );
+
+  const rightClosed =
+    completedStates.has(
+      rightStatus
+    );
+
+  if (
+    leftClosed !== rightClosed
+  ) {
+    return leftClosed ? 1 : -1;
+  }
+
+  const leftDue =
+    resolveTaskDueAt(left);
+
+  const rightDue =
+    resolveTaskDueAt(right);
+
+  const leftOverdue =
+    !leftClosed &&
+    isPastDate(leftDue);
+
+  const rightOverdue =
+    !rightClosed &&
+    isPastDate(rightDue);
+
+  if (
+    leftOverdue !==
+    rightOverdue
+  ) {
+    return leftOverdue
+      ? -1
+      : 1;
+  }
+
+  if (
+    leftDue &&
+    rightDue
+  ) {
+    return (
+      dateValue(leftDue) -
+      dateValue(rightDue)
+    );
+  }
+
+  if (leftDue) return -1;
+  if (rightDue) return 1;
+
+  return (
+    dateValue(
+      right?.updatedAt ||
+        right?.createdAt
+    ) -
+    dateValue(
+      left?.updatedAt ||
+        left?.createdAt
+    )
+  );
+}
+
+function isPastDate(
+  value
+) {
+  if (!value) return false;
+
+  const timestamp =
+    dateValue(value);
+
+  return (
+    timestamp > 0 &&
+    timestamp < Date.now()
+  );
+}
+
+function dateValue(
+  value
+) {
+  if (!value) return 0;
+
+  const parsed =
+    new Date(value).getTime();
+
+  return Number.isFinite(parsed)
+    ? parsed
+    : 0;
+}
+
+function resolveCallbackAt(
+  callback = {}
+) {
+  return (
+    callback.nextActionAt ||
+    callback.callbackAt ||
+    callback.dueAt ||
+    callback.dueDate ||
+    callback.scheduledAt ||
+    ""
   );
 }
 
