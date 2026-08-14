@@ -23,13 +23,13 @@ import {
 import "../styles.css";
 
 const FAST_HUMAN_GREETING =
-  "Hey {{greeting_name}} — Jason here from {{company_name}}. Quick heads-up, I’m their AI assistant. Did I catch you at a bad time?";
+  "Hey {{greeting_name}}, James from {{company_name}}. Quick disclosure — I’m an AI sales agent with the team, and this call may be recorded. I’ll keep it brief. I was curious... is your website consistently turning visitors into real sales conversations, or do too many people land there and leave without ever becoming a lead?";
 
 const FAST_HUMAN_PERSONA =
-  "Relaxed, sharp, warm, and conversational. Keep most turns short, use contractions and plain words, and match the prospect’s pace. Small reactions like yeah, right, gotcha, hmm, fair, or oh okay are fine only when they genuinely fit. Allow brief silence instead of filling every gap. Rarely use a tiny self-correction such as well—actually. Never use canned call-center filler, never over-acknowledge, and never claim to be human.";
+  "Warm, sharp, concise, and conversational. Keep most turns short, use contractions and plain words, and match the prospect’s pace. React naturally without repetitive acknowledgement phrases. Avoid canned AI or call-center filler such as got it, gotcha, absolutely, certainly, perfect, awesome, I understand, or that makes sense. Allow brief silence instead of filling every gap. Never use fake laughter, fake breathing, written stage directions, or claim to be human.";
 
 const DEFAULT_FORM = {
-  name: "",
+  name: "James",
   description:
     "ReachFly outbound qualification and meeting-booking agent.",
   companyName: "",
@@ -90,7 +90,7 @@ const DEFAULT_CUSTOM_LEAD_FORM = {
 const TABS = [
   ["setup", "Agent setup"],
   ["leads", "Lead queue"],
-  ["calls", "Calls"],
+  ["calls", "Live calls"],
   ["meetings", "Meetings"],
 ];
 
@@ -181,7 +181,7 @@ export default function TelnyxAIAgentPage() {
         } else {
           setError(
             requestError?.message ||
-              "The ElevenLabs + Telnyx SIP voice-agent workspace could not be loaded."
+              "The ReachFly Voice workspace could not be loaded."
           );
         }
       } finally {
@@ -238,7 +238,7 @@ export default function TelnyxAIAgentPage() {
       if (!mountedRef.current) return;
       setError(
         requestError?.message ||
-          "The linked ElevenLabs voice could not be loaded."
+          "The linked voice could not be loaded."
       );
     }
   }, []);
@@ -275,7 +275,7 @@ export default function TelnyxAIAgentPage() {
       if (![403, 404].includes(Number(requestError?.status))) {
         setError(
           requestError?.message ||
-            "ElevenLabs agents could not be loaded."
+            "Voice-agent profiles could not be loaded."
         );
       }
     }
@@ -517,8 +517,8 @@ export default function TelnyxAIAgentPage() {
         setSuccess(
           started
             ? testCall
-              ? `${reusedPrefix}The controlled test call started over direct ElevenLabs ↔ Telnyx SIP and bypassed only the configured calling-time window. Open Calls to track or end it.`
-              : `${reusedPrefix}The AI call started over direct ElevenLabs ↔ Telnyx SIP. Open Calls to track or end it.`
+              ? `${reusedPrefix}The controlled test call started through ReachFly Voice and bypassed only the configured calling-time window. Open Live Calls to track or end it.`
+              : `${reusedPrefix}The AI call started through ReachFly Voice. Open Live Calls to track or end it.`
             : deferred
               ? `${reusedPrefix}The call is queued but was not dialed yet${providerReason ? `: ${providerReason}` : ". Check the lead timezone and calling window."}`
               : failed
@@ -650,14 +650,14 @@ export default function TelnyxAIAgentPage() {
         })
       );
       setSuccess(
-        `Claude analyzed ${response.pagesAnalyzed || 0} website page${
+        `ReachFly analyzed ${response.pagesAnalyzed || 0} website page${
           response.pagesAnalyzed === 1 ? "" : "s"
-        }. The ElevenAgent can now use this knowledge naturally.`
+        }. The voice agent can now use this knowledge naturally.`
       );
     } catch (requestError) {
       setError(
         requestError?.message ||
-          "Claude could not analyze the company website."
+          "ReachFly could not analyze the company website."
       );
     } finally {
       setAnalyzingWebsite(false);
@@ -742,8 +742,8 @@ export default function TelnyxAIAgentPage() {
 
         setSuccess(
           voiceResolution?.changed
-            ? `The voice agent was saved with ElevenLabs voice ${voiceResolution.selectedLabel || voiceResolution.selected}.`
-            : "The ReachFly voice agent was saved and synchronized with ElevenLabs over Telnyx SIP."
+            ? `The voice agent was saved with ${voiceResolution.selectedLabel || "the selected voice"}.`
+            : "The ReachFly voice agent was saved and synchronized."
         );
       }
 
@@ -785,7 +785,7 @@ export default function TelnyxAIAgentPage() {
 
     if (!savedAgent?.elevenLabsAgentId || !savedAgent?.elevenLabsPhoneNumberId) {
       throw new Error(
-        "ReachFly could not link the ElevenAgent and Telnyx SIP phone number. Open Agent setup, save the voice agent, and check the ElevenLabs configuration message."
+        "ReachFly could not link the voice agent and business phone number. Open Agent setup, save the agent, and review the configuration message."
       );
     }
 
@@ -919,7 +919,7 @@ export default function TelnyxAIAgentPage() {
       <main className="rf-agent-page">
         <section className="rf-agent-loading">
           <span className="rf-agent-spinner" />
-          <b>Loading ElevenLabs + Telnyx SIP agent…</b>
+          <b>Loading ReachFly Voice Agent…</b>
           <small>
             Checking workspace access, configuration and lead queue.
           </small>
@@ -932,11 +932,11 @@ export default function TelnyxAIAgentPage() {
     <main className="rf-agent-page">
       <header className="rf-agent-header">
         <div>
-          <span className="eyebrow">ElevenLabs + Telnyx SIP</span>
+          <span className="eyebrow">ReachFly Voice</span>
           <h1>Outbound voice agent</h1>
           <p>
-            Qualify leads, record outcomes and book confirmed meetings with a
-            workspace-scoped ElevenAgent carried over your Telnyx SIP trunk.
+            Qualify leads, run compliant AI conversations, monitor live calls,
+            record outcomes and book confirmed meetings from one workspace.
           </p>
         </div>
 
@@ -1008,27 +1008,25 @@ export default function TelnyxAIAgentPage() {
         <div>
           <span className="rf-agent-provider-logo">T</span>
           <div>
-            <b>ElevenLabs + Telnyx SIP</b>
+            <b>ReachFly Calling</b>
             <small>
-              ElevenAgent {diagnostics.elevenLabsAgentId || diagnostics.assistantId || "not linked"}
+              {diagnostics.configured ? "Voice runtime connected" : "Voice runtime needs setup"}
             </small>
           </div>
         </div>
 
         <dl>
           <div>
-            <dt>ElevenLabs phone ID</dt>
-            <dd>{diagnostics.elevenLabsPhoneNumberId || "Missing"}</dd>
+            <dt>Voice agent</dt>
+            <dd>{agent?.name || form.name || "Not configured"}</dd>
           </div>
           <div>
-            <dt>Telnyx caller ID</dt>
-            <dd>{diagnostics.selectedFromNumber || "Missing"}</dd>
+            <dt>Business number</dt>
+            <dd>{diagnostics.selectedFromNumber || "Not connected"}</dd>
           </div>
           <div>
-            <dt>Webhook</dt>
-            <dd title={diagnostics.webhookUrl}>
-              {shorten(diagnostics.webhookUrl, 52) || "Missing"}
-            </dd>
+            <dt>Call events</dt>
+            <dd>{diagnostics.configured ? "Connected" : "Needs attention"}</dd>
           </div>
           <div>
             <dt>Workspace</dt>
@@ -1127,6 +1125,7 @@ export default function TelnyxAIAgentPage() {
           calls={calls}
           busyCallId={busyCallId}
           onCancel={(id) => void cancelCall(id)}
+          onRefresh={() => loadDashboard({ silent: true })}
         />
       ) : null}
 
@@ -1180,7 +1179,7 @@ function AgentSetup({
         </div>
 
         <label className="rf-agent-field">
-          <span>ElevenLabs agent</span>
+          <span>Voice-agent profile</span>
           <select
             value={form.elevenLabsAgentId || ""}
             onChange={(event) => {
@@ -1196,22 +1195,22 @@ function AgentSetup({
           >
             {!elevenLabsAgents?.length ? (
               <option value={form.elevenLabsAgentId || ""}>
-                {form.elevenLabsAgentId || "No ElevenLabs agents loaded"}
+                {form.elevenLabsAgentId ? "Linked profile" : "No voice-agent profiles loaded"}
               </option>
             ) : null}
             {(elevenLabsAgents || []).map((item) => (
               <option key={item.agentId} value={item.agentId}>
-                {item.name} — {item.voiceName || item.voiceId || "No voice"}
+                {item.name}{item.voiceName ? ` — ${item.voiceName}` : ""}
               </option>
             ))}
           </select>
           <small>
-            ReachFly loads agents from your ElevenLabs account and shows the voice attached to each one. This control is protected by the same workspace access rules as the rest of Voice Agent, so AH Growth cannot access it.
+            Choose the managed voice-agent profile available to this workspace. Provider identifiers stay hidden from customer-facing screens.
           </small>
         </label>
 
         <label className="rf-agent-field">
-          <span>ElevenLabs voice</span>
+          <span>Voice</span>
           <select
             value={form.voice}
             onChange={(event) =>
@@ -1219,16 +1218,16 @@ function AgentSetup({
             }
           >
             {!voices.length ? (
-              <option value={form.voice}>{form.voice}</option>
+              <option value={form.voice}>{recommendedVoice?.name || "Current voice"}</option>
             ) : null}
             {voices.map((voice) => (
               <option key={voice.id} value={voice.id}>
-                {voice.label || voice.id}
+                {voice.name || voice.accent || voice.language || "Voice"}
               </option>
             ))}
           </select>
           <small>
-            Choose any voice available to your ElevenLabs workspace. Saving ReachFly now updates the selected ElevenAgent to this voice and applies the low-latency realtime settings.
+            Choose the customer-facing voice for this agent. ReachFly keeps provider IDs and runtime configuration behind the scenes.
           </small>
 
           <div className="rf-agent-website-actions">
@@ -1242,7 +1241,7 @@ function AgentSetup({
               }
             >
               {recommendedVoice?.id
-                ? `Use linked voice: ${recommendedVoice.name || "ElevenLabs voice"}`
+                ? `Use linked voice: ${recommendedVoice.name || "Recommended voice"}`
                 : "No linked voice available"}
             </button>
 
@@ -1261,9 +1260,9 @@ function AgentSetup({
             </button>
 
             <span className="rf-agent-brain-pill">
-              <b>Fast natural mode</b>
+              <b>Natural conversation mode</b>
               <span>
-                {(recommendedVoice?.name || "Linked ElevenLabs voice")} + Flash v2 + streaming latency 3 + 1.0 speed + eager Turn V3
+                {(recommendedVoice?.name || "Linked voice")} · balanced turn-taking · low-latency conversation
               </span>
             </span>
           </div>
@@ -1294,7 +1293,7 @@ function AgentSetup({
       <article className="rf-agent-card rf-agent-form-card">
         <div className="rf-agent-card-heading">
           <div>
-            <span>Claude website intelligence</span>
+            <span>Website intelligence</span>
             <h2>Give ReachFly your website, not a call script</h2>
           </div>
           <span className="rf-agent-section-number">02</span>
@@ -1315,15 +1314,15 @@ function AgentSetup({
             onClick={onAnalyzeWebsite}
           >
             {analyzingWebsite
-              ? "Claude is reading the website…"
+              ? "ReachFly is reading the website…"
               : form.websiteIntelligence?.analyzedAt
-                ? "Re-analyze website with Claude"
-                : "Analyze website with Claude"}
+                ? "Re-analyze website"
+                : "Analyze website"}
           </button>
 
           <div className="rf-agent-brain-pill">
             <b>Live conversation brain</b>
-            <span>ElevenLabs realtime conversation over Telnyx SIP</span>
+            <span>ReachFly real-time voice runtime</span>
           </div>
         </div>
 
@@ -1336,19 +1335,18 @@ function AgentSetup({
           <div className="rf-agent-intel-empty">
             <b>What happens after Analyze</b>
             <p>
-              ReachFly safely crawls the public website, Claude extracts the
-              services, target customers, value propositions, proof points,
-              qualification questions, objections and booking angles, and ReachFly
-              injects that knowledge into the ElevenAgent before each call.
+              ReachFly safely reads the public website, extracts services, target
+              customers, value propositions, proof points, qualification questions,
+              objections and booking angles, and prepares that knowledge for the
+              voice agent before each call.
             </p>
           </div>
         )}
 
         <small className="rf-agent-field-note">
-          The website is analyzed before calls. ReachFly injects the resulting
-          sales context into ElevenLabs before dialing; ElevenLabs handles the
-          realtime conversation while Telnyx carries SIP/PSTN audio. No normal
-          conversation turn requires a ReachFly database lookup.
+          The website is analyzed before calls. ReachFly prepares the resulting
+          sales context before dialing so the agent can stay focused and responsive
+          during the conversation.
         </small>
       </article>
 
@@ -1427,7 +1425,7 @@ function AgentSetup({
         </div>
 
         <label className="rf-agent-field">
-          <span>Outbound Telnyx number</span>
+          <span>Outbound business number</span>
           {numberOptions.length ? (
             <select
               value={form.fromNumber}
@@ -1452,7 +1450,7 @@ function AgentSetup({
             />
           )}
           <small>
-            Use the existing Telnyx number imported/connected to ElevenLabs through your Telnyx SIP trunk.
+            Select the verified business number ReachFly should use for outbound calls.
           </small>
         </label>
 
@@ -1583,7 +1581,7 @@ function AgentSetup({
           onClick={onSave}
         >
           {saving
-            ? "Saving and syncing with ElevenLabs…"
+            ? "Saving and syncing voice agent…"
             : "Save voice agent"}
         </button>
       </article>
@@ -1612,7 +1610,7 @@ function WebsiteIntelligencePreview({ intelligence, websiteUrl }) {
     <div className="rf-agent-intel-preview">
       <div className="rf-agent-intel-meta">
         <span>
-          <b>Claude profile ready</b>
+          <b>Website profile ready</b>
           <small>{formatDateTime(intelligence.analyzedAt)}</small>
         </span>
         <span>
@@ -1620,7 +1618,7 @@ function WebsiteIntelligencePreview({ intelligence, websiteUrl }) {
           <small>pages analyzed</small>
         </span>
         <span>
-          <b>{intelligence.claudeModel || "Claude"}</b>
+          <b>ReachFly intelligence</b>
           <small>website analysis model</small>
         </span>
       </div>
@@ -1703,7 +1701,7 @@ function LeadQueue({
         <div className="rf-agent-card-heading compact">
           <div>
             <span>Custom AI call</span>
-            <h2>Call one lead with private context for ElevenLabs</h2>
+            <h2>Call one lead with private context</h2>
           </div>
           <span className="rf-agent-custom-badge">One-off / high-priority lead</span>
         </div>
@@ -1765,7 +1763,7 @@ function LeadQueue({
             placeholder="Example: They do not have a website. Introduce CodeSync Labs, explain the value briefly, and try to book a discovery meeting."
           />
           <small>
-            {String(customLeadForm.context || "").length.toLocaleString()} / 12,000. Private context is injected into ElevenLabs before the call; it is not read word-for-word.
+            {String(customLeadForm.context || "").length.toLocaleString()} / 12,000. Private context is prepared for the agent before the call; it is not read word-for-word.
           </small>
         </label>
 
@@ -1966,7 +1964,7 @@ function LeadQueue({
         <div className="rf-agent-card-heading compact">
           <div>
             <span>Workspace lead pool</span>
-            <h2>Review and assign leads to ElevenLabs</h2>
+            <h2>Review and assign leads to the voice agent</h2>
           </div>
           <b className="rf-agent-count">
             {selectedLeadIds.length} selected
@@ -2196,13 +2194,27 @@ function LeadQueue({
   );
 }
 
-function CallsPanel({ calls, busyCallId, onCancel }) {
+function CallsPanel({
+  calls,
+  busyCallId,
+  onCancel,
+  onRefresh,
+}) {
   const [monitorCallId, setMonitorCallId] = useState("");
+  const [monitorCapabilities, setMonitorCapabilities] = useState(null);
+  const [capabilitiesLoading, setCapabilitiesLoading] = useState(false);
   const [listening, setListening] = useState(false);
   const [audioStatus, setAudioStatus] = useState("idle");
   const [audioError, setAudioError] = useState("");
+  const [monitorNotice, setMonitorNotice] = useState("");
+  const [syncingConversation, setSyncingConversation] = useState(false);
+  const [recordingLoading, setRecordingLoading] = useState(false);
+  const [recordingUrl, setRecordingUrl] = useState("");
+  const [recordingError, setRecordingError] = useState("");
+
   const audioContextRef = useRef(null);
   const listeningRef = useRef(false);
+  const recordingUrlRef = useRef("");
   const nextAudioAtRef = useRef({
     inbound: 0,
     outbound: 0,
@@ -2216,9 +2228,12 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
     [calls, monitorCallId]
   );
 
-  const directSipCall =
-    normalizeStatus(monitorCall?.provider) ===
-    "elevenlabs_telnyx_sip";
+  const live = Boolean(
+    monitorCall &&
+      LIVE_CALL_STATES.has(
+        normalizeStatus(monitorCall.status)
+      )
+  );
 
   const transcript = useMemo(() => {
     const realtime = Array.isArray(
@@ -2238,6 +2253,7 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
         ? realtime
         : monitorCall?.messageHistory ||
             monitorCall?.conversation ||
+            monitorCall?.transcript ||
             []
     );
   }, [
@@ -2245,6 +2261,112 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
     monitorCall?.liveTranscriptInterim,
     monitorCall?.messageHistory,
     monitorCall?.conversation,
+    monitorCall?.transcript,
+  ]);
+
+  const liveAudioAvailable =
+    monitorCapabilities?.liveAudio?.available === true;
+
+  const liveTranscriptAvailable =
+    monitorCapabilities?.liveTranscript?.available === true ||
+    ["starting", "requested", "streaming"].includes(
+      normalizeStatus(
+        monitorCall?.transcriptionStatus
+      )
+    );
+
+  const postCallRecordingAvailable =
+    monitorCapabilities?.postCallRecording?.available === true;
+
+  function releaseRecordingUrl() {
+    const currentUrl =
+      recordingUrlRef.current;
+
+    if (currentUrl) {
+      URL.revokeObjectURL(currentUrl);
+      recordingUrlRef.current = "";
+    }
+
+    setRecordingUrl("");
+  }
+
+  async function loadMonitoringCapabilities(
+    callId,
+    {
+      quiet = false,
+    } = {}
+  ) {
+    if (!callId) {
+      setMonitorCapabilities(null);
+      return null;
+    }
+
+    if (!quiet) {
+      setCapabilitiesLoading(true);
+    }
+
+    try {
+      const result =
+        await apiRequest(
+          `/telnyx/ai-agent/calls/${encodeURIComponent(
+            callId
+          )}/monitoring`,
+          {
+            timeoutMs: 20_000,
+          }
+        );
+
+      if (callId === monitorCallId) {
+        setMonitorCapabilities(
+          result || null
+        );
+      }
+
+      return result;
+    } catch (error) {
+      if (callId === monitorCallId) {
+        setMonitorCapabilities(null);
+
+        if (!quiet) {
+          setAudioError(
+            safeVoiceRuntimeMessage(
+              error?.message ||
+                "ReachFly could not check monitoring availability."
+            )
+          );
+        }
+      }
+
+      return null;
+    } finally {
+      if (
+        !quiet &&
+        callId === monitorCallId
+      ) {
+        setCapabilitiesLoading(false);
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (!monitorCallId) {
+      setMonitorCapabilities(null);
+      setCapabilitiesLoading(false);
+      return;
+    }
+
+    void loadMonitoringCapabilities(
+      monitorCallId
+    );
+    // Refresh when the provider attaches the identifiers that determine whether
+    // live audio, live transcript or a post-call recording are available.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    monitorCallId,
+    monitorCall?.callControlId,
+    monitorCall?.conversationId,
+    monitorCall?.hasAudio,
+    monitorCall?.status,
   ]);
 
   useEffect(() => {
@@ -2255,7 +2377,8 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
           if (
             !listeningRef.current ||
             !monitorCallId ||
-            packet?.callId !== monitorCallId
+            packet?.callId !==
+              monitorCallId
           ) {
             return;
           }
@@ -2274,16 +2397,39 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
         (event) => {
           if (
             !monitorCallId ||
-            event?.callId !== monitorCallId
+            event?.callId !==
+              monitorCallId
           ) {
             return;
           }
 
-          setAudioStatus(
+          const nextStatus =
             String(
-              event.status || "waiting"
-            )
+              event.status ||
+                "waiting"
+            );
+
+          setAudioStatus(
+            nextStatus
           );
+
+          if (
+            [
+              "ended",
+              "stopped",
+              "completed",
+              "failed",
+              "disconnected",
+            ].includes(
+              normalizeStatus(
+                nextStatus
+              )
+            )
+          ) {
+            listeningRef.current =
+              false;
+            setListening(false);
+          }
         }
       );
 
@@ -2292,6 +2438,20 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
       unsubscribeStatus?.();
     };
   }, [monitorCallId]);
+
+  useEffect(() => {
+    if (
+      monitorCall &&
+      !live &&
+      listeningRef.current
+    ) {
+      void stopListening();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    live,
+    monitorCall?.id,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -2319,6 +2479,14 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
           () => {}
         );
       }
+
+      if (recordingUrlRef.current) {
+        URL.revokeObjectURL(
+          recordingUrlRef.current
+        );
+        recordingUrlRef.current =
+          "";
+      }
     };
   }, [monitorCallId]);
 
@@ -2330,18 +2498,36 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
       monitorCallId !== call.id
     ) {
       await stopListening();
+      releaseRecordingUrl();
     }
 
     setMonitorCallId(call.id);
+    setMonitorCapabilities(null);
+    setCapabilitiesLoading(true);
+    setMonitorNotice("");
     setAudioError("");
+    setRecordingError("");
+
     setAudioStatus(
       call.mediaStreamStatus ||
         (LIVE_CALL_STATES.has(
-          normalizeStatus(call.status)
+          normalizeStatus(
+            call.status
+          )
         )
           ? "waiting"
           : "ended")
     );
+  }
+
+  async function closeMonitor() {
+    await stopListening();
+    releaseRecordingUrl();
+    setMonitorCapabilities(null);
+    setMonitorNotice("");
+    setRecordingError("");
+    setAudioError("");
+    setMonitorCallId("");
   }
 
   async function startListening() {
@@ -2349,28 +2535,39 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
       return;
     }
 
-    if (directSipCall) {
+    if (!live) {
       setAudioError(
-        "Direct SIP audio stays between ElevenLabs and Telnyx. ReachFly does not proxy call audio."
+        "This call has already ended. Live listening is available only while the call is active."
       );
       return;
     }
 
-    const live =
-      LIVE_CALL_STATES.has(
-        normalizeStatus(
-          monitorCall.status
-        )
-      );
+    let capabilities =
+      monitorCapabilities;
 
-    if (!live) {
+    if (!capabilities) {
+      capabilities =
+        await loadMonitoringCapabilities(
+          monitorCall.id
+        );
+    }
+
+    if (
+      !capabilities?.liveAudio
+        ?.available
+    ) {
       setAudioError(
-        "This call has already ended. The live audio stream is only available while the call is active."
+        safeVoiceRuntimeMessage(
+          capabilities?.liveAudio
+            ?.note ||
+            "This call path does not currently expose a listen-only live audio stream."
+        )
       );
       return;
     }
 
     setAudioError("");
+    setMonitorNotice("");
 
     try {
       const AudioContextClass =
@@ -2379,7 +2576,7 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
 
       if (!AudioContextClass) {
         throw new Error(
-          "This browser does not support Web Audio."
+          "This browser does not support live audio playback."
         );
       }
 
@@ -2407,7 +2604,7 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
 
       /*
        * Set the ref before waiting for the socket acknowledgement so the
-       * first media packets are not discarded if Telnyx is already streaming.
+       * first media packets are not discarded when media is already flowing.
        */
       listeningRef.current = true;
 
@@ -2426,16 +2623,22 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
       setListening(true);
       setAudioStatus(
         joined?.status ||
-          monitorCall.mediaStreamStatus ||
+          monitorCall
+            .mediaStreamStatus ||
           "waiting"
+      );
+      setMonitorNotice(
+        "Listen-only monitoring is active. Your microphone is not connected to the call."
       );
     } catch (error) {
       listeningRef.current = false;
       setListening(false);
       setAudioStatus("failed");
       setAudioError(
-        error?.message ||
-          "ReachFly could not start the live audio monitor."
+        safeVoiceRuntimeMessage(
+          error?.message ||
+            "ReachFly could not start the live audio monitor."
+        )
       );
     }
   }
@@ -2459,7 +2662,7 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
           }
         );
       } catch {
-        // The socket may already have disconnected. Local audio still stops.
+        // The socket may already be disconnected. Local audio still stops.
       }
     }
 
@@ -2484,7 +2687,132 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
       monitorCall?.mediaStreamStatus ||
         "idle"
     );
+
+    if (monitorNotice) {
+      setMonitorNotice("");
+    }
   }
+
+  async function syncConversation() {
+    if (!monitorCall?.id) {
+      return;
+    }
+
+    setSyncingConversation(true);
+    setRecordingError("");
+    setAudioError("");
+    setMonitorNotice("");
+
+    try {
+      await apiRequest(
+        `/telnyx/ai-agent/calls/${encodeURIComponent(
+          monitorCall.id
+        )}/sync`,
+        {
+          method: "POST",
+          timeoutMs: 45_000,
+        }
+      );
+
+      await onRefresh?.();
+      await loadMonitoringCapabilities(
+        monitorCall.id,
+        {
+          quiet: true,
+        }
+      );
+
+      setMonitorNotice(
+        "Conversation details were refreshed."
+      );
+    } catch (error) {
+      setRecordingError(
+        safeVoiceRuntimeMessage(
+          error?.message ||
+            "ReachFly could not refresh the completed conversation."
+        )
+      );
+    } finally {
+      setSyncingConversation(false);
+    }
+  }
+
+  async function loadRecording() {
+    if (!monitorCall?.id) {
+      return;
+    }
+
+    if (
+      !postCallRecordingAvailable
+    ) {
+      setRecordingError(
+        "A post-call recording is not available for this conversation yet."
+      );
+      return;
+    }
+
+    setRecordingLoading(true);
+    setRecordingError("");
+
+    try {
+      const blob =
+        await apiRequest(
+          `/telnyx/ai-agent/calls/${encodeURIComponent(
+            monitorCall.id
+          )}/audio`,
+          {
+            responseType: "blob",
+            timeoutMs: 60_000,
+          }
+        );
+
+      if (
+        !blob ||
+        typeof blob.size !==
+          "number" ||
+        blob.size <= 0
+      ) {
+        throw new Error(
+          "The recording response was empty."
+        );
+      }
+
+      releaseRecordingUrl();
+
+      const url =
+        URL.createObjectURL(blob);
+
+      recordingUrlRef.current =
+        url;
+      setRecordingUrl(url);
+    } catch (error) {
+      setRecordingError(
+        safeVoiceRuntimeMessage(
+          error?.message ||
+            "ReachFly could not load the call recording."
+        )
+      );
+    } finally {
+      setRecordingLoading(false);
+    }
+  }
+
+  const liveAudioNote =
+    safeVoiceRuntimeMessage(
+      monitorCapabilities?.liveAudio
+        ?.note || ""
+    );
+
+  const transcriptNote =
+    live
+      ? liveTranscriptAvailable
+        ? "Live transcript monitoring is available for this call."
+        : "The conversation is live. If real-time transcript monitoring is not enabled for this runtime, the completed transcript will appear after post-call processing."
+      : transcript.length
+        ? "Completed conversation transcript."
+        : monitorCall?.conversationId
+          ? "The call has ended. Refresh the conversation if the transcript has not arrived yet."
+          : "No transcript is available yet.";
 
   return (
     <section className="rf-agent-call-monitor-layout">
@@ -2492,7 +2820,11 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
         <article className="rf-agent-card rf-agent-live-monitor">
           <div className="rf-agent-card-heading compact">
             <div>
-              <span>Conversation status</span>
+              <span>
+                {live
+                  ? "Live conversation"
+                  : "Conversation review"}
+              </span>
               <h2>
                 {monitorCall.leadName ||
                   "AI-agent call"}
@@ -2513,7 +2845,7 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
           </div>
 
           <div className="rf-agent-live-monitor-actions">
-            {!directSipCall ? (
+            {live ? (
               <button
                 type="button"
                 className={
@@ -2522,11 +2854,9 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
                     : "btn primary"
                 }
                 disabled={
-                  !LIVE_CALL_STATES.has(
-                    normalizeStatus(
-                      monitorCall.status
-                    )
-                  )
+                  capabilitiesLoading ||
+                  (!listening &&
+                    !liveAudioAvailable)
                 }
                 onClick={() =>
                   void (
@@ -2535,22 +2865,60 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
                       : startListening()
                   )
                 }
+                title={
+                  !liveAudioAvailable
+                    ? liveAudioNote ||
+                      "Live audio is not available for this call."
+                    : "Listen to both sides of the active call without joining it."
+                }
               >
                 {listening
                   ? "Stop listening"
-                  : "🔊 Listen live"}
+                  : capabilitiesLoading
+                    ? "Checking live audio…"
+                    : liveAudioAvailable
+                      ? "🔊 Listen live"
+                      : "Live audio unavailable"}
               </button>
-            ) : (
-              <span className="rf-agent-brain-pill">
-                Direct SIP media · no CRM audio proxy
-              </span>
-            )}
+            ) : null}
 
-            {LIVE_CALL_STATES.has(
-              normalizeStatus(
-                monitorCall.status
-              )
-            ) ? (
+            {!live &&
+            monitorCall.conversationId ? (
+              <button
+                type="button"
+                className="btn light"
+                disabled={
+                  syncingConversation
+                }
+                onClick={() =>
+                  void syncConversation()
+                }
+              >
+                {syncingConversation
+                  ? "Refreshing…"
+                  : "Refresh transcript"}
+              </button>
+            ) : null}
+
+            {!live &&
+            postCallRecordingAvailable ? (
+              <button
+                type="button"
+                className="btn primary"
+                disabled={recordingLoading}
+                onClick={() =>
+                  void loadRecording()
+                }
+              >
+                {recordingLoading
+                  ? "Loading recording…"
+                  : recordingUrl
+                    ? "Reload recording"
+                    : "▶ Play recording"}
+              </button>
+            ) : null}
+
+            {live ? (
               <button
                 type="button"
                 className="btn danger"
@@ -2575,16 +2943,69 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
               type="button"
               className="btn light"
               onClick={() =>
-                setMonitorCallId("")
+                void closeMonitor()
               }
             >
-              Close monitor
+              Close
             </button>
           </div>
 
+          {monitorNotice ? (
+            <div className="rf-agent-alert success">
+              <span>
+                {monitorNotice}
+              </span>
+            </div>
+          ) : null}
+
           {audioError ? (
             <div className="rf-agent-monitor-warning">
-              {audioError}
+              <b>Live listening</b>
+              <span>{audioError}</span>
+            </div>
+          ) : null}
+
+          {!capabilitiesLoading &&
+          live &&
+          !liveAudioAvailable &&
+          liveAudioNote ? (
+            <div className="rf-agent-monitor-warning">
+              <b>Live audio unavailable</b>
+              <span>
+                {liveAudioNote}
+              </span>
+            </div>
+          ) : null}
+
+          {recordingError ? (
+            <div className="rf-agent-monitor-warning">
+              <b>Conversation media</b>
+              <span>
+                {recordingError}
+              </span>
+            </div>
+          ) : null}
+
+          {recordingUrl ? (
+            <div className="rf-agent-live-transcript">
+              <div className="rf-agent-live-transcript-heading">
+                <div>
+                  <b>Call recording</b>
+                  <small>
+                    Authorized post-call playback for this workspace.
+                  </small>
+                </div>
+              </div>
+              <audio
+                controls
+                preload="metadata"
+                src={recordingUrl}
+                style={{
+                  width: "100%",
+                }}
+              >
+                Your browser does not support audio playback.
+              </audio>
             </div>
           ) : null}
 
@@ -2592,83 +3013,83 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
             <MonitorStatus
               label="Phone"
               value={
-                directSipCall && monitorCall.conversationId
-                  ? "SIP initiated"
-                  : monitorCall.answeredAt
-                    ? "Connected"
-                    : formatLabel(normalizeStatus(monitorCall.status))
-              }
-              good={
-                directSipCall
-                  ? Boolean(monitorCall.conversationId)
-                  : Boolean(monitorCall.answeredAt)
-              }
-            />
-            <MonitorStatus
-              label={directSipCall ? "ElevenAgent" : "Legacy assistant"}
-              value={
-                directSipCall
-                  ? monitorCall.conversationId
-                    ? "Connected"
-                    : monitorCall.error
-                      ? "Failed"
-                      : "Starting"
-                  : monitorCall.assistantStartedAt
-                    ? "Attached"
-                    : monitorCall.aiAssistantError || monitorCall.error
-                      ? "Failed"
-                      : "Waiting"
-              }
-              good={
-                directSipCall
-                  ? Boolean(monitorCall.conversationId)
-                  : Boolean(monitorCall.assistantStartedAt)
-              }
-            />
-            <MonitorStatus
-              label="Audio path"
-              value={
-                directSipCall
-                  ? "Direct SIP"
-                  : listening
-                    ? formatLabel(audioStatus)
-                    : formatLabel(
-                        monitorCall.mediaStreamStatus ||
-                          audioStatus ||
-                          "idle"
+                monitorCall.answeredAt ||
+                monitorCall.conversationId
+                  ? "Connected"
+                  : formatLabel(
+                      normalizeStatus(
+                        monitorCall.status
                       )
+                    )
               }
               good={
-                directSipCall ||
-                (listening &&
-                  ["connected", "requested"].includes(
-                    normalizeStatus(audioStatus)
-                  ))
+                Boolean(
+                  monitorCall.answeredAt ||
+                    monitorCall.conversationId
+                )
               }
             />
+
+            <MonitorStatus
+              label="Voice agent"
+              value={
+                monitorCall.error
+                  ? "Needs attention"
+                  : monitorCall.assistantStartedAt ||
+                      monitorCall.conversationId
+                    ? "Connected"
+                    : live
+                      ? "Starting"
+                      : "Completed"
+              }
+              good={
+                !monitorCall.error &&
+                Boolean(
+                  monitorCall.assistantStartedAt ||
+                    monitorCall.conversationId ||
+                    !live
+                )
+              }
+            />
+
+            <MonitorStatus
+              label="Listen"
+              value={
+                listening
+                  ? formatLabel(
+                      audioStatus ||
+                        "connected"
+                    )
+                  : liveAudioAvailable
+                    ? "Available"
+                    : live
+                      ? capabilitiesLoading
+                        ? "Checking"
+                        : "Unavailable"
+                      : "Ended"
+              }
+              good={
+                listening ||
+                liveAudioAvailable
+              }
+            />
+
             <MonitorStatus
               label="Transcript"
               value={
                 transcript.length
                   ? `${transcript.length} messages`
-                  : directSipCall
-                    ? LIVE_CALL_STATES.has(normalizeStatus(monitorCall.status))
-                      ? "Post-call"
-                      : "Waiting for webhook"
-                    : normalizeStatus(monitorCall.transcriptionStatus) === "failed"
-                      ? "Failed"
-                      : ["starting", "requested", "streaming"].includes(
-                            normalizeStatus(monitorCall.transcriptionStatus)
-                          ) || monitorCall.assistantStartedAt
-                        ? "Waiting"
-                        : "Unavailable"
+                  : liveTranscriptAvailable
+                    ? "Live available"
+                    : monitorCall.conversationId
+                      ? live
+                        ? "Post-call"
+                        : "Processing"
+                      : "Unavailable"
               }
               good={
                 transcript.length > 0 ||
-                directSipCall ||
-                ["requested", "streaming"].includes(
-                  normalizeStatus(monitorCall.transcriptionStatus)
-                )
+                liveTranscriptAvailable
               }
             />
           </div>
@@ -2677,7 +3098,9 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
             <div className="rf-agent-monitor-warning">
               <b>Call error</b>
               <span>
-                {monitorCall.error}
+                {safeVoiceRuntimeMessage(
+                  monitorCall.error
+                )}
               </span>
             </div>
           ) : null}
@@ -2686,9 +3109,9 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
             <div className="rf-agent-monitor-warning">
               <b>Lead context warning</b>
               <span>
-                {
+                {safeVoiceRuntimeMessage(
                   monitorCall.contextInjectionWarning
-                }
+                )}
               </span>
             </div>
           ) : null}
@@ -2697,18 +3120,20 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
             <div className="rf-agent-monitor-warning">
               <b>Live-audio warning</b>
               <span>
-                {
+                {safeVoiceRuntimeMessage(
                   monitorCall.mediaStreamError
-                }
+                )}
               </span>
             </div>
           ) : null}
 
           {monitorCall.transcriptionError ? (
             <div className="rf-agent-monitor-warning">
-              <b>Live-transcript warning</b>
+              <b>Transcript warning</b>
               <span>
-                {monitorCall.transcriptionError}
+                {safeVoiceRuntimeMessage(
+                  monitorCall.transcriptionError
+                )}
               </span>
             </div>
           ) : null}
@@ -2716,20 +3141,18 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
           <div className="rf-agent-live-transcript">
             <div className="rf-agent-live-transcript-heading">
               <div>
-                <b>Live transcript</b>
+                <b>
+                  {live
+                    ? "Conversation transcript"
+                    : "Transcript"}
+                </b>
                 <small>
-                  {directSipCall
-                    ? "ElevenLabs sends the transcript and analysis to ReachFly after the call; audio never passes through the CRM."
-                    : "Legacy Telnyx real-time transcription updates appear while the call is active."}
+                  {transcriptNote}
                 </small>
               </div>
               <span
                 className={`rf-agent-live-dot ${
-                  LIVE_CALL_STATES.has(
-                    normalizeStatus(
-                      monitorCall.status
-                    )
-                  )
+                  live
                     ? "active"
                     : ""
                 }`}
@@ -2772,32 +3195,14 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
                 )
               ) : (
                 <div className="rf-agent-transcript-empty">
-                  {[
-                    "starting",
-                    "requested",
-                    "streaming",
-                  ].includes(
-                    normalizeStatus(
-                      monitorCall.transcriptionStatus
-                    )
-                  )
-                    ? "Waiting for speech on the call…"
-                    : directSipCall
-                      ? LIVE_CALL_STATES.has(normalizeStatus(monitorCall.status))
-                        ? "Conversation is live over direct SIP. Transcript will appear after ElevenLabs posts the call result."
-                        : "No post-call transcript has arrived yet."
-                      : monitorCall.assistantStartedAt
-                        ? "Waiting for the first conversation turn…"
-                        : "The legacy AI assistant has not attached to this call yet."}
+                  {transcriptNote}
                 </div>
               )}
             </div>
           </div>
 
           <small className="rf-agent-monitor-privacy-note">
-            {directSipCall
-              ? "Audio stays directly between ElevenLabs and Telnyx SIP. ReachFly receives control events and post-call transcript/analysis only."
-              : "Legacy live monitoring is listen-only. ReachFly does not send your browser microphone into the call."}
+            Live monitoring is listen-only. ReachFly does not request or send your browser microphone into the AI-to-lead call. Use monitoring and recordings only where your notice, consent and supervision policies permit it.
           </small>
         </article>
       ) : null}
@@ -2808,7 +3213,9 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
             <span>Conversation activity</span>
             <h2>AI-agent calls</h2>
           </div>
-          <b className="rf-agent-count">{calls.length} records</b>
+          <b className="rf-agent-count">
+            {calls.length} records
+          </b>
         </div>
 
         <div className="rf-agent-table-wrap">
@@ -2820,106 +3227,194 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
                 <th>Outcome</th>
                 <th>Started</th>
                 <th>Duration</th>
-                <th>Monitor</th>
+                <th>Conversation</th>
                 <th>Details</th>
                 <th />
               </tr>
             </thead>
+
             <tbody>
               {calls.length ? (
                 calls.map((call) => {
-                  const live = LIVE_CALL_STATES.has(
-                    normalizeStatus(call.status)
-                  );
+                  const callIsLive =
+                    LIVE_CALL_STATES.has(
+                      normalizeStatus(
+                        call.status
+                      )
+                    );
 
                   return (
                     <tr key={call.id}>
                       <td>
-                        <b>{call.leadName || "Unknown lead"}</b>
-                        <small>{formatPhone(call.toNumber)}</small>
+                        <b>
+                          {call.leadName ||
+                            "Unknown lead"}
+                        </b>
+                        <small>
+                          {formatPhone(
+                            call.toNumber
+                          )}
+                        </small>
                       </td>
-                      <td><StatusBadge value={call.status} /></td>
+
+                      <td>
+                        <StatusBadge
+                          value={call.status}
+                        />
+                      </td>
+
                       <td>
                         {call.outcome ? (
-                          <StatusBadge value={call.outcome} />
+                          <StatusBadge
+                            value={
+                              call.outcome
+                            }
+                          />
                         ) : (
-                          <span className="rf-agent-muted">Pending</span>
+                          <span className="rf-agent-muted">
+                            Pending
+                          </span>
                         )}
                       </td>
-                      <td>{formatDateTime(call.createdAt)}</td>
-                      <td>{formatDuration(call.durationSeconds)}</td>
+
+                      <td>
+                        {formatDateTime(
+                          call.createdAt
+                        )}
+                      </td>
+
+                      <td>
+                        {formatDuration(
+                          call.durationSeconds
+                        )}
+                      </td>
+
                       <td>
                         <button
                           type="button"
                           className={
-                            live
+                            callIsLive
                               ? "btn primary small"
                               : "btn light small"
                           }
                           onClick={() =>
-                            void openMonitor(call)
+                            void openMonitor(
+                              call
+                            )
                           }
                         >
-                          {live
+                          {callIsLive
                             ? "Open live"
-                            : "Transcript"}
+                            : "Review"}
                         </button>
                       </td>
+
                       <td>
                         <details className="rf-agent-call-details">
-                          <summary>View</summary>
+                          <summary>
+                            View
+                          </summary>
                           <dl>
                             <div>
-                              <dt>Provider</dt>
-                              <dd>{formatLabel(normalizeStatus(call.provider || "telnyx"))}</dd>
-                            </div>
-                            <div>
-                              <dt>Conversation</dt>
-                              <dd>{call.conversationId || "—"}</dd>
-                            </div>
-                            <div>
-                              <dt>SIP / Call control ID</dt>
-                              <dd>{call.sipCallId || call.callControlId || "—"}</dd>
-                            </div>
-                            <div>
-                              <dt>AI attached</dt>
+                              <dt>
+                                Call reference
+                              </dt>
                               <dd>
-                                {call.assistantStartedAt
-                                  ? formatDateTime(call.assistantStartedAt)
-                                  : "—"}
+                                {shorten(
+                                  call.id,
+                                  20
+                                ) || "—"}
                               </dd>
                             </div>
+
                             <div>
-                              <dt>Live audio</dt>
+                              <dt>
+                                Conversation
+                              </dt>
                               <dd>
-                                {formatLabel(
-                                  normalizeStatus(
-                                    call.mediaStreamStatus ||
-                                      "not_started"
-                                  )
+                                {call.conversationId
+                                  ? "Linked"
+                                  : "Waiting"}
+                              </dd>
+                            </div>
+
+                            <div>
+                              <dt>
+                                Voice agent
+                              </dt>
+                              <dd>
+                                {call.assistantStartedAt ||
+                                call.conversationId
+                                  ? "Connected"
+                                  : call.error
+                                    ? "Needs attention"
+                                    : "Pending"}
+                              </dd>
+                            </div>
+
+                            <div>
+                              <dt>
+                                Recording
+                              </dt>
+                              <dd>
+                                {call.hasAudio ===
+                                true
+                                  ? "Available"
+                                  : call.hasAudio ===
+                                      false
+                                    ? "Unavailable"
+                                    : "Processing"}
+                              </dd>
+                            </div>
+
+                            <div>
+                              <dt>
+                                Notes
+                              </dt>
+                              <dd>
+                                {safeVoiceRuntimeMessage(
+                                  call.notes ||
+                                    call.error ||
+                                    "—"
                                 )}
                               </dd>
                             </div>
+
                             <div>
-                              <dt>Notes</dt>
-                              <dd>{call.notes || call.error || "—"}</dd>
-                            </div>
-                            <div>
-                              <dt>Hangup</dt>
-                              <dd>{call.hangupCause || "—"}</dd>
+                              <dt>
+                                End reason
+                              </dt>
+                              <dd>
+                                {safeVoiceRuntimeMessage(
+                                  call.hangupCause ||
+                                    call.elevenLabsTerminationReason ||
+                                    "—"
+                                )}
+                              </dd>
                             </div>
                           </dl>
                         </details>
                       </td>
+
                       <td>
-                        {live ? (
+                        {callIsLive ? (
                           <button
                             type="button"
                             className="btn danger small"
-                            disabled={busyCallId === call.id}
-                            onClick={() => onCancel(call.id)}
+                            disabled={
+                              busyCallId ===
+                              call.id
+                            }
+                            onClick={() =>
+                              onCancel(
+                                call.id
+                              )
+                            }
                           >
-                            {busyCallId === call.id ? "Ending…" : "End"}
+                            {busyCallId ===
+                            call.id
+                              ? "Ending…"
+                              : "End"}
                           </button>
                         ) : null}
                       </td>
@@ -2928,8 +3423,11 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
                 })
               ) : (
                 <tr>
-                  <td colSpan={8} className="rf-agent-empty-cell">
-                    No AI-agent calls have been made yet.
+                  <td colSpan={8}>
+                    <EmptyState
+                      title="No AI-agent calls yet"
+                      text="When ReachFly starts a call, live status appears here. Completed conversations keep their transcript and recording when available."
+                    />
                   </td>
                 </tr>
               )}
@@ -2939,6 +3437,30 @@ function CallsPanel({ calls, busyCallId, onCancel }) {
       </article>
     </section>
   );
+}
+
+function safeVoiceRuntimeMessage(value) {
+  return String(value || "")
+    .replace(
+      /ElevenLabs/gi,
+      "voice runtime"
+    )
+    .replace(
+      /ElevenAgent/gi,
+      "voice agent"
+    )
+    .replace(
+      /Telnyx/gi,
+      "calling provider"
+    )
+    .replace(
+      /Call Control ID/gi,
+      "live-media control"
+    )
+    .replace(
+      /\bSIP\b/gi,
+      "voice connection"
+    );
 }
 
 function MonitorStatus({
@@ -3338,7 +3860,7 @@ function MeetingsPanel({ meetings }) {
         <div className="rf-agent-card">
           <EmptyState
             title="No meetings booked yet"
-            text="Confirmed appointments created by the ElevenAgent booking tool will appear here in real time."
+            text="Confirmed appointments created by the voice agent will appear here in real time."
           />
         </div>
       )}

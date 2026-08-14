@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -8,31 +8,44 @@ import {
   Lock,
   Mail,
   UserRound,
+  Zap,
 } from "../components/icons";
 import { useAuth } from "../auth/AuthContext";
 import AuthLayout from "./AuthLayout";
+
+const INITIAL_FORM = {
+  name: "",
+  email: "",
+  password: "",
+  accountType: "",
+  role: "",
+  companyName: "",
+};
 
 export default function Signup() {
   const navigate = useNavigate();
   const { signup } = useAuth();
 
   const [step, setStep] = useState(1);
-
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    password: "",
-    accountType: "",
-    role: "",
-    companyName: "",
-  });
-
+  const [form, setForm] = useState(INITIAL_FORM);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const isCompany = form.accountType === "company";
+
+  const workspaceLabel = useMemo(
+    () => (isCompany ? "Company workspace" : "Individual workspace"),
+    [isCompany]
+  );
+
   const set = (key, value) => {
+    if (loading) return;
+
     setError("");
-    setForm((current) => ({ ...current, [key]: value }));
+    setForm((current) => ({
+      ...current,
+      [key]: value,
+    }));
   };
 
   const nextStep = () => {
@@ -48,29 +61,45 @@ export default function Signup() {
   const submit = async (event) => {
     event.preventDefault();
 
+    if (loading) return;
+
+    const name = form.name.trim();
+    const companyName = form.companyName.trim();
+    const role = form.role.trim();
+    const email = form.email.trim().toLowerCase();
+
     if (!form.accountType) {
       setStep(1);
       setError("Please choose your workspace type.");
       return;
     }
 
-    if (!form.name.trim()) {
+    if (!name) {
       setError("Please enter your name.");
       return;
     }
 
-    if (form.accountType === "company" && !form.companyName.trim()) {
+    if (isCompany && !companyName) {
       setError("Company name is required for company accounts.");
       return;
     }
 
-    if (!form.role.trim()) {
-      setError("Please enter your role.");
+    if (!role) {
+      setError(
+        isCompany
+          ? "Please enter your role at the company."
+          : "Please tell us what you do."
+      );
       return;
     }
 
-    if (!form.email.trim()) {
+    if (!email) {
       setError("Please enter your email address.");
+      return;
+    }
+
+    if (!isValidEmail(email)) {
+      setError("Please enter a valid email address.");
       return;
     }
 
@@ -83,11 +112,32 @@ export default function Signup() {
       setLoading(true);
       setError("");
 
-      await signup(form);
+      /*
+       * Keep the public signup payload compatible with the existing
+       * ReachFly backend contract. Do not add onboarding-only fields here.
+       */
+      await signup({
+        name,
+        email,
+        password: form.password,
+        accountType: form.accountType,
+        role,
+        companyName: isCompany ? companyName : "",
+      });
 
-      navigate("/app/dashboard", { replace: true });
-    } catch (e) {
-      setError(e.message || "Signup failed.");
+      /*
+       * New workspace owners should enter the product through the
+       * Voice Agent onboarding journey instead of being dropped on a
+       * generic dashboard with no clear next action.
+       */
+      navigate("/app/voice-agent?onboarding=1", {
+        replace: true,
+      });
+    } catch (requestError) {
+      setError(
+        requestError?.message ||
+          "We could not create your ReachFly workspace. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -96,8 +146,8 @@ export default function Signup() {
   return (
     <AuthLayout
       eyebrow="Create account"
-      title="Set up your ReachFly.Ai workspace."
-      text="Tell us who is using the platform once. Campaign Builder will stay focused only on niche, market, leads, and outreach."
+      title="Create your ReachFly.Ai sales workspace."
+      text="Set up the workspace once, then continue directly into AI Voice Agent onboarding to configure your calling workflow."
       footer={
         <>
           Already have an account? <Link to="/login">Sign in</Link>
@@ -110,10 +160,17 @@ export default function Signup() {
 
           <div className="rf-auth-card-head">
             <h2>How will you use ReachFly?</h2>
-            <p>Choose your workspace type first. You can update details later from settings.</p>
+            <p>
+              Choose the workspace that matches how you sell. Your new workspace
+              will continue into Voice Agent setup after account creation.
+            </p>
           </div>
 
-          {error ? <p className="rf-auth-error">{error}</p> : null}
+          {error ? (
+            <p className="rf-auth-error" role="alert">
+              {error}
+            </p>
+          ) : null}
 
           <div className="rf-auth-type-grid">
             <button
@@ -122,6 +179,7 @@ export default function Signup() {
                 form.accountType === "individual" ? "active" : ""
               }`}
               onClick={() => set("accountType", "individual")}
+              aria-pressed={form.accountType === "individual"}
             >
               <span className="rf-auth-type-icon">
                 <UserRound size={28} />
@@ -129,11 +187,14 @@ export default function Signup() {
 
               <div>
                 <b>I’m an individual</b>
-                <small>Freelancer, consultant, founder, or specialist using ReachFly personally.</small>
+                <small>
+                  Freelancer, consultant, founder, or specialist using ReachFly
+                  for your own sales pipeline.
+                </small>
               </div>
 
               {form.accountType === "individual" ? (
-                <i>
+                <i aria-hidden="true">
                   <Check size={15} />
                 </i>
               ) : null}
@@ -141,8 +202,11 @@ export default function Signup() {
 
             <button
               type="button"
-              className={`rf-auth-type-card ${form.accountType === "company" ? "active" : ""}`}
+              className={`rf-auth-type-card ${
+                form.accountType === "company" ? "active" : ""
+              }`}
               onClick={() => set("accountType", "company")}
+              aria-pressed={form.accountType === "company"}
             >
               <span className="rf-auth-type-icon">
                 <Building2 size={28} />
@@ -150,15 +214,33 @@ export default function Signup() {
 
               <div>
                 <b>We’re a company</b>
-                <small>Agency, sales team, service business, or company workspace.</small>
+                <small>
+                  Agency, sales team, service business, or company operating a
+                  shared ReachFly workspace.
+                </small>
               </div>
 
               {form.accountType === "company" ? (
-                <i>
+                <i aria-hidden="true">
                   <Check size={15} />
                 </i>
               ) : null}
             </button>
+          </div>
+
+          <div className="rf-auth-selected-note">
+            <span>
+              <Zap size={16} />
+            </span>
+
+            <div>
+              <b>What happens next?</b>
+              <small>
+                After signup, ReachFly opens Voice Agent onboarding so you can
+                configure the agent, calling setup, lead context, and launch
+                workflow.
+              </small>
+            </div>
           </div>
 
           <button
@@ -171,91 +253,135 @@ export default function Signup() {
           </button>
         </section>
       ) : (
-        <form className="rf-auth-form" onSubmit={submit}>
+        <form className="rf-auth-form" onSubmit={submit} noValidate>
           <AuthStepBar step={2} />
 
           <div className="rf-auth-card-head">
             <h2>Create your account</h2>
             <p>
-              {form.accountType === "company"
-                ? "Add your company and login details."
+              {isCompany
+                ? "Add the workspace owner and company details."
                 : "Add your profile and login details."}
             </p>
           </div>
 
           <div className="rf-auth-selected-note">
             <span>
-              {form.accountType === "company" ? <Building2 size={16} /> : <UserRound size={16} />}
+              {isCompany ? (
+                <Building2 size={16} />
+              ) : (
+                <UserRound size={16} />
+              )}
             </span>
 
             <div>
-              <b>{form.accountType === "company" ? "Company workspace" : "Individual workspace"}</b>
+              <b>{workspaceLabel}</b>
+
               <small>
-                {form.accountType === "company"
-                  ? "Built for agencies, teams, and service businesses."
-                  : "Built for freelancers, consultants, founders, and specialists."}
+                {isCompany
+                  ? "Built for owners, sales managers, agencies, and service teams."
+                  : "Built for founders, consultants, freelancers, and specialists."}
               </small>
             </div>
           </div>
 
-          {error ? <p className="rf-auth-error">{error}</p> : null}
+          {error ? (
+            <p className="rf-auth-error" role="alert">
+              {error}
+            </p>
+          ) : null}
 
           <div className="rf-auth-grid">
             <AuthField
               label="Your name"
+              name="name"
+              autoComplete="name"
               icon={UserRound}
               value={form.name}
               onChange={(value) => set("name", value)}
               placeholder="Your full name"
               required
+              disabled={loading}
             />
 
-            {form.accountType === "company" ? (
+            {isCompany ? (
               <AuthField
                 label="Company name"
+                name="organization"
+                autoComplete="organization"
                 icon={Building2}
                 value={form.companyName}
                 onChange={(value) => set("companyName", value)}
                 placeholder="e.g. Northstar Digital"
                 required
+                disabled={loading}
               />
             ) : null}
 
             <AuthField
-              label={form.accountType === "company" ? "Your role" : "What do you do?"}
+              label={isCompany ? "Your role" : "What do you do?"}
+              name="role"
+              autoComplete="organization-title"
               icon={UserRound}
               value={form.role}
               onChange={(value) => set("role", value)}
-              placeholder="e.g. Web developer, growth consultant"
+              placeholder={
+                isCompany
+                  ? "e.g. Founder, Head of Sales"
+                  : "e.g. Growth consultant, founder"
+              }
               required
+              disabled={loading}
             />
 
             <AuthField
               label="Email address"
+              name="email"
               type="email"
+              inputMode="email"
+              autoComplete="email"
               icon={Mail}
               value={form.email}
               onChange={(value) => set("email", value)}
               placeholder="you@company.com"
               required
+              disabled={loading}
             />
 
             <AuthField
               label="Password"
+              name="password"
               type="password"
+              autoComplete="new-password"
               icon={Lock}
               value={form.password}
               onChange={(value) => set("password", value)}
               placeholder="Minimum 8 characters"
               minLength={8}
               required
+              disabled={loading}
             />
+          </div>
+
+          <div className="rf-auth-selected-note">
+            <span>
+              <Lock size={16} />
+            </span>
+
+            <div>
+              <b>Your workspace stays scoped to your account</b>
+              <small>
+                Team roles, billing, leads, calls, tasks, and Voice Agent data
+                are handled inside the authenticated ReachFly workspace.
+              </small>
+            </div>
           </div>
 
           <div className="rf-auth-form-actions">
             <button
               className="rf-auth-back-btn"
               type="button"
+              disabled={loading}
               onClick={() => {
                 setError("");
                 setStep(1);
@@ -266,7 +392,7 @@ export default function Signup() {
 
             <button className="rf-auth-submit" type="submit" disabled={loading}>
               {loading ? (
-                "Creating account…"
+                "Creating workspace…"
               ) : (
                 <>
                   Create workspace <ArrowRight size={17} />
@@ -282,13 +408,13 @@ export default function Signup() {
 
 function AuthStepBar({ step }) {
   return (
-    <div className="rf-auth-stepbar">
+    <div className="rf-auth-stepbar" aria-label={`Signup step ${step} of 2`}>
       <span className={step >= 1 ? "active" : ""}>
         <b>1</b>
         Workspace type
       </span>
 
-      <i />
+      <i aria-hidden="true" />
 
       <span className={step >= 2 ? "active" : ""}>
         <b>2</b>
@@ -300,13 +426,17 @@ function AuthStepBar({ step }) {
 
 function AuthField({
   label,
+  name,
   icon: Icon,
   value,
   onChange,
   placeholder,
   type = "text",
+  inputMode,
+  autoComplete,
   required,
   minLength,
+  disabled,
 }) {
   return (
     <label className="rf-auth-field">
@@ -314,15 +444,24 @@ function AuthField({
 
       <div>
         <Icon size={17} />
+
         <input
+          name={name}
           type={type}
+          inputMode={inputMode}
+          autoComplete={autoComplete}
           value={value}
           onChange={(event) => onChange(event.target.value)}
           placeholder={placeholder}
           required={required}
           minLength={minLength}
+          disabled={disabled}
         />
       </div>
     </label>
   );
+}
+
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
 }

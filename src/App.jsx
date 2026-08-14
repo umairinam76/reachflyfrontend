@@ -653,15 +653,17 @@ function DashboardRoute() {
 }
 
 /**
- * Manager-only route.
+ * Campaign-management route.
  *
- * Used for:
+ * Owners, administrators and managers can manage:
  * - lead generation
  * - campaigns
  * - lead assignment pages
  * - pipelines
  * - territories
  * - campaign contacts
+ *
+ * Callers remain restricted to their assigned-work surfaces.
  */
 function ManagerOnlyRoute({
   children,
@@ -669,6 +671,8 @@ function ManagerOnlyRoute({
   return (
     <RoleAccess
       allowedRoles={[
+        "owner",
+        "admin",
         "manager",
       ]}
       fallbackPath="/app/dashboard"
@@ -723,22 +727,27 @@ function WorkspaceManagementRoute({
 }
 
 /**
- * Telnyx AI voice-agent route.
+ * Customer Voice Agent route.
  *
- * The feature is restricted to CodeSync Labs owner/admin/manager roles.
- * Customer company and individual workspaces cannot route into it.
+ * Voice Agent is a workspace product surface, not a CodeSync-internal page.
+ * Owners, administrators and managers may open it. Backend workspace,
+ * entitlement, telephony and billing checks remain authoritative.
  */
 function VoiceAgentRoute({
   children,
 }) {
-  const { user, initializing } = useAuth();
-  if (initializing) return <div className="route-loading-state">Loading voice agent…</div>;
-  const role = normalizeRole(user?.workspaceRole || user?.role || "caller");
-  const allowedRole = ["owner", "admin", "manager"].includes(role);
-  if (!isCodesyncWorkspace(user) || !allowedRole) {
-    return <Navigate to="/app/dashboard" replace />;
-  }
-  return children;
+  return (
+    <RoleAccess
+      allowedRoles={[
+        "owner",
+        "admin",
+        "manager",
+      ]}
+      fallbackPath="/app/dashboard"
+    >
+      {children}
+    </RoleAccess>
+  );
 }
 
 function CodesyncAdminRoute({ children }) {
@@ -761,8 +770,24 @@ function isCodesyncWorkspace(user) {
     user?.companyName,
   ]
     .filter(Boolean)
-    .map((value) => String(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, ""));
-  return values.includes("codesync_labs_workspace") || values.includes("codesync_labs") || values.includes("codesynclabs");
+    .map((value) =>
+      String(value)
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "")
+    );
+
+  const email = String(user?.email || "")
+    .trim()
+    .toLowerCase();
+
+  return (
+    values.includes("codesync_labs_workspace") ||
+    values.includes("codesync_labs") ||
+    values.includes("codesynclabs") ||
+    email.endsWith("@codesynclabs.com")
+  );
 }
 
 

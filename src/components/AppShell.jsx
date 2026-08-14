@@ -130,7 +130,7 @@ export default function AppShell() {
     isAdmin;
 
   const canManageCampaigns =
-    isManager;
+    canManageWorkspace;
 
   const canViewAllAnalytics =
     isOwner ||
@@ -143,18 +143,8 @@ export default function AppShell() {
     isManager;
 
   const canViewContacts =
-    isManager ||
+    canManageWorkspace ||
     isCaller;
-
-  const isIndividualAccount =
-    String(
-      user?.accountType ||
-        user?.workspaceType ||
-        ""
-    )
-      .trim()
-      .toLowerCase() ===
-    "individual";
 
   const isAhGrowthWorkspace =
     useMemo(
@@ -198,25 +188,65 @@ export default function AppShell() {
       ]
     );
 
-  const isCodesyncWorkspace = useMemo(() => {
-    const values = [
-      user?.workspaceId,
-      user?.companyId,
-      user?.workspaceSlug,
-      user?.companySlug,
-      user?.workspaceName,
-      user?.companyName,
-    ]
-      .filter(Boolean)
-      .map((value) => String(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, ""));
-    return values.includes("codesync_labs_workspace") || values.includes("codesync_labs") || values.includes("codesynclabs");
-  }, [user?.workspaceId, user?.companyId, user?.workspaceSlug, user?.companySlug, user?.workspaceName, user?.companyName]);
-
   const canUseVoiceAgent =
-    isCodesyncWorkspace && canManageWorkspace;
+    !isAhGrowthWorkspace &&
+    canManageWorkspace;
+
+  const isCodesyncWorkspace =
+    useMemo(
+      () => {
+        const values = [
+          user?.workspaceId,
+          user?.companyId,
+          user?.workspaceSlug,
+          user?.companySlug,
+          user?.workspaceName,
+          user?.companyName,
+        ]
+          .filter(Boolean)
+          .map((value) =>
+            String(value)
+              .trim()
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "_")
+              .replace(/^_+|_+$/g, "")
+          );
+
+        const email = String(
+          user?.email || ""
+        )
+          .trim()
+          .toLowerCase();
+
+        return (
+          values.includes(
+            "codesync_labs_workspace"
+          ) ||
+          values.includes(
+            "codesync_labs"
+          ) ||
+          values.includes(
+            "codesynclabs"
+          ) ||
+          email.endsWith(
+            "@codesynclabs.com"
+          )
+        );
+      },
+      [
+        user?.workspaceId,
+        user?.companyId,
+        user?.workspaceSlug,
+        user?.companySlug,
+        user?.workspaceName,
+        user?.companyName,
+        user?.email,
+      ]
+    );
 
   const canUsePlatformAdmin =
-    isCodesyncWorkspace && (isOwner || isAdmin);
+    isCodesyncWorkspace &&
+    (isOwner || isAdmin);
 
   useEffect(() => {
     if (!user?.id) {
@@ -774,12 +804,17 @@ export default function AppShell() {
       if (canUsePlatformAdmin) {
         groups.push({
           label: "Platform",
+
           items: [
             {
-              label: "Platform admin",
-              to: "/app/platform-admin",
-              icon: LayoutDashboard,
-              matchPrefix: "/app/platform-admin",
+              label:
+                "Platform admin",
+              to:
+                "/app/platform-admin",
+              icon:
+                Building2,
+              matchPrefix:
+                "/app/platform-admin",
               visible: true,
             },
           ],
@@ -830,12 +865,12 @@ export default function AppShell() {
           {
             label:
               "Credits & usage",
-            to:
-              "/app/billing",
-            icon: Zap,
+            to: "/app/billing",
+            icon: Building2,
             matchPrefix:
               "/app/billing",
-            visible: true,
+            visible:
+              canManageCompanySettings,
           },
 
           {
