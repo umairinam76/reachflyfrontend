@@ -45062,3 +45062,1663 @@ body.audit-drawer-open {
 .cs-empty-cell{text-align:center!important;padding:28px!important;color:#667085}
 @media(max-width:900px){.cs-admin-grid-two{grid-template-columns:1fr}.cs-admin-page{padding:18px}.cs-admin-hero{padding:22px;flex-direction:column}.cs-admin-hero h1{font-size:30px}}
 @media(max-width:700px){.cs-admin-page{padding:14px}.cs-admin-hero{padding:20px}.cs-admin-hero h1{font-size:28px}.cs-activity-list article,.cs-payment-compact article{flex-direction:column}.cs-payment-compact article>div:last-child{text-align:left}}
+/* ==========================================================================
+   ReachFly.Ai — Mature Marketing Page Override
+   CSS ONLY. No Marketing.jsx changes required.
+
+   Usage:
+   1) Paste this file at the VERY END of your existing global styles.css, OR
+   2) Import it after your current stylesheet.
+
+   Scope: only .cu-page and its current cu-* descendants.
+   ========================================================================== */
+
+.cu-page {
+  --cu-bg: #f7f7fb;
+  --cu-bg-warm: #fbfbfd;
+  --cu-ink: #11111a;
+  --cu-ink-soft: #252332;
+  --cu-muted: #666475;
+  --cu-muted-2: #898698;
+  --cu-card: rgba(255, 255, 255, 0.92);
+  --cu-line: #e7e5ee;
+  --cu-line-strong: #d8d4e4;
+  --cu-purple: #6f42f5;
+  --cu-purple-dark: #4f2ac5;
+  --cu-purple-soft: #f1edff;
+  --cu-pink: #e948ad;
+  --cu-orange: #ff8d5c;
+  --cu-green: #16a673;
+  --cu-navy: #0d0b16;
+  --cu-navy-2: #171126;
+  --cu-grad: linear-gradient(135deg, #6f42f5 0%, #9a4ff1 52%, #ea5ba7 100%);
+  --cu-grad-warm: linear-gradient(135deg, #7650f6 0%, #d754c3 68%, #ff8d5c 100%);
+  --cu-shadow-sm: 0 10px 30px rgba(20, 16, 36, 0.06);
+  --cu-shadow-md: 0 24px 70px rgba(20, 16, 36, 0.09);
+  --cu-shadow-lg: 0 44px 120px rgba(20, 16, 36, 0.13);
+
+  min-height: 100vh;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 14% -6%, rgba(111, 66, 245, 0.08), transparent 34rem),
+    radial-gradient(circle at 92% 2%, rgba(233, 72, 173, 0.055), transparent 30rem),
+    linear-gradient(180deg, #ffffff 0%, #fbfbfd 48%, #f7f7fb 100%);
+  color: var(--cu-ink);
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.cu-page *,
+.cu-page *::before,
+.cu-page *::after {
+  box-sizing: border-box;
+}
+
+.cu-page a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.cu-page button,
+.cu-page a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cu-page ::selection {
+  color: #fff;
+  background: #6f42f5;
+}
+
+/* --------------------------------------------------------------------------
+   Navigation
+   -------------------------------------------------------------------------- */
+
+.cu-nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: 78px;
+  display: grid;
+  grid-template-columns: minmax(190px, 1fr) auto minmax(190px, 1fr);
+  align-items: center;
+  gap: 28px;
+  padding: 0 clamp(22px, 4.4vw, 72px);
+  background: rgba(255, 255, 255, 0.88);
+  border-bottom: 1px solid rgba(220, 217, 230, 0.72);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+}
+
+.cu-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  width: max-content;
+  color: var(--cu-ink);
+  font-family: "Space Grotesk", "Inter", sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.045em;
+}
+
+.cu-brand-mark {
+  width: 39px;
+  height: 39px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 12px;
+  color: #fff;
+  background: var(--cu-grad-warm);
+  box-shadow:
+    0 8px 22px rgba(111, 66, 245, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.cu-nav-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+}
+
+.cu-nav-links a {
+  position: relative;
+  padding: 28px 0 25px;
+  color: #585565;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  transition: color 160ms ease;
+}
+
+.cu-nav-links a::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  width: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--cu-purple);
+  transform: translateX(-50%);
+  transition: width 180ms ease;
+}
+
+.cu-nav-links a:hover {
+  color: var(--cu-ink);
+}
+
+.cu-nav-links a:hover::after {
+  width: 18px;
+}
+
+.cu-nav-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* --------------------------------------------------------------------------
+   Buttons
+   -------------------------------------------------------------------------- */
+
+.cu-btn {
+  min-height: 44px;
+  padding: 0 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  color: var(--cu-ink);
+  background: transparent;
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.012em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.cu-btn:hover {
+  transform: translateY(-1px);
+}
+
+.cu-btn:active {
+  transform: translateY(0);
+}
+
+.cu-btn-primary {
+  color: #fff;
+  background: var(--cu-grad);
+  border-color: rgba(91, 46, 208, 0.16);
+  box-shadow:
+    0 10px 24px rgba(111, 66, 245, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.cu-btn-primary:hover {
+  box-shadow:
+    0 14px 30px rgba(111, 66, 245, 0.27),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24);
+}
+
+.cu-btn-ghost {
+  color: #262330;
+  background: rgba(255, 255, 255, 0.82);
+  border-color: #dedbe7;
+  box-shadow: none;
+}
+
+.cu-btn-ghost:hover {
+  background: #fff;
+  border-color: #cbc6d8;
+}
+
+.cu-btn-xl {
+  min-height: 54px;
+  padding: 0 23px;
+  border-radius: 14px;
+  font-size: 14px;
+}
+
+.cu-btn-full {
+  width: 100%;
+}
+
+/* --------------------------------------------------------------------------
+   Hero
+   -------------------------------------------------------------------------- */
+
+.cu-hero {
+  position: relative;
+  min-height: auto;
+  padding: clamp(72px, 8vw, 118px) clamp(22px, 4.4vw, 72px) 62px;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.cu-hero-bg {
+  position: absolute;
+  inset: 0;
+  z-index: -3;
+  background:
+    linear-gradient(rgba(111, 66, 245, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(111, 66, 245, 0.035) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.64), transparent 78%);
+  opacity: 0.72;
+}
+
+.cu-hero::before {
+  content: "";
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.2) 49%, rgba(255, 255, 255, 0.72)),
+    linear-gradient(180deg, transparent 60%, #fff 100%);
+  pointer-events: none;
+}
+
+.cu-hero-glow {
+  position: absolute;
+  z-index: -1;
+  border-radius: 50%;
+  filter: blur(110px);
+  pointer-events: none;
+}
+
+.cu-hero-glow-one {
+  width: 470px;
+  height: 470px;
+  left: -250px;
+  top: 40px;
+  background: rgba(111, 66, 245, 0.18);
+  opacity: 0.8;
+}
+
+.cu-hero-glow-two {
+  width: 520px;
+  height: 520px;
+  right: -280px;
+  top: 100px;
+  background: rgba(233, 72, 173, 0.12);
+  opacity: 0.72;
+}
+
+.cu-hero-inner {
+  position: relative;
+  z-index: 2;
+  width: min(1280px, 100%);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(470px, 1.08fr);
+  align-items: center;
+  gap: clamp(50px, 6vw, 88px);
+}
+
+.cu-hero-copy {
+  text-align: left;
+}
+
+.cu-pill,
+.cu-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: max-content;
+  max-width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ded8f7;
+  border-radius: 999px;
+  color: #5b37c9;
+  background: rgba(247, 244, 255, 0.92);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+}
+
+.cu-eyebrow {
+  margin-bottom: 18px;
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+  font-size: 10px;
+}
+
+.cu-hero h1 {
+  max-width: 730px;
+  margin: 24px 0 24px;
+  color: #111019;
+  font-family: "Space Grotesk", "Inter", sans-serif;
+  font-size: clamp(52px, 5.7vw, 82px);
+  font-weight: 700;
+  line-height: 0.99;
+  letter-spacing: -0.065em;
+  text-wrap: balance;
+}
+
+.cu-hero h1::after {
+  display: none;
+  content: none;
+}
+
+.cu-hero-copy > p {
+  max-width: 660px;
+  margin: 0 0 32px;
+  color: #615e6c;
+  font-size: 17px;
+  font-weight: 450;
+  line-height: 1.72;
+  letter-spacing: -0.01em;
+}
+
+.cu-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 26px;
+}
+
+.cu-proof-row {
+  max-width: 680px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, max-content));
+  align-items: center;
+  gap: 10px 20px;
+}
+
+.cu-proof-row span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #716e7b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cu-proof-row svg {
+  color: var(--cu-green);
+}
+
+/* --------------------------------------------------------------------------
+   Product preview
+   -------------------------------------------------------------------------- */
+
+.cu-preview {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(212, 208, 222, 0.92);
+  border-radius: 22px;
+  background: #fff;
+  box-shadow:
+    0 44px 120px rgba(31, 24, 51, 0.16),
+    0 10px 35px rgba(111, 66, 245, 0.06);
+  transform: perspective(1600px) rotateY(-1.5deg) rotateX(0.4deg);
+  transform-origin: center;
+}
+
+.cu-preview::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+  pointer-events: none;
+}
+
+.cu-preview::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: auto 8% -30px;
+  height: 60px;
+  border-radius: 50%;
+  background: rgba(111, 66, 245, 0.18);
+  filter: blur(36px);
+}
+
+.cu-preview-top {
+  height: 46px;
+  padding: 0 17px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #ebe9f0;
+  color: #858190;
+  background: #fbfbfc;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.015em;
+}
+
+.cu-dot {
+  width: 8px;
+  height: 8px;
+  margin-right: 5px;
+}
+
+.cu-preview-body {
+  display: grid;
+  grid-template-columns: 158px 1fr;
+  min-height: 475px;
+}
+
+.cu-preview-side {
+  padding: 19px 12px;
+  color: #fff;
+  background:
+    radial-gradient(circle at 0 0, rgba(119, 73, 248, 0.23), transparent 17rem),
+    linear-gradient(180deg, #171124 0%, #0c0a12 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.cu-preview-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 7px 21px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.cu-preview-nav-item {
+  min-height: 36px;
+  padding: 0 9px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.51);
+  font-size: 10px;
+  font-weight: 600;
+  transition: 160ms ease;
+}
+
+.cu-preview-nav-item span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.cu-preview-nav-item.active {
+  color: #fff;
+  background: linear-gradient(90deg, rgba(111, 66, 245, 0.24), rgba(255, 255, 255, 0.06));
+  box-shadow: inset 2px 0 0 #8a62ff;
+}
+
+.cu-preview-nav-item.active span {
+  background: #a481ff;
+  box-shadow: 0 0 0 3px rgba(164, 129, 255, 0.12);
+}
+
+.cu-preview-main {
+  padding: 19px;
+  background:
+    linear-gradient(180deg, #fcfbfd, #f8f7fb);
+}
+
+.cu-preview-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 17px;
+  border: 1px solid #e6e2ed;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: var(--cu-shadow-sm);
+}
+
+.cu-preview-kicker {
+  display: block;
+  margin-bottom: 4px;
+  color: #7653dd;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.cu-preview-header h3 {
+  margin: 0 0 5px;
+  color: #1b1822;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: -0.04em;
+}
+
+.cu-preview-header p {
+  margin: 0;
+  color: #86818e;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.cu-preview-header button {
+  align-self: flex-start;
+  padding: 9px 13px;
+  border: 0;
+  border-radius: 9px;
+  color: #fff;
+  background: #6f42f5;
+  box-shadow: 0 8px 18px rgba(111, 66, 245, 0.18);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.cu-preview-metrics {
+  margin: 12px 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.cu-preview-metrics div {
+  min-height: 76px;
+  padding: 12px;
+  border: 1px solid #e8e5ee;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 7px 18px rgba(30, 24, 50, 0.035);
+}
+
+.cu-preview-metrics b {
+  display: block;
+  color: #17151d;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 21px;
+  font-weight: 650;
+  letter-spacing: -0.055em;
+}
+
+.cu-preview-metrics span {
+  display: block;
+  margin-top: 3px;
+  color: #8b8792;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.cu-preview-board {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+
+.cu-preview-panel,
+.cu-preview-table {
+  padding: 14px;
+  border: 1px solid #e8e5ee;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 7px 18px rgba(30, 24, 50, 0.035);
+}
+
+.cu-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #2b2731;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.cu-panel-title svg {
+  color: #7653dd;
+}
+
+.cu-progress-line {
+  height: 6px;
+  margin: 15px 0 9px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #eeeaf5;
+}
+
+.cu-progress-line span {
+  height: 100%;
+  display: block;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #6f42f5, #aa64e9);
+}
+
+.cu-preview-panel p {
+  margin: 0;
+  color: #8a8591;
+  font-size: 9px;
+  font-weight: 500;
+  line-height: 1.55;
+}
+
+.cu-audit-score {
+  margin-top: 11px;
+}
+
+.cu-audit-score strong {
+  display: block;
+  color: #6f42f5;
+  background: none;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 47px;
+  font-weight: 650;
+  line-height: 0.9;
+  letter-spacing: -0.075em;
+  -webkit-text-fill-color: currentColor;
+}
+
+.cu-audit-score span {
+  color: #8a8591;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.cu-preview-table {
+  grid-column: 1 / -1;
+  padding: 7px;
+}
+
+.cu-preview-table div {
+  min-height: 39px;
+  padding: 0 9px;
+  display: grid;
+  grid-template-columns: 1fr auto 36px;
+  align-items: center;
+  gap: 10px;
+  border-radius: 8px;
+}
+
+.cu-preview-table div:nth-child(odd) {
+  background: #f8f7fb;
+}
+
+.cu-preview-table span {
+  color: #29262f;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.cu-preview-table em {
+  color: #85808d;
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 500;
+}
+
+.cu-preview-table b {
+  padding: 4px 0;
+  border-radius: 6px;
+  color: #5941c4;
+  background: #eee9ff;
+  font-size: 8px;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* --------------------------------------------------------------------------
+   Product capability marquee
+   -------------------------------------------------------------------------- */
+
+.cu-chip-strip {
+  position: relative;
+  z-index: 2;
+  width: min(1280px, calc(100% - 28px));
+  margin: 62px auto 0;
+  padding: 12px 0;
+  overflow: hidden;
+  border-top: 1px solid rgba(222, 219, 230, 0.72);
+  border-bottom: 1px solid rgba(222, 219, 230, 0.72);
+  mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+}
+
+.cu-chip-track {
+  display: flex;
+  gap: 10px;
+  width: max-content;
+  animation: cu-chip-scroll 34s linear infinite;
+  will-change: transform;
+}
+
+.cu-chip-strip:hover .cu-chip-track {
+  animation-play-state: paused;
+}
+
+.cu-product-chip {
+  min-height: 36px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  border-radius: 8px;
+  color: #575361;
+  background: transparent;
+  box-shadow: none;
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.cu-product-chip svg {
+  color: #7653dd;
+  opacity: 0.88;
+}
+
+@keyframes cu-chip-scroll {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+/* Existing optional .cu-trust hook, if already present elsewhere */
+.cu-trust {
+  padding: 38px clamp(22px, 4.4vw, 72px) 28px;
+  text-align: center;
+  border-top: 1px solid #ece9f1;
+}
+
+.cu-trust p {
+  margin: 0 0 22px;
+  color: #8b8794;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.cu-trust div {
+  width: min(1120px, 100%);
+  margin: 0 auto;
+  display: flex;
+  justify-content: center;
+  gap: 34px;
+  flex-wrap: wrap;
+}
+
+.cu-trust span {
+  color: #6b6773;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+/* --------------------------------------------------------------------------
+   Shared sections
+   -------------------------------------------------------------------------- */
+
+.cu-section {
+  width: min(1240px, calc(100% - 44px));
+  margin: 0 auto;
+  padding: clamp(92px, 9vw, 138px) 0;
+}
+
+.cu-section-head {
+  max-width: 830px;
+  margin: 0 auto 56px;
+  text-align: center;
+}
+
+.cu-section-head h2,
+.cu-replace-copy h2,
+.cu-solutions-copy h2,
+.cu-roi-copy h2,
+.cu-final h2 {
+  margin: 0 0 20px;
+  color: #15131b;
+  font-family: "Space Grotesk", "Inter", sans-serif;
+  font-size: clamp(38px, 4.8vw, 64px);
+  font-weight: 650;
+  line-height: 1.02;
+  letter-spacing: -0.06em;
+  text-wrap: balance;
+}
+
+.cu-section-head p,
+.cu-replace-copy p,
+.cu-solutions-copy p,
+.cu-roi-copy p,
+.cu-final p {
+  margin: 0;
+  color: #6c6877;
+  font-size: 16px;
+  font-weight: 450;
+  line-height: 1.72;
+  letter-spacing: -0.008em;
+}
+
+/* --------------------------------------------------------------------------
+   Light feature / workflow cards
+   -------------------------------------------------------------------------- */
+
+.cu-workspace-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.cu-work-card {
+  position: relative;
+  min-height: 245px;
+  padding: 27px;
+  overflow: hidden;
+  border: 1px solid #e6e3eb;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(251, 250, 253, 0.98));
+  box-shadow: 0 14px 42px rgba(26, 21, 42, 0.05);
+  transition:
+    transform 190ms ease,
+    border-color 190ms ease,
+    box-shadow 190ms ease;
+}
+
+.cu-work-card:hover {
+  transform: translateY(-3px);
+  border-color: #d8d2e5;
+  box-shadow: 0 24px 56px rgba(26, 21, 42, 0.08);
+}
+
+.cu-work-card::after {
+  content: "";
+  position: absolute;
+  inset: auto -28px -48px auto;
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  background: rgba(111, 66, 245, 0.055);
+  opacity: 1;
+  pointer-events: none;
+}
+
+.cu-work-card > span {
+  width: 42px;
+  height: 42px;
+  margin-bottom: 31px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #e3def3;
+  border-radius: 11px;
+  color: #6844d7;
+  background: #f4f1fc;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.cu-work-card h3 {
+  position: relative;
+  z-index: 1;
+  margin: 0 0 10px;
+  color: #23202a;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 21px;
+  font-weight: 620;
+  line-height: 1.12;
+  letter-spacing: -0.045em;
+}
+
+.cu-work-card p {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  color: #73707c;
+  font-size: 13px;
+  font-weight: 450;
+  line-height: 1.66;
+}
+
+/* --------------------------------------------------------------------------
+   Dark AI sections
+   -------------------------------------------------------------------------- */
+
+.cu-agents {
+  position: relative;
+  width: 100%;
+  padding: clamp(100px, 9vw, 144px) clamp(22px, 4.4vw, 72px);
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 12% 4%, rgba(118, 80, 246, 0.19), transparent 35rem),
+    radial-gradient(circle at 92% 78%, rgba(212, 84, 187, 0.11), transparent 30rem),
+    linear-gradient(145deg, #12101a 0%, #09080e 62%, #0c0814 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.cu-agents::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.026) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.026) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: radial-gradient(circle at 50% 50%, #000, transparent 78%);
+}
+
+.cu-agents .cu-section-head {
+  position: relative;
+  z-index: 1;
+  max-width: 860px;
+}
+
+.cu-agents .cu-section-head h2 {
+  color: #fbfaff;
+}
+
+.cu-agents .cu-section-head p {
+  color: rgba(240, 237, 247, 0.61);
+}
+
+.cu-agents .cu-eyebrow {
+  color: #c6b5ff;
+  background: rgba(139, 100, 255, 0.09);
+  border-color: rgba(167, 137, 255, 0.18);
+}
+
+.cu-agent-grid {
+  position: relative;
+  z-index: 1;
+  width: min(1240px, 100%);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.cu-agent-card {
+  min-height: 280px;
+  padding: 25px;
+  border: 1px solid rgba(255, 255, 255, 0.095);
+  border-radius: 16px;
+  color: #fff;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.035));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.055),
+    0 18px 55px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(16px);
+  transition:
+    transform 190ms ease,
+    border-color 190ms ease,
+    background 190ms ease;
+}
+
+.cu-agent-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(166, 134, 255, 0.22);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.078), rgba(255, 255, 255, 0.041));
+}
+
+.cu-agent-top {
+  margin-bottom: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cu-agent-top span {
+  width: 43px;
+  height: 43px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(171, 141, 255, 0.14);
+  border-radius: 11px;
+  color: #c7b6ff;
+  background: rgba(117, 80, 235, 0.11);
+}
+
+.cu-agent-top em {
+  color: rgba(255, 255, 255, 0.22);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 24px;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: -0.06em;
+}
+
+.cu-agent-card h3 {
+  margin: 0 0 11px;
+  color: #fbfaff;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 20px;
+  font-weight: 620;
+  line-height: 1.12;
+  letter-spacing: -0.04em;
+}
+
+.cu-agent-card p {
+  margin: 0;
+  color: rgba(239, 236, 246, 0.6);
+  font-size: 13px;
+  font-weight: 430;
+  line-height: 1.67;
+}
+
+.cu-agents > .cu-hero-actions {
+  position: relative;
+  z-index: 1;
+  width: min(1240px, 100%);
+  margin: 34px auto 0;
+  justify-content: center;
+}
+
+.cu-agents .cu-btn-ghost {
+  color: #eeeaf7;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+/* --------------------------------------------------------------------------
+   Pricing
+   -------------------------------------------------------------------------- */
+
+.cu-pricing {
+  width: 100%;
+  max-width: none;
+  padding-left: clamp(22px, 4.4vw, 72px);
+  padding-right: clamp(22px, 4.4vw, 72px);
+  background:
+    radial-gradient(circle at 50% 5%, rgba(111, 66, 245, 0.065), transparent 28rem),
+    linear-gradient(180deg, #f7f7fb, #fbfbfd);
+}
+
+.cu-pricing > .cu-section-head,
+.cu-pricing > .cu-price-grid {
+  width: min(1240px, 100%);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.cu-price-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  align-items: stretch;
+}
+
+.cu-price-grid article {
+  position: relative;
+  min-height: 520px;
+  padding: 31px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e2dfe8;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 18px 55px rgba(27, 22, 43, 0.06);
+}
+
+.cu-price-grid article.featured {
+  color: #fff;
+  background:
+    radial-gradient(circle at 70% 0, rgba(131, 88, 255, 0.28), transparent 18rem),
+    linear-gradient(155deg, #191326 0%, #0d0b14 100%);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 30px 80px rgba(20, 14, 35, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transform: translateY(-8px);
+}
+
+.cu-price-badge {
+  width: max-content;
+  margin-bottom: 20px;
+  padding: 6px 9px;
+  border: 1px solid rgba(199, 182, 255, 0.18);
+  border-radius: 999px;
+  color: #d2c5ff;
+  background: rgba(111, 66, 245, 0.12);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.cu-price-grid h3 {
+  margin: 0 0 10px;
+  color: #211e27;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 23px;
+  font-weight: 650;
+  letter-spacing: -0.045em;
+}
+
+.cu-price-grid article.featured h3 {
+  color: #fff;
+}
+
+.cu-price-grid p {
+  min-height: auto;
+  margin: 0 0 24px;
+  color: #777380;
+  font-size: 13px;
+  font-weight: 450;
+  line-height: 1.65;
+}
+
+.cu-price-grid article.featured p {
+  color: rgba(241, 237, 248, 0.62);
+}
+
+.cu-price-grid strong {
+  display: block;
+  margin: 4px 0 24px;
+  color: #16131b;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 40px;
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: -0.065em;
+}
+
+.cu-price-grid article.featured strong {
+  color: #fff;
+}
+
+.cu-price-grid strong span {
+  color: #898493;
+  font-family: "Inter", sans-serif;
+  font-size: 13px;
+  font-weight: 550;
+  letter-spacing: -0.01em;
+}
+
+.cu-price-grid article.featured strong span {
+  color: rgba(255, 255, 255, 0.54);
+}
+
+.cu-price-grid ul {
+  padding: 20px 0 0;
+  margin: 0;
+  list-style: none;
+  border-top: 1px solid #ece9f0;
+}
+
+.cu-price-grid article.featured ul {
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+.cu-price-grid li {
+  margin: 11px 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  color: #64606c;
+  font-size: 12px;
+  font-weight: 550;
+  line-height: 1.45;
+}
+
+.cu-price-grid article.featured li {
+  color: rgba(245, 242, 250, 0.72);
+}
+
+.cu-price-grid li svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: var(--cu-green);
+}
+
+.cu-price-grid .cu-btn {
+  margin-top: auto;
+}
+
+.cu-pricing > p.cu-section-head {
+  max-width: 940px;
+  margin-top: 32px;
+  margin-bottom: 0;
+  color: #87838f;
+  font-size: 11px;
+  line-height: 1.65;
+}
+
+/* --------------------------------------------------------------------------
+   Final CTA
+   -------------------------------------------------------------------------- */
+
+.cu-final {
+  position: relative;
+  width: min(1240px, calc(100% - 44px));
+  margin: clamp(50px, 7vw, 88px) auto 0;
+  padding: clamp(64px, 8vw, 108px) clamp(28px, 7vw, 96px);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  text-align: center;
+  color: #fff;
+  background:
+    radial-gradient(circle at 12% 10%, rgba(119, 79, 246, 0.28), transparent 28rem),
+    radial-gradient(circle at 94% 90%, rgba(226, 77, 173, 0.16), transparent 24rem),
+    linear-gradient(145deg, #171122 0%, #0c0a12 68%, #110b1b 100%);
+  box-shadow: 0 34px 90px rgba(23, 18, 35, 0.16);
+}
+
+.cu-final::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.65;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.023) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.023) 1px, transparent 1px);
+  background-size: 68px 68px;
+  pointer-events: none;
+}
+
+.cu-final > div {
+  position: relative;
+  z-index: 1;
+  max-width: 920px;
+  margin: 0 auto;
+}
+
+.cu-final .cu-eyebrow {
+  color: #c9baff;
+  background: rgba(129, 91, 244, 0.1);
+  border-color: rgba(193, 172, 255, 0.16);
+}
+
+.cu-final h2 {
+  max-width: 900px;
+  margin: 0 auto 22px;
+  color: #fff;
+  font-size: clamp(43px, 5.6vw, 70px);
+}
+
+.cu-final p {
+  max-width: 760px;
+  margin: 0 auto 30px;
+  color: rgba(241, 238, 247, 0.64);
+  font-size: 15px;
+}
+
+.cu-final .cu-btn-primary {
+  min-width: 155px;
+}
+
+/* --------------------------------------------------------------------------
+   Footer
+   -------------------------------------------------------------------------- */
+
+.cu-footer {
+  width: min(1240px, calc(100% - 44px));
+  margin: 0 auto;
+  padding: 42px 0 52px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 32px;
+  color: #797582;
+}
+
+.cu-footer .cu-brand {
+  font-size: 18px;
+}
+
+.cu-footer p {
+  margin: 0;
+  color: #85818c;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.cu-footer > div {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.cu-footer > div span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #716d78;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------------------------
+   Motion accessibility
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .cu-page *,
+  .cu-page *::before,
+  .cu-page *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .cu-chip-track {
+    animation: none !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Responsive
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 1180px) {
+  .cu-nav {
+    grid-template-columns: auto 1fr auto;
+  }
+
+  .cu-nav-links {
+    gap: 22px;
+  }
+
+  .cu-hero-inner {
+    grid-template-columns: 1fr;
+    gap: 58px;
+  }
+
+  .cu-hero-copy {
+    max-width: 860px;
+    margin: 0 auto;
+    text-align: center;
+  }
+
+  .cu-hero h1,
+  .cu-hero-copy > p {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .cu-pill,
+  .cu-eyebrow {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .cu-hero-actions,
+  .cu-proof-row {
+    justify-content: center;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .cu-preview {
+    width: min(820px, 100%);
+    margin: 0 auto;
+    transform: none;
+  }
+
+  .cu-agent-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .cu-nav {
+    height: 70px;
+    grid-template-columns: 1fr auto;
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .cu-nav-links {
+    display: none;
+  }
+
+  .cu-brand {
+    font-size: 18px;
+  }
+
+  .cu-brand-mark {
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
+  }
+
+  .cu-nav-actions {
+    gap: 7px;
+  }
+
+  .cu-nav-actions .cu-btn-ghost {
+    display: none;
+  }
+
+  .cu-nav-actions .cu-btn {
+    min-height: 40px;
+    padding: 0 14px;
+  }
+
+  .cu-hero {
+    padding-top: 70px;
+  }
+
+  .cu-hero h1 {
+    font-size: clamp(46px, 9vw, 68px);
+  }
+
+  .cu-workspace-grid,
+  .cu-price-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cu-work-card {
+    min-height: 0;
+  }
+
+  .cu-price-grid article {
+    min-height: 0;
+  }
+
+  .cu-price-grid article.featured {
+    transform: none;
+  }
+
+  .cu-price-grid .cu-btn {
+    margin-top: 24px;
+  }
+
+  .cu-footer {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .cu-footer > div {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 680px) {
+  .cu-page {
+    background: #fff;
+  }
+
+  .cu-hero {
+    padding:
+      54px 17px
+      42px;
+  }
+
+  .cu-hero h1 {
+    margin-top: 19px;
+    font-size: clamp(43px, 13.4vw, 58px);
+    line-height: 0.98;
+    letter-spacing: -0.063em;
+  }
+
+  .cu-hero-copy > p {
+    font-size: 15px;
+    line-height: 1.67;
+  }
+
+  .cu-hero-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .cu-hero-actions .cu-btn {
+    width: 100%;
+  }
+
+  .cu-proof-row {
+    width: 100%;
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+
+  .cu-preview {
+    border-radius: 16px;
+  }
+
+  .cu-preview-body {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .cu-preview-side {
+    display: none;
+  }
+
+  .cu-preview-main {
+    padding: 12px;
+  }
+
+  .cu-preview-header {
+    display: block;
+    padding: 14px;
+  }
+
+  .cu-preview-header button {
+    margin-top: 12px;
+  }
+
+  .cu-preview-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .cu-preview-board {
+    grid-template-columns: 1fr;
+  }
+
+  .cu-preview-table {
+    grid-column: auto;
+  }
+
+  .cu-preview-table div {
+    min-height: 58px;
+    grid-template-columns: 1fr auto;
+  }
+
+  .cu-preview-table em {
+    grid-column: 1 / -1;
+  }
+
+  .cu-chip-strip {
+    margin-top: 42px;
+  }
+
+  .cu-section {
+    width: min(100% - 30px, 1240px);
+    padding: 82px 0;
+  }
+
+  .cu-section-head {
+    margin-bottom: 38px;
+  }
+
+  .cu-section-head h2,
+  .cu-final h2 {
+    font-size: clamp(37px, 10vw, 48px);
+    line-height: 1.01;
+  }
+
+  .cu-section-head p,
+  .cu-final p {
+    font-size: 14px;
+  }
+
+  .cu-workspace-grid,
+  .cu-agent-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cu-work-card,
+  .cu-agent-card,
+  .cu-price-grid article {
+    padding: 23px;
+    border-radius: 15px;
+  }
+
+  .cu-work-card > span {
+    margin-bottom: 25px;
+  }
+
+  .cu-agent-card {
+    min-height: 245px;
+  }
+
+  .cu-agents {
+    padding: 82px 15px;
+  }
+
+  .cu-final {
+    width: calc(100% - 30px);
+    padding: 66px 22px;
+    border-radius: 18px;
+  }
+
+  .cu-footer {
+    width: calc(100% - 30px);
+    padding-bottom: 38px;
+  }
+}
+
+@media (max-width: 430px) {
+  .cu-nav {
+    min-height: 66px;
+  }
+
+  .cu-brand b {
+    font-size: 17px;
+  }
+
+  .cu-nav-actions .cu-btn {
+    padding: 0 12px;
+    font-size: 12px;
+  }
+
+  .cu-hero {
+    padding-top: 46px;
+  }
+
+  .cu-pill {
+    font-size: 10px;
+  }
+
+  .cu-product-chip {
+    font-size: 10px;
+  }
+}
