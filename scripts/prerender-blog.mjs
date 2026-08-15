@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { BLOG_POSTS } from "../src/content/blog-posts.js";
+import { BLOG_POSTS } from "../../../../web/content/blog-posts.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const webRoot = path.resolve(here, "..");
