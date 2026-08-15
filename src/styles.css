@@ -50641,3 +50641,854 @@ td b {
     transform: none !important;
   }
 }
+/* =========================================================
+   ReachFly Marketing V2 — Autonomous Sales Operator
+   Append AFTER the existing marketing styles.
+   ========================================================= */
+
+.cu-page {
+  --rf-violet: #6f42f5;
+  --rf-violet-2: #5537e8;
+  --rf-pink: #ed4dac;
+  --rf-orange: #ff8a5c;
+  --rf-ink: #111019;
+  --rf-muted: #666171;
+  --rf-line: rgba(31, 24, 51, 0.10);
+}
+
+/* ---------------- Hero ---------------- */
+
+.cu-hero-v2 {
+  min-height: auto !important;
+  padding-top: clamp(30px, 4vw, 58px) !important;
+  padding-bottom: clamp(24px, 3vw, 42px) !important;
+  overflow: visible !important;
+}
+
+.cu-hero-v2 .cu-hero-inner {
+  width: min(1400px, 100%) !important;
+  grid-template-columns: minmax(460px, 0.92fr) minmax(580px, 1.08fr) !important;
+  gap: clamp(40px, 5vw, 76px) !important;
+  align-items: center !important;
+}
+
+.cu-kicker-v2 {
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
+  padding: 8px 12px;
+  border: 1px solid rgba(111, 66, 245, 0.14);
+  border-radius: 999px;
+  color: #5f3ae2;
+  background: rgba(111, 66, 245, 0.06);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.cu-hero-v2 h1 {
+  max-width: 720px !important;
+  margin: 18px 0 18px !important;
+  font-size: clamp(54px, 5.15vw, 82px) !important;
+  line-height: 0.95 !important;
+  letter-spacing: -0.065em !important;
+  text-wrap: balance;
+}
+
+.cu-hero-lead {
+  max-width: 670px !important;
+  margin-bottom: 22px !important;
+  font-size: 16px !important;
+  line-height: 1.62 !important;
+}
+
+.cu-proof-row-v2 {
+  display: grid !important;
+  grid-template-columns: repeat(2, max-content);
+  gap: 9px 18px !important;
+  margin-top: 0 !important;
+}
+
+.cu-proof-row-v2 span {
+  font-size: 11px !important;
+}
+
+/* Keep the dashboard completely visible. */
+.cu-preview-v2 {
+  width: 100% !important;
+  max-width: 770px !important;
+  margin: 0 !important;
+  transform: none !important;
+}
+
+.cu-preview-v2 .cu-preview-top {
+  height: 38px !important;
+}
+
+.cu-preview-v2 .cu-preview-body {
+  min-height: 408px !important;
+  grid-template-columns: 132px minmax(0, 1fr) !important;
+}
+
+.cu-preview-v2 .cu-preview-main {
+  padding: 13px !important;
+}
+
+/* ---------------- Marquee fix ---------------- */
+
+/*
+   The marquee is now OUTSIDE .cu-hero in JSX.
+   These rules keep it in the normal document flow and guarantee
+   that the dashboard preview cannot cover it.
+*/
+.cu-chip-strip-after-hero {
+  position: relative !important;
+  inset: auto !important;
+  z-index: 8 !important;
+  width: 100%;
+  min-height: 58px;
+  margin: 0 !important;
+  padding: 10px 0 !important;
+  overflow: hidden !important;
+  border-top: 1px solid rgba(111, 66, 245, 0.07);
+  border-bottom: 1px solid rgba(111, 66, 245, 0.08);
+  background:
+    linear-gradient(90deg, #fbfaff, #fff 18%, #fff 82%, #fbf8ff);
+}
+
+.cu-chip-strip-after-hero::before,
+.cu-chip-strip-after-hero::after {
+  content: "";
+  position: absolute;
+  z-index: 4;
+  top: 0;
+  bottom: 0;
+  width: 90px;
+  pointer-events: none;
+}
+
+.cu-chip-strip-after-hero::before {
+  left: 0;
+  background: linear-gradient(90deg, #fbfaff, transparent);
+}
+
+.cu-chip-strip-after-hero::after {
+  right: 0;
+  background: linear-gradient(-90deg, #fbfaff, transparent);
+}
+
+.cu-chip-strip-after-hero .cu-chip-track {
+  position: relative !important;
+  z-index: 2 !important;
+}
+
+/* ---------------- Shared story sections ---------------- */
+
+.cu-story-section,
+.cu-process-section,
+.cu-operators-section {
+  width: min(1240px, calc(100% - 44px));
+  margin: 0 auto;
+  padding: clamp(76px, 8vw, 118px) 0;
+}
+
+.cu-section-head-wide {
+  max-width: 900px !important;
+}
+
+.cu-section-head-wide h2 {
+  max-width: 880px !important;
+}
+
+/* ---------------- Problem cards ---------------- */
+
+.cu-problem-section {
+  position: relative;
+}
+
+.cu-problem-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 40px;
+}
+
+.cu-problem-card {
+  position: relative;
+  min-height: 285px;
+  overflow: hidden;
+  padding: 24px;
+  border: 1px solid rgba(31, 24, 51, 0.09);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 100% 100%, rgba(111, 66, 245, 0.09), transparent 14rem),
+    #fff;
+  box-shadow: 0 16px 45px rgba(31, 24, 51, 0.055);
+}
+
+.cu-problem-card::after {
+  content: "";
+  position: absolute;
+  right: -52px;
+  bottom: -72px;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  border: 28px solid rgba(111, 66, 245, 0.045);
+}
+
+.cu-card-number {
+  display: inline-flex;
+  margin-bottom: 52px;
+  color: #7b5ae9;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.cu-problem-card h3 {
+  max-width: 240px;
+  margin: 0 0 12px;
+  color: #17131f;
+  font-size: 20px;
+  line-height: 1.12;
+  letter-spacing: -0.035em;
+}
+
+.cu-problem-card p {
+  position: relative;
+  z-index: 2;
+  margin: 0;
+  color: #706b79;
+  font-size: 13px;
+  line-height: 1.62;
+}
+
+/* ---------------- Platform flow ---------------- */
+
+.cu-platform-v2 {
+  position: relative;
+}
+
+.cu-platform-flow {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0;
+  margin-top: 48px;
+}
+
+.cu-platform-flow-line {
+  position: absolute;
+  z-index: 0;
+  top: 24px;
+  left: 10%;
+  right: 10%;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    rgba(111, 66, 245, 0.20),
+    #6f42f5,
+    #e84eaa,
+    rgba(255, 138, 92, 0.30)
+  );
+}
+
+.cu-platform-flow article {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 13px;
+  padding: 0 14px;
+  text-align: center;
+}
+
+.cu-platform-flow article > span {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  color: #fff;
+  background: linear-gradient(135deg, #6f42f5, #e84eaa);
+  box-shadow: 0 10px 26px rgba(111, 66, 245, 0.22);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.cu-platform-flow h3 {
+  margin: 0 0 5px;
+  font-size: 15px;
+}
+
+.cu-platform-flow p {
+  margin: 0;
+  color: #77717f;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+/* ---------------- Voice comparison ---------------- */
+
+.cu-voice-v2 {
+  padding-top: clamp(84px, 9vw, 126px) !important;
+  padding-bottom: clamp(84px, 9vw, 126px) !important;
+}
+
+.cu-voice-compare {
+  width: min(1050px, 100%);
+  margin: 44px auto 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.cu-voice-compare-card {
+  min-height: 360px;
+  padding: 30px;
+  border-radius: 24px;
+}
+
+.cu-voice-compare-card.muted {
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.74);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.cu-voice-compare-card.featured {
+  color: #fff;
+  border: 1px solid rgba(165, 129, 255, 0.32);
+  background:
+    radial-gradient(circle at 100% 0, rgba(232, 78, 170, 0.18), transparent 18rem),
+    linear-gradient(145deg, rgba(111, 66, 245, 0.20), rgba(255, 255, 255, 0.055));
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.20);
+}
+
+.cu-compare-label {
+  display: inline-flex;
+  padding: 7px 10px;
+  border-radius: 999px;
+  color: #cdbdff;
+  background: rgba(111, 66, 245, 0.14);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.cu-voice-compare-card h3 {
+  max-width: 420px;
+  margin: 26px 0;
+  color: inherit;
+  font-size: clamp(26px, 3vw, 38px);
+  line-height: 1.04;
+  letter-spacing: -0.055em;
+}
+
+.cu-voice-compare-card ul {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cu-voice-compare-card li {
+  position: relative;
+  padding-left: 25px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.cu-voice-compare-card li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: #a98cff;
+  font-weight: 900;
+}
+
+/* ---------------- Process ---------------- */
+
+.cu-process-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 44px;
+}
+
+.cu-process-card {
+  position: relative;
+  min-height: 270px;
+  padding: 24px;
+  border: 1px solid rgba(31, 24, 51, 0.09);
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(249, 248, 253, 0.96));
+  box-shadow: 0 14px 40px rgba(31, 24, 51, 0.05);
+}
+
+.cu-process-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cu-process-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  color: #633ce5;
+  background: #f1edff;
+}
+
+.cu-process-top em {
+  color: #c3b8e8;
+  font-size: 20px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.cu-process-card h3 {
+  margin: 54px 0 10px;
+  font-size: 18px;
+  line-height: 1.15;
+  letter-spacing: -0.035em;
+}
+
+.cu-process-card p {
+  margin: 0;
+  color: #746e7d;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.cu-process-arrow {
+  position: absolute;
+  right: -12px;
+  top: 50%;
+  z-index: 3;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: #6f42f5;
+  box-shadow: 0 5px 16px rgba(111, 66, 245, 0.24);
+}
+
+/* ---------------- Outcomes ---------------- */
+
+.cu-outcome-section {
+  padding-top: clamp(84px, 9vw, 126px) !important;
+  padding-bottom: clamp(84px, 9vw, 126px) !important;
+}
+
+.cu-outcome-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 13px;
+  margin-top: 42px;
+}
+
+.cu-outcome-card {
+  position: relative;
+  min-height: 245px;
+  padding: 22px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 100% 100%, rgba(111, 66, 245, 0.18), transparent 15rem),
+    rgba(255, 255, 255, 0.035);
+}
+
+.cu-outcome-card > span {
+  position: absolute;
+  right: 18px;
+  top: 18px;
+  color: rgba(255, 255, 255, 0.22);
+  font-size: 16px;
+  font-weight: 850;
+}
+
+.cu-outcome-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  color: #d8ccff;
+  background: rgba(111, 66, 245, 0.14);
+}
+
+.cu-outcome-card h3 {
+  margin: 52px 0 9px;
+  color: #fff;
+  font-size: 17px;
+}
+
+.cu-outcome-card p {
+  margin: 0;
+  color: rgba(239, 235, 247, 0.61);
+  font-size: 12px;
+  line-height: 1.58;
+}
+
+/* ---------------- Operators ---------------- */
+
+.cu-operator-grid {
+  margin-top: 42px;
+}
+
+.cu-operator-card {
+  min-height: 270px !important;
+}
+
+.cu-operator-card h3 {
+  margin-top: 48px !important;
+}
+
+/* ---------------- Safeguards ---------------- */
+
+.cu-safety-v2 {
+  padding-top: clamp(82px, 9vw, 122px) !important;
+  padding-bottom: clamp(82px, 9vw, 122px) !important;
+}
+
+.cu-safeguard-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 42px;
+}
+
+.cu-safeguard-grid article {
+  position: relative;
+  min-height: 155px;
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 17px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.cu-safeguard-grid article > span {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  color: #d3c4ff;
+  background: rgba(111, 66, 245, 0.13);
+}
+
+.cu-safeguard-grid em {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  color: rgba(255, 255, 255, 0.20);
+  font-style: normal;
+  font-size: 12px;
+}
+
+.cu-safeguard-grid h3 {
+  margin: 34px 0 0;
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+/* ---------------- Pricing ---------------- */
+
+.cu-pricing-v2 .cu-price-grid {
+  align-items: stretch;
+}
+
+.cu-price-eyebrow {
+  display: inline-flex;
+  width: max-content;
+  margin-bottom: 16px;
+  color: #7251e5;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.cu-pricing-footnote {
+  max-width: 760px;
+  margin: 24px auto 0;
+  color: #89838f;
+  text-align: center;
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+/* ---------------- Final CTA ---------------- */
+
+.cu-final-v2 {
+  margin-bottom: 0 !important;
+}
+
+.cu-final-v2 h2 {
+  max-width: 980px !important;
+}
+
+.cu-final-v2 p {
+  max-width: 800px !important;
+}
+
+/* ---------------- Footer ---------------- */
+
+.cu-footer-v2 {
+  margin-top: 56px;
+  color: #d8d2e5;
+  background:
+    radial-gradient(circle at 8% 0, rgba(111, 66, 245, 0.17), transparent 26rem),
+    linear-gradient(180deg, #111019, #09080d);
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.cu-footer-v2-main {
+  width: min(1240px, calc(100% - 44px));
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(480px, 1.3fr);
+  gap: clamp(60px, 9vw, 140px);
+  padding: 62px 0 50px;
+}
+
+.cu-footer-v2 .cu-brand {
+  width: max-content;
+  color: #fff;
+}
+
+.cu-footer-v2-brand > p {
+  max-width: 450px;
+  margin: 22px 0;
+  color: rgba(230, 224, 238, 0.57);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.cu-footer-trust {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+
+.cu-footer-trust span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #a9a2b4;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.cu-footer-v2-links {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 34px;
+}
+
+.cu-footer-v2-links > div {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.cu-footer-v2-links h4 {
+  margin: 0 0 8px;
+  color: #fff;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+}
+
+.cu-footer-v2-links a {
+  width: max-content;
+  color: #a39cab;
+  font-size: 12px;
+  text-decoration: none;
+  transition: color 160ms ease, transform 160ms ease;
+}
+
+.cu-footer-v2-links a:hover {
+  color: #fff;
+  transform: translateX(2px);
+}
+
+.cu-footer-v2-bottom {
+  width: min(1240px, calc(100% - 44px));
+  margin: 0 auto;
+  padding: 18px 0 28px;
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  color: #817a89;
+  font-size: 10px;
+}
+
+/* ---------------- Responsive ---------------- */
+
+@media (max-width: 1180px) {
+  .cu-hero-v2 .cu-hero-inner {
+    grid-template-columns: 1fr !important;
+    gap: 38px !important;
+  }
+
+  .cu-hero-v2 .cu-hero-copy {
+    max-width: 850px;
+    margin: 0 auto;
+    text-align: center;
+  }
+
+  .cu-kicker-v2 {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .cu-hero-v2 h1,
+  .cu-hero-v2 .cu-hero-lead {
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+
+  .cu-proof-row-v2 {
+    justify-content: center;
+    grid-template-columns: repeat(2, max-content);
+  }
+
+  .cu-preview-v2 {
+    max-width: 820px !important;
+    margin: 0 auto !important;
+  }
+
+  .cu-problem-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cu-platform-flow {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 28px 0;
+  }
+
+  .cu-platform-flow-line {
+    display: none;
+  }
+
+  .cu-process-grid,
+  .cu-outcome-grid,
+  .cu-safeguard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cu-process-arrow {
+    display: none;
+  }
+}
+
+@media (max-width: 800px) {
+  .cu-hero-v2 {
+    padding-top: 38px !important;
+  }
+
+  .cu-hero-v2 h1 {
+    font-size: clamp(44px, 11vw, 64px) !important;
+  }
+
+  .cu-hero-lead {
+    font-size: 15px !important;
+  }
+
+  .cu-proof-row-v2 {
+    grid-template-columns: 1fr;
+    justify-items: start;
+    width: min(520px, 100%);
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .cu-chip-strip-after-hero {
+    min-height: 52px;
+  }
+
+  .cu-problem-grid,
+  .cu-voice-compare,
+  .cu-process-grid,
+  .cu-outcome-grid,
+  .cu-safeguard-grid,
+  .cu-footer-v2-main,
+  .cu-footer-v2-links {
+    grid-template-columns: 1fr;
+  }
+
+  .cu-platform-flow {
+    grid-template-columns: 1fr;
+  }
+
+  .cu-platform-flow article {
+    grid-template-columns: 48px 1fr;
+    justify-items: start;
+    text-align: left;
+  }
+
+  .cu-platform-flow article > div {
+    align-self: center;
+  }
+
+  .cu-problem-card {
+    min-height: 230px;
+  }
+
+  .cu-card-number {
+    margin-bottom: 32px;
+  }
+
+  .cu-process-card,
+  .cu-outcome-card {
+    min-height: 220px;
+  }
+
+  .cu-footer-v2-main {
+    gap: 42px;
+    padding-top: 46px;
+  }
+
+  .cu-footer-v2-links {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cu-footer-v2-bottom {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 540px) {
+  .cu-story-section,
+  .cu-process-section,
+  .cu-operators-section {
+    width: min(100% - 30px, 1240px);
+    padding: 68px 0;
+  }
+
+  .cu-hero-v2 h1 {
+    font-size: clamp(42px, 13vw, 56px) !important;
+  }
+
+  .cu-footer-v2-main,
+  .cu-footer-v2-bottom {
+    width: calc(100% - 30px);
+  }
+
+  .cu-footer-v2-links {
+    grid-template-columns: 1fr 1fr;
+  }
+}
