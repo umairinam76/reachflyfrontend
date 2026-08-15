@@ -22,7 +22,7 @@ import {
 } from "../lib/workspace-platform-client.js";
 
 import "../styles.css";
-// import "../voice-agent-onboarding-wizard.css";
+import "../voice-agent-onboarding-wizard.css";
 
 const FAST_HUMAN_GREETING =
   "Hey {{greeting_name}}, James from {{company_name}}. Quick disclosure — I’m an AI sales agent with the team, and this call may be recorded. I’ll keep it brief. I was curious... is your website consistently turning visitors into real sales conversations, or do too many people land there and leave without ever becoming a lead?";
@@ -90,7 +90,7 @@ const DEFAULT_CUSTOM_LEAD_FORM = {
 };
 
 const TABS = [
-  ["setup", "Agent setup"],
+  ["setup", "Voice setup"],
   ["leads", "Lead queue"],
   ["calls", "Live calls"],
   ["meetings", "Meetings"],
@@ -1282,17 +1282,28 @@ export default function TelnyxAIAgentPage() {
             (diagnostics?.paidCreditsRequired === false ||
               Number(billingData?.aiCalling?.wallet?.balance || 0) > 0)
           ) ? (
-            <VoiceAgentGuidedWizard
+            <AgentSetup
               form={form}
               voices={voices}
               recommendedVoice={recommendedVoice}
+              diagnostics={diagnostics}
               commerce={voiceCommerce}
               billing={billingData}
               saving={saving}
               analyzingWebsite={analyzingWebsite}
+              onboarding
               onChange={updateForm}
               onAnalyzeWebsite={() => void analyzeWebsite()}
-              onActivate={async () => {
+              onError={setError}
+              onSuccess={setSuccess}
+              onRefresh={async () => {
+                await Promise.all([
+                  loadVoiceCommerce(),
+                  loadBillingData(),
+                  loadDashboard({ silent: true }),
+                ]);
+              }}
+              onSave={async () => {
                 const saved = await persistVoiceAgent({ announce: true });
                 if (saved) {
                   closeOnboarding(
@@ -1300,8 +1311,8 @@ export default function TelnyxAIAgentPage() {
                     "Voice Agent activated. Add one lead and place a controlled test call before launching a campaign."
                   );
                 }
+                return saved;
               }}
-              onError={setError}
             />
           ) : (
             <VoiceCommerceOnboarding
@@ -1396,14 +1407,24 @@ export default function TelnyxAIAgentPage() {
         <AgentSetup
           form={form}
           voices={voices}
-          elevenLabsAgents={elevenLabsAgents}
           recommendedVoice={recommendedVoice}
           diagnostics={diagnostics}
+          commerce={voiceCommerce}
+          billing={billingData}
           saving={saving}
           analyzingWebsite={analyzingWebsite}
           onChange={updateForm}
           onAnalyzeWebsite={() => void analyzeWebsite()}
-          onSave={() => void saveAgent()}
+          onError={setError}
+          onSuccess={setSuccess}
+          onRefresh={async () => {
+            await Promise.all([
+              loadVoiceCommerce(),
+              loadBillingData(),
+              loadDashboard({ silent: true }),
+            ]);
+          }}
+          onSave={() => saveAgent()}
         />
       ) : null}
 
@@ -1725,6 +1746,15 @@ function VoiceCommerceOnboarding({
 
       {stage === "number" ? (
         <div className="rf-voice-wizard-body">
+          <div className="rf-voice-starter-balance">
+            <div>
+              <span>Included with your workspace</span>
+              <strong>{formatCreditsCompact(callBalance)} free AI call credits</strong>
+              <small>1 credit is used only after a completed connected AI conversation.</small>
+            </div>
+            <b>{commerce?.testMode?.enabled ? "SANDBOX" : "READY"}</b>
+          </div>
+
           <div className="rf-voice-wizard-note">
             <b>What we need</b>
             <span>
@@ -1776,7 +1806,13 @@ function VoiceCommerceOnboarding({
               disabled={searching || !commerce?.canPurchase}
               onClick={() => void searchNumbers()}
             >
-              {searching ? "Searching Telnyx inventory…" : "Find available numbers"}
+              {searching
+                ? commerce?.testMode?.enabled
+                  ? "Loading sandbox numbers…"
+                  : "Searching number inventory…"
+                : commerce?.testMode?.enabled
+                  ? "Show test business numbers"
+                  : "Find available numbers"}
             </button>
           </div>
 
@@ -1791,7 +1827,9 @@ function VoiceCommerceOnboarding({
               {quote.items.map((item) => (
                 <article className="rf-voice-number-card" key={item.phoneNumber}>
                   <div className="rf-voice-number-card-main">
-                    <span className="rf-voice-number-badge">Local voice</span>
+                    <span className="rf-voice-number-badge">
+                      {item.testMode ? "Sandbox number" : "Local voice"}
+                    </span>
                     <h3>{formatPhone(item.phoneNumber)}</h3>
                     <p>
                       {(item.regionInformation || [])
@@ -1811,7 +1849,9 @@ function VoiceCommerceOnboarding({
                       )}
                     </b>
                     <span>
-                      Includes first provider month when returned by Telnyx
+                      {item.testMode
+                        ? "Sandbox activation only · no Telnyx number is purchased"
+                        : "Includes first provider month when returned by Telnyx"}
                     </span>
                   </div>
 
@@ -2396,447 +2436,584 @@ function VoiceAgentOnboardingGuide({
 function AgentSetup({
   form,
   voices,
-  elevenLabsAgents,
   recommendedVoice,
   diagnostics,
+  commerce,
+  billing,
   saving,
   analyzingWebsite,
+  onboarding = false,
   onChange,
   onAnalyzeWebsite,
   onSave,
+  onError,
+  onSuccess,
+  onRefresh,
 }) {
-  const numberOptions = Array.isArray(diagnostics.fromNumbers)
+  const [step, setStep] = useState(0);
+  const [buyingCredits, setBuyingCredits] = useState("");
+  const numberOptions = Array.isArray(diagnostics?.fromNumbers)
     ? diagnostics.fromNumbers
     : [];
+  const activeNumber = commerce?.activeNumber || null;
+  const selectedNumber =
+    form.fromNumber ||
+    activeNumber?.phoneNumber ||
+    diagnostics?.selectedFromNumber ||
+    numberOptions[0] ||
+    "";
+  const callWallet = billing?.aiCalling?.wallet || {};
+  const callBalance = Number(callWallet.balance || 0);
+  const signupFreeCredits = Number(
+    billing?.aiCalling?.signupFreeCredits ||
+      billing?.aiCalling?.policy?.signupFreeCredits ||
+      10
+  );
+  const callPacks = (Array.isArray(billing?.aiCalling?.packs)
+    ? billing.aiCalling.packs
+    : []
+  )
+    .filter(
+      (pack) =>
+        pack?.active === true &&
+        Number(pack?.credits || 0) > 0 &&
+        Number(pack?.amountMinor || 0) > 0
+    )
+    .sort(
+      (left, right) =>
+        Number(left?.credits || 0) - Number(right?.credits || 0)
+    );
+
+  const selectedVoice =
+    voices.find((voice) => voice.id === form.voice) ||
+    recommendedVoice ||
+    null;
+
+  const steps = [
+    { key: "identity", label: "Agent", short: "Name & voice" },
+    { key: "business", label: "Business", short: "Website context" },
+    { key: "booking", label: "Booking", short: "Meeting handoff" },
+    { key: "calling", label: "Calling", short: "Number & policy" },
+    { key: "review", label: "Activate", short: "Review & save" },
+  ];
+
+  function moveTo(nextStep) {
+    onError?.("");
+    setStep(Math.max(0, Math.min(steps.length - 1, nextStep)));
+  }
+
+  function next() {
+    if (step === 0) {
+      if (!String(form.name || "").trim()) {
+        onError?.("Give your Voice Agent a name to continue.");
+        return;
+      }
+      if (!String(form.voice || "").trim()) {
+        onError?.("Choose a voice to continue.");
+        return;
+      }
+    }
+
+    if (step === 1 && String(form.websiteUrl || "").trim()) {
+      const sourceUrl = String(form.websiteIntelligence?.sourceUrl || "").trim();
+      if (!form.websiteIntelligence?.analyzedAt || sourceUrl !== String(form.websiteUrl).trim()) {
+        onError?.("Analyze the website before continuing, or clear the website field to skip business intelligence.");
+        return;
+      }
+    }
+
+    if (step === 3) {
+      if (!selectedNumber) {
+        onError?.("Activate a business number before continuing.");
+        return;
+      }
+      if (!form.complianceConfirmed) {
+        onError?.("Approve the calling and suppression policy before continuing.");
+        return;
+      }
+    }
+
+    moveTo(step + 1);
+  }
+
+  async function buyCallCredits(pack) {
+    if (!pack?.id || buyingCredits) return;
+    setBuyingCredits(pack.id);
+    onError?.("");
+    onSuccess?.("");
+
+    try {
+      const response = await apiRequest(
+        "/billing/ai-calling/checkout",
+        {
+          method: "POST",
+          body: {
+            packId: pack.id,
+            returnPath: onboarding
+              ? "/app/voice-agent?onboarding=1"
+              : "/app/voice-agent",
+          },
+          timeoutMs: 30_000,
+        }
+      );
+
+      if (!response?.checkoutUrl || !/^https?:\/\//i.test(response.checkoutUrl)) {
+        throw new Error("Secure AI call-credit checkout could not be opened.");
+      }
+      window.location.assign(response.checkoutUrl);
+    } catch (requestError) {
+      setBuyingCredits("");
+      onError?.(
+        requestError?.message ||
+          "AI call-credit checkout could not be started."
+      );
+    }
+  }
+
+  async function save() {
+    if (!form.complianceConfirmed) {
+      onError?.("Approve the calling and suppression policy before activation.");
+      moveTo(3);
+      return;
+    }
+    try {
+      await onSave?.();
+      await onRefresh?.();
+    } catch (requestError) {
+      onError?.(
+        requestError?.message ||
+          "The Voice Agent could not be activated."
+      );
+    }
+  }
 
   return (
-    <section className="rf-agent-setup-grid">
-      <article className="rf-agent-card rf-agent-form-card">
-        <div className="rf-agent-card-heading">
-          <div>
-            <span>Identity and voice</span>
-            <h2>Make the agent natural, clear and on-brand</h2>
-          </div>
-          <span className="rf-agent-section-number">01</span>
+    <section className="rf-voice-setup-shell">
+      <div className="rf-voice-setup-hero">
+        <div>
+          <span className="rf-voice-wizard-kicker">
+            {onboarding ? "Voice Agent onboarding" : "Voice setup"}
+          </span>
+          <h2>Build your AI caller in a few focused steps.</h2>
+          <p>
+            ReachFly handles provider IDs, SIP routing, prompts and safe defaults.
+            You only choose the details that should actually change how the agent works.
+          </p>
         </div>
 
-        <div className="rf-agent-field-grid two">
-          <Field
-            label="Agent name"
-            value={form.name}
-            onChange={(value) => onChange("name", value)}
-            placeholder="Codesync Growth Assistant"
-          />
-          <Field
-            label="Company name"
-            value={form.companyName}
-            onChange={(value) => onChange("companyName", value)}
-            placeholder="Codesync Labs"
-          />
-        </div>
-
-        <label className="rf-agent-field">
-          <span>Voice-agent profile</span>
-          <select
-            value={form.elevenLabsAgentId || ""}
-            onChange={(event) => {
-              const agentId = event.target.value;
-              const selected = (elevenLabsAgents || []).find(
-                (item) => item.agentId === agentId
-              );
-              onChange("elevenLabsAgentId", agentId);
-              if (selected?.voiceId) {
-                onChange("voice", selected.voiceId);
-              }
-            }}
-          >
-            {!elevenLabsAgents?.length ? (
-              <option value={form.elevenLabsAgentId || ""}>
-                {form.elevenLabsAgentId ? "Linked profile" : "No voice-agent profiles loaded"}
-              </option>
-            ) : null}
-            {(elevenLabsAgents || []).map((item) => (
-              <option key={item.agentId} value={item.agentId}>
-                {item.name}{item.voiceName ? ` — ${item.voiceName}` : ""}
-              </option>
-            ))}
-          </select>
+        <div className="rf-voice-credit-orb" aria-label={`${callBalance} AI call credits available`}>
+          <span>AI call credits</span>
+          <strong>{formatCreditsCompact(callBalance)}</strong>
           <small>
-            Choose the managed voice-agent profile available to this workspace. Provider identifiers stay hidden from customer-facing screens.
+            {callBalance === signupFreeCredits && callBalance > 0
+              ? `${signupFreeCredits} included with signup`
+              : "available connected calls"}
           </small>
-        </label>
-
-        <label className="rf-agent-field">
-          <span>Voice</span>
-          <select
-            value={form.voice}
-            onChange={(event) =>
-              onChange("voice", event.target.value)
-            }
-          >
-            {!voices.length ? (
-              <option value={form.voice}>{recommendedVoice?.name || "Current voice"}</option>
-            ) : null}
-            {voices.map((voice) => (
-              <option key={voice.id} value={voice.id}>
-                {voice.name || voice.accent || voice.language || "Voice"}
-              </option>
-            ))}
-          </select>
-          <small>
-            Choose the customer-facing voice for this agent. ReachFly keeps provider IDs and runtime configuration behind the scenes.
-          </small>
-
-          <div className="rf-agent-website-actions">
-            <button
-              type="button"
-              className="btn light"
-              disabled={!recommendedVoice?.id}
-              onClick={() =>
-                recommendedVoice?.id &&
-                onChange("voice", recommendedVoice.id)
-              }
-            >
-              {recommendedVoice?.id
-                ? `Use linked voice: ${recommendedVoice.name || "Recommended voice"}`
-                : "No linked voice available"}
-            </button>
-
-            <button
-              type="button"
-              className="btn primary"
-              onClick={() => {
-                if (recommendedVoice?.id) {
-                  onChange("voice", recommendedVoice.id);
-                }
-                onChange("greeting", FAST_HUMAN_GREETING);
-                onChange("persona", FAST_HUMAN_PERSONA);
-              }}
-            >
-              ⚡ Apply fast-natural preset
-            </button>
-
-            <span className="rf-agent-brain-pill">
-              <b>Natural conversation mode</b>
-              <span>
-                {(recommendedVoice?.name || "Linked voice")} · balanced turn-taking · low-latency conversation
-              </span>
-            </span>
-          </div>
-        </label>
-
-        <TextArea
-          label="Opening greeting"
-          value={form.greeting}
-          onChange={(value) => onChange("greeting", value)}
-          rows={3}
-        />
-
-        <TextArea
-          label="Voice and personality"
-          value={form.persona}
-          onChange={(value) => onChange("persona", value)}
-          rows={4}
-        />
-
-        <TextArea
-          label="AI disclosure rule"
-          value={form.disclosure}
-          onChange={(value) => onChange("disclosure", value)}
-          rows={3}
-        />
-      </article>
-
-      <article className="rf-agent-card rf-agent-form-card">
-        <div className="rf-agent-card-heading">
-          <div>
-            <span>Website intelligence</span>
-            <h2>Give ReachFly your website, not a call script</h2>
-          </div>
-          <span className="rf-agent-section-number">02</span>
         </div>
+      </div>
 
-        <Field
-          label="Company website URL"
-          value={form.websiteUrl}
-          onChange={(value) => onChange("websiteUrl", value)}
-          placeholder="https://codesynclabs.com"
-        />
-
-        <div className="rf-agent-website-actions">
+      <div className="rf-voice-setup-progress">
+        {steps.map((item, index) => (
           <button
+            key={item.key}
             type="button"
-            className="btn primary"
-            disabled={analyzingWebsite || !String(form.websiteUrl || "").trim()}
-            onClick={onAnalyzeWebsite}
+            className={`${index === step ? "current" : ""} ${index < step ? "done" : ""}`}
+            onClick={() => index <= step && moveTo(index)}
           >
-            {analyzingWebsite
-              ? "ReachFly is reading the website…"
-              : form.websiteIntelligence?.analyzedAt
-                ? "Re-analyze website"
-                : "Analyze website"}
+            <span>{index < step ? "✓" : index + 1}</span>
+            <b>{item.label}</b>
+            <small>{item.short}</small>
           </button>
+        ))}
+      </div>
 
-          <div className="rf-agent-brain-pill">
-            <b>Live conversation brain</b>
-            <span>ReachFly real-time voice runtime</span>
-          </div>
-        </div>
-
-        {form.websiteIntelligence?.analyzedAt ? (
-          <WebsiteIntelligencePreview
-            intelligence={form.websiteIntelligence}
-            websiteUrl={form.websiteUrl}
-          />
-        ) : (
-          <div className="rf-agent-intel-empty">
-            <b>What happens after Analyze</b>
+      <div className="rf-voice-setup-stage">
+        <div className="rf-voice-setup-stage-head">
+          <div>
+            <span>Step {step + 1} of {steps.length}</span>
+            <h3>
+              {step === 0
+                ? "Who should prospects hear?"
+                : step === 1
+                  ? "What should the agent know about your business?"
+                  : step === 2
+                    ? "What should happen when a lead wants a meeting?"
+                    : step === 3
+                      ? "How should calling be controlled?"
+                      : "Ready to activate."}
+            </h3>
             <p>
-              ReachFly safely reads the public website, extracts services, target
-              customers, value propositions, proof points, qualification questions,
-              objections and booking angles, and prepares that knowledge for the
-              voice agent before each call.
+              {step === 0
+                ? "Company and provider configuration are already known. Choose only the agent name and customer-facing voice."
+                : step === 1
+                  ? "A website is optional. When provided, ReachFly analyzes it once and prepares the context before calls."
+                  : step === 2
+                    ? "Meeting details are optional; defaults are already safe for a 30-minute discovery call."
+                    : step === 3
+                      ? "Confirm the caller identity and policy. Volume and timing use conservative defaults unless you open Advanced."
+                      : "Review the important settings, your calling balance, and activate the workspace runtime."}
             </p>
           </div>
-        )}
+          <span className="rf-voice-setup-step-number">0{step + 1}</span>
+        </div>
 
-        <small className="rf-agent-field-note">
-          The website is analyzed before calls. ReachFly prepares the resulting
-          sales context before dialing so the agent can stay focused and responsive
-          during the conversation.
-        </small>
-      </article>
+        {step === 0 ? (
+          <div className="rf-voice-setup-pane">
+            <div className="rf-voice-essential-grid two">
+              <Field
+                label="Agent name"
+                value={form.name}
+                onChange={(value) => onChange("name", value)}
+                placeholder="James"
+              />
+              <label className="rf-agent-field">
+                <span>Voice</span>
+                <select
+                  value={form.voice}
+                  onChange={(event) => onChange("voice", event.target.value)}
+                >
+                  {!voices.length ? (
+                    <option value={form.voice}>
+                      {selectedVoice?.name || "Managed voice"}
+                    </option>
+                  ) : null}
+                  {voices.map((voice) => (
+                    <option key={voice.id} value={voice.id}>
+                      {voice.name || voice.accent || voice.language || "Voice"}
+                    </option>
+                  ))}
+                </select>
+                <small>Prospects hear this voice. Provider IDs stay hidden.</small>
+              </label>
+            </div>
 
-      <article className="rf-agent-card rf-agent-form-card">
-        <div className="rf-agent-card-heading">
-          <div>
-            <span>Meeting booking</span>
-            <h2>Book only confirmed appointments</h2>
+            <div className="rf-voice-auto-card">
+              <span>Automatically configured</span>
+              <div>
+                <b>{form.companyName || "Workspace company"}</b>
+                <small>Company identity</small>
+              </div>
+              <div>
+                <b>Natural sales preset</b>
+                <small>Greeting, disclosure, personality & turn-taking</small>
+              </div>
+              <button
+                type="button"
+                className="btn light"
+                onClick={() => {
+                  if (recommendedVoice?.id) onChange("voice", recommendedVoice.id);
+                  onChange("greeting", FAST_HUMAN_GREETING);
+                  onChange("persona", FAST_HUMAN_PERSONA);
+                }}
+              >
+                Reset to ReachFly defaults
+              </button>
+            </div>
           </div>
-          <span className="rf-agent-section-number">03</span>
-        </div>
+        ) : null}
 
-        <TextArea
-          label="Meeting goal"
-          value={form.meetingGoal}
-          onChange={(value) => onChange("meetingGoal", value)}
-          rows={3}
-        />
+        {step === 1 ? (
+          <div className="rf-voice-setup-pane">
+            <Field
+              label="Company website (optional)"
+              value={form.websiteUrl}
+              onChange={(value) => onChange("websiteUrl", value)}
+              placeholder="https://yourcompany.com"
+            />
 
-        <TextArea
-          label="Booking instructions"
-          value={form.bookingInstructions}
-          onChange={(value) =>
-            onChange("bookingInstructions", value)
-          }
-          placeholder="Available days/hours, who attends, required information, and when to offer a human follow-up."
-          rows={5}
-        />
+            {String(form.websiteUrl || "").trim() ? (
+              <div className="rf-voice-wizard-actions">
+                <button
+                  type="button"
+                  className="btn primary"
+                  disabled={analyzingWebsite}
+                  onClick={onAnalyzeWebsite}
+                >
+                  {analyzingWebsite
+                    ? "Analyzing website…"
+                    : form.websiteIntelligence?.analyzedAt
+                      ? "Re-analyze website"
+                      : "Analyze website"}
+                </button>
+              </div>
+            ) : null}
 
-        <div className="rf-agent-field-grid two">
-          <Field
-            label="Meeting owner email"
-            type="email"
-            value={form.calendarOwnerEmail}
-            onChange={(value) =>
-              onChange("calendarOwnerEmail", value)
-            }
-            placeholder="sales@codesynclabs.com"
-          />
-          <Field
-            label="Booking timezone"
-            value={form.bookingTimezone}
-            onChange={(value) =>
-              onChange("bookingTimezone", value)
-            }
-            placeholder="America/New_York"
-          />
-          <NumberField
-            label="Meeting duration"
-            value={form.meetingDurationMinutes}
-            min={10}
-            max={180}
-            suffix="minutes"
-            onChange={(value) =>
-              onChange("meetingDurationMinutes", value)
-            }
-          />
-          <Field
-            label="Default lead timezone"
-            value={form.defaultLeadTimezone}
-            onChange={(value) =>
-              onChange("defaultLeadTimezone", value)
-            }
-            placeholder="America/New_York"
-          />
-        </div>
-      </article>
-
-      <article className="rf-agent-card rf-agent-form-card">
-        <div className="rf-agent-card-heading">
-          <div>
-            <span>Calling controls</span>
-            <h2>Keep volume and timing controlled</h2>
+            {form.websiteIntelligence?.analyzedAt ? (
+              <div className="rf-voice-intel-summary">
+                <span>Website intelligence ready</span>
+                <strong>
+                  {form.websiteIntelligence?.oneLinePitch ||
+                    "ReachFly prepared the business context for live conversations."}
+                </strong>
+                <div>
+                  <small>Services, ICP, value propositions, objections and discovery questions are prepared before dialing.</small>
+                </div>
+              </div>
+            ) : (
+              <div className="rf-voice-skip-card">
+                <b>No website? No problem.</b>
+                <span>Leave this blank and ReachFly will use the safe default sales agent. You can add intelligence later.</span>
+              </div>
+            )}
           </div>
-          <span className="rf-agent-section-number">04</span>
-        </div>
+        ) : null}
 
-        <label className="rf-agent-field">
-          <span>Outbound business number</span>
-          <select
-            value={form.fromNumber}
-            disabled={!numberOptions.length}
-            onChange={(event) =>
-              onChange("fromNumber", event.target.value)
-            }
+        {step === 2 ? (
+          <div className="rf-voice-setup-pane">
+            <div className="rf-voice-essential-grid two">
+              <Field
+                label="Meeting owner email (optional)"
+                type="email"
+                value={form.calendarOwnerEmail}
+                onChange={(value) => onChange("calendarOwnerEmail", value)}
+                placeholder="sales@yourcompany.com"
+              />
+              <Field
+                label="Booking timezone"
+                value={form.bookingTimezone}
+                onChange={(value) => onChange("bookingTimezone", value)}
+                placeholder="America/New_York"
+              />
+              <NumberField
+                label="Meeting duration"
+                value={form.meetingDurationMinutes}
+                min={10}
+                max={180}
+                suffix="minutes"
+                onChange={(value) => onChange("meetingDurationMinutes", value)}
+              />
+            </div>
+
+            <details className="rf-voice-advanced">
+              <summary>Optional booking instructions</summary>
+              <TextArea
+                label="Instructions"
+                value={form.bookingInstructions}
+                onChange={(value) => onChange("bookingInstructions", value)}
+                placeholder="Who attends, required information, or when to offer a human follow-up."
+                rows={4}
+              />
+            </details>
+          </div>
+        ) : null}
+
+        {step === 3 ? (
+          <div className="rf-voice-setup-pane">
+            <div className="rf-voice-calling-identity">
+              <div>
+                <span>Outbound business number</span>
+                <strong>{selectedNumber ? formatPhone(selectedNumber) : "Activation required"}</strong>
+                <small>
+                  {activeNumber?.testMode
+                    ? "Sandbox display number · controlled test calls route through the linked ReachFly test line"
+                    : "ReachFly-managed caller identity"}
+                </small>
+              </div>
+              {activeNumber?.testMode ? <b>TEST</b> : <b>ACTIVE</b>}
+            </div>
+
+            <label className="rf-voice-policy-check">
+              <input
+                type="checkbox"
+                checked={Boolean(form.complianceConfirmed)}
+                onChange={(event) => onChange("complianceConfirmed", event.target.checked)}
+              />
+              <span>
+                <b>Approve calling & suppression policy</b>
+                <small>
+                  I confirm this workspace will call permitted leads, respect DNC/suppression requests,
+                  approved calling windows and applicable AI/recording disclosures.
+                </small>
+              </span>
+            </label>
+
+            <label className="rf-voice-policy-check secondary">
+              <input
+                type="checkbox"
+                checked={Boolean(form.recordingEnabled)}
+                onChange={(event) => onChange("recordingEnabled", event.target.checked)}
+              />
+              <span>
+                <b>Enable call recording</b>
+                <small>Optional. Enable only when your consent and disclosure policy allows it.</small>
+              </span>
+            </label>
+
+            <details className="rf-voice-advanced">
+              <summary>Advanced calling controls</summary>
+              <div className="rf-agent-field-grid three">
+                <NumberField
+                  label="Daily call limit"
+                  value={form.dailyCallLimit}
+                  min={1}
+                  max={5000}
+                  onChange={(value) => onChange("dailyCallLimit", value)}
+                />
+                <NumberField
+                  label="Concurrent calls"
+                  value={form.concurrency}
+                  min={1}
+                  max={5}
+                  onChange={(value) => onChange("concurrency", value)}
+                />
+                <NumberField
+                  label="Maximum attempts"
+                  value={form.maxAttempts}
+                  min={1}
+                  max={10}
+                  onChange={(value) => onChange("maxAttempts", value)}
+                />
+                <NumberField
+                  label="Call window starts"
+                  value={form.callingWindowStartHour}
+                  min={8}
+                  max={20}
+                  suffix=":00"
+                  onChange={(value) => onChange("callingWindowStartHour", value)}
+                />
+                <NumberField
+                  label="Call window ends"
+                  value={form.callingWindowEndHour}
+                  min={9}
+                  max={21}
+                  suffix=":00"
+                  onChange={(value) => onChange("callingWindowEndHour", value)}
+                />
+                <NumberField
+                  label="Max call length"
+                  value={form.maxCallSeconds}
+                  min={60}
+                  max={3600}
+                  suffix="seconds"
+                  onChange={(value) => onChange("maxCallSeconds", value)}
+                />
+              </div>
+            </details>
+          </div>
+        ) : null}
+
+        {step === 4 ? (
+          <div className="rf-voice-setup-pane">
+            <div className="rf-voice-review-grid">
+              <article>
+                <span>Agent</span>
+                <strong>{form.name}</strong>
+                <small>{selectedVoice?.name || "Managed voice"}</small>
+              </article>
+              <article>
+                <span>Business</span>
+                <strong>{form.companyName || "Workspace company"}</strong>
+                <small>{form.websiteIntelligence?.analyzedAt ? "Website intelligence ready" : "Default context"}</small>
+              </article>
+              <article>
+                <span>Caller ID</span>
+                <strong>{selectedNumber ? formatPhone(selectedNumber) : "Not active"}</strong>
+                <small>{activeNumber?.testMode ? "Sandbox identity" : "Verified business number"}</small>
+              </article>
+              <article>
+                <span>Policy</span>
+                <strong>{form.complianceConfirmed ? "Approved" : "Needs approval"}</strong>
+                <small>{form.recordingEnabled ? "Recording enabled" : "Recording off"}</small>
+              </article>
+            </div>
+
+            <section className="rf-voice-credit-wallet">
+              <div className="rf-voice-credit-wallet-head">
+                <div>
+                  <span>AI calling balance</span>
+                  <strong>{formatCreditsCompact(callBalance)}</strong>
+                  <small>1 credit = 1 completed connected AI conversation</small>
+                </div>
+                <div>
+                  <b>$1</b>
+                  <small>current connected-call price</small>
+                </div>
+              </div>
+
+              <div className="rf-voice-credit-meter">
+                <span style={{ width: `${Math.min(100, Math.max(8, callBalance * 4))}%` }} />
+              </div>
+
+              {callBalance > 0 ? (
+                <p>
+                  Your signup balance includes {signupFreeCredits} free AI call credits. Failed,
+                  unanswered and zero-duration attempts do not consume a credit.
+                </p>
+              ) : (
+                <p>Your AI calling wallet is empty. Add credits before launching paid calling.</p>
+              )}
+
+              {callPacks.length ? (
+                <div className="rf-voice-credit-pack-row">
+                  {callPacks.map((pack) => (
+                    <button
+                      type="button"
+                      key={pack.id}
+                      disabled={Boolean(buyingCredits) || !billing?.aiCalling?.canPurchase}
+                      onClick={() => void buyCallCredits(pack)}
+                    >
+                      <span>{pack.credits} calls</span>
+                      <b>{formatMoneyMinorVoice(pack.amountMinor, pack.currency)}</b>
+                      <small>{buyingCredits === pack.id ? "Opening checkout…" : "Add credits"}</small>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </section>
+
+            <button
+              type="button"
+              className="btn primary full rf-agent-save rf-voice-activate-button"
+              disabled={
+                saving ||
+                analyzingWebsite ||
+                !form.complianceConfirmed ||
+                !selectedNumber ||
+                callBalance <= 0
+              }
+              onClick={() => void save()}
+            >
+              {saving
+                ? "Creating and synchronizing Voice Agent…"
+                : onboarding
+                  ? "Activate Voice Agent"
+                  : "Save Voice Agent"}
+            </button>
+          </div>
+        ) : null}
+
+        <div className="rf-voice-setup-nav">
+          <button
+            type="button"
+            className="rf-voice-arrow-button secondary"
+            disabled={step === 0 || saving}
+            onClick={() => moveTo(step - 1)}
+            aria-label="Previous setup step"
           >
-            <option value="">
-              {numberOptions.length
-                ? "Select purchased business number"
-                : "Buy a business number in onboarding first"}
-            </option>
-            {numberOptions.map((number) => (
-              <option key={number} value={number}>
-                {formatPhone(number)}
-              </option>
-            ))}
-          </select>
-          <small>
-            Only a ReachFly-purchased, successfully activated business number can be used for outbound Voice Agent calls in this build.
-          </small>
-        </label>
+            <span>←</span>
+            <div>
+              <small>Previous</small>
+              <b>{step > 0 ? steps[step - 1].label : ""}</b>
+            </div>
+          </button>
 
-        <div className="rf-agent-field-grid three">
-          <NumberField
-            label="Daily call limit"
-            value={form.dailyCallLimit}
-            min={1}
-            max={5000}
-            onChange={(value) =>
-              onChange("dailyCallLimit", value)
-            }
-          />
-          <NumberField
-            label="Concurrent calls"
-            value={form.concurrency}
-            min={1}
-            max={5}
-            onChange={(value) =>
-              onChange("concurrency", value)
-            }
-          />
-          <NumberField
-            label="Maximum attempts"
-            value={form.maxAttempts}
-            min={1}
-            max={10}
-            onChange={(value) =>
-              onChange("maxAttempts", value)
-            }
-          />
-          <NumberField
-            label="Call window starts"
-            value={form.callingWindowStartHour}
-            min={8}
-            max={20}
-            suffix=":00"
-            onChange={(value) =>
-              onChange("callingWindowStartHour", value)
-            }
-          />
-          <NumberField
-            label="Call window ends"
-            value={form.callingWindowEndHour}
-            min={9}
-            max={21}
-            suffix=":00"
-            onChange={(value) =>
-              onChange("callingWindowEndHour", value)
-            }
-          />
-          <NumberField
-            label="Max call length"
-            value={form.maxCallSeconds}
-            min={60}
-            max={3600}
-            suffix="seconds"
-            onChange={(value) =>
-              onChange("maxCallSeconds", value)
-            }
-          />
+          {step < steps.length - 1 ? (
+            <button
+              type="button"
+              className="rf-voice-arrow-button primary"
+              disabled={analyzingWebsite || saving}
+              onClick={next}
+              aria-label="Next setup step"
+            >
+              <div>
+                <small>Next</small>
+                <b>{steps[step + 1].label}</b>
+              </div>
+              <span>→</span>
+            </button>
+          ) : null}
         </div>
-
-        <label className="rf-agent-check-row">
-          <input
-            type="checkbox"
-            checked={form.recordingEnabled}
-            onChange={(event) =>
-              onChange("recordingEnabled", event.target.checked)
-            }
-          />
-          <span>
-            <b>Enable call recording</b>
-            <small>
-              Turn this on only after the workspace has approved disclosure,
-              consent, access and retention rules.
-            </small>
-          </span>
-        </label>
-
-        <label className="rf-agent-check-row important">
-          <input
-            type="checkbox"
-            checked={form.complianceConfirmed}
-            onChange={(event) =>
-              onChange(
-                "complianceConfirmed",
-                event.target.checked
-              )
-            }
-          />
-          <span>
-            <b>Calling and suppression policy approved</b>
-            <small>
-              I confirm that the selected leads, calling windows, consent
-              basis, DNC process, caller ID and recording policy have been
-              reviewed for this campaign.
-            </small>
-          </span>
-        </label>
-
-        <label className="rf-agent-toggle-row">
-          <span>
-            <b>Agent enabled</b>
-            <small>
-              Disabling prevents new campaigns from starting.
-            </small>
-          </span>
-          <input
-            type="checkbox"
-            checked={form.enabled}
-            onChange={(event) =>
-              onChange("enabled", event.target.checked)
-            }
-          />
-        </label>
-
-        <button
-          type="button"
-          className="btn primary full rf-agent-save"
-          disabled={
-            saving ||
-            analyzingWebsite ||
-            !form.complianceConfirmed ||
-            (Boolean(String(form.websiteUrl || "").trim()) &&
-              !form.websiteIntelligence?.analyzedAt)
-          }
-          onClick={onSave}
-        >
-          {saving
-            ? "Saving and syncing voice agent…"
-            : "Save voice agent"}
-        </button>
-      </article>
+      </div>
     </section>
   );
 }
