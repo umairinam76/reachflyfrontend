@@ -988,8 +988,17 @@ export default function TelnyxAIAgentPage() {
   }
 
   async function ensureVoiceAgentReady() {
+    const purchasedNumberRequired =
+      diagnostics?.purchasedNumberRequired !== false;
+    const paidCreditsRequired =
+      diagnostics?.paidCreditsRequired !== false;
+
     const activePurchasedNumber = voiceCommerce?.activeNumber;
-    if (!activePurchasedNumber || normalizeStatus(activePurchasedNumber.status) !== "active") {
+    if (
+      purchasedNumberRequired &&
+      (!activePurchasedNumber ||
+        normalizeStatus(activePurchasedNumber.status) !== "active")
+    ) {
       throw new Error(
         "Buy and activate a ReachFly business number before configuring or launching the Voice Agent."
       );
@@ -998,7 +1007,7 @@ export default function TelnyxAIAgentPage() {
     const aiCallBalance = Number(
       billingData?.aiCalling?.wallet?.balance || 0
     );
-    if (aiCallBalance <= 0) {
+    if (paidCreditsRequired && aiCallBalance <= 0) {
       throw new Error(
         "Buy AI call credits before configuring or launching paid Voice Agent calls. General ReachFly credits cannot fund AI calls."
       );
@@ -1207,7 +1216,10 @@ export default function TelnyxAIAgentPage() {
           </h1>
           <p>
             {onboardingMode
-              ? "Buy and activate a business number, fund AI call credits, configure the agent and business context, approve calling policy, then save the runtime before adding leads."
+              ? diagnostics?.purchasedNumberRequired !== false ||
+                diagnostics?.paidCreditsRequired !== false
+                ? "Complete the required calling activation, configure the agent and business context, approve calling policy, then save the runtime before adding leads."
+                : "Configure the agent and business context, approve calling policy, then save the runtime before adding leads."
               : "Qualify leads, run compliant AI conversations, monitor live calls, record outcomes and book confirmed meetings from one workspace."}
           </p>
         </div>
@@ -1259,19 +1271,22 @@ export default function TelnyxAIAgentPage() {
 
       {onboardingMode ? (
         <>
-          <VoiceCommerceOnboarding
-            commerce={voiceCommerce}
-            billing={billingData}
-            onRefresh={async () => {
-              await Promise.all([
-                loadVoiceCommerce(),
-                loadBillingData(),
-                loadDashboard({ silent: true }),
-              ]);
-            }}
-            onError={setError}
-            onSuccess={setSuccess}
-          />
+          {(diagnostics?.purchasedNumberRequired !== false ||
+            diagnostics?.paidCreditsRequired !== false) ? (
+            <VoiceCommerceOnboarding
+              commerce={voiceCommerce}
+              billing={billingData}
+              onRefresh={async () => {
+                await Promise.all([
+                  loadVoiceCommerce(),
+                  loadBillingData(),
+                  loadDashboard({ silent: true }),
+                ]);
+              }}
+              onError={setError}
+              onSuccess={setSuccess}
+            />
+          ) : null}
 
           <VoiceAgentOnboardingGuide
             state={onboardingState}
@@ -5025,12 +5040,20 @@ function buildVoiceOnboardingState({
     form.websiteIntelligence?.analyzedAt
   );
 
-  const numberDone = Boolean(
-    voiceCommerce?.activeNumber?.phoneNumber &&
-      normalizeStatus(voiceCommerce.activeNumber.status) === "active"
-  );
+  const purchasedNumberRequired =
+    diagnostics?.purchasedNumberRequired !== false;
+  const paidCreditsRequired =
+    diagnostics?.paidCreditsRequired !== false;
+
+  const numberDone =
+    !purchasedNumberRequired ||
+    Boolean(
+      voiceCommerce?.activeNumber?.phoneNumber &&
+        normalizeStatus(voiceCommerce.activeNumber.status) === "active"
+    );
 
   const creditsDone =
+    !paidCreditsRequired ||
     Number(billingData?.aiCalling?.wallet?.balance || 0) > 0;
 
   const complianceDone =
@@ -5066,20 +5089,24 @@ function buildVoiceOnboardingState({
     {
       key: "number",
       title: "Business number",
-      required: true,
+      required: purchasedNumberRequired,
       done: numberDone,
-      text: numberDone
-        ? "A paid ReachFly business number is active for this workspace."
-        : "Buy and activate a business number before saving the Voice Agent.",
+      text: !purchasedNumberRequired
+        ? "This workspace uses the preconfigured ReachFly calling number."
+        : numberDone
+          ? "A paid ReachFly business number is active for this workspace."
+          : "Buy and activate a business number before saving the Voice Agent.",
     },
     {
       key: "credits",
       title: "AI call credits",
-      required: true,
+      required: paidCreditsRequired,
       done: creditsDone,
-      text: creditsDone
-        ? `${formatCreditsCompact(billingData?.aiCalling?.wallet?.balance)} dedicated call credits are available.`
-        : "Buy dedicated AI call credits before Voice Agent activation.",
+      text: !paidCreditsRequired
+        ? "Dedicated paid AI call credits are not required for this workspace."
+        : creditsDone
+          ? `${formatCreditsCompact(billingData?.aiCalling?.wallet?.balance)} dedicated call credits are available.`
+          : "Buy dedicated AI call credits before Voice Agent activation.",
     },
     {
       key: "policy",
