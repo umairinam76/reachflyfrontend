@@ -669,6 +669,13 @@ export default function TelnyxAIAgentPage() {
 
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set("tab", safeTab);
+
+    // onboarding=1 intentionally renders AgentSetup across the whole page.
+    // Remove it when navigating to a real workspace section.
+    if (safeTab !== "setup") {
+      nextParams.delete("onboarding");
+    }
+
     setSearchParams(nextParams, { replace });
   }
 

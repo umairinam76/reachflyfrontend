@@ -59566,3 +59566,26 @@ td b {
 .sb-subitem.active { color:#fff; background:linear-gradient(90deg,rgba(111,66,245,.27),rgba(234,77,171,.1)); }
 .sb-subitem-dot { width:6px; height:6px; flex:0 0 6px; border-radius:50%; border:1px solid rgba(187,164,255,.55); background:transparent; }
 .sb-subitem.active .sb-subitem-dot { border-color:transparent; background:#a78bfa; box-shadow:0 0 0 4px rgba(139,92,246,.12); }
+/* ReachFly Voice sidebar navigation v5.2
+   Append to the END of global styles.css.
+*/
+
+button.sb-subitem {
+  width: 100%;
+  margin: 0;
+  appearance: none;
+  border: 0;
+  outline: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+button.sb-subitem:focus-visible {
+  outline: 2px solid rgba(139, 92, 246, 0.55);
+  outline-offset: 2px;
+}
+
+button.sb-subitem.active {
+  cursor: default;
+}
