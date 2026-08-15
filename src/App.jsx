@@ -779,26 +779,24 @@ function VoiceAgentRoute({
 
 function CodesyncAdminRoute({ children }) {
   const { user, initializing } = useAuth();
-  if (initializing) return <div className="route-loading-state">Loading platform admin…</div>;
-  const role = normalizeRole(user?.workspaceRole || user?.role || "caller");
-  if (!isCodesyncWorkspace(user) || !["owner", "admin"].includes(role)) {
+
+  if (initializing) {
+    return (
+      <div className="route-loading-state">
+        Loading platform admin…
+      </div>
+    );
+  }
+
+  const email = String(user?.email || "")
+    .trim()
+    .toLowerCase();
+
+  if (email !== "owner@codesynclabs.com") {
     return <Navigate to="/app/dashboard" replace />;
   }
-  return children;
-}
 
-function isCodesyncWorkspace(user) {
-  const values = [
-    user?.workspaceId,
-    user?.companyId,
-    user?.workspaceSlug,
-    user?.companySlug,
-    user?.workspaceName,
-    user?.companyName,
-  ]
-    .filter(Boolean)
-    .map((value) => String(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, ""));
-  return values.includes("codesync_labs_workspace") || values.includes("codesync_labs") || values.includes("codesynclabs");
+  return children;
 }
 
 

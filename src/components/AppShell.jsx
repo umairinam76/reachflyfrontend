@@ -70,6 +70,8 @@ const CALLER_ROLES = new Set([
   "telemarketer",
 ]);
 
+const PLATFORM_OWNER_EMAIL = "owner@codesynclabs.com";
+
 export default function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -119,6 +121,12 @@ export default function AppShell() {
 
   const isCaller =
     CALLER_ROLES.has(role);
+
+  const isPlatformOwner =
+    String(user?.email || "")
+      .trim()
+      .toLowerCase() ===
+    PLATFORM_OWNER_EMAIL;
 
   const canManageWorkspace =
     isOwner ||
@@ -820,6 +828,22 @@ export default function AppShell() {
             visible:
               canManageCompanySettings,
           },
+
+          {
+            label: "Credits & usage",
+            to: "/app/billing",
+            icon: BarChart3,
+            matchPrefix: "/app/billing",
+            visible: canManageCompanySettings,
+          },
+
+          {
+            label: "Platform admin",
+            to: "/app/platform-admin",
+            icon: Building2,
+            matchPrefix: "/app/platform-admin",
+            visible: isPlatformOwner,
+          },
         ],
       });
 
@@ -849,6 +873,7 @@ export default function AppShell() {
       counters,
       isCaller,
       isManager,
+      isPlatformOwner,
     ]);
 
   function handleSearchSubmit(
