@@ -770,12 +770,39 @@ export default function AppShell() {
         items: [
           {
             label: "Voice agent",
-            to: "/app/voice-agent",
+            to: "/app/voice-agent?tab=setup",
             icon: Zap,
             matchPrefix:
               "/app/voice-agent",
             visible:
               canUseVoiceAgent,
+            children: [
+              {
+                label: "Voice setup",
+                to: "/app/voice-agent?tab=setup",
+                matchQueryTab: "setup",
+                matchQueryDefault: true,
+                queryPathPrefix: "/app/voice-agent",
+              },
+              {
+                label: "Lead queue",
+                to: "/app/voice-agent?tab=leads",
+                matchQueryTab: "leads",
+                queryPathPrefix: "/app/voice-agent",
+              },
+              {
+                label: "Live calls",
+                to: "/app/voice-agent?tab=calls",
+                matchQueryTab: "calls",
+                queryPathPrefix: "/app/voice-agent",
+              },
+              {
+                label: "Meetings",
+                to: "/app/voice-agent?tab=meetings",
+                matchQueryTab: "meetings",
+                queryPathPrefix: "/app/voice-agent",
+              },
+            ],
           },
 
           {
@@ -1080,65 +1107,109 @@ export default function AppShell() {
                 <div className="sb-nav-list">
                   {group.items.map(
                     (item) => {
-                      const Icon =
-                        item.icon;
+                      const Icon = item.icon;
+                      const hasChildren =
+                        Array.isArray(item.children) &&
+                        item.children.length > 0;
+                      const treeOpen =
+                        hasChildren &&
+                        location.pathname.startsWith(
+                          item.matchPrefix || item.to.split("?")[0]
+                        );
 
                       return (
-                        <NavLink
+                        <div
+                          className={`sb-nav-tree ${
+                            treeOpen ? "open" : ""
+                          }`}
                           key={`${item.to}-${item.label}`}
-                          to={item.to}
-                          className={({
-                            isActive,
-                          }) =>
-                            `sb-item ${
-                              isNavActive({
-                                item,
-                                isActive,
-                                pathname:
-                                  location.pathname,
-                                search:
-                                  location.search,
-                              })
-                                ? "active"
-                                : ""
-                            }`
-                          }
-                          onClick={() =>
-                            setSidebarOpen(
-                              false
-                            )
-                          }
                         >
-                          <span className="sb-item-icon-wrap">
-                            <Icon
-                              size={18}
-                            />
+                          <NavLink
+                            to={item.to}
+                            className={({ isActive }) =>
+                              `sb-item ${
+                                isNavActive({
+                                  item,
+                                  isActive,
+                                  pathname: location.pathname,
+                                  search: location.search,
+                                })
+                                  ? "active"
+                                  : ""
+                              }`
+                            }
+                            onClick={() =>
+                              !hasChildren
+                                ? setSidebarOpen(false)
+                                : undefined
+                            }
+                          >
+                            <span className="sb-item-icon-wrap">
+                              <Icon size={18} />
 
-                            {item.highlightCount &&
-                            item.count >
-                              0 ? (
-                              <em className="sb-counter">
-                                {formatCount(
-                                  item.count
-                                )}
+                              {item.highlightCount &&
+                              item.count > 0 ? (
+                                <em className="sb-counter">
+                                  {formatCount(item.count)}
+                                </em>
+                              ) : null}
+                            </span>
+
+                            <span className="sb-item-label">
+                              {item.label}
+                            </span>
+
+                            {!item.highlightCount &&
+                            item.count > 0 ? (
+                              <em className="sb-nav-badge">
+                                {formatCount(item.count)}
                               </em>
                             ) : null}
-                          </span>
 
-                          <span className="sb-item-label">
-                            {item.label}
-                          </span>
+                            {hasChildren ? (
+                              <span
+                                className="sb-tree-chevron"
+                                aria-hidden="true"
+                              >
+                                ›
+                              </span>
+                            ) : null}
+                          </NavLink>
 
-                          {!item.highlightCount &&
-                          item.count >
-                            0 ? (
-                            <em className="sb-nav-badge">
-                              {formatCount(
-                                item.count
-                              )}
-                            </em>
+                          {hasChildren && treeOpen ? (
+                            <div
+                              className="sb-subnav"
+                              aria-label={`${item.label} sections`}
+                            >
+                              {item.children.map((child) => (
+                                <NavLink
+                                  key={`${child.to}-${child.label}`}
+                                  to={child.to}
+                                  className={({ isActive }) =>
+                                    `sb-subitem ${
+                                      isNavActive({
+                                        item: child,
+                                        isActive,
+                                        pathname:
+                                          location.pathname,
+                                        search:
+                                          location.search,
+                                      })
+                                        ? "active"
+                                        : ""
+                                    }`
+                                  }
+                                  onClick={() =>
+                                    setSidebarOpen(false)
+                                  }
+                                >
+                                  <span className="sb-subitem-dot" />
+                                  <span>{child.label}</span>
+                                </NavLink>
+                              ))}
+                            </div>
                           ) : null}
-                        </NavLink>
+                        </div>
                       );
                     }
                   )}
@@ -1349,23 +1420,21 @@ function isNavActive({
   pathname,
   search,
 }) {
-  if (
-    item.matchQueryTab
-  ) {
-    const params =
-      new URLSearchParams(
-        search
-      );
-
-    const tab =
-      params.get("tab");
+  if (item.matchQueryTab) {
+    const params = new URLSearchParams(search);
+    const tab = params.get("tab");
+    const queryPathPrefix =
+      item.queryPathPrefix || "/app/role-operations";
 
     return (
-      pathname.startsWith(
-        "/app/role-operations"
-      ) &&
-      tab ===
-        item.matchQueryTab
+      pathname.startsWith(queryPathPrefix) &&
+      (
+        tab === item.matchQueryTab ||
+        (
+          item.matchQueryDefault === true &&
+          !tab
+        )
+      )
     );
   }
 
