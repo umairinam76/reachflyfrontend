@@ -119,7 +119,50 @@ const TABS = [
   ["meetings", "Meetings"],
 ];
 
-const VOICE_UI_VERSION = "5.1-url-tab-sync";
+const DEFAULT_VOICE_VIEWS = {
+  setup: "calling",
+  leads: "quick-lead",
+  calls: "active-calls",
+  meetings: "upcoming",
+};
+
+const SETUP_VIEW_CONFIG = {
+  calling: { step: 0, numberPath: "owned" },
+  "my-numbers": { step: 1, numberPath: "owned" },
+  "buy-numbers": { step: 1, numberPath: "buy" },
+  "connect-number": { step: 1, numberPath: "existing" },
+  agent: { step: 2, numberPath: "owned" },
+  business: { step: 3, numberPath: "owned" },
+  workflow: { step: 4, numberPath: "owned" },
+  activate: { step: 5, numberPath: "owned" },
+};
+
+const SETUP_STEP_VIEWS = [
+  "calling",
+  "my-numbers",
+  "agent",
+  "business",
+  "workflow",
+  "activate",
+];
+
+const LEAD_VIEW_TO_STEP = {
+  "quick-lead": 0,
+  "google-leads": 1,
+  "lead-pool": 2,
+  "queue-activity": 3,
+  "launch-calls": 4,
+};
+
+const LEAD_STEP_VIEWS = [
+  "quick-lead",
+  "google-leads",
+  "lead-pool",
+  "queue-activity",
+  "launch-calls",
+];
+
+const VOICE_UI_VERSION = "5.4-nested-sidebar-views";
 
 const LIVE_CALL_STATES = new Set([
   "creating",
@@ -151,6 +194,10 @@ export default function TelnyxAIAgentPage() {
   )
     ? requestedTab
     : "setup";
+  const requestedView =
+    searchParams.get("view") ||
+    DEFAULT_VOICE_VIEWS[activeTab] ||
+    DEFAULT_VOICE_VIEWS.setup;
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -669,9 +716,38 @@ export default function TelnyxAIAgentPage() {
 
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set("tab", safeTab);
+    nextParams.set(
+      "view",
+      DEFAULT_VOICE_VIEWS[safeTab] ||
+        DEFAULT_VOICE_VIEWS.setup
+    );
 
     // onboarding=1 intentionally renders AgentSetup across the whole page.
     // Remove it when navigating to a real workspace section.
+    if (safeTab !== "setup") {
+      nextParams.delete("onboarding");
+    }
+
+    setSearchParams(nextParams, { replace });
+  }
+
+  function selectVoiceView(
+    tab,
+    view,
+    { replace = false } = {}
+  ) {
+    const safeTab = TABS.some(([tabValue]) => tabValue === tab)
+      ? tab
+      : "setup";
+    const safeView =
+      String(view || "").trim() ||
+      DEFAULT_VOICE_VIEWS[safeTab] ||
+      DEFAULT_VOICE_VIEWS.setup;
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("tab", safeTab);
+    nextParams.set("view", safeView);
+
     if (safeTab !== "setup") {
       nextParams.delete("onboarding");
     }
@@ -1193,6 +1269,11 @@ export default function TelnyxAIAgentPage() {
     const nextParams = new URLSearchParams(searchParams);
     nextParams.delete("onboarding");
     nextParams.set("tab", safeTab);
+    nextParams.set(
+      "view",
+      DEFAULT_VOICE_VIEWS[safeTab] ||
+        DEFAULT_VOICE_VIEWS.setup
+    );
     setSearchParams(nextParams, { replace: true });
     setError("");
 
@@ -1345,6 +1426,10 @@ export default function TelnyxAIAgentPage() {
           saving={saving}
           analyzingWebsite={analyzingWebsite}
           onboarding
+          requestedView={requestedView}
+          onViewChange={(view) =>
+            selectVoiceView("setup", view, { replace: true })
+          }
           onChange={updateForm}
           onAnalyzeWebsite={() => void analyzeWebsite()}
           onError={setError}
@@ -1452,6 +1537,10 @@ export default function TelnyxAIAgentPage() {
           billing={billingData}
           saving={saving}
           analyzingWebsite={analyzingWebsite}
+          requestedView={requestedView}
+          onViewChange={(view) =>
+            selectVoiceView("setup", view, { replace: true })
+          }
           onChange={updateForm}
           onAnalyzeWebsite={() => void analyzeWebsite()}
           onError={setError}
@@ -1492,6 +1581,10 @@ export default function TelnyxAIAgentPage() {
           )}
           assigning={assigning}
           starting={starting}
+          requestedView={requestedView}
+          onViewChange={(view) =>
+            selectVoiceView("leads", view, { replace: true })
+          }
           onGoogleLeadForm={(key, value) =>
             setGoogleLeadForm((current) => ({
               ...current,
@@ -1509,7 +1602,7 @@ export default function TelnyxAIAgentPage() {
           onCallCustomLead={() => void submitCustomLead(true)}
           onTestCustomLead={startControlledTestCall}
           onEndCall={(id) => void cancelCall(id)}
-          onOpenCalls={() => selectVoiceTab("calls")}
+          onOpenCalls={() => selectVoiceView("calls", "active-calls")}
           onSearch={setLeadSearch}
           onLeadStatus={setLeadStatus}
           onQueueStatus={setQueueStatus}
@@ -1524,6 +1617,7 @@ export default function TelnyxAIAgentPage() {
       {activeTab === "calls" ? (
         <CallsPanel
           calls={calls}
+          view={requestedView}
           busyCallId={busyCallId}
           onCancel={(id) => void cancelCall(id)}
           onRefresh={() => loadDashboard({ silent: true })}
@@ -1531,7 +1625,10 @@ export default function TelnyxAIAgentPage() {
       ) : null}
 
       {activeTab === "meetings" ? (
-        <MeetingsPanel meetings={meetings} />
+        <MeetingsPanel
+          meetings={meetings}
+          view={requestedView}
+        />
       ) : null}
         </>
       )}
@@ -2500,6 +2597,8 @@ function AgentSetup({
   saving,
   analyzingWebsite,
   onboarding = false,
+  requestedView = "calling",
+  onViewChange,
   onChange,
   onAnalyzeWebsite,
   onSave,
@@ -2507,9 +2606,14 @@ function AgentSetup({
   onSuccess,
   onRefresh,
 }) {
-  const [step, setStep] = useState(0);
+  const initialSetupView =
+    SETUP_VIEW_CONFIG[requestedView] ||
+    SETUP_VIEW_CONFIG.calling;
+  const [step, setStep] = useState(initialSetupView.step);
   const [buyingCredits, setBuyingCredits] = useState("");
-  const [numberPath, setNumberPath] = useState("buy");
+  const [numberPath, setNumberPath] = useState(
+    initialSetupView.numberPath || "owned"
+  );
   const [searchForm, setSearchForm] = useState({
     countryCode: "US",
     areaCode: "",
@@ -2601,16 +2705,51 @@ function AgentSetup({
 
   const steps = [
     { key: "mode", label: "Calling", short: "Inbound / outbound" },
-    { key: "number", label: "Number", short: "Buy or connect" },
+    { key: "number", label: "Number", short: "Manage numbers" },
     { key: "identity", label: "Agent", short: "Name & voice" },
     { key: "business", label: "Business", short: "Website context" },
     { key: "workflow", label: "Workflow", short: "Actions & handoff" },
     { key: "review", label: "Activate", short: "Review & save" },
   ];
 
+  useEffect(() => {
+    const requested =
+      SETUP_VIEW_CONFIG[requestedView] ||
+      SETUP_VIEW_CONFIG.calling;
+
+    setStep(requested.step);
+    setNumberPath(
+      requested.numberPath || "owned"
+    );
+  }, [requestedView]);
+
   function moveTo(nextStep) {
     onError?.("");
-    setStep(Math.max(0, Math.min(steps.length - 1, nextStep)));
+    const resolved = Math.max(
+      0,
+      Math.min(steps.length - 1, nextStep)
+    );
+    setStep(resolved);
+    onViewChange?.(
+      SETUP_STEP_VIEWS[resolved] ||
+        SETUP_STEP_VIEWS[0]
+    );
+  }
+
+  function selectNumberPath(path) {
+    const safePath = ["owned", "buy", "existing"].includes(path)
+      ? path
+      : "owned";
+
+    setNumberPath(safePath);
+    onError?.("");
+    onViewChange?.(
+      safePath === "buy"
+        ? "buy-numbers"
+        : safePath === "existing"
+          ? "connect-number"
+          : "my-numbers"
+    );
   }
 
   function updateNested(key, nestedKey, value) {
@@ -2730,8 +2869,8 @@ function AgentSetup({
             phoneNumber: item.phoneNumber,
             callingMode: normalizedMode,
             returnPath: onboarding
-              ? "/app/voice-agent?onboarding=1"
-              : "/app/voice-agent",
+              ? "/app/voice-agent?onboarding=1&tab=setup&view=buy-numbers"
+              : "/app/voice-agent?tab=setup&view=buy-numbers",
           },
           timeoutMs: 30_000,
         }
@@ -3097,422 +3236,443 @@ function AgentSetup({
 
         {step === 1 ? (
           <div className="rf-voice-setup-pane">
-            <section className="rf-owned-numbers-section">
-              <div className="rf-owned-numbers-head">
-                <div>
-                  <span>Owned numbers</span>
-                  <h4>Your ReachFly business numbers</h4>
-                  <p>
-                    Active numbers already owned or verified by this workspace can
-                    be selected immediately for Voice Agent calling.
-                  </p>
+            <div className="rf-voice-number-paths three">
+              <button
+                type="button"
+                className={
+                  numberPath === "owned"
+                    ? "selected"
+                    : ""
+                }
+                onClick={() =>
+                  selectNumberPath("owned")
+                }
+              >
+                <b>My numbers</b>
+                <small>
+                  View and select numbers already owned or verified by this workspace.
+                </small>
+              </button>
+
+              <button
+                type="button"
+                className={
+                  numberPath === "buy"
+                    ? "selected"
+                    : ""
+                }
+                onClick={() =>
+                  selectNumberPath("buy")
+                }
+              >
+                <b>Buy number</b>
+                <small>
+                  Search inventory, pay securely and let ReachFly provision the number.
+                </small>
+              </button>
+
+              <button
+                type="button"
+                className={
+                  numberPath === "existing"
+                    ? "selected"
+                    : ""
+                }
+                onClick={() =>
+                  selectNumberPath("existing")
+                }
+              >
+                <b>Connect existing number</b>
+                <small>
+                  Use supported SIP/BYOC, forwarding or porting with ownership verification.
+                </small>
+              </button>
+            </div>
+
+            {numberPath === "owned" ? (
+              <>
+                <section className="rf-owned-numbers-section">
+                              <div className="rf-owned-numbers-head">
+                                <div>
+                                  <span>Owned numbers</span>
+                                  <h4>Your ReachFly business numbers</h4>
+                                  <p>
+                                    Active numbers already owned or verified by this workspace can
+                                    be selected immediately for Voice Agent calling.
+                                  </p>
+                                </div>
+                                <b>{ownedNumbers.length}</b>
+                              </div>
+
+                              {ownedNumbers.length ? (
+                                <div className="rf-owned-number-grid">
+                                  {ownedNumbers.map((number) => {
+                                    const isActive =
+                                      normalizeStatus(number.status) === "active";
+                                    const isSelected =
+                                      normalizePhoneForUi(number.phoneNumber) ===
+                                      normalizePhoneForUi(selectedNumber);
+
+                                    return (
+                                      <article
+                                        key={number.id || number.phoneNumber}
+                                        className={`rf-owned-number-card ${
+                                          isSelected ? "selected" : ""
+                                        }`}
+                                      >
+                                        <div className="rf-owned-number-top">
+                                          <span className="rf-owned-number-icon">☎</span>
+                                          <div>
+                                            <strong>{formatPhone(number.phoneNumber)}</strong>
+                                            <small>
+                                              {number.source === "existing_number"
+                                                ? "Connected existing number"
+                                                : number.testMode
+                                                  ? "Sandbox ReachFly number"
+                                                  : "ReachFly managed number"}
+                                            </small>
+                                          </div>
+                                          <em className={isActive ? "active" : ""}>
+                                            {formatLabel(number.status || "pending")}
+                                          </em>
+                                        </div>
+
+                                        <div className="rf-owned-number-capabilities">
+                                          <span
+                                            className={
+                                              number.inboundEnabled ? "ready" : ""
+                                            }
+                                          >
+                                            ↓ Inbound
+                                          </span>
+                                          <span
+                                            className={
+                                              number.outboundEnabled !== false ? "ready" : ""
+                                            }
+                                          >
+                                            ↑ Outbound
+                                          </span>
+                                          <span>
+                                            {number.callingMode === "both"
+                                              ? "Both directions"
+                                              : formatLabel(number.callingMode || "outbound")}
+                                          </span>
+                                        </div>
+
+                                        <button
+                                          type="button"
+                                          className={isSelected ? "btn light" : "btn primary"}
+                                          disabled={!isActive || isSelected}
+                                          onClick={() => useOwnedNumber(number)}
+                                        >
+                                          {isSelected
+                                            ? "Selected"
+                                            : isActive
+                                              ? "Use this number"
+                                              : "Activation pending"}
+                                        </button>
+                                      </article>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <div className="rf-owned-numbers-empty">
+                                  <span>☎</span>
+                                  <div>
+                                    <b>No owned business numbers yet</b>
+                                    <p>
+                                      Buy a ReachFly number below or connect a number you already
+                                      own. New customer workspaces cannot skip this activation step.
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
+                            </section>
+
+                {numberReady ? (
+                  <div className="rf-voice-number-ready-panel">
+                                  <div>
+                                    <span>Business number active</span>
+                                    <strong>
+                                      {formatPhone(selectedNumber)}
+                                    </strong>
+                                    <small>
+                                      {!purchasedNumberRequired
+                                        ? "Existing ReachFly calling identity for this workspace"
+                                        : selectedOwnedNumber?.testMode
+                                          ? "Sandbox workspace identity · outbound QA routes through the shared ReachFly test line"
+                                          : `${normalizedMode === "both" ? "Inbound + outbound" : normalizedMode} calling identity`}
+                                    </small>
+                                  </div>
+                                  <b>✓ Active</b>
+                                </div>
+                ) : null}
+              </>
+            ) : null}
+
+            {numberPath === "buy" ? (
+              <>
+                <div className="rf-voice-essential-grid three">
+                  <Field
+                    label="Country"
+                    value={searchForm.countryCode}
+                    onChange={(value) =>
+                      setSearchForm((current) => ({
+                        ...current,
+                        countryCode: String(
+                          value || ""
+                        )
+                          .toUpperCase()
+                          .slice(0, 2),
+                      }))
+                    }
+                    placeholder="US"
+                  />
+                  <Field
+                    label="Area code (optional)"
+                    value={searchForm.areaCode}
+                    onChange={(value) =>
+                      setSearchForm((current) => ({
+                        ...current,
+                        areaCode: String(
+                          value || ""
+                        )
+                          .replace(/\D/g, "")
+                          .slice(0, 8),
+                      }))
+                    }
+                    placeholder="213"
+                  />
+                  <Field
+                    label="City (optional)"
+                    value={searchForm.locality}
+                    onChange={(value) =>
+                      setSearchForm((current) => ({
+                        ...current,
+                        locality: value,
+                      }))
+                    }
+                    placeholder="Los Angeles"
+                  />
                 </div>
-                <b>{ownedNumbers.length}</b>
-              </div>
 
-              {ownedNumbers.length ? (
-                <div className="rf-owned-number-grid">
-                  {ownedNumbers.map((number) => {
-                    const isActive =
-                      normalizeStatus(number.status) === "active";
-                    const isSelected =
-                      normalizePhoneForUi(number.phoneNumber) ===
-                      normalizePhoneForUi(selectedNumber);
+                <div className="rf-voice-wizard-actions">
+                  <button
+                    type="button"
+                    className="btn primary rf-voice-primary-action"
+                    disabled={
+                      searchingNumbers ||
+                      !commerce?.canPurchase
+                    }
+                    onClick={() =>
+                      void searchNumbers()
+                    }
+                  >
+                    {searchingNumbers
+                      ? "Finding numbers…"
+                      : "Find available numbers"}
+                  </button>
+                </div>
 
-                    return (
+                {quote?.items?.length ? (
+                  <div className="rf-voice-number-grid">
+                    {quote.items.map((item) => (
                       <article
-                        key={number.id || number.phoneNumber}
-                        className={`rf-owned-number-card ${
-                          isSelected ? "selected" : ""
-                        }`}
+                        className="rf-voice-number-card"
+                        key={item.phoneNumber}
                       >
-                        <div className="rf-owned-number-top">
-                          <span className="rf-owned-number-icon">☎</span>
-                          <div>
-                            <strong>{formatPhone(number.phoneNumber)}</strong>
-                            <small>
-                              {number.source === "existing_number"
-                                ? "Connected existing number"
-                                : number.testMode
-                                  ? "Sandbox ReachFly number"
-                                  : "ReachFly managed number"}
-                            </small>
-                          </div>
-                          <em className={isActive ? "active" : ""}>
-                            {formatLabel(number.status || "pending")}
-                          </em>
+                        <div className="rf-voice-number-card-main">
+                          <span className="rf-voice-number-badge">
+                            {commerce?.testMode?.enabled
+                              ? "Sandbox"
+                              : "Business number"}
+                          </span>
+                          <h3>
+                            {formatPhone(
+                              item.phoneNumber
+                            )}
+                          </h3>
+                          <p>
+                            {(item.regionInformation ||
+                              [])
+                              .map(
+                                (region) =>
+                                  region.name
+                              )
+                              .filter(Boolean)
+                              .slice(0, 2)
+                              .join(" · ") ||
+                              "Voice-capable local number"}
+                          </p>
                         </div>
 
-                        <div className="rf-owned-number-capabilities">
-                          <span
-                            className={
-                              number.inboundEnabled ? "ready" : ""
-                            }
-                          >
-                            ↓ Inbound
-                          </span>
-                          <span
-                            className={
-                              number.outboundEnabled !== false ? "ready" : ""
-                            }
-                          >
-                            ↑ Outbound
-                          </span>
-                          <span>
-                            {number.callingMode === "both"
-                              ? "Both directions"
-                              : formatLabel(number.callingMode || "outbound")}
-                          </span>
+                        <div className="rf-voice-number-price">
+                          <small>
+                            Initial activation
+                          </small>
+                          <b>
+                            {formatMoneyMinorVoice(
+                              item.initialChargeMinor,
+                              item.currency
+                            )}
+                          </b>
                         </div>
 
                         <button
                           type="button"
-                          className={isSelected ? "btn light" : "btn primary"}
-                          disabled={!isActive || isSelected}
-                          onClick={() => useOwnedNumber(number)}
+                          className="btn primary"
+                          disabled={Boolean(
+                            buyingNumber
+                          )}
+                          onClick={() =>
+                            void buyNumber(item)
+                          }
                         >
-                          {isSelected
-                            ? "Selected"
-                            : isActive
-                              ? "Use this number"
-                              : "Activation pending"}
+                          {buyingNumber ===
+                          item.phoneNumber
+                            ? "Opening secure checkout…"
+                            : "Choose this number"}
                         </button>
                       </article>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="rf-owned-numbers-empty">
-                  <span>☎</span>
-                  <div>
-                    <b>No owned business numbers yet</b>
-                    <p>
-                      Buy a ReachFly number below or connect a number you already
-                      own. New customer workspaces cannot skip this activation step.
-                    </p>
+                    ))}
                   </div>
-                </div>
-              )}
-            </section>
+                ) : null}
 
-            {numberReady ? (
-              <div className="rf-voice-number-ready-panel">
-                <div>
-                  <span>Business number active</span>
-                  <strong>
-                    {formatPhone(selectedNumber)}
-                  </strong>
-                  <small>
-                    {!purchasedNumberRequired
-                      ? "Existing ReachFly calling identity for this workspace"
-                      : selectedOwnedNumber?.testMode
-                        ? "Sandbox workspace identity · outbound QA routes through the shared ReachFly test line"
-                        : `${normalizedMode === "both" ? "Inbound + outbound" : normalizedMode} calling identity`}
-                  </small>
-                </div>
-                <b>✓ Active</b>
-              </div>
-            ) : (
-              <>
-                <div className="rf-voice-number-paths">
-                  <button
-                    type="button"
-                    className={
-                      numberPath === "buy"
-                        ? "selected"
-                        : ""
-                    }
-                    onClick={() => setNumberPath("buy")}
-                  >
-                    <b>Buy number</b>
-                    <small>
-                      Search inventory, pay securely and let
-                      ReachFly provision the number.
-                    </small>
-                  </button>
-
-                  <button
-                    type="button"
-                    className={
-                      numberPath === "existing"
-                        ? "selected"
-                        : ""
-                    }
-                    onClick={() =>
-                      setNumberPath("existing")
-                    }
-                  >
-                    <b>Connect existing number</b>
-                    <small>
-                      Use supported SIP/BYOC, forwarding or
-                      porting with ownership verification.
-                    </small>
-                  </button>
-                </div>
-
-                {numberPath === "buy" ? (
-                  <>
-                    <div className="rf-voice-essential-grid three">
-                      <Field
-                        label="Country"
-                        value={searchForm.countryCode}
-                        onChange={(value) =>
-                          setSearchForm((current) => ({
-                            ...current,
-                            countryCode: String(
-                              value || ""
-                            )
-                              .toUpperCase()
-                              .slice(0, 2),
-                          }))
-                        }
-                        placeholder="US"
-                      />
-                      <Field
-                        label="Area code (optional)"
-                        value={searchForm.areaCode}
-                        onChange={(value) =>
-                          setSearchForm((current) => ({
-                            ...current,
-                            areaCode: String(
-                              value || ""
-                            )
-                              .replace(/\D/g, "")
-                              .slice(0, 8),
-                          }))
-                        }
-                        placeholder="213"
-                      />
-                      <Field
-                        label="City (optional)"
-                        value={searchForm.locality}
-                        onChange={(value) =>
-                          setSearchForm((current) => ({
-                            ...current,
-                            locality: value,
-                          }))
-                        }
-                        placeholder="Los Angeles"
-                      />
-                    </div>
-
-                    <div className="rf-voice-wizard-actions">
-                      <button
-                        type="button"
-                        className="btn primary rf-voice-primary-action"
-                        disabled={
-                          searchingNumbers ||
-                          !commerce?.canPurchase
-                        }
-                        onClick={() =>
-                          void searchNumbers()
-                        }
-                      >
-                        {searchingNumbers
-                          ? "Finding numbers…"
-                          : "Find available numbers"}
-                      </button>
-                    </div>
-
-                    {quote?.items?.length ? (
-                      <div className="rf-voice-number-grid">
-                        {quote.items.map((item) => (
-                          <article
-                            className="rf-voice-number-card"
-                            key={item.phoneNumber}
-                          >
-                            <div className="rf-voice-number-card-main">
-                              <span className="rf-voice-number-badge">
-                                {commerce?.testMode?.enabled
-                                  ? "Sandbox"
-                                  : "Business number"}
-                              </span>
-                              <h3>
-                                {formatPhone(
-                                  item.phoneNumber
-                                )}
-                              </h3>
-                              <p>
-                                {(item.regionInformation ||
-                                  [])
-                                  .map(
-                                    (region) =>
-                                      region.name
-                                  )
-                                  .filter(Boolean)
-                                  .slice(0, 2)
-                                  .join(" · ") ||
-                                  "Voice-capable local number"}
-                              </p>
-                            </div>
-
-                            <div className="rf-voice-number-price">
-                              <small>
-                                Initial activation
-                              </small>
-                              <b>
-                                {formatMoneyMinorVoice(
-                                  item.initialChargeMinor,
-                                  item.currency
-                                )}
-                              </b>
-                            </div>
-
-                            <button
-                              type="button"
-                              className="btn primary"
-                              disabled={Boolean(
-                                buyingNumber
-                              )}
-                              onClick={() =>
-                                void buyNumber(item)
-                              }
-                            >
-                              {buyingNumber ===
-                              item.phoneNumber
-                                ? "Opening secure checkout…"
-                                : "Choose this number"}
-                            </button>
-                          </article>
-                        ))}
-                      </div>
-                    ) : null}
-
-                    {commerce?.testMode?.enabled &&
-                    inboundEnabled ? (
-                      <div className="rf-voice-inline-warning">
-                        Sandbox numbers can complete purchase,
-                        activation and outbound QA. They cannot
-                        receive a real PSTN inbound call. Real
-                        inbound becomes available after a real
-                        ReachFly-provisioned or verified BYOC
-                        number is attached.
-                      </div>
-                    ) : null}
-                  </>
-                ) : (
-                  <div className="rf-voice-existing-number-panel">
-                    <div className="rf-voice-essential-grid two">
-                      <Field
-                        label="Business number"
-                        value={
-                          existingNumberForm.phoneNumber
-                        }
-                        onChange={(value) =>
-                          setExistingNumberForm(
-                            (current) => ({
-                              ...current,
-                              phoneNumber: value,
-                            })
-                          )
-                        }
-                        placeholder="+1 213 555 0100"
-                      />
-
-                      <label className="rf-agent-field">
-                        <span>
-                          Connection method
-                        </span>
-                        <select
-                          value={
-                            existingNumberForm.method
-                          }
-                          onChange={(event) =>
-                            setExistingNumberForm(
-                              (current) => ({
-                                ...current,
-                                method:
-                                  event.target.value,
-                              })
-                            )
-                          }
-                        >
-                          <option value="sip_byoc">
-                            SIP / BYOC
-                          </option>
-                          <option value="forwarding">
-                            Verified forwarding
-                          </option>
-                          <option value="porting">
-                            Port to ReachFly
-                          </option>
-                        </select>
-                        <small>
-                          SIP/BYOC is the preferred
-                          full inbound + outbound path
-                          when the current carrier
-                          supports it.
-                        </small>
-                      </label>
-                    </div>
-
-                    <div className="rf-voice-wizard-actions">
-                      <button
-                        type="button"
-                        className="btn primary"
-                        disabled={
-                          connectingExisting ||
-                          !commerce?.canPurchase
-                        }
-                        onClick={() =>
-                          void connectExistingNumber()
-                        }
-                      >
-                        {connectingExisting
-                          ? "Starting verification…"
-                          : "Verify and connect number"}
-                      </button>
-                    </div>
-
-                    {existingPending ? (
-                      <div className="rf-voice-verification-card">
-                        <span>
-                          Ownership verification
-                        </span>
-                        <strong>
-                          {formatPhone(
-                            existingPending?.number
-                              ?.phoneNumber ||
-                              existingNumberForm.phoneNumber
-                          )}
-                        </strong>
-                        <p>
-                          {existingPending?.verification ||
-                            "Complete ownership verification to activate this number."}
-                        </p>
-
-                        {existingPending?.testVerificationCode ? (
-                          <div className="rf-voice-verification-code">
-                            <Field
-                              label="Sandbox verification code"
-                              value={verificationCode}
-                              onChange={
-                                setVerificationCode
-                              }
-                              placeholder="123456"
-                            />
-                            <button
-                              type="button"
-                              className="btn primary"
-                              disabled={
-                                verifyingExisting
-                              }
-                              onClick={() =>
-                                void verifyExistingNumber()
-                              }
-                            >
-                              {verifyingExisting
-                                ? "Verifying…"
-                                : "Confirm ownership"}
-                            </button>
-                          </div>
-                        ) : null}
-                      </div>
-                    ) : null}
+                {commerce?.testMode?.enabled &&
+                inboundEnabled ? (
+                  <div className="rf-voice-inline-warning">
+                    Sandbox numbers can complete purchase,
+                    activation and outbound QA. They cannot
+                    receive a real PSTN inbound call. Real
+                    inbound becomes available after a real
+                    ReachFly-provisioned or verified BYOC
+                    number is attached.
                   </div>
-                )}
+                ) : null}
               </>
-            )}
+            ) : null}
+
+            {numberPath === "existing" ? (
+              <div className="rf-voice-existing-number-panel">
+                                  <div className="rf-voice-essential-grid two">
+                                    <Field
+                                      label="Business number"
+                                      value={
+                                        existingNumberForm.phoneNumber
+                                      }
+                                      onChange={(value) =>
+                                        setExistingNumberForm(
+                                          (current) => ({
+                                            ...current,
+                                            phoneNumber: value,
+                                          })
+                                        )
+                                      }
+                                      placeholder="+1 213 555 0100"
+                                    />
+
+                                    <label className="rf-agent-field">
+                                      <span>
+                                        Connection method
+                                      </span>
+                                      <select
+                                        value={
+                                          existingNumberForm.method
+                                        }
+                                        onChange={(event) =>
+                                          setExistingNumberForm(
+                                            (current) => ({
+                                              ...current,
+                                              method:
+                                                event.target.value,
+                                            })
+                                          )
+                                        }
+                                      >
+                                        <option value="sip_byoc">
+                                          SIP / BYOC
+                                        </option>
+                                        <option value="forwarding">
+                                          Verified forwarding
+                                        </option>
+                                        <option value="porting">
+                                          Port to ReachFly
+                                        </option>
+                                      </select>
+                                      <small>
+                                        SIP/BYOC is the preferred
+                                        full inbound + outbound path
+                                        when the current carrier
+                                        supports it.
+                                      </small>
+                                    </label>
+                                  </div>
+
+                                  <div className="rf-voice-wizard-actions">
+                                    <button
+                                      type="button"
+                                      className="btn primary"
+                                      disabled={
+                                        connectingExisting ||
+                                        !commerce?.canPurchase
+                                      }
+                                      onClick={() =>
+                                        void connectExistingNumber()
+                                      }
+                                    >
+                                      {connectingExisting
+                                        ? "Starting verification…"
+                                        : "Verify and connect number"}
+                                    </button>
+                                  </div>
+
+                                  {existingPending ? (
+                                    <div className="rf-voice-verification-card">
+                                      <span>
+                                        Ownership verification
+                                      </span>
+                                      <strong>
+                                        {formatPhone(
+                                          existingPending?.number
+                                            ?.phoneNumber ||
+                                            existingNumberForm.phoneNumber
+                                        )}
+                                      </strong>
+                                      <p>
+                                        {existingPending?.verification ||
+                                          "Complete ownership verification to activate this number."}
+                                      </p>
+
+                                      {existingPending?.testVerificationCode ? (
+                                        <div className="rf-voice-verification-code">
+                                          <Field
+                                            label="Sandbox verification code"
+                                            value={verificationCode}
+                                            onChange={
+                                              setVerificationCode
+                                            }
+                                            placeholder="123456"
+                                          />
+                                          <button
+                                            type="button"
+                                            className="btn primary"
+                                            disabled={
+                                              verifyingExisting
+                                            }
+                                            onClick={() =>
+                                              void verifyExistingNumber()
+                                            }
+                                          >
+                                            {verifyingExisting
+                                              ? "Verifying…"
+                                              : "Confirm ownership"}
+                                          </button>
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  ) : null}
+                                </div>
+            ) : null}
           </div>
         ) : null}
 
@@ -4776,6 +4936,8 @@ function LeadQueue({
   canTestCall,
   assigning,
   starting,
+  requestedView = "quick-lead",
+  onViewChange,
   onGoogleLeadForm,
   onFindGoogleLeads,
   onCustomLeadForm,
@@ -4796,6 +4958,7 @@ function LeadQueue({
   const leadFlowSteps = [
     {
       key: "quick",
+      view: "quick-lead",
       label: "Quick lead",
       title: "Add or call one lead",
       description:
@@ -4803,6 +4966,7 @@ function LeadQueue({
     },
     {
       key: "discover",
+      view: "google-leads",
       label: "Google leads",
       title: "Find fresh prospects",
       description:
@@ -4810,6 +4974,7 @@ function LeadQueue({
     },
     {
       key: "pool",
+      view: "lead-pool",
       label: "Lead pool",
       title: "Review and assign",
       description:
@@ -4817,6 +4982,7 @@ function LeadQueue({
     },
     {
       key: "activity",
+      view: "queue-activity",
       label: "Queue activity",
       title: "Review the calling queue",
       description:
@@ -4824,6 +4990,7 @@ function LeadQueue({
     },
     {
       key: "launch",
+      view: "launch-calls",
       label: "Launch calls",
       title: "Start approved outbound calls",
       description:
@@ -4831,11 +4998,23 @@ function LeadQueue({
     },
   ];
 
-  const [leadFlowStep, setLeadFlowStep] = useState(0);
-  const activeLeadStep = leadFlowSteps[leadFlowStep] || leadFlowSteps[0];
+  const requestedLeadStep =
+    LEAD_VIEW_TO_STEP[requestedView] ?? 0;
+  const [leadFlowStep, setLeadFlowStep] = useState(
+    requestedLeadStep
+  );
+  const activeLeadStep =
+    leadFlowSteps[leadFlowStep] ||
+    leadFlowSteps[0];
   const queuedCount = queue.filter(
     (item) => normalizeStatus(item.status) === "queued"
   ).length;
+
+  useEffect(() => {
+    setLeadFlowStep(
+      LEAD_VIEW_TO_STEP[requestedView] ?? 0
+    );
+  }, [requestedView]);
 
   function moveLeadFlow(nextStep) {
     const resolved = Math.max(
@@ -4843,6 +5022,10 @@ function LeadQueue({
       Math.min(leadFlowSteps.length - 1, Number(nextStep) || 0)
     );
     setLeadFlowStep(resolved);
+    onViewChange?.(
+      LEAD_STEP_VIEWS[resolved] ||
+        LEAD_STEP_VIEWS[0]
+    );
   }
 
   return (
@@ -5483,6 +5666,7 @@ function LeadQueue({
 
 function CallsPanel({
   calls,
+  view = "active-calls",
   busyCallId,
   onCancel,
   onRefresh,
@@ -5506,6 +5690,25 @@ function CallsPanel({
     inbound: 0,
     outbound: 0,
   });
+
+  const callView =
+    view === "call-history"
+      ? "call-history"
+      : "active-calls";
+
+  const visibleCalls = useMemo(
+    () =>
+      calls.filter((call) => {
+        const isLive = LIVE_CALL_STATES.has(
+          normalizeStatus(call.status)
+        );
+
+        return callView === "active-calls"
+          ? isLive
+          : !isLive;
+      }),
+    [calls, callView]
+  );
 
   const monitorCall = useMemo(
     () =>
@@ -6497,11 +6700,19 @@ function CallsPanel({
       <article className="rf-agent-card">
         <div className="rf-agent-card-heading compact">
           <div>
-            <span>Conversation activity</span>
-            <h2>AI-agent calls</h2>
+            <span>
+              {callView === "active-calls"
+                ? "Live call monitoring"
+                : "Conversation history"}
+            </span>
+            <h2>
+              {callView === "active-calls"
+                ? "Active AI-agent calls"
+                : "Completed and previous calls"}
+            </h2>
           </div>
           <b className="rf-agent-count">
-            {calls.length} records
+            {visibleCalls.length} records
           </b>
         </div>
 
@@ -6521,8 +6732,8 @@ function CallsPanel({
             </thead>
 
             <tbody>
-              {calls.length ? (
-                calls.map((call) => {
+              {visibleCalls.length ? (
+                visibleCalls.map((call) => {
                   const callIsLive =
                     LIVE_CALL_STATES.has(
                       normalizeStatus(
@@ -6712,8 +6923,16 @@ function CallsPanel({
                 <tr>
                   <td colSpan={8}>
                     <EmptyState
-                      title="No AI-agent calls yet"
-                      text="When ReachFly starts a call, live status appears here. Completed conversations keep their transcript and recording when available."
+                      title={
+                        callView === "active-calls"
+                          ? "No active AI-agent calls"
+                          : "No completed calls yet"
+                      }
+                      text={
+                        callView === "active-calls"
+                          ? "Calls that are ringing, answered or in an active AI conversation appear here in real time."
+                          : "Completed, cancelled and failed conversations appear here with transcripts and recordings when available."
+                      }
                     />
                   </td>
                 </tr>
@@ -7104,11 +7323,34 @@ function decodeMuLawSample(
   );
 }
 
-function MeetingsPanel({ meetings }) {
+function MeetingsPanel({
+  meetings,
+  view = "upcoming",
+}) {
+  const meetingView =
+    view === "meeting-history"
+      ? "meeting-history"
+      : "upcoming";
+  const now = Date.now();
+  const visibleMeetings = meetings.filter(
+    (meeting) => {
+      const startAt = Date.parse(
+        meeting.startAt || ""
+      );
+      const isPast =
+        Number.isFinite(startAt) &&
+        startAt < now;
+
+      return meetingView === "meeting-history"
+        ? isPast
+        : !isPast;
+    }
+  );
+
   return (
     <section className="rf-agent-meeting-grid">
-      {meetings.length ? (
-        meetings.map((meeting) => (
+      {visibleMeetings.length ? (
+        visibleMeetings.map((meeting) => (
           <article className="rf-agent-meeting-card" key={meeting.id}>
             <header>
               <div className="rf-agent-calendar-date">
@@ -7146,8 +7388,16 @@ function MeetingsPanel({ meetings }) {
       ) : (
         <div className="rf-agent-card">
           <EmptyState
-            title="No meetings booked yet"
-            text="Confirmed appointments created by the voice agent will appear here in real time."
+            title={
+              meetingView === "meeting-history"
+                ? "No previous meetings yet"
+                : "No upcoming meetings booked"
+            }
+            text={
+              meetingView === "meeting-history"
+                ? "Past confirmed appointments created by the voice agent will appear here."
+                : "New confirmed appointments created by the voice agent will appear here in real time."
+            }
           />
         </div>
       )}

@@ -17,6 +17,7 @@ import { api } from "../api";
 import { useAuth } from "../auth/AuthContext";
 
 import BrandLogo from "./BrandLogo";
+import "../voice-agent-sidebar-tree.css";
 
 import {
   BarChart3,
@@ -164,52 +165,9 @@ export default function AppShell() {
       .toLowerCase() ===
     "individual";
 
-  const isAhGrowthWorkspace =
-    useMemo(
-      () => {
-        const values = [
-          user?.workspaceId,
-          user?.companyId,
-          user?.workspaceSlug,
-          user?.companySlug,
-          user?.workspaceName,
-          user?.companyName,
-        ]
-          .filter(Boolean)
-          .map((value) =>
-            String(value)
-              .trim()
-              .toLowerCase()
-              .replace(/\s+/g, "_")
-              .replace(/-/g, "_")
-          );
-
-        return (
-          values.includes(
-            "ah_growth_workspace"
-          ) ||
-          values.includes("ah_growth") ||
-          values.some((value) =>
-            value.startsWith(
-              "ah_growth_"
-            )
-          )
-        );
-      },
-      [
-        user?.workspaceId,
-        user?.companyId,
-        user?.workspaceSlug,
-        user?.companySlug,
-        user?.workspaceName,
-        user?.companyName,
-      ]
-    );
-
   const canUseVoiceAgent =
-    !isAhGrowthWorkspace &&
-    (canManageWorkspace ||
-      isIndividualAccount);
+    canManageWorkspace ||
+    isIndividualAccount;
 
   useEffect(() => {
     if (!user?.id) {
@@ -487,6 +445,7 @@ export default function AppShell() {
     setSidebarOpen(false);
   }, [
     location.pathname,
+    location.search,
   ]);
 
   const workspace = useMemo(() => {
@@ -779,28 +738,138 @@ export default function AppShell() {
             children: [
               {
                 label: "Voice setup",
-                to: "/app/voice-agent?tab=setup",
+                to: "/app/voice-agent?tab=setup&view=calling",
                 matchQueryTab: "setup",
                 matchQueryDefault: true,
                 queryPathPrefix: "/app/voice-agent",
+                children: [
+                  {
+                    label: "Calling",
+                    to: "/app/voice-agent?tab=setup&view=calling",
+                    matchQuery: { tab: ["setup", null], view: ["calling", null] },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                  {
+                    label: "My numbers",
+                    to: "/app/voice-agent?tab=setup&view=my-numbers",
+                    matchQuery: { tab: "setup", view: "my-numbers" },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                  {
+                    label: "Buy numbers",
+                    to: "/app/voice-agent?tab=setup&view=buy-numbers",
+                    matchQuery: { tab: "setup", view: "buy-numbers" },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                  {
+                    label: "Connect number",
+                    to: "/app/voice-agent?tab=setup&view=connect-number",
+                    matchQuery: { tab: "setup", view: "connect-number" },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                  {
+                    label: "Agent & voice",
+                    to: "/app/voice-agent?tab=setup&view=agent",
+                    matchQuery: { tab: "setup", view: "agent" },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                  {
+                    label: "Business",
+                    to: "/app/voice-agent?tab=setup&view=business",
+                    matchQuery: { tab: "setup", view: "business" },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                  {
+                    label: "Workflow",
+                    to: "/app/voice-agent?tab=setup&view=workflow",
+                    matchQuery: { tab: "setup", view: "workflow" },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                  {
+                    label: "Activate",
+                    to: "/app/voice-agent?tab=setup&view=activate",
+                    matchQuery: { tab: "setup", view: "activate" },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                ],
               },
               {
                 label: "Lead queue",
-                to: "/app/voice-agent?tab=leads",
+                to: "/app/voice-agent?tab=leads&view=quick-lead",
                 matchQueryTab: "leads",
                 queryPathPrefix: "/app/voice-agent",
+                children: [
+                  {
+                    label: "Quick lead",
+                    to: "/app/voice-agent?tab=leads&view=quick-lead",
+                    matchQuery: { tab: "leads", view: ["quick-lead", null] },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                  {
+                    label: "Google leads",
+                    to: "/app/voice-agent?tab=leads&view=google-leads",
+                    matchQuery: { tab: "leads", view: "google-leads" },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                  {
+                    label: "Lead pool",
+                    to: "/app/voice-agent?tab=leads&view=lead-pool",
+                    matchQuery: { tab: "leads", view: "lead-pool" },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                  {
+                    label: "Queue activity",
+                    to: "/app/voice-agent?tab=leads&view=queue-activity",
+                    matchQuery: { tab: "leads", view: "queue-activity" },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                  {
+                    label: "Launch calls",
+                    to: "/app/voice-agent?tab=leads&view=launch-calls",
+                    matchQuery: { tab: "leads", view: "launch-calls" },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                ],
               },
               {
                 label: "Live calls",
-                to: "/app/voice-agent?tab=calls",
+                to: "/app/voice-agent?tab=calls&view=active-calls",
                 matchQueryTab: "calls",
                 queryPathPrefix: "/app/voice-agent",
+                children: [
+                  {
+                    label: "Active calls",
+                    to: "/app/voice-agent?tab=calls&view=active-calls",
+                    matchQuery: { tab: "calls", view: ["active-calls", null] },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                  {
+                    label: "Call history",
+                    to: "/app/voice-agent?tab=calls&view=call-history",
+                    matchQuery: { tab: "calls", view: "call-history" },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                ],
               },
               {
                 label: "Meetings",
-                to: "/app/voice-agent?tab=meetings",
+                to: "/app/voice-agent?tab=meetings&view=upcoming",
                 matchQueryTab: "meetings",
                 queryPathPrefix: "/app/voice-agent",
+                children: [
+                  {
+                    label: "Upcoming",
+                    to: "/app/voice-agent?tab=meetings&view=upcoming",
+                    matchQuery: { tab: "meetings", view: ["upcoming", null] },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                  {
+                    label: "Meeting history",
+                    to: "/app/voice-agent?tab=meetings&view=meeting-history",
+                    matchQuery: { tab: "meetings", view: "meeting-history" },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                ],
               },
             ],
           },
@@ -1181,32 +1250,102 @@ export default function AppShell() {
                               className="sb-subnav"
                               aria-label={`${item.label} sections`}
                             >
-                              {item.children.map((child) => (
-                                <NavLink
-                                  key={`${child.to}-${child.label}`}
-                                  to={child.to}
-                                  className={({ isActive }) =>
-                                    `sb-subitem ${
-                                      isNavActive({
-                                        item: child,
-                                        isActive,
-                                        pathname:
-                                          location.pathname,
-                                        search:
-                                          location.search,
-                                      })
-                                        ? "active"
-                                        : ""
-                                    }`
-                                  }
-                                  onClick={() =>
-                                    setSidebarOpen(false)
-                                  }
-                                >
-                                  <span className="sb-subitem-dot" />
-                                  <span>{child.label}</span>
-                                </NavLink>
-                              ))}
+                              {item.children.map((child) => {
+                                const childHasChildren =
+                                  Array.isArray(child.children) &&
+                                  child.children.length > 0;
+                                const childActive = isNavActive({
+                                  item: child,
+                                  isActive: false,
+                                  pathname: location.pathname,
+                                  search: location.search,
+                                });
+                                const childOpen =
+                                  childHasChildren && childActive;
+
+                                return (
+                                  <div
+                                    className={`sb-subtree ${
+                                      childOpen ? "open" : ""
+                                    }`}
+                                    key={`${child.to}-${child.label}`}
+                                  >
+                                    <NavLink
+                                      to={child.to}
+                                      className={({ isActive }) =>
+                                        `sb-subitem ${
+                                          isNavActive({
+                                            item: child,
+                                            isActive,
+                                            pathname:
+                                              location.pathname,
+                                            search:
+                                              location.search,
+                                          })
+                                            ? "active"
+                                            : ""
+                                        } ${
+                                          childHasChildren
+                                            ? "has-children"
+                                            : ""
+                                        }`
+                                      }
+                                      onClick={() =>
+                                        !childHasChildren
+                                          ? setSidebarOpen(false)
+                                          : undefined
+                                      }
+                                    >
+                                      <span className="sb-subitem-dot" />
+                                      <span>{child.label}</span>
+                                      {childHasChildren ? (
+                                        <span
+                                          className="sb-subtree-chevron"
+                                          aria-hidden="true"
+                                        >
+                                          ›
+                                        </span>
+                                      ) : null}
+                                    </NavLink>
+
+                                    {childOpen ? (
+                                      <div
+                                        className="sb-subsubnav"
+                                        aria-label={`${child.label} sections`}
+                                      >
+                                        {child.children.map(
+                                          (grandchild) => (
+                                            <NavLink
+                                              key={`${grandchild.to}-${grandchild.label}`}
+                                              to={grandchild.to}
+                                              className={({ isActive }) =>
+                                                `sb-subsubitem ${
+                                                  isNavActive({
+                                                    item: grandchild,
+                                                    isActive,
+                                                    pathname:
+                                                      location.pathname,
+                                                    search:
+                                                      location.search,
+                                                  })
+                                                    ? "active"
+                                                    : ""
+                                                }`
+                                              }
+                                              onClick={() =>
+                                                setSidebarOpen(false)
+                                              }
+                                            >
+                                              <span className="sb-subsubitem-line" />
+                                              <span>{grandchild.label}</span>
+                                            </NavLink>
+                                          )
+                                        )}
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                );
+                              })}
                             </div>
                           ) : null}
                         </div>
@@ -1420,6 +1559,33 @@ function isNavActive({
   pathname,
   search,
 }) {
+  if (item.matchQuery && typeof item.matchQuery === "object") {
+    const params = new URLSearchParams(search);
+    const queryPathPrefix =
+      item.queryPathPrefix || item.to?.split("?")[0] || "/app";
+
+    const matchesQuery = Object.entries(item.matchQuery).every(
+      ([key, expected]) => {
+        const actual = params.get(key);
+
+        if (Array.isArray(expected)) {
+          return expected.includes(actual);
+        }
+
+        if (expected === null) {
+          return !actual;
+        }
+
+        return actual === String(expected);
+      }
+    );
+
+    return (
+      pathname.startsWith(queryPathPrefix) &&
+      matchesQuery
+    );
+  }
+
   if (item.matchQueryTab) {
     const params = new URLSearchParams(search);
     const tab = params.get("tab");
