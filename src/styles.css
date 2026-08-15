@@ -50311,3 +50311,333 @@ td b {
     transition: none !important;
   }
 }
+/* =========================================================
+   ReachFly Marketing Hero — compact first-screen override
+   Paste at the VERY END of styles.css
+   ========================================================= */
+
+/* ---------- Desktop / large screens ---------- */
+
+@media (min-width: 1101px) {
+  .cu-hero {
+    min-height: calc(100svh - 76px) !important;
+    padding:
+      clamp(24px, 3.2vh, 34px)
+      clamp(28px, 4.2vw, 72px)
+      clamp(22px, 3vh, 32px) !important;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+  }
+
+  .cu-hero-inner {
+    width: min(1440px, 100%) !important;
+    margin: 0 auto;
+    grid-template-columns:
+      minmax(470px, 0.91fr)
+      minmax(620px, 1.09fr) !important;
+    gap: clamp(34px, 4vw, 64px) !important;
+    align-items: center !important;
+  }
+
+  /* Move content up and reduce unnecessary vertical spacing */
+  .cu-hero-copy {
+    padding: 0 !important;
+    align-self: center;
+  }
+
+  .cu-pill,
+  .cu-eyebrow {
+    margin-bottom: 0 !important;
+  }
+
+  .cu-hero h1 {
+    max-width: 700px !important;
+    margin: 16px 0 16px !important;
+    font-size: clamp(54px, 4.9vw, 76px) !important;
+    line-height: 0.94 !important;
+    letter-spacing: -0.065em !important;
+    text-wrap: balance;
+  }
+
+  .cu-hero-copy > p {
+    max-width: 610px !important;
+    margin: 0 0 18px !important;
+    font-size: 15.5px !important;
+    line-height: 1.55 !important;
+  }
+
+  .cu-hero-actions {
+    margin: 0 0 16px !important;
+    gap: 10px !important;
+  }
+
+  .cu-proof-row {
+    margin-top: 0 !important;
+    gap: 14px !important;
+  }
+
+  /* ---------------------------------------------------------
+     Dashboard preview
+     Keep the entire mock dashboard visible in first viewport
+     --------------------------------------------------------- */
+
+  .cu-preview {
+    width: 100% !important;
+    max-width: 760px !important;
+    margin: 0 !important;
+    align-self: center;
+
+    transform: none !important;
+    transform-origin: center center !important;
+
+    border-radius: 20px !important;
+
+    box-shadow:
+      0 32px 90px rgba(29, 20, 60, 0.16),
+      0 10px 32px rgba(111, 66, 245, 0.08) !important;
+  }
+
+  .cu-preview-top {
+    height: 38px !important;
+    padding: 0 15px !important;
+    font-size: 10px !important;
+  }
+
+  .cu-preview-body {
+    grid-template-columns: 132px minmax(0, 1fr) !important;
+    min-height: 410px !important;
+  }
+
+  .cu-preview-side {
+    padding: 14px 10px !important;
+  }
+
+  .cu-preview-logo {
+    margin-bottom: 14px !important;
+    font-size: 11px !important;
+  }
+
+  .cu-preview-nav {
+    gap: 3px !important;
+  }
+
+  .cu-preview-nav-item {
+    min-height: 30px !important;
+    padding: 6px 8px !important;
+    font-size: 9px !important;
+    border-radius: 8px !important;
+  }
+
+  .cu-preview-main {
+    padding: 13px !important;
+  }
+
+  .cu-preview-header {
+    padding: 12px 13px !important;
+    gap: 10px !important;
+    border-radius: 12px !important;
+  }
+
+  .cu-preview-header h3 {
+    margin: 3px 0 !important;
+    font-size: 17px !important;
+    line-height: 1.08 !important;
+  }
+
+  .cu-preview-header p {
+    margin: 0 !important;
+    font-size: 9px !important;
+    line-height: 1.35 !important;
+  }
+
+  .cu-preview-header button {
+    min-height: 32px !important;
+    padding: 0 13px !important;
+    font-size: 9px !important;
+  }
+
+  .cu-preview-kicker {
+    font-size: 8px !important;
+  }
+
+  .cu-preview-metrics {
+    margin: 9px 0 !important;
+    gap: 7px !important;
+  }
+
+  .cu-preview-metrics div {
+    min-height: 58px !important;
+    padding: 9px 10px !important;
+    border-radius: 10px !important;
+  }
+
+  .cu-preview-metrics b {
+    font-size: 18px !important;
+    line-height: 1 !important;
+  }
+
+  .cu-preview-metrics span {
+    margin-top: 3px !important;
+    font-size: 8px !important;
+  }
+
+  .cu-preview-board {
+    gap: 7px !important;
+  }
+
+  .cu-preview-panel,
+  .cu-preview-table {
+    padding: 10px !important;
+    border-radius: 11px !important;
+  }
+
+  .cu-panel-title {
+    font-size: 10px !important;
+  }
+
+  .cu-preview-panel p,
+  .cu-preview-table p,
+  .cu-preview-panel small,
+  .cu-preview-table small {
+    font-size: 8px !important;
+    line-height: 1.35 !important;
+  }
+
+  .cu-preview-table {
+    margin-top: 7px !important;
+  }
+
+  .cu-preview-table > div {
+    min-height: 31px !important;
+    padding: 6px 8px !important;
+  }
+
+  /* Slightly reduce decorative glow so content feels tighter */
+  .cu-hero::before,
+  .cu-hero::after {
+    opacity: 0.72 !important;
+  }
+}
+
+
+/* ---------- Medium laptop screens ---------- */
+
+@media (min-width: 1101px) and (max-height: 820px) {
+  .cu-hero {
+    padding-top: 18px !important;
+    padding-bottom: 18px !important;
+  }
+
+  .cu-hero h1 {
+    margin-top: 13px !important;
+    margin-bottom: 13px !important;
+    font-size: clamp(50px, 4.6vw, 68px) !important;
+  }
+
+  .cu-hero-copy > p {
+    margin-bottom: 14px !important;
+    font-size: 14.5px !important;
+    line-height: 1.48 !important;
+  }
+
+  .cu-hero-actions {
+    margin-bottom: 12px !important;
+  }
+
+  .cu-preview {
+    max-width: 700px !important;
+  }
+
+  .cu-preview-body {
+    min-height: 380px !important;
+  }
+
+  .cu-preview-main {
+    padding: 11px !important;
+  }
+
+  .cu-preview-metrics div {
+    min-height: 52px !important;
+  }
+}
+
+
+/* ---------- Very wide desktop ---------- */
+
+@media (min-width: 1500px) and (min-height: 850px) {
+  .cu-hero-inner {
+    width: min(1480px, 100%) !important;
+  }
+
+  .cu-hero h1 {
+    max-width: 730px !important;
+    font-size: clamp(64px, 4.65vw, 79px) !important;
+  }
+
+  .cu-preview {
+    max-width: 800px !important;
+  }
+
+  .cu-preview-body {
+    min-height: 430px !important;
+  }
+}
+
+
+/* ---------- Tablet ---------- */
+
+@media (min-width: 901px) and (max-width: 1100px) {
+  .cu-hero {
+    min-height: auto !important;
+    padding: 46px 28px 48px !important;
+  }
+
+  .cu-hero-inner {
+    gap: 34px !important;
+  }
+
+  .cu-hero-copy {
+    max-width: 800px !important;
+  }
+
+  .cu-hero h1 {
+    margin-top: 18px !important;
+    margin-bottom: 18px !important;
+  }
+
+  .cu-preview {
+    width: min(820px, 100%) !important;
+    margin: 0 auto !important;
+    transform: none !important;
+  }
+}
+
+
+/* ---------- Mobile ---------- */
+
+@media (max-width: 900px) {
+  .cu-hero {
+    min-height: auto !important;
+    padding-top: 42px !important;
+    padding-bottom: 38px !important;
+  }
+
+  .cu-hero-inner {
+    gap: 34px !important;
+  }
+
+  .cu-hero h1 {
+    margin-top: 17px !important;
+    margin-bottom: 17px !important;
+  }
+
+  .cu-hero-copy > p {
+    margin-bottom: 20px !important;
+  }
+
+  .cu-preview {
+    margin-top: 0 !important;
+    transform: none !important;
+  }
+}
