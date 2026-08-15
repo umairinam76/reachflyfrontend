@@ -63197,3 +63197,286 @@ button.sb-subitem.active {
     transition: none;
   }
 }
+/* ========================================================================== 
+   ReachFly Voice Agent sidebar — root + nested section navigation V5.5
+   Imported by AppShell.jsx from src/voice-agent-sidebar-tree.css
+   ========================================================================== */
+
+.sb-subtree {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.sb-subitem.has-children {
+  position: relative;
+  padding-right: 26px;
+}
+
+.sb-subtree-chevron {
+  position: absolute;
+  right: 9px;
+  top: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 17px;
+  line-height: 1;
+  transform: translateY(-50%);
+  transition: transform 0.18s ease, color 0.18s ease;
+}
+
+.sb-subtree.open > .sb-subitem .sb-subtree-chevron {
+  color: rgba(255, 255, 255, 0.82);
+  transform: translateY(-50%) rotate(90deg);
+}
+
+.sb-subsubnav {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  margin: 2px 0 7px 31px;
+  padding: 3px 0 3px 10px;
+  border-left: 1px solid rgba(255, 255, 255, 0.105);
+}
+
+.sb-subsubitem {
+  position: relative;
+  min-width: 0;
+  min-height: 31px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.47);
+  background: transparent;
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 750;
+  text-decoration: none;
+  transition:
+    color 0.16s ease,
+    background 0.16s ease,
+    border-color 0.16s ease,
+    transform 0.16s ease;
+}
+
+.sb-subsubitem:hover {
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.055);
+  transform: translateX(1px);
+}
+
+.sb-subsubitem:focus-visible {
+  outline: 2px solid rgba(180, 144, 255, 0.52);
+  outline-offset: 1px;
+}
+
+.sb-subsubitem-line {
+  width: 5px;
+  height: 5px;
+  flex: 0 0 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  box-shadow: none;
+  transition: background 0.16s ease, box-shadow 0.16s ease;
+}
+
+.sb-subsubitem.active {
+  border-color: rgba(255, 255, 255, 0.085);
+  color: #fff;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(123, 66, 255, 0.24),
+      rgba(255, 78, 205, 0.12)
+    );
+}
+
+.sb-subsubitem.active .sb-subsubitem-line {
+  background: #c5a7ff;
+  box-shadow:
+    0 0 0 4px rgba(166, 119, 255, 0.1),
+    0 0 12px rgba(181, 137, 255, 0.5);
+}
+
+/* Keep the four Voice Agent category rows visually stronger than their leaves. */
+.sb-nav-tree.open .sb-subtree > .sb-subitem {
+  min-height: 34px;
+}
+
+.sb-nav-tree.open .sb-subtree.open > .sb-subitem {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.sb-nav-tree.open .sb-subtree.open > .sb-subitem .sb-subitem-dot {
+  background: #b99aff;
+  box-shadow: 0 0 0 4px rgba(185, 154, 255, 0.08);
+}
+
+/* Number navigation is intentionally visible within Voice setup. */
+.sb-subsubitem[href*="view=my-numbers"],
+.sb-subsubitem[href*="view=buy-numbers"],
+.sb-subsubitem[href*="view=connect-number"] {
+  font-weight: 800;
+}
+
+/* Sidebar can become taller after adding the nested Voice Agent tree. */
+.sb-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+
+.sb-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sb-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sb-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.sb-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+@media (max-width: 980px) {
+  .sb-subsubnav {
+    margin-left: 28px;
+  }
+
+  .sb-subsubitem {
+    min-height: 34px;
+    font-size: 11.5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sb-subtree-chevron,
+  .sb-subsubitem,
+  .sb-subsubitem-line {
+    transition: none;
+  }
+}
+
+
+/* ========================================================================== 
+   Voice Operations — top-priority root navigation V5.5
+   ========================================================================== */
+
+.sb-section-voice-operations {
+  position: relative;
+  margin-top: 14px !important;
+  padding: 10px 8px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 18px;
+  background:
+    radial-gradient(
+      circle at 100% 0,
+      rgba(123, 66, 255, 0.17),
+      transparent 10rem
+    ),
+    rgba(255, 255, 255, 0.025);
+}
+
+.sb-section-voice-operations > .sb-label {
+  margin: 0 7px 9px !important;
+  color: rgba(226, 213, 255, 0.68) !important;
+}
+
+.sb-section-voice-operations .sb-nav-list {
+  display: grid;
+  gap: 4px;
+}
+
+.sb-section-voice-operations .sb-nav-tree.priority-root > .sb-item {
+  min-height: 43px;
+  border-color: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.sb-section-voice-operations .sb-nav-tree.priority-root > .sb-item:hover {
+  border-color: rgba(194, 164, 255, 0.15);
+  background: rgba(255, 255, 255, 0.065);
+}
+
+.sb-section-voice-operations .sb-nav-tree.voice-primary > .sb-item {
+  background:
+    linear-gradient(
+      135deg,
+      rgba(123, 66, 255, 0.14),
+      rgba(255, 78, 205, 0.06)
+    );
+}
+
+.sb-section-voice-operations .sb-nav-tree.voice-number > .sb-item,
+.sb-section-voice-operations .sb-nav-tree.voice-buy > .sb-item {
+  position: relative;
+  padding-right: 36px;
+}
+
+.sb-section-voice-operations .sb-nav-tree.voice-number > .sb-item::after,
+.sb-section-voice-operations .sb-nav-tree.voice-buy > .sb-item::after {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border: 1px solid rgba(255, 255, 255, 0.085);
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.48);
+  background: rgba(255, 255, 255, 0.045);
+  font-size: 8px;
+  line-height: 1;
+  font-weight: 900;
+  transform: translateY(-50%);
+}
+
+.sb-section-voice-operations .sb-nav-tree.voice-number > .sb-item::after {
+  content: "OWN";
+}
+
+.sb-section-voice-operations .sb-nav-tree.voice-buy > .sb-item::after {
+  content: "BUY";
+}
+
+.sb-section-voice-operations .sb-nav-tree.voice-number > .sb-item.active::after,
+.sb-section-voice-operations .sb-nav-tree.voice-buy > .sb-item.active::after {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* The root shortcuts and nested Voice setup leaves intentionally share URLs.
+   This keeps both navigation paths synchronized without duplicating state. */
+.sb-section-voice-operations .sb-subsubitem[href*="view=my-numbers"],
+.sb-section-voice-operations .sb-subsubitem[href*="view=buy-numbers"] {
+  color: rgba(255, 255, 255, 0.61);
+}
+
+.sb-section-voice-operations .sb-subsubitem[href*="view=my-numbers"].active,
+.sb-section-voice-operations .sb-subsubitem[href*="view=buy-numbers"].active {
+  color: #fff;
+}
+
+@media (max-width: 980px) {
+  .sb-section-voice-operations {
+    margin-left: 1px;
+    margin-right: 1px;
+  }
+}

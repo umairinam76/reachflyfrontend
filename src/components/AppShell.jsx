@@ -17,7 +17,7 @@ import { api } from "../api";
 import { useAuth } from "../auth/AuthContext";
 
 import BrandLogo from "./BrandLogo";
-import "../styles.css";
+import "../voice-agent-sidebar-tree.css";
 
 import {
   BarChart3,
@@ -546,6 +546,184 @@ export default function AppShell() {
         ],
       });
 
+      groups.push({
+        label: "Voice operations",
+        className: "sb-section-voice-operations",
+
+        items: [
+          {
+            label: "Voice agent",
+            to: "/app/voice-agent?tab=setup&view=calling",
+            icon: Zap,
+            priorityRoot: true,
+            navTone: "voice-primary",
+            matchPrefix:
+              "/app/voice-agent",
+            visible:
+              canUseVoiceAgent,
+            children: [
+              {
+                label: "Voice setup",
+                to: "/app/voice-agent?tab=setup&view=calling",
+                matchQueryTab: "setup",
+                matchQueryDefault: true,
+                queryPathPrefix: "/app/voice-agent",
+                children: [
+                  {
+                    label: "Calling",
+                    to: "/app/voice-agent?tab=setup&view=calling",
+                    matchQuery: { tab: ["setup", null], view: ["calling", null] },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                  {
+                    label: "My numbers",
+                    to: "/app/voice-agent?tab=setup&view=my-numbers",
+                    matchQuery: { tab: "setup", view: "my-numbers" },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                  {
+                    label: "Buy numbers",
+                    to: "/app/voice-agent?tab=setup&view=buy-numbers",
+                    matchQuery: { tab: "setup", view: "buy-numbers" },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                  {
+                    label: "Connect number",
+                    to: "/app/voice-agent?tab=setup&view=connect-number",
+                    matchQuery: { tab: "setup", view: "connect-number" },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                  {
+                    label: "Agent & voice",
+                    to: "/app/voice-agent?tab=setup&view=agent",
+                    matchQuery: { tab: "setup", view: "agent" },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                  {
+                    label: "Business",
+                    to: "/app/voice-agent?tab=setup&view=business",
+                    matchQuery: { tab: "setup", view: "business" },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                  {
+                    label: "Workflow",
+                    to: "/app/voice-agent?tab=setup&view=workflow",
+                    matchQuery: { tab: "setup", view: "workflow" },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                  {
+                    label: "Activate",
+                    to: "/app/voice-agent?tab=setup&view=activate",
+                    matchQuery: { tab: "setup", view: "activate" },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                ],
+              },
+              {
+                label: "Lead queue",
+                to: "/app/voice-agent?tab=leads&view=quick-lead",
+                matchQueryTab: "leads",
+                queryPathPrefix: "/app/voice-agent",
+                children: [
+                  {
+                    label: "Quick lead",
+                    to: "/app/voice-agent?tab=leads&view=quick-lead",
+                    matchQuery: { tab: "leads", view: ["quick-lead", null] },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                  {
+                    label: "Google leads",
+                    to: "/app/voice-agent?tab=leads&view=google-leads",
+                    matchQuery: { tab: "leads", view: "google-leads" },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                  {
+                    label: "Lead pool",
+                    to: "/app/voice-agent?tab=leads&view=lead-pool",
+                    matchQuery: { tab: "leads", view: "lead-pool" },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                  {
+                    label: "Queue activity",
+                    to: "/app/voice-agent?tab=leads&view=queue-activity",
+                    matchQuery: { tab: "leads", view: "queue-activity" },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                  {
+                    label: "Launch calls",
+                    to: "/app/voice-agent?tab=leads&view=launch-calls",
+                    matchQuery: { tab: "leads", view: "launch-calls" },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                ],
+              },
+              {
+                label: "Live calls",
+                to: "/app/voice-agent?tab=calls&view=active-calls",
+                matchQueryTab: "calls",
+                queryPathPrefix: "/app/voice-agent",
+                children: [
+                  {
+                    label: "Active calls",
+                    to: "/app/voice-agent?tab=calls&view=active-calls",
+                    matchQuery: { tab: "calls", view: ["active-calls", null] },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                  {
+                    label: "Call history",
+                    to: "/app/voice-agent?tab=calls&view=call-history",
+                    matchQuery: { tab: "calls", view: "call-history" },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                ],
+              },
+              {
+                label: "Meetings",
+                to: "/app/voice-agent?tab=meetings&view=upcoming",
+                matchQueryTab: "meetings",
+                queryPathPrefix: "/app/voice-agent",
+                children: [
+                  {
+                    label: "Upcoming",
+                    to: "/app/voice-agent?tab=meetings&view=upcoming",
+                    matchQuery: { tab: "meetings", view: ["upcoming", null] },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                  {
+                    label: "Meeting history",
+                    to: "/app/voice-agent?tab=meetings&view=meeting-history",
+                    matchQuery: { tab: "meetings", view: "meeting-history" },
+                    queryPathPrefix: "/app/voice-agent",
+                  },
+                ],
+              },
+            ],
+          },
+
+          {
+            label: "My Numbers",
+            to: "/app/voice-agent?tab=setup&view=my-numbers",
+            icon: Building2,
+            priorityRoot: true,
+            navTone: "voice-number",
+            matchQuery: { tab: "setup", view: "my-numbers" },
+            queryPathPrefix: "/app/voice-agent",
+            visible: canUseVoiceAgent,
+          },
+
+          {
+            label: "Buy Numbers",
+            to: "/app/voice-agent?tab=setup&view=buy-numbers",
+            icon: Rocket,
+            priorityRoot: true,
+            navTone: "voice-buy",
+            matchQuery: { tab: "setup", view: "buy-numbers" },
+            queryPathPrefix: "/app/voice-agent",
+            visible: canUseVoiceAgent,
+          },
+        ],
+      });
+
       if (canManageCampaigns) {
         groups.push({
           label: "Campaigns",
@@ -727,153 +905,6 @@ export default function AppShell() {
         label: "Intelligence",
 
         items: [
-          {
-            label: "Voice agent",
-            to: "/app/voice-agent?tab=setup",
-            icon: Zap,
-            matchPrefix:
-              "/app/voice-agent",
-            visible:
-              canUseVoiceAgent,
-            children: [
-              {
-                label: "Voice setup",
-                to: "/app/voice-agent?tab=setup&view=calling",
-                matchQueryTab: "setup",
-                matchQueryDefault: true,
-                queryPathPrefix: "/app/voice-agent",
-                children: [
-                  {
-                    label: "Calling",
-                    to: "/app/voice-agent?tab=setup&view=calling",
-                    matchQuery: { tab: ["setup", null], view: ["calling", null] },
-                    queryPathPrefix: "/app/voice-agent",
-                  },
-                  {
-                    label: "My numbers",
-                    to: "/app/voice-agent?tab=setup&view=my-numbers",
-                    matchQuery: { tab: "setup", view: "my-numbers" },
-                    queryPathPrefix: "/app/voice-agent",
-                  },
-                  {
-                    label: "Buy numbers",
-                    to: "/app/voice-agent?tab=setup&view=buy-numbers",
-                    matchQuery: { tab: "setup", view: "buy-numbers" },
-                    queryPathPrefix: "/app/voice-agent",
-                  },
-                  {
-                    label: "Connect number",
-                    to: "/app/voice-agent?tab=setup&view=connect-number",
-                    matchQuery: { tab: "setup", view: "connect-number" },
-                    queryPathPrefix: "/app/voice-agent",
-                  },
-                  {
-                    label: "Agent & voice",
-                    to: "/app/voice-agent?tab=setup&view=agent",
-                    matchQuery: { tab: "setup", view: "agent" },
-                    queryPathPrefix: "/app/voice-agent",
-                  },
-                  {
-                    label: "Business",
-                    to: "/app/voice-agent?tab=setup&view=business",
-                    matchQuery: { tab: "setup", view: "business" },
-                    queryPathPrefix: "/app/voice-agent",
-                  },
-                  {
-                    label: "Workflow",
-                    to: "/app/voice-agent?tab=setup&view=workflow",
-                    matchQuery: { tab: "setup", view: "workflow" },
-                    queryPathPrefix: "/app/voice-agent",
-                  },
-                  {
-                    label: "Activate",
-                    to: "/app/voice-agent?tab=setup&view=activate",
-                    matchQuery: { tab: "setup", view: "activate" },
-                    queryPathPrefix: "/app/voice-agent",
-                  },
-                ],
-              },
-              {
-                label: "Lead queue",
-                to: "/app/voice-agent?tab=leads&view=quick-lead",
-                matchQueryTab: "leads",
-                queryPathPrefix: "/app/voice-agent",
-                children: [
-                  {
-                    label: "Quick lead",
-                    to: "/app/voice-agent?tab=leads&view=quick-lead",
-                    matchQuery: { tab: "leads", view: ["quick-lead", null] },
-                    queryPathPrefix: "/app/voice-agent",
-                  },
-                  {
-                    label: "Google leads",
-                    to: "/app/voice-agent?tab=leads&view=google-leads",
-                    matchQuery: { tab: "leads", view: "google-leads" },
-                    queryPathPrefix: "/app/voice-agent",
-                  },
-                  {
-                    label: "Lead pool",
-                    to: "/app/voice-agent?tab=leads&view=lead-pool",
-                    matchQuery: { tab: "leads", view: "lead-pool" },
-                    queryPathPrefix: "/app/voice-agent",
-                  },
-                  {
-                    label: "Queue activity",
-                    to: "/app/voice-agent?tab=leads&view=queue-activity",
-                    matchQuery: { tab: "leads", view: "queue-activity" },
-                    queryPathPrefix: "/app/voice-agent",
-                  },
-                  {
-                    label: "Launch calls",
-                    to: "/app/voice-agent?tab=leads&view=launch-calls",
-                    matchQuery: { tab: "leads", view: "launch-calls" },
-                    queryPathPrefix: "/app/voice-agent",
-                  },
-                ],
-              },
-              {
-                label: "Live calls",
-                to: "/app/voice-agent?tab=calls&view=active-calls",
-                matchQueryTab: "calls",
-                queryPathPrefix: "/app/voice-agent",
-                children: [
-                  {
-                    label: "Active calls",
-                    to: "/app/voice-agent?tab=calls&view=active-calls",
-                    matchQuery: { tab: "calls", view: ["active-calls", null] },
-                    queryPathPrefix: "/app/voice-agent",
-                  },
-                  {
-                    label: "Call history",
-                    to: "/app/voice-agent?tab=calls&view=call-history",
-                    matchQuery: { tab: "calls", view: "call-history" },
-                    queryPathPrefix: "/app/voice-agent",
-                  },
-                ],
-              },
-              {
-                label: "Meetings",
-                to: "/app/voice-agent?tab=meetings&view=upcoming",
-                matchQueryTab: "meetings",
-                queryPathPrefix: "/app/voice-agent",
-                children: [
-                  {
-                    label: "Upcoming",
-                    to: "/app/voice-agent?tab=meetings&view=upcoming",
-                    matchQuery: { tab: "meetings", view: ["upcoming", null] },
-                    queryPathPrefix: "/app/voice-agent",
-                  },
-                  {
-                    label: "Meeting history",
-                    to: "/app/voice-agent?tab=meetings&view=meeting-history",
-                    matchQuery: { tab: "meetings", view: "meeting-history" },
-                    queryPathPrefix: "/app/voice-agent",
-                  },
-                ],
-              },
-            ],
-          },
-
           {
             label: "ReachFly AI",
             to: "/app/ai",
@@ -1166,7 +1197,7 @@ export default function AppShell() {
           {navGroups.map(
             (group) => (
               <div
-                className="sb-section"
+                className={`sb-section ${group.className || ""}`}
                 key={group.label}
               >
                 <p className="sb-label">
@@ -1190,7 +1221,9 @@ export default function AppShell() {
                         <div
                           className={`sb-nav-tree ${
                             treeOpen ? "open" : ""
-                          }`}
+                          } ${
+                            item.priorityRoot ? "priority-root" : ""
+                          } ${item.navTone || ""}`}
                           key={`${item.to}-${item.label}`}
                         >
                           <NavLink
