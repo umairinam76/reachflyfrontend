@@ -59951,3 +59951,365 @@ button.sb-subitem.active {
     transition: none;
   }
 }
+/* ReachFly Voice Lead Queue guided flow V5.3
+   Append to the END of voice-agent-onboarding-wizard.css or styles.css.
+*/
+
+.rf-lead-flow-shell {
+  display: grid;
+  gap: 18px;
+}
+
+.rf-lead-flow-header {
+  display: grid;
+  gap: 15px;
+  padding: 18px;
+  border: 1px solid #e6e4ec;
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 100% 0, rgba(111, 66, 245, 0.08), transparent 18rem),
+    linear-gradient(180deg, #ffffff, #fbfaff);
+  box-shadow: 0 14px 34px rgba(43, 29, 77, 0.055);
+}
+
+.rf-lead-flow-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.rf-lead-flow-heading > div {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.rf-lead-flow-heading > div > span {
+  color: #6d49df;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.rf-lead-flow-heading h2 {
+  margin: 0;
+  color: #211b28;
+  font-size: clamp(18px, 2vw, 24px);
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+}
+
+.rf-lead-flow-heading p {
+  max-width: 720px;
+  margin: 0;
+  color: #7d7584;
+  font-size: 10.5px;
+  line-height: 1.55;
+}
+
+.rf-lead-flow-heading > strong {
+  flex: 0 0 auto;
+  padding: 8px 11px;
+  border: 1px solid rgba(111, 66, 245, 0.13);
+  border-radius: 999px;
+  color: #6844dc;
+  background: #f2efff;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.rf-lead-flow-progress {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.rf-lead-flow-progress > button {
+  position: relative;
+  min-width: 0;
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  padding: 9px 10px;
+  border: 1px solid #e8e6ed;
+  border-radius: 13px;
+  color: #756e7c;
+  text-align: left;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease, background .16s ease;
+}
+
+.rf-lead-flow-progress > button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(111, 66, 245, 0.25);
+}
+
+.rf-lead-flow-progress > button > span {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  color: #7c7187;
+  background: #f3f1f5;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.rf-lead-flow-progress > button > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.rf-lead-flow-progress b,
+.rf-lead-flow-progress small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rf-lead-flow-progress b {
+  color: #3c3444;
+  font-size: 9.5px;
+}
+
+.rf-lead-flow-progress small {
+  color: #98909f;
+  font-size: 7.5px;
+}
+
+.rf-lead-flow-progress > button.done {
+  border-color: rgba(35, 169, 105, 0.15);
+  background: #fbfffd;
+}
+
+.rf-lead-flow-progress > button.done > span {
+  color: #087849;
+  background: #e7f8ef;
+}
+
+.rf-lead-flow-progress > button.active {
+  border-color: rgba(111, 66, 245, 0.42);
+  background: linear-gradient(135deg, #fff, #f7f4ff);
+  box-shadow: 0 0 0 3px rgba(111, 66, 245, 0.06);
+}
+
+.rf-lead-flow-progress > button.active > span {
+  color: #fff;
+  background: linear-gradient(135deg, #7044f4, #e74ba9);
+  box-shadow: 0 7px 16px rgba(111, 66, 245, 0.18);
+}
+
+.rf-lead-flow-progress > button.active b {
+  color: #5f39d9;
+}
+
+.rf-lead-flow-stage {
+  min-width: 0;
+}
+
+.rf-lead-flow-stage > .rf-agent-card {
+  margin: 0;
+  animation: rfLeadStageIn .2s ease both;
+}
+
+@keyframes rfLeadStageIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.rf-lead-flow-activity-card .rf-agent-queue-list {
+  max-height: 660px;
+  overflow: auto;
+  padding-right: 4px;
+  scrollbar-width: thin;
+}
+
+.rf-lead-activity-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid #e8e6ed;
+  border-radius: 14px;
+  background: #faf9fc;
+}
+
+.rf-lead-activity-toolbar > label {
+  min-width: 190px;
+  display: grid;
+  gap: 5px;
+}
+
+.rf-lead-activity-toolbar > label > span,
+.rf-lead-activity-toolbar > div > span {
+  color: #837b8a;
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.rf-lead-activity-toolbar select {
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid #dfdce5;
+  border-radius: 10px;
+  color: #322b39;
+  background: #fff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.rf-lead-activity-toolbar > div {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+
+.rf-lead-activity-toolbar > div > b {
+  color: #5f3ad8;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.rf-lead-launch-note {
+  display: grid;
+  gap: 5px;
+  margin-top: 14px;
+  padding: 13px 14px;
+  border: 1px solid rgba(111, 66, 245, .13);
+  border-radius: 13px;
+  background: #f8f6ff;
+}
+
+.rf-lead-launch-note b {
+  color: #5f3bd7;
+  font-size: 9.5px;
+}
+
+.rf-lead-launch-note p {
+  margin: 0;
+  color: #766f7d;
+  font-size: 9.5px;
+  line-height: 1.5;
+}
+
+.rf-lead-flow-footer {
+  min-height: 66px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid #e5e3ea;
+  border-radius: 17px;
+  background: #fff;
+  box-shadow: 0 12px 30px rgba(40, 27, 70, .045);
+}
+
+.rf-lead-flow-footer > div {
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 9px;
+}
+
+.rf-lead-flow-footer > div > span {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: #6540dd;
+  background: #efeaff;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.rf-lead-flow-footer > div > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.rf-lead-flow-footer b {
+  color: #332b3a;
+  font-size: 9.5px;
+}
+
+.rf-lead-flow-footer small {
+  overflow: hidden;
+  color: #8d8593;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1080px) {
+  .rf-lead-flow-progress {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .rf-lead-flow-heading {
+    display: grid;
+  }
+
+  .rf-lead-flow-heading > strong {
+    justify-self: start;
+  }
+
+  .rf-lead-flow-progress {
+    grid-template-columns: 1fr;
+  }
+
+  .rf-lead-flow-progress > button {
+    min-height: 52px;
+  }
+
+  .rf-lead-activity-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .rf-lead-activity-toolbar > label {
+    min-width: 0;
+  }
+
+  .rf-lead-activity-toolbar > div {
+    justify-items: start;
+  }
+
+  .rf-lead-flow-footer {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .rf-lead-flow-footer > div {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    justify-content: flex-start;
+  }
+
+  .rf-lead-flow-footer > button:last-child {
+    justify-self: end;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rf-lead-flow-stage > .rf-agent-card,
+  .rf-lead-flow-progress > button {
+    animation: none;
+    transition: none;
+  }
+}

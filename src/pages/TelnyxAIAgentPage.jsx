@@ -22,7 +22,7 @@ import {
 } from "../lib/workspace-platform-client.js";
 
 import "../styles.css";
-// import "../voice-agent-onboarding-wizard.css";
+import "../voice-agent-onboarding-wizard.css";
 
 const FAST_HUMAN_GREETING =
   "Hey {{greeting_name}}, James from {{company_name}}. Quick disclosure — I’m an AI sales agent with the team, and this call may be recorded. I’ll keep it brief. I was curious... is your website consistently turning visitors into real sales conversations, or do too many people land there and leave without ever becoming a lead?";
@@ -1033,7 +1033,14 @@ export default function TelnyxAIAgentPage() {
 
   async function saveAgent() {
     try {
-      await persistVoiceAgent({ announce: true });
+      const savedAgent = await persistVoiceAgent({ announce: true });
+
+      if (savedAgent) {
+        setSuccess(
+          "The ReachFly voice agent was saved and synchronized. Next, add or select leads for the calling queue."
+        );
+        selectVoiceTab("leads");
+      }
     } catch {
       // persistVoiceAgent already surfaced the save error.
     }
@@ -4786,501 +4793,690 @@ function LeadQueue({
   onAssign,
   onStart,
 }) {
+  const leadFlowSteps = [
+    {
+      key: "quick",
+      label: "Quick lead",
+      title: "Add or call one lead",
+      description:
+        "Use a phone number and optional private context for a one-off or high-priority conversation.",
+    },
+    {
+      key: "discover",
+      label: "Google leads",
+      title: "Find fresh prospects",
+      description:
+        "Use the existing ReachFly Google Places pipeline to discover callable businesses for this workspace.",
+    },
+    {
+      key: "pool",
+      label: "Lead pool",
+      title: "Review and assign",
+      description:
+        "Search the workspace lead pool, choose the right prospects and assign them to this Voice Agent.",
+    },
+    {
+      key: "activity",
+      label: "Queue activity",
+      title: "Review the calling queue",
+      description:
+        "Inspect queued, deferred, completed and failed items before starting the next controlled batch.",
+    },
+    {
+      key: "launch",
+      label: "Launch calls",
+      title: "Start approved outbound calls",
+      description:
+        "Choose the controlled batch size and start calling. ReachFly then moves you to Live calls automatically.",
+    },
+  ];
+
+  const [leadFlowStep, setLeadFlowStep] = useState(0);
+  const activeLeadStep = leadFlowSteps[leadFlowStep] || leadFlowSteps[0];
+  const queuedCount = queue.filter(
+    (item) => normalizeStatus(item.status) === "queued"
+  ).length;
+
+  function moveLeadFlow(nextStep) {
+    const resolved = Math.max(
+      0,
+      Math.min(leadFlowSteps.length - 1, Number(nextStep) || 0)
+    );
+    setLeadFlowStep(resolved);
+  }
+
   return (
-    <section className="rf-agent-leads-layout">
-      <article className="rf-agent-card rf-agent-custom-lead-card">
-        <div className="rf-agent-card-heading compact">
+    <section className="rf-agent-leads-layout rf-lead-flow-shell">
+      <header className="rf-lead-flow-header">
+        <div className="rf-lead-flow-heading">
           <div>
-            <span>Custom AI call</span>
-            <h2>Call one lead with private context</h2>
+            <span>Lead queue workflow</span>
+            <h2>{activeLeadStep.title}</h2>
+            <p>{activeLeadStep.description}</p>
           </div>
-          <span className="rf-agent-custom-badge">One-off / high-priority lead</span>
+          <strong>
+            Step {leadFlowStep + 1} of {leadFlowSteps.length}
+          </strong>
         </div>
 
-        <p className="rf-agent-google-copy">
-          Phone number is the only required field. Name, company and private
-          context are optional. ReachFly auto-detects a safe timezone when possible
-          from the phone prefix. Normal calls respect the local calling window;
-          owners and admins can use the controlled test button to bypass only that
-          time window for one manual test call.
-        </p>
-
-        <div className="rf-agent-custom-grid">
-          <label className="rf-agent-field required">
-            <span>Phone number *</span>
-            <input
-              value={customLeadForm.phone}
-              onChange={(event) =>
-                onCustomLeadForm("phone", event.target.value)
-              }
-              placeholder="+12135551234"
-              inputMode="tel"
-            />
-            <small>Only the phone number is required.</small>
-          </label>
-
-          <label className="rf-agent-field">
-            <span>Contact name <em>optional</em></span>
-            <input
-              value={customLeadForm.contactName}
-              onChange={(event) =>
-                onCustomLeadForm("contactName", event.target.value)
-              }
-              placeholder="e.g. John"
-            />
-          </label>
-
-          <label className="rf-agent-field">
-            <span>Company <em>optional</em></span>
-            <input
-              value={customLeadForm.companyName}
-              onChange={(event) =>
-                onCustomLeadForm("companyName", event.target.value)
-              }
-              placeholder="e.g. Acme Dental"
-            />
-          </label>
-        </div>
-
-        <label className="rf-agent-field rf-agent-custom-context">
-          <span>What should the AI know? <em>optional</em></span>
-          <textarea
-            rows={4}
-            maxLength={12000}
-            value={customLeadForm.context}
-            onChange={(event) =>
-              onCustomLeadForm("context", event.target.value)
-            }
-            placeholder="Example: They do not have a website. Introduce CodeSync Labs, explain the value briefly, and try to book a discovery meeting."
-          />
-          <small>
-            {String(customLeadForm.context || "").length.toLocaleString()} / 12,000. Private context is prepared for the agent before the call; it is not read word-for-word.
-          </small>
-        </label>
-
-        {activeCustomPhoneCall ? (
-          <div className="rf-agent-monitor-warning">
-            <div>
-              <b>Active call already running</b>
-              <div>
-                {activeCustomPhoneCall.leadName || "This lead"} · {formatPhone(
-                  activeCustomPhoneCall.toNumber
-                )} · {formatLabel(normalizeStatus(activeCustomPhoneCall.status))}
-              </div>
-            </div>
-            <div className="rf-agent-custom-actions">
-              <button
-                type="button"
-                className="btn light"
-                onClick={onOpenCalls}
-              >
-                Open live call
-              </button>
-              <button
-                type="button"
-                className="btn danger"
-                disabled={busyCallId === activeCustomPhoneCall.id}
-                onClick={() => onEndCall(activeCustomPhoneCall.id)}
-              >
-                {busyCallId === activeCustomPhoneCall.id
-                  ? "Ending…"
-                  : "End current call"}
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        <div className="rf-agent-custom-actions">
-          <button
-            type="button"
-            className="btn light"
-            disabled={
-              creatingCustomLead ||
-              callingCustomLead
-            }
-            onClick={onQueueCustomLead}
-          >
-            {creatingCustomLead ? "Adding to queue…" : "Add to AI queue"}
-          </button>
-          <button
-            type="button"
-            className="btn primary"
-            disabled={
-              creatingCustomLead ||
-              callingCustomLead ||
-              Boolean(activeCustomPhoneCall)
-            }
-            onClick={onCallCustomLead}
-          >
-            {activeCustomPhoneCall
-              ? "Call already active"
-              : callingCustomLead
-                ? "Starting AI call…"
-                : "Call this lead now"}
-          </button>
-          {canTestCall ? (
+        <div className="rf-lead-flow-progress" role="tablist" aria-label="Lead queue workflow">
+          {leadFlowSteps.map((step, index) => (
             <button
+              key={step.key}
               type="button"
-              className="btn light"
-              disabled={
-                creatingCustomLead ||
-                callingCustomLead ||
-                Boolean(activeCustomPhoneCall)
-              }
-              onClick={onTestCustomLead}
-              title="Bypasses only the configured calling-time window for one controlled Custom AI Call"
+              role="tab"
+              aria-selected={leadFlowStep === index}
+              className={`${leadFlowStep === index ? "active" : ""} ${
+                leadFlowStep > index ? "done" : ""
+              }`}
+              onClick={() => moveLeadFlow(index)}
             >
-              {callingCustomLead
-                ? "Starting test call…"
-                : "🧪 Test AI call now (bypass hours)"}
+              <span>{leadFlowStep > index ? "✓" : index + 1}</span>
+              <div>
+                <b>{step.label}</b>
+                <small>
+                  {step.key === "pool"
+                    ? `${selectedLeadIds.length} selected`
+                    : step.key === "activity"
+                      ? `${queue.length} items`
+                      : step.key === "launch"
+                        ? `${queuedCount} queued`
+                        : step.key === "quick"
+                          ? "One-off lead"
+                          : "Fresh prospects"}
+                </small>
+              </div>
             </button>
-          ) : null}
+          ))}
         </div>
-      </article>
+      </header>
 
-      <article className="rf-agent-card rf-agent-google-leads-card">
-        <div className="rf-agent-card-heading compact">
-          <div>
-            <span>Google Places lead finder</span>
-            <h2>Find fresh leads for the AI agent</h2>
-          </div>
-          <span className="rf-agent-google-badge">Existing ReachFly Google pipeline</span>
-        </div>
+      <div className="rf-lead-flow-stage">
+        {leadFlowStep === 0 ? (
+          <article className="rf-agent-card rf-agent-custom-lead-card">
+                  <div className="rf-agent-card-heading compact">
+                    <div>
+                      <span>Custom AI call</span>
+                      <h2>Call one lead with private context</h2>
+                    </div>
+                    <span className="rf-agent-custom-badge">One-off / high-priority lead</span>
+                  </div>
 
-        <p className="rf-agent-google-copy">
-          This uses the same server-side Google Places + ReachFly enrichment
-          implementation already used by your campaign builder. New callable
-          leads are saved into this workspace and selected for review; calls do
-          not start until you explicitly assign and start the queue.
-        </p>
+                  <p className="rf-agent-google-copy">
+                    Phone number is the only required field. Name, company and private
+                    context are optional. ReachFly auto-detects a safe timezone when possible
+                    from the phone prefix. Normal calls respect the local calling window;
+                    owners and admins can use the controlled test button to bypass only that
+                    time window for one manual test call.
+                  </p>
 
-        <div className="rf-agent-google-grid">
-          <label className="rf-agent-field">
-            <span>Business niche</span>
-            <input
-              value={googleLeadForm.niche}
-              onChange={(event) =>
-                onGoogleLeadForm("niche", event.target.value)
-              }
-              placeholder="e.g. dental clinics, roofing companies"
-            />
-          </label>
-          <label className="rf-agent-field">
-            <span>Target location</span>
-            <input
-              value={googleLeadForm.location}
-              onChange={(event) =>
-                onGoogleLeadForm("location", event.target.value)
-              }
-              placeholder="e.g. Dallas, TX"
-            />
-          </label>
-          <label className="rf-agent-field">
-            <span>Lead count</span>
-            <input
-              type="number"
-              min="1"
-              max="250"
-              value={googleLeadForm.limit}
-              onChange={(event) =>
-                onGoogleLeadForm("limit", Number(event.target.value))
-              }
-            />
-          </label>
-          <label className="rf-agent-field">
-            <span>Radius</span>
-            <input
-              type="number"
-              min="1"
-              max="1000"
-              value={googleLeadForm.radiusKm}
-              onChange={(event) =>
-                onGoogleLeadForm("radiusKm", Number(event.target.value))
-              }
-            />
-            <small>kilometers</small>
-          </label>
-          <label className="rf-agent-field">
-            <span>Quality</span>
-            <select
-              value={googleLeadForm.qualityLevel}
-              onChange={(event) =>
-                onGoogleLeadForm("qualityLevel", event.target.value)
-              }
-            >
-              <option value="strict">Strict</option>
-              <option value="balanced">Balanced</option>
-              <option value="broad">Broad</option>
-            </select>
-          </label>
-          <button
-            type="button"
-            className="btn primary rf-agent-google-find"
-            disabled={
-              findingGoogleLeads ||
-              !String(googleLeadForm.niche || "").trim() ||
-              !String(googleLeadForm.location || "").trim()
-            }
-            onClick={onFindGoogleLeads}
-          >
-            {findingGoogleLeads
-              ? "Searching Google Places…"
-              : "Find leads with Google"}
-          </button>
-        </div>
-
-        {googleLeadResult ? (
-          <div className="rf-agent-google-result">
-            <span>
-              <b>{googleLeadResult.imported || 0}</b>
-              <small>new callable leads</small>
-            </span>
-            <span>
-              <b>{googleLeadResult.delivered || 0}</b>
-              <small>Google/ReachFly results</small>
-            </span>
-            <span>
-              <b>{googleLeadResult.duplicateOrUncallable || 0}</b>
-              <small>duplicate or uncallable</small>
-            </span>
-            <span>
-              <b>{googleLeadResult.campaign?.name || "Ready"}</b>
-              <small>saved lead pool</small>
-            </span>
-          </div>
-        ) : null}
-      </article>
-
-      <article className="rf-agent-card rf-agent-lead-picker">
-        <div className="rf-agent-card-heading compact">
-          <div>
-            <span>Workspace lead pool</span>
-            <h2>Review and assign leads to the voice agent</h2>
-          </div>
-          <b className="rf-agent-count">
-            {selectedLeadIds.length} selected
-          </b>
-        </div>
-
-        <div className="rf-agent-toolbar">
-          <input
-            value={search}
-            onChange={(event) => onSearch(event.target.value)}
-            placeholder="Search business, phone, email or campaign…"
-          />
-          <select
-            value={leadStatus}
-            onChange={(event) => onLeadStatus(event.target.value)}
-          >
-            <option value="all">All statuses</option>
-            <option value="new">New</option>
-            <option value="assigned">Assigned</option>
-            <option value="ready">Ready</option>
-            <option value="follow_up">Follow-up</option>
-            <option value="qualified">Qualified</option>
-          </select>
-          <button type="button" className="btn light" onClick={onToggleAll}>
-            {allVisibleSelected ? "Clear visible" : "Select visible"}
-          </button>
-        </div>
-
-        <div className="rf-agent-table-wrap">
-          <table className="rf-agent-table">
-            <thead>
-              <tr>
-                <th aria-label="Select" />
-                <th>Lead</th>
-                <th>Campaign</th>
-                <th>Status</th>
-                <th>AI queue</th>
-              </tr>
-            </thead>
-            <tbody>
-              {leads.length ? (
-                leads.map((lead) => (
-                  <tr
-                    key={lead.assignmentId}
-                    className={lead.doNotCall ? "disabled" : ""}
-                  >
-                    <td>
+                  <div className="rf-agent-custom-grid">
+                    <label className="rf-agent-field required">
+                      <span>Phone number *</span>
                       <input
-                        type="checkbox"
-                        disabled={lead.doNotCall || !lead.phone}
-                        checked={selectedLeadIds.includes(
-                          lead.assignmentId
-                        )}
-                        onChange={() =>
-                          onToggleLead(lead.assignmentId)
+                        value={customLeadForm.phone}
+                        onChange={(event) =>
+                          onCustomLeadForm("phone", event.target.value)
                         }
+                        placeholder="+12135551234"
+                        inputMode="tel"
                       />
-                    </td>
-                    <td>
-                      <b>{lead.name}</b>
-                      <small>{formatPhone(lead.phone)}</small>
-                      {lead.email ? <small>{lead.email}</small> : null}
-                    </td>
-                    <td>{lead.campaignName || "Uncategorized"}</td>
-                    <td>
-                      <StatusBadge value={lead.status} />
-                    </td>
-                    <td>
-                      {lead.doNotCall ? (
-                        <StatusBadge value="do_not_call" />
-                      ) : lead.aiAgentStatus ? (
-                        <StatusBadge value={lead.aiAgentStatus} />
-                      ) : (
-                        <span className="rf-agent-muted">Not queued</span>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={5} className="rf-agent-empty-cell">
-                    No matching callable leads are available yet. Use Google Places above or import leads through the existing campaign builder.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                      <small>Only the phone number is required.</small>
+                    </label>
 
-        <button
-          type="button"
-          className="btn primary full"
-          disabled={assigning || creatingCustomLead || callingCustomLead}
-          onClick={onAssign}
-        >
-          {assigning
-            ? "Adding leads…"
-            : `Assign ${selectedLeadIds.length || "selected"} lead${
-                selectedLeadIds.length === 1 ? "" : "s"
-              } to agent`}
-        </button>
-      </article>
+                    <label className="rf-agent-field">
+                      <span>Contact name <em>optional</em></span>
+                      <input
+                        value={customLeadForm.contactName}
+                        onChange={(event) =>
+                          onCustomLeadForm("contactName", event.target.value)
+                        }
+                        placeholder="e.g. John"
+                      />
+                    </label>
 
-      <article className="rf-agent-card rf-agent-queue-card">
-        <div className="rf-agent-card-heading compact">
-          <div>
-            <span>Controlled queue</span>
-            <h2>Start approved outbound calls</h2>
-          </div>
-        </div>
+                    <label className="rf-agent-field">
+                      <span>Company <em>optional</em></span>
+                      <input
+                        value={customLeadForm.companyName}
+                        onChange={(event) =>
+                          onCustomLeadForm("companyName", event.target.value)
+                        }
+                        placeholder="e.g. Acme Dental"
+                      />
+                    </label>
+                  </div>
 
-        <div className="rf-agent-campaign-controls">
-          <label>
-            <span>Queue status</span>
-            <select
-              value={queueStatus}
-              onChange={(event) => onQueueStatus(event.target.value)}
-            >
-              <option value="all">All</option>
-              <option value="queued">Queued</option>
-              <option value="deferred">Deferred</option>
-              <option value="in_progress">In progress</option>
-              <option value="completed">Completed</option>
-              <option value="meeting_booked">Meeting booked</option>
-              <option value="failed">Failed</option>
-            </select>
-          </label>
-
-          <label>
-            <span>Calls to start now</span>
-            <input
-              type="number"
-              min="1"
-              max="100"
-              value={campaignLimit}
-              onChange={(event) =>
-                onCampaignLimit(Number(event.target.value))
-              }
-            />
-          </label>
-
-          <button
-            type="button"
-            className="btn primary"
-            disabled={
-              starting ||
-              !queue.some(
-                (item) => normalizeStatus(item.status) === "queued"
-              )
-            }
-            onClick={onStart}
-          >
-            {starting ? "Starting calls…" : "Start calling"}
-          </button>
-        </div>
-
-        <div className="rf-agent-queue-list">
-          {queue.length ? (
-            queue.map((item) => (
-              <article key={item.id} className="rf-agent-queue-item">
-                <div>
-                  <b>
-                    {item.customLeadDetails?.contactName ||
-                      item.leadName ||
-                      item.lead?.name}
-                  </b>
-                  <small>
-                    {item.customLeadDetails?.companyName
-                      ? `${item.customLeadDetails.companyName} · `
-                      : ""}
-                    {formatPhone(item.phone || item.lead?.phone)} · {item.campaignName || "Lead"}
-                  </small>
-                  {item.customContext ? (
-                    <small className="rf-agent-queue-context">
-                      Context: {String(item.customContext).slice(0, 180)}
-                      {String(item.customContext).length > 180 ? "…" : ""}
+                  <label className="rf-agent-field rf-agent-custom-context">
+                    <span>What should the AI know? <em>optional</em></span>
+                    <textarea
+                      rows={4}
+                      maxLength={12000}
+                      value={customLeadForm.context}
+                      onChange={(event) =>
+                        onCustomLeadForm("context", event.target.value)
+                      }
+                      placeholder="Example: They do not have a website. Introduce CodeSync Labs, explain the value briefly, and try to book a discovery meeting."
+                    />
+                    <small>
+                      {String(customLeadForm.context || "").length.toLocaleString()} / 12,000. Private context is prepared for the agent before the call; it is not read word-for-word.
                     </small>
-                  ) : null}
-                </div>
-                <div className="rf-agent-queue-meta">
-                  <StatusBadge value={item.status} />
-                  <small>
-                    Attempt {item.attemptCount || 0}/{item.maxAttempts || 3}
-                  </small>
-                  {item.nextAttemptAt ? (
-                    <small>{formatDateTime(item.nextAttemptAt)}</small>
-                  ) : null}
-                  {(() => {
-                    const matchingCall = activeCalls.find(
-                      (call) =>
-                        normalizePhoneKey(call.toNumber) ===
-                        normalizePhoneKey(item.phone || item.lead?.phone)
-                    );
-                    if (!matchingCall) return null;
-                    return (
+                  </label>
+
+                  {activeCustomPhoneCall ? (
+                    <div className="rf-agent-monitor-warning">
+                      <div>
+                        <b>Active call already running</b>
+                        <div>
+                          {activeCustomPhoneCall.leadName || "This lead"} · {formatPhone(
+                            activeCustomPhoneCall.toNumber
+                          )} · {formatLabel(normalizeStatus(activeCustomPhoneCall.status))}
+                        </div>
+                      </div>
                       <div className="rf-agent-custom-actions">
                         <button
                           type="button"
                           className="btn light"
                           onClick={onOpenCalls}
                         >
-                          Open
+                          Open live call
                         </button>
                         <button
                           type="button"
                           className="btn danger"
-                          disabled={busyCallId === matchingCall.id}
-                          onClick={() => onEndCall(matchingCall.id)}
+                          disabled={busyCallId === activeCustomPhoneCall.id}
+                          onClick={() => onEndCall(activeCustomPhoneCall.id)}
                         >
-                          {busyCallId === matchingCall.id ? "Ending…" : "End call"}
+                          {busyCallId === activeCustomPhoneCall.id
+                            ? "Ending…"
+                            : "End current call"}
                         </button>
                       </div>
-                    );
-                  })()}
-                </div>
-              </article>
-            ))
-          ) : (
-            <EmptyState
-              title="No leads in this queue"
-              text="Select CRM leads on the left and assign them to the voice agent."
-            />
-          )}
+                    </div>
+                  ) : null}
+
+                  <div className="rf-agent-custom-actions">
+                    <button
+                      type="button"
+                      className="btn light"
+                      disabled={
+                        creatingCustomLead ||
+                        callingCustomLead
+                      }
+                      onClick={onQueueCustomLead}
+                    >
+                      {creatingCustomLead ? "Adding to queue…" : "Add to AI queue"}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn primary"
+                      disabled={
+                        creatingCustomLead ||
+                        callingCustomLead ||
+                        Boolean(activeCustomPhoneCall)
+                      }
+                      onClick={onCallCustomLead}
+                    >
+                      {activeCustomPhoneCall
+                        ? "Call already active"
+                        : callingCustomLead
+                          ? "Starting AI call…"
+                          : "Call this lead now"}
+                    </button>
+                    {canTestCall ? (
+                      <button
+                        type="button"
+                        className="btn light"
+                        disabled={
+                          creatingCustomLead ||
+                          callingCustomLead ||
+                          Boolean(activeCustomPhoneCall)
+                        }
+                        onClick={onTestCustomLead}
+                        title="Bypasses only the configured calling-time window for one controlled Custom AI Call"
+                      >
+                        {callingCustomLead
+                          ? "Starting test call…"
+                          : "🧪 Test AI call now (bypass hours)"}
+                      </button>
+                    ) : null}
+                  </div>
+                </article>
+        ) : null}
+
+        {leadFlowStep === 1 ? (
+          <article className="rf-agent-card rf-agent-google-leads-card">
+                  <div className="rf-agent-card-heading compact">
+                    <div>
+                      <span>Google Places lead finder</span>
+                      <h2>Find fresh leads for the AI agent</h2>
+                    </div>
+                    <span className="rf-agent-google-badge">Existing ReachFly Google pipeline</span>
+                  </div>
+
+                  <p className="rf-agent-google-copy">
+                    This uses the same server-side Google Places + ReachFly enrichment
+                    implementation already used by your campaign builder. New callable
+                    leads are saved into this workspace and selected for review; calls do
+                    not start until you explicitly assign and start the queue.
+                  </p>
+
+                  <div className="rf-agent-google-grid">
+                    <label className="rf-agent-field">
+                      <span>Business niche</span>
+                      <input
+                        value={googleLeadForm.niche}
+                        onChange={(event) =>
+                          onGoogleLeadForm("niche", event.target.value)
+                        }
+                        placeholder="e.g. dental clinics, roofing companies"
+                      />
+                    </label>
+                    <label className="rf-agent-field">
+                      <span>Target location</span>
+                      <input
+                        value={googleLeadForm.location}
+                        onChange={(event) =>
+                          onGoogleLeadForm("location", event.target.value)
+                        }
+                        placeholder="e.g. Dallas, TX"
+                      />
+                    </label>
+                    <label className="rf-agent-field">
+                      <span>Lead count</span>
+                      <input
+                        type="number"
+                        min="1"
+                        max="250"
+                        value={googleLeadForm.limit}
+                        onChange={(event) =>
+                          onGoogleLeadForm("limit", Number(event.target.value))
+                        }
+                      />
+                    </label>
+                    <label className="rf-agent-field">
+                      <span>Radius</span>
+                      <input
+                        type="number"
+                        min="1"
+                        max="1000"
+                        value={googleLeadForm.radiusKm}
+                        onChange={(event) =>
+                          onGoogleLeadForm("radiusKm", Number(event.target.value))
+                        }
+                      />
+                      <small>kilometers</small>
+                    </label>
+                    <label className="rf-agent-field">
+                      <span>Quality</span>
+                      <select
+                        value={googleLeadForm.qualityLevel}
+                        onChange={(event) =>
+                          onGoogleLeadForm("qualityLevel", event.target.value)
+                        }
+                      >
+                        <option value="strict">Strict</option>
+                        <option value="balanced">Balanced</option>
+                        <option value="broad">Broad</option>
+                      </select>
+                    </label>
+                    <button
+                      type="button"
+                      className="btn primary rf-agent-google-find"
+                      disabled={
+                        findingGoogleLeads ||
+                        !String(googleLeadForm.niche || "").trim() ||
+                        !String(googleLeadForm.location || "").trim()
+                      }
+                      onClick={onFindGoogleLeads}
+                    >
+                      {findingGoogleLeads
+                        ? "Searching Google Places…"
+                        : "Find leads with Google"}
+                    </button>
+                  </div>
+
+                  {googleLeadResult ? (
+                    <div className="rf-agent-google-result">
+                      <span>
+                        <b>{googleLeadResult.imported || 0}</b>
+                        <small>new callable leads</small>
+                      </span>
+                      <span>
+                        <b>{googleLeadResult.delivered || 0}</b>
+                        <small>Google/ReachFly results</small>
+                      </span>
+                      <span>
+                        <b>{googleLeadResult.duplicateOrUncallable || 0}</b>
+                        <small>duplicate or uncallable</small>
+                      </span>
+                      <span>
+                        <b>{googleLeadResult.campaign?.name || "Ready"}</b>
+                        <small>saved lead pool</small>
+                      </span>
+                    </div>
+                  ) : null}
+                </article>
+        ) : null}
+
+        {leadFlowStep === 2 ? (
+          <article className="rf-agent-card rf-agent-lead-picker">
+                  <div className="rf-agent-card-heading compact">
+                    <div>
+                      <span>Workspace lead pool</span>
+                      <h2>Review and assign leads to the voice agent</h2>
+                    </div>
+                    <b className="rf-agent-count">
+                      {selectedLeadIds.length} selected
+                    </b>
+                  </div>
+
+                  <div className="rf-agent-toolbar">
+                    <input
+                      value={search}
+                      onChange={(event) => onSearch(event.target.value)}
+                      placeholder="Search business, phone, email or campaign…"
+                    />
+                    <select
+                      value={leadStatus}
+                      onChange={(event) => onLeadStatus(event.target.value)}
+                    >
+                      <option value="all">All statuses</option>
+                      <option value="new">New</option>
+                      <option value="assigned">Assigned</option>
+                      <option value="ready">Ready</option>
+                      <option value="follow_up">Follow-up</option>
+                      <option value="qualified">Qualified</option>
+                    </select>
+                    <button type="button" className="btn light" onClick={onToggleAll}>
+                      {allVisibleSelected ? "Clear visible" : "Select visible"}
+                    </button>
+                  </div>
+
+                  <div className="rf-agent-table-wrap">
+                    <table className="rf-agent-table">
+                      <thead>
+                        <tr>
+                          <th aria-label="Select" />
+                          <th>Lead</th>
+                          <th>Campaign</th>
+                          <th>Status</th>
+                          <th>AI queue</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {leads.length ? (
+                          leads.map((lead) => (
+                            <tr
+                              key={lead.assignmentId}
+                              className={lead.doNotCall ? "disabled" : ""}
+                            >
+                              <td>
+                                <input
+                                  type="checkbox"
+                                  disabled={lead.doNotCall || !lead.phone}
+                                  checked={selectedLeadIds.includes(
+                                    lead.assignmentId
+                                  )}
+                                  onChange={() =>
+                                    onToggleLead(lead.assignmentId)
+                                  }
+                                />
+                              </td>
+                              <td>
+                                <b>{lead.name}</b>
+                                <small>{formatPhone(lead.phone)}</small>
+                                {lead.email ? <small>{lead.email}</small> : null}
+                              </td>
+                              <td>{lead.campaignName || "Uncategorized"}</td>
+                              <td>
+                                <StatusBadge value={lead.status} />
+                              </td>
+                              <td>
+                                {lead.doNotCall ? (
+                                  <StatusBadge value="do_not_call" />
+                                ) : lead.aiAgentStatus ? (
+                                  <StatusBadge value={lead.aiAgentStatus} />
+                                ) : (
+                                  <span className="rf-agent-muted">Not queued</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={5} className="rf-agent-empty-cell">
+                              No matching callable leads are available yet. Use Google Places above or import leads through the existing campaign builder.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn primary full"
+                    disabled={assigning || creatingCustomLead || callingCustomLead}
+                    onClick={onAssign}
+                  >
+                    {assigning
+                      ? "Adding leads…"
+                      : `Assign ${selectedLeadIds.length || "selected"} lead${
+                          selectedLeadIds.length === 1 ? "" : "s"
+                        } to agent`}
+                  </button>
+                </article>
+        ) : null}
+
+        {leadFlowStep === 3 ? (
+          <article className="rf-agent-card rf-agent-queue-card rf-lead-flow-activity-card">
+            <div className="rf-agent-card-heading compact">
+              <div>
+                <span>Queue activity</span>
+                <h2>Review queued and previous AI-call items</h2>
+              </div>
+              <b className="rf-agent-count">{queue.length} items</b>
+            </div>
+
+            <div className="rf-lead-activity-toolbar">
+              <label>
+                <span>Queue status</span>
+                <select
+                  value={queueStatus}
+                  onChange={(event) => onQueueStatus(event.target.value)}
+                >
+                  <option value="all">All</option>
+                  <option value="queued">Queued</option>
+                  <option value="deferred">Deferred</option>
+                  <option value="in_progress">In progress</option>
+                  <option value="completed">Completed</option>
+                  <option value="meeting_booked">Meeting booked</option>
+                  <option value="failed">Failed</option>
+                </select>
+              </label>
+              <div>
+                <span>Ready now</span>
+                <b>{queuedCount}</b>
+              </div>
+            </div>
+
+            <div className="rf-agent-queue-list">
+                      {queue.length ? (
+                        queue.map((item) => (
+                          <article key={item.id} className="rf-agent-queue-item">
+                            <div>
+                              <b>
+                                {item.customLeadDetails?.contactName ||
+                                  item.leadName ||
+                                  item.lead?.name}
+                              </b>
+                              <small>
+                                {item.customLeadDetails?.companyName
+                                  ? `${item.customLeadDetails.companyName} · `
+                                  : ""}
+                                {formatPhone(item.phone || item.lead?.phone)} · {item.campaignName || "Lead"}
+                              </small>
+                              {item.customContext ? (
+                                <small className="rf-agent-queue-context">
+                                  Context: {String(item.customContext).slice(0, 180)}
+                                  {String(item.customContext).length > 180 ? "…" : ""}
+                                </small>
+                              ) : null}
+                            </div>
+                            <div className="rf-agent-queue-meta">
+                              <StatusBadge value={item.status} />
+                              <small>
+                                Attempt {item.attemptCount || 0}/{item.maxAttempts || 3}
+                              </small>
+                              {item.nextAttemptAt ? (
+                                <small>{formatDateTime(item.nextAttemptAt)}</small>
+                              ) : null}
+                              {(() => {
+                                const matchingCall = activeCalls.find(
+                                  (call) =>
+                                    normalizePhoneKey(call.toNumber) ===
+                                    normalizePhoneKey(item.phone || item.lead?.phone)
+                                );
+                                if (!matchingCall) return null;
+                                return (
+                                  <div className="rf-agent-custom-actions">
+                                    <button
+                                      type="button"
+                                      className="btn light"
+                                      onClick={onOpenCalls}
+                                    >
+                                      Open
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="btn danger"
+                                      disabled={busyCallId === matchingCall.id}
+                                      onClick={() => onEndCall(matchingCall.id)}
+                                    >
+                                      {busyCallId === matchingCall.id ? "Ending…" : "End call"}
+                                    </button>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          </article>
+                        ))
+                      ) : (
+                        <EmptyState
+                          title="No leads in this queue"
+                          text="Select CRM leads on the left and assign them to the voice agent."
+                        />
+                      )}
+                    </div>
+          </article>
+        ) : null}
+
+        {leadFlowStep === 4 ? (
+          <article className="rf-agent-card rf-agent-queue-card rf-lead-flow-launch-card">
+            <div className="rf-agent-card-heading compact">
+              <div>
+                <span>Controlled queue</span>
+                <h2>Start approved outbound calls</h2>
+              </div>
+              <b className="rf-agent-count">{queuedCount} queued</b>
+            </div>
+
+            <div className="rf-agent-campaign-controls">
+                      <label>
+                        <span>Queue status</span>
+                        <select
+                          value={queueStatus}
+                          onChange={(event) => onQueueStatus(event.target.value)}
+                        >
+                          <option value="all">All</option>
+                          <option value="queued">Queued</option>
+                          <option value="deferred">Deferred</option>
+                          <option value="in_progress">In progress</option>
+                          <option value="completed">Completed</option>
+                          <option value="meeting_booked">Meeting booked</option>
+                          <option value="failed">Failed</option>
+                        </select>
+                      </label>
+
+                      <label>
+                        <span>Calls to start now</span>
+                        <input
+                          type="number"
+                          min="1"
+                          max="100"
+                          value={campaignLimit}
+                          onChange={(event) =>
+                            onCampaignLimit(Number(event.target.value))
+                          }
+                        />
+                      </label>
+
+                      <button
+                        type="button"
+                        className="btn primary"
+                        disabled={
+                          starting ||
+                          !queue.some(
+                            (item) => normalizeStatus(item.status) === "queued"
+                          )
+                        }
+                        onClick={onStart}
+                      >
+                        {starting ? "Starting calls…" : "Start calling"}
+                      </button>
+                    </div>
+
+            <div className="rf-lead-launch-note">
+              <b>What happens next</b>
+              <p>
+                Start calling uses the same policy, suppression, timezone, concurrency and daily-limit controls already configured for this Voice Agent. When the batch starts, ReachFly opens Live calls so the team can monitor active conversations.
+              </p>
+            </div>
+          </article>
+        ) : null}
+      </div>
+
+      <footer className="rf-lead-flow-footer">
+        <button
+          type="button"
+          className="btn light"
+          disabled={leadFlowStep === 0}
+          onClick={() => moveLeadFlow(leadFlowStep - 1)}
+        >
+          ← Previous
+        </button>
+
+        <div>
+          <span>{String(leadFlowStep + 1).padStart(2, "0")}</span>
+          <div>
+            <b>{activeLeadStep.label}</b>
+            <small>
+              {leadFlowStep < leadFlowSteps.length - 1
+                ? `Next: ${leadFlowSteps[leadFlowStep + 1].label}`
+                : "Start the controlled batch or open Live calls."}
+            </small>
+          </div>
         </div>
-      </article>
+
+        {leadFlowStep < leadFlowSteps.length - 1 ? (
+          <button
+            type="button"
+            className="btn primary"
+            onClick={() => moveLeadFlow(leadFlowStep + 1)}
+          >
+            Next →
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="btn light"
+            onClick={onOpenCalls}
+          >
+            Open Live calls →
+          </button>
+        )}
+      </footer>
     </section>
   );
 }
