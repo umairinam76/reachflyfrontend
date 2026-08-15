@@ -22,6 +22,7 @@ import {
 } from "../lib/workspace-platform-client.js";
 
 import "../styles.css";
+import "../voice-agent-onboarding-wizard.css";
 
 const FAST_HUMAN_GREETING =
   "Hey {{greeting_name}}, James from {{company_name}}. Quick disclosure — I’m an AI sales agent with the team, and this call may be recorded. I’ll keep it brief. I was curious... is your website consistently turning visitors into real sales conversations, or do too many people land there and leave without ever becoming a lead?";
@@ -307,8 +308,12 @@ export default function TelnyxAIAgentPage() {
           dashboard?.diagnostics?.elevenLabsAgentId ||
           "";
         const selected =
-          loadedAgents.find((item) => item.agentId === configuredId) ||
-          loadedAgents[0];
+          loadedAgents.find((item) => item.agentId === configuredId) || null;
+
+        // Never attach a fresh customer workspace to the first provider agent.
+        // Customer workspaces receive their own managed ElevenLabs agent when
+        // activation is saved; Codesync's provider profile must not leak into
+        // another tenant's form.
         return selected
           ? {
               ...current,
@@ -1271,11 +1276,38 @@ export default function TelnyxAIAgentPage() {
 
       {onboardingMode ? (
         <>
-          {(diagnostics?.purchasedNumberRequired !== false ||
-            diagnostics?.paidCreditsRequired !== false) ? (
+          {(
+            (diagnostics?.purchasedNumberRequired === false ||
+              normalizeStatus(voiceCommerce?.activeNumber?.status) === "active") &&
+            (diagnostics?.paidCreditsRequired === false ||
+              Number(billingData?.aiCalling?.wallet?.balance || 0) > 0)
+          ) ? (
+            <VoiceAgentGuidedWizard
+              form={form}
+              voices={voices}
+              recommendedVoice={recommendedVoice}
+              commerce={voiceCommerce}
+              billing={billingData}
+              saving={saving}
+              analyzingWebsite={analyzingWebsite}
+              onChange={updateForm}
+              onAnalyzeWebsite={() => void analyzeWebsite()}
+              onActivate={async () => {
+                const saved = await persistVoiceAgent({ announce: true });
+                if (saved) {
+                  closeOnboarding(
+                    "leads",
+                    "Voice Agent activated. Add one lead and place a controlled test call before launching a campaign."
+                  );
+                }
+              }}
+              onError={setError}
+            />
+          ) : (
             <VoiceCommerceOnboarding
               commerce={voiceCommerce}
               billing={billingData}
+              diagnostics={diagnostics}
               onRefresh={async () => {
                 await Promise.all([
                   loadVoiceCommerce(),
@@ -1286,32 +1318,7 @@ export default function TelnyxAIAgentPage() {
               onError={setError}
               onSuccess={setSuccess}
             />
-          ) : null}
-
-          <VoiceAgentOnboardingGuide
-            state={onboardingState}
-            form={form}
-            diagnostics={diagnostics}
-            commerce={voiceCommerce}
-            billing={billingData}
-            saving={saving}
-            analyzingWebsite={analyzingWebsite}
-            onFinish={finishOnboarding}
-            onExit={() => closeOnboarding("setup")}
-          />
-
-          <AgentSetup
-            form={form}
-            voices={voices}
-            elevenLabsAgents={elevenLabsAgents}
-            recommendedVoice={recommendedVoice}
-            diagnostics={diagnostics}
-            saving={saving}
-            analyzingWebsite={analyzingWebsite}
-            onChange={updateForm}
-            onAnalyzeWebsite={() => void analyzeWebsite()}
-            onSave={() => void saveAgent()}
-          />
+          )}
         </>
       ) : (
         <>
@@ -1475,6 +1482,7 @@ export default function TelnyxAIAgentPage() {
 function VoiceCommerceOnboarding({
   commerce,
   billing,
+  diagnostics,
   onRefresh,
   onError,
   onSuccess,
@@ -1483,19 +1491,23 @@ function VoiceCommerceOnboarding({
     countryCode: "US",
     areaCode: "",
     locality: "",
-    administrativeArea: "",
     phoneNumberType: "local",
   });
   const [quote, setQuote] = useState(null);
   const [searching, setSearching] = useState(false);
   const [buyingNumber, setBuyingNumber] = useState("");
-  const [buyingBundle, setBuyingBundle] = useState("");
   const [buyingCredits, setBuyingCredits] = useState("");
   const [retryingOrder, setRetryingOrder] = useState("");
 
+  const numberRequired = diagnostics?.purchasedNumberRequired !== false;
+  const creditsRequired = diagnostics?.paidCreditsRequired !== false;
   const activeNumber = commerce?.activeNumber || null;
+  const numberReady =
+    !numberRequired || normalizeStatus(activeNumber?.status) === "active";
   const callWallet = billing?.aiCalling?.wallet || {};
   const callBalance = Number(callWallet.balance || 0);
+  const creditsReady = !creditsRequired || callBalance > 0;
+
   const callPacks = (Array.isArray(billing?.aiCalling?.packs)
     ? billing.aiCalling.packs
     : []
@@ -1523,6 +1535,8 @@ function VoiceCommerceOnboarding({
     ].includes(normalizeStatus(order?.status))
   );
 
+  const stage = !numberReady ? "number" : !creditsReady ? "credits" : "done";
+
   async function searchNumbers() {
     if (!commerce?.canPurchase) {
       onError?.("Only a workspace owner or administrator can buy a business number.");
@@ -1530,6 +1544,7 @@ function VoiceCommerceOnboarding({
     }
 
     setSearching(true);
+    setQuote(null);
     onError?.("");
     onSuccess?.("");
 
@@ -1542,16 +1557,18 @@ function VoiceCommerceOnboarding({
             countryCode: searchForm.countryCode,
             areaCode: searchForm.areaCode,
             locality: searchForm.locality,
-            administrativeArea: searchForm.administrativeArea,
-            phoneNumberType: searchForm.phoneNumberType,
-            limit: 12,
+            phoneNumberType: "local",
+            limit: 8,
           },
           timeoutMs: 30_000,
         }
       );
+
       setQuote(response);
       if (!response?.items?.length) {
-        onSuccess?.("No matching voice-capable numbers were returned. Try a broader area or another location.");
+        onSuccess?.(
+          "No matching local numbers were returned. Try only the country, another area code, or a nearby city."
+        );
       }
     } catch (requestError) {
       setQuote(null);
@@ -1598,52 +1615,6 @@ function VoiceCommerceOnboarding({
     }
   }
 
-  async function buyNumberBundle(item, bundle) {
-    const busyKey = `${item?.phoneNumber || ""}:${bundle?.id || ""}`;
-    if (
-      !quote?.quoteId ||
-      !item?.phoneNumber ||
-      !bundle?.id ||
-      buyingBundle
-    ) {
-      return;
-    }
-
-    setBuyingBundle(busyKey);
-    onError?.("");
-    onSuccess?.("");
-
-    try {
-      const response = await apiRequest(
-        "/voice-commerce/bundles/checkout",
-        {
-          method: "POST",
-          body: {
-            quoteId: quote.quoteId,
-            phoneNumber: item.phoneNumber,
-            bundleId: bundle.id,
-          },
-          timeoutMs: 30_000,
-        }
-      );
-
-      if (
-        !response?.checkoutUrl ||
-        !/^https?:\/\//i.test(response.checkoutUrl)
-      ) {
-        throw new Error("Secure Voice Agent bundle checkout could not be opened.");
-      }
-
-      window.location.assign(response.checkoutUrl);
-    } catch (requestError) {
-      setBuyingBundle("");
-      onError?.(
-        requestError?.message ||
-          "Voice Agent bundle checkout could not be started."
-      );
-    }
-  }
-
   async function buyCallCredits(pack) {
     if (!pack?.id || buyingCredits) return;
 
@@ -1680,6 +1651,7 @@ function VoiceCommerceOnboarding({
 
   async function retryProvision(orderId) {
     if (!orderId || retryingOrder) return;
+
     setRetryingOrder(orderId);
     onError?.("");
     onSuccess?.("");
@@ -1692,15 +1664,17 @@ function VoiceCommerceOnboarding({
           timeoutMs: 60_000,
         }
       );
+
       await onRefresh?.();
       const order = response?.order || response;
+
       if (normalizeStatus(order?.status) === "active") {
         onSuccess?.(
-          `${formatPhone(order.phoneNumber)} is now active and linked to your Voice Agent.`
+          `${formatPhone(order.phoneNumber)} is active. Continue to AI call credits.`
         );
       } else {
         onSuccess?.(
-          "Provisioning retry was accepted. Refresh this page to check the latest number status."
+          "Provisioning retry accepted. ReachFly will keep checking the number status."
         );
       }
     } catch (requestError) {
@@ -1714,350 +1688,572 @@ function VoiceCommerceOnboarding({
   }
 
   return (
-    <section className="rf-agent-card rf-agent-form-card">
-      <div className="rf-agent-card-heading">
+    <section className="rf-voice-wizard">
+      <div className="rf-voice-wizard-top">
         <div>
-          <span>Commerce activation</span>
-          <h2>Buy the calling identity and fund the Voice Agent first</h2>
+          <span className="rf-voice-wizard-kicker">Voice Agent setup</span>
+          <h2>
+            {stage === "number"
+              ? "Choose your business number"
+              : stage === "credits"
+                ? "Fund AI calling"
+                : "Calling activation complete"}
+          </h2>
+          <p>
+            {stage === "number"
+              ? "Pick a local number for outbound calls. You only need a location preference."
+              : stage === "credits"
+                ? "Choose how many connected AI calls you want to prepay. General CRM credits stay separate."
+                : "Your business number and AI calling wallet are ready."}
+          </p>
         </div>
-        <span className="rf-agent-section-number">PAY</span>
+        <span className="rf-voice-wizard-step-count">
+          {stage === "number" ? "1 / 5" : stage === "credits" ? "2 / 5" : "2 / 5"}
+        </span>
       </div>
 
-      <p className="rf-agent-google-copy">
-        Voice Agent activation is locked until this workspace owns an active
-        ReachFly-purchased business number and has a positive dedicated AI
-        call-credit balance. General ReachFly credits cannot fund AI calls.
-      </p>
+      <WizardProgress
+        current={stage === "number" ? 0 : 1}
+        items={[
+          { label: "Number", done: numberReady },
+          { label: "Calls", done: creditsReady },
+          { label: "Agent", done: false },
+          { label: "Business", done: false },
+          { label: "Activate", done: false },
+        ]}
+      />
 
-      <section className="rf-agent-metrics">
-        <Metric
-          label="1. Business number"
-          value={activeNumber ? "Active" : "Required"}
-          text={
-            activeNumber
-              ? formatPhone(activeNumber.phoneNumber)
-              : "Search inventory, pay securely, then ReachFly provisions the number."
-          }
-        />
-        <Metric
-          label="2. AI call credits"
-          value={formatCreditsCompact(callBalance)}
-          text={
-            callBalance > 0
-              ? "Dedicated paid call credits available"
-              : "Buy a server-priced AI call-credit pack before activation"
-          }
-        />
-        <Metric
-          label="3. Voice Agent"
-          value={activeNumber && callBalance > 0 ? "Unlocked" : "Locked"}
-          text="Agent configuration and paid calling remain server-gated."
-        />
-      </section>
-
-      <article className="rf-agent-card" style={{ marginTop: 16 }}>
-        <div className="rf-agent-card-heading">
-          <div>
-            <span>Step 1</span>
-            <h3>{activeNumber ? "Business number active" : "Find and buy a business number"}</h3>
-          </div>
-        </div>
-
-        {activeNumber ? (
-          <section className="rf-agent-provider-card">
-            <div>
-              <span className="rf-agent-provider-logo">RF</span>
-              <div>
-                <b>{formatPhone(activeNumber.phoneNumber)}</b>
-                <small>Purchased and activated for this workspace</small>
-              </div>
-            </div>
-            <dl>
-              <div>
-                <dt>Status</dt>
-                <dd>{formatLabel(activeNumber.status || "active")}</dd>
-              </div>
-              <div>
-                <dt>Provider monthly cost</dt>
-                <dd>
-                  {formatMoneyMinorVoice(
-                    activeNumber.providerMonthlyMinor,
-                    activeNumber.currency
-                  )}
-                </dd>
-              </div>
-            </dl>
-          </section>
-        ) : (
-          <>
-            <div className="rf-agent-field-grid three">
-              <Field
-                label="Country code"
-                value={searchForm.countryCode}
-                onChange={(value) =>
-                  setSearchForm((current) => ({
-                    ...current,
-                    countryCode: String(value || "").toUpperCase().slice(0, 2),
-                  }))
-                }
-                placeholder="US"
-              />
-              <Field
-                label="Area code"
-                value={searchForm.areaCode}
-                onChange={(value) =>
-                  setSearchForm((current) => ({
-                    ...current,
-                    areaCode: String(value || "").replace(/\D/g, "").slice(0, 8),
-                  }))
-                }
-                placeholder="213"
-              />
-              <Field
-                label="City / locality"
-                value={searchForm.locality}
-                onChange={(value) =>
-                  setSearchForm((current) => ({ ...current, locality: value }))
-                }
-                placeholder="Los Angeles"
-              />
-              <Field
-                label="State / region"
-                value={searchForm.administrativeArea}
-                onChange={(value) =>
-                  setSearchForm((current) => ({
-                    ...current,
-                    administrativeArea: value,
-                  }))
-                }
-                placeholder="CA"
-              />
-              <label className="rf-agent-field">
-                <span>Number type</span>
-                <select
-                  value={searchForm.phoneNumberType}
-                  onChange={(event) =>
-                    setSearchForm((current) => ({
-                      ...current,
-                      phoneNumberType: event.target.value,
-                    }))
-                  }
-                >
-                  <option value="local">Local</option>
-                  <option value="toll_free">Toll-free</option>
-                  <option value="mobile">Mobile</option>
-                </select>
-              </label>
-            </div>
-
-            <div className="rf-agent-website-actions">
-              <button
-                type="button"
-                className="btn primary"
-                disabled={searching || !commerce?.canPurchase}
-                onClick={() => void searchNumbers()}
-              >
-                {searching ? "Searching…" : "Find available numbers"}
-              </button>
-            </div>
-
-            {!commerce?.canPurchase ? (
-              <small className="rf-agent-field-note">
-                Only a workspace owner or administrator can purchase the calling number.
-              </small>
-            ) : null}
-
-            {quote?.items?.length ? (
-              <div className="rf-agent-queue-list" style={{ marginTop: 16 }}>
-                {quote.items.map((item) => (
-                  <article className="rf-agent-queue-row" key={item.phoneNumber}>
-                    <div>
-                      <b>{formatPhone(item.phoneNumber)}</b>
-                      <small>
-                        {(item.regionInformation || [])
-                          .map((region) => region.name)
-                          .filter(Boolean)
-                          .slice(0, 2)
-                          .join(" · ") || "Voice-capable business number"}
-                      </small>
-                    </div>
-                    <div>
-                      <small>Initial activation</small>
-                      <b>
-                        {formatMoneyMinorVoice(
-                          item.initialChargeMinor,
-                          item.currency
-                        )}
-                      </b>
-                      <small>
-                        First provider month {formatMoneyMinorVoice(
-                          item.providerMonthlyMinor,
-                          item.currency
-                        )}
-                      </small>
-                    </div>
-                    <div
-                      style={{
-                        display: "grid",
-                        gap: 8,
-                        minWidth: 230,
-                      }}
-                    >
-                      <button
-                        type="button"
-                        className="btn light"
-                        disabled={Boolean(buyingNumber || buyingBundle)}
-                        onClick={() => void buyNumber(item)}
-                      >
-                        {buyingNumber === item.phoneNumber
-                          ? "Opening checkout…"
-                          : `Number only · ${formatMoneyMinorVoice(
-                              item.initialChargeMinor,
-                              item.currency
-                            )}`}
-                      </button>
-
-                      {(Array.isArray(item.bundles) ? item.bundles : [])
-                        .filter((bundle) => bundle?.active !== false)
-                        .map((bundle) => {
-                          const busyKey = `${item.phoneNumber}:${bundle.id}`;
-                          return (
-                            <button
-                              key={bundle.id}
-                              type="button"
-                              className={bundle.recommended ? "btn primary" : "btn light"}
-                              disabled={Boolean(buyingNumber || buyingBundle)}
-                              onClick={() => void buyNumberBundle(item, bundle)}
-                            >
-                              {buyingBundle === busyKey
-                                ? "Opening checkout…"
-                                : `${bundle.label} · ${formatMoneyMinorVoice(
-                                    bundle.totalInitialChargeMinor,
-                                    bundle.currency || item.currency
-                                  )}`}
-                            </button>
-                          );
-                        })}
-                    </div>
-                  </article>
-                ))}
-              </div>
-            ) : null}
-
-            {quote?.pricingNote ? (
-              <small className="rf-agent-field-note">
-                {quote.pricingNote} Bundle totals are also calculated by the
-                backend from that live number quote plus the server-owned AI
-                call-credit price. The browser cannot override either amount.
-              </small>
-            ) : null}
-          </>
-        )}
-
-        {failedOrder && !activeNumber ? (
-          <div className="rf-agent-alert error" style={{ marginTop: 16 }}>
+      {stage === "number" ? (
+        <div className="rf-voice-wizard-body">
+          <div className="rf-voice-wizard-note">
+            <b>What we need</b>
             <span>
-              {failedOrder.error ||
-                `Number order ${formatLabel(failedOrder.status)}. Provisioning may require another attempt or regulatory review.`}
+              Country plus an optional area code or city. ReachFly handles provider
+              capabilities, SIP setup and provisioning in the background.
             </span>
-            {["provision_failed", "paid", "pending_activation"].includes(
-              normalizeStatus(failedOrder.status)
-            ) ? (
-              <button
-                type="button"
-                disabled={retryingOrder === failedOrder.id}
-                onClick={() => void retryProvision(failedOrder.id)}
-              >
-                {retryingOrder === failedOrder.id ? "Retrying…" : "Retry provisioning"}
-              </button>
-            ) : null}
           </div>
-        ) : null}
 
-        <small className="rf-agent-field-note">
-          The number checkout covers initial activation, including the provider
-          upfront charge and first provider monthly charge when returned by the
-          inventory quote. Automatic recurring customer renewal billing is not
-          part of this first commerce build and must be added before recurring
-          number fees are collected from customers.
-        </small>
-      </article>
+          <div className="rf-voice-essential-grid">
+            <Field
+              label="Country"
+              value={searchForm.countryCode}
+              onChange={(value) =>
+                setSearchForm((current) => ({
+                  ...current,
+                  countryCode: String(value || "").toUpperCase().slice(0, 2),
+                }))
+              }
+              placeholder="US"
+            />
+            <Field
+              label="Area code (optional)"
+              value={searchForm.areaCode}
+              onChange={(value) =>
+                setSearchForm((current) => ({
+                  ...current,
+                  areaCode: String(value || "").replace(/\D/g, "").slice(0, 8),
+                }))
+              }
+              placeholder="213"
+            />
+            <Field
+              label="City (optional)"
+              value={searchForm.locality}
+              onChange={(value) =>
+                setSearchForm((current) => ({
+                  ...current,
+                  locality: value,
+                }))
+              }
+              placeholder="Los Angeles"
+            />
+          </div>
 
-      <article className="rf-agent-card" style={{ marginTop: 16 }}>
-        <div className="rf-agent-card-heading">
-          <div>
-            <span>Step 2</span>
-            <h3>Fund the dedicated AI calling wallet</h3>
+          <div className="rf-voice-wizard-actions">
+            <button
+              type="button"
+              className="btn primary rf-voice-primary-action"
+              disabled={searching || !commerce?.canPurchase}
+              onClick={() => void searchNumbers()}
+            >
+              {searching ? "Searching Telnyx inventory…" : "Find available numbers"}
+            </button>
           </div>
-          <span className="rf-agent-section-number">
-            {formatCreditsCompact(callBalance)}
-          </span>
-        </div>
 
-        <p className="rf-agent-google-copy">
-          AI Voice uses a separate prepaid call-credit wallet. The browser sends
-          only the selected pack ID; pack size and amount are controlled by the
-          backend. The current workspace policy prices one connected AI call at{" "}
-          <b>
-            {formatMoneyMinorVoice(
-              commerce?.pricing?.aiConnectedCallPriceMinor ||
-                billing?.aiCalling?.policy?.connectedCallPriceMinor ||
-                100,
-              commerce?.pricing?.aiConnectedCallCurrency ||
-                billing?.aiCalling?.policy?.currency ||
-                "USD"
-            )}
-          </b>{" "}
-          per connected call.
-        </p>
+          {!commerce?.canPurchase ? (
+            <div className="rf-voice-inline-warning">
+              Only the workspace owner or an administrator can purchase a number.
+            </div>
+          ) : null}
 
-        {!activeNumber ? (
-          <div className="rf-agent-empty">
-            Buy and activate the business number first. Call-credit funding is
-            the next activation step.
-          </div>
-        ) : !billing?.aiCalling?.canPurchase ? (
-          <div className="rf-agent-empty">
-            Only a workspace owner or administrator can buy AI call credits.
-          </div>
-        ) : !billing?.safepay?.configured ? (
-          <div className="rf-agent-empty">
-            Secure payment checkout is not configured for this workspace.
-          </div>
-        ) : !callPacks.length ? (
-          <div className="rf-agent-empty">
-            No AI call-credit packs are active. Configure server-owned packs before launch.
-          </div>
-        ) : (
-          <div className="rf-agent-queue-list">
-            {callPacks.map((pack) => (
-              <article className="rf-agent-queue-row" key={pack.id}>
-                <div>
-                  <b>{formatCreditsCompact(pack.credits)} AI call credits</b>
-                  <small>Dedicated Voice Agent wallet</small>
-                </div>
-                <div>
-                  <b>{formatMoneyMinorVoice(pack.amountMinor, pack.currency)}</b>
-                  <small>Server-priced pack</small>
-                </div>
+          {quote?.items?.length ? (
+            <div className="rf-voice-number-grid">
+              {quote.items.map((item) => (
+                <article className="rf-voice-number-card" key={item.phoneNumber}>
+                  <div className="rf-voice-number-card-main">
+                    <span className="rf-voice-number-badge">Local voice</span>
+                    <h3>{formatPhone(item.phoneNumber)}</h3>
+                    <p>
+                      {(item.regionInformation || [])
+                        .map((region) => region.name)
+                        .filter(Boolean)
+                        .slice(0, 2)
+                        .join(" · ") || "Voice-capable business number"}
+                    </p>
+                  </div>
+
+                  <div className="rf-voice-number-price">
+                    <small>Initial activation</small>
+                    <b>
+                      {formatMoneyMinorVoice(
+                        item.initialChargeMinor,
+                        item.currency
+                      )}
+                    </b>
+                    <span>
+                      Includes first provider month when returned by Telnyx
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn primary"
+                    disabled={Boolean(buyingNumber)}
+                    onClick={() => void buyNumber(item)}
+                  >
+                    {buyingNumber === item.phoneNumber
+                      ? "Opening secure checkout…"
+                      : "Choose this number"}
+                  </button>
+                </article>
+              ))}
+            </div>
+          ) : null}
+
+          {failedOrder ? (
+            <div className="rf-voice-inline-warning">
+              <span>
+                {failedOrder.error ||
+                  `Number order ${formatLabel(failedOrder.status)}.`}
+              </span>
+              {["provision_failed", "paid", "pending_activation"].includes(
+                normalizeStatus(failedOrder.status)
+              ) ? (
                 <button
                   type="button"
-                  className="btn primary"
-                  disabled={Boolean(buyingCredits)}
-                  onClick={() => void buyCallCredits(pack)}
+                  className="btn light"
+                  disabled={retryingOrder === failedOrder.id}
+                  onClick={() => void retryProvision(failedOrder.id)}
                 >
-                  {buyingCredits === pack.id
-                    ? "Opening checkout…"
-                    : "Buy call credits"}
+                  {retryingOrder === failedOrder.id
+                    ? "Retrying…"
+                    : "Retry provisioning"}
                 </button>
-              </article>
-            ))}
+              ) : null}
+            </div>
+          ) : null}
+
+          <small className="rf-voice-legal-note">
+            This checkout is for initial number activation. Automatic recurring
+            customer renewal billing is not enabled in this build.
+          </small>
+        </div>
+      ) : null}
+
+      {stage === "credits" ? (
+        <div className="rf-voice-wizard-body">
+          <div className="rf-voice-active-number">
+            <span>Business number active</span>
+            <b>{formatPhone(activeNumber?.phoneNumber)}</b>
           </div>
-        )}
-      </article>
+
+          <div className="rf-voice-wizard-note">
+            <b>Connected-call billing</b>
+            <span>
+              One dedicated AI call credit is charged only for a connected
+              conversation according to the server billing policy.
+            </span>
+          </div>
+
+          {!billing?.aiCalling?.canPurchase ? (
+            <div className="rf-voice-inline-warning">
+              Only the workspace owner or an administrator can buy AI call credits.
+            </div>
+          ) : !billing?.safepay?.configured ? (
+            <div className="rf-voice-inline-warning">
+              Secure payment checkout is not configured.
+            </div>
+          ) : !callPacks.length ? (
+            <div className="rf-voice-inline-warning">
+              No AI call-credit packs are currently active.
+            </div>
+          ) : (
+            <div className="rf-voice-credit-grid">
+              {callPacks.map((pack, index) => (
+                <article
+                  className={`rf-voice-credit-card ${index === 0 ? "recommended" : ""}`}
+                  key={pack.id}
+                >
+                  {index === 0 ? (
+                    <span className="rf-voice-number-badge">Best for testing</span>
+                  ) : null}
+                  <h3>{formatCreditsCompact(pack.credits)} calls</h3>
+                  <b>{formatMoneyMinorVoice(pack.amountMinor, pack.currency)}</b>
+                  <small>Dedicated AI calling wallet</small>
+                  <button
+                    type="button"
+                    className="btn primary"
+                    disabled={Boolean(buyingCredits)}
+                    onClick={() => void buyCallCredits(pack)}
+                  >
+                    {buyingCredits === pack.id
+                      ? "Opening secure checkout…"
+                      : "Buy call credits"}
+                  </button>
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      {stage === "done" ? (
+        <div className="rf-voice-wizard-body">
+          <div className="rf-voice-success-panel">
+            <span>✓</span>
+            <div>
+              <b>Calling activation is ready</b>
+              <p>Continue to the agent basics. Provider configuration stays hidden.</p>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
+
+
+function VoiceAgentGuidedWizard({
+  form,
+  voices,
+  recommendedVoice,
+  commerce,
+  billing,
+  saving,
+  analyzingWebsite,
+  onChange,
+  onAnalyzeWebsite,
+  onActivate,
+  onError,
+}) {
+  const [step, setStep] = useState(0);
+
+  const steps = [
+    { label: "Number", done: true },
+    { label: "Calls", done: true },
+    { label: "Agent", done: step > 0 },
+    { label: "Business", done: step > 1 },
+    { label: "Activate", done: false },
+  ];
+
+  const selectedVoice =
+    voices.find((voice) => voice.id === form.voice) ||
+    recommendedVoice ||
+    null;
+
+  const canContinueAgent =
+    Boolean(String(form.name || "").trim()) &&
+    Boolean(String(form.voice || "").trim());
+
+  function nextFromAgent() {
+    if (!canContinueAgent) {
+      onError?.("Choose an agent name and voice to continue.");
+      return;
+    }
+    onError?.("");
+    setStep(1);
+  }
+
+  function nextFromBusiness() {
+    onError?.("");
+    setStep(2);
+  }
+
+  async function activate() {
+    if (!form.complianceConfirmed) {
+      onError?.("Approve the calling and suppression policy before activation.");
+      return;
+    }
+
+    onError?.("");
+    await onActivate?.();
+  }
+
+  return (
+    <section className="rf-voice-wizard">
+      <div className="rf-voice-wizard-top">
+        <div>
+          <span className="rf-voice-wizard-kicker">Voice Agent setup</span>
+          <h2>
+            {step === 0
+              ? "Choose how your agent sounds"
+              : step === 1
+                ? "Add your business context"
+                : "Review and activate"}
+          </h2>
+          <p>
+            {step === 0
+              ? "ReachFly already knows your workspace. Only choose the customer-facing name and voice."
+              : step === 1
+                ? "Website and meeting details are optional. Add them only if you want the agent to use them."
+                : "Approve the calling policy and ReachFly will create and link the managed runtime."}
+          </p>
+        </div>
+        <span className="rf-voice-wizard-step-count">{step + 3} / 5</span>
+      </div>
+
+      <WizardProgress current={step + 2} items={steps} />
+
+      {step === 0 ? (
+        <div className="rf-voice-wizard-body">
+          <div className="rf-voice-summary-strip">
+            <div>
+              <small>Business number</small>
+              <b>{formatPhone(commerce?.activeNumber?.phoneNumber)}</b>
+            </div>
+            <div>
+              <small>AI call credits</small>
+              <b>{formatCreditsCompact(billing?.aiCalling?.wallet?.balance || 0)}</b>
+            </div>
+            <div>
+              <small>Company</small>
+              <b>{form.companyName || "Workspace company"}</b>
+            </div>
+          </div>
+
+          <div className="rf-voice-wizard-note">
+            <b>Provider setup is automatic</b>
+            <span>
+              Customers never choose ElevenLabs agent IDs, SIP trunks, provider
+              profiles, or phone-number IDs. ReachFly manages those per workspace.
+            </span>
+          </div>
+
+          <div className="rf-voice-essential-grid two">
+            <Field
+              label="Agent name"
+              value={form.name}
+              onChange={(value) => onChange("name", value)}
+              placeholder="James"
+            />
+
+            <label className="rf-agent-field">
+              <span>Voice</span>
+              <select
+                value={form.voice}
+                onChange={(event) => onChange("voice", event.target.value)}
+              >
+                {!voices.length ? (
+                  <option value={form.voice}>
+                    {selectedVoice?.name || "Managed voice"}
+                  </option>
+                ) : null}
+                {voices.map((voice) => (
+                  <option key={voice.id} value={voice.id}>
+                    {voice.name || voice.accent || voice.language || "Voice"}
+                  </option>
+                ))}
+              </select>
+              <small>
+                {selectedVoice?.name
+                  ? `${selectedVoice.name} is selected.`
+                  : "Choose the voice prospects will hear."}
+              </small>
+            </label>
+          </div>
+
+          <div className="rf-voice-wizard-actions end">
+            <button
+              type="button"
+              className="btn primary rf-voice-primary-action"
+              onClick={nextFromAgent}
+            >
+              Continue
+            </button>
+          </div>
+
+          <small className="rf-voice-legal-note">
+            Greeting, personality, turn-taking, call limits and other advanced
+            settings use ReachFly defaults and can be changed later.
+          </small>
+        </div>
+      ) : null}
+
+      {step === 1 ? (
+        <div className="rf-voice-wizard-body">
+          <div className="rf-voice-wizard-note">
+            <b>Optional business intelligence</b>
+            <span>
+              Add a website if you want ReachFly to learn services, customers,
+              proof points and objections before calls. Leave it blank to continue
+              with the safe default agent.
+            </span>
+          </div>
+
+          <div className="rf-voice-essential-grid two">
+            <Field
+              label="Company website (optional)"
+              value={form.websiteUrl}
+              onChange={(value) => onChange("websiteUrl", value)}
+              placeholder="https://yourcompany.com"
+            />
+            <Field
+              label="Meeting owner email (optional)"
+              value={form.calendarOwnerEmail}
+              onChange={(value) => onChange("calendarOwnerEmail", value)}
+              placeholder="sales@yourcompany.com"
+            />
+          </div>
+
+          {String(form.websiteUrl || "").trim() ? (
+            <div className="rf-voice-wizard-actions">
+              <button
+                type="button"
+                className="btn light"
+                disabled={analyzingWebsite}
+                onClick={onAnalyzeWebsite}
+              >
+                {analyzingWebsite
+                  ? "Analyzing website…"
+                  : form.websiteIntelligence?.analyzedAt
+                    ? "Website analyzed ✓"
+                    : "Analyze website now"}
+              </button>
+            </div>
+          ) : null}
+
+          <div className="rf-voice-wizard-actions split">
+            <button
+              type="button"
+              className="btn light"
+              onClick={() => setStep(0)}
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              className="btn primary rf-voice-primary-action"
+              disabled={analyzingWebsite}
+              onClick={nextFromBusiness}
+            >
+              {form.websiteUrl ? "Continue" : "Skip and continue"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {step === 2 ? (
+        <div className="rf-voice-wizard-body">
+          <div className="rf-voice-review-card">
+            <div>
+              <small>Agent</small>
+              <b>{form.name}</b>
+            </div>
+            <div>
+              <small>Company</small>
+              <b>{form.companyName}</b>
+            </div>
+            <div>
+              <small>Number</small>
+              <b>{formatPhone(commerce?.activeNumber?.phoneNumber)}</b>
+            </div>
+            <div>
+              <small>Calling wallet</small>
+              <b>{formatCreditsCompact(billing?.aiCalling?.wallet?.balance || 0)} credits</b>
+            </div>
+          </div>
+
+          <label className="rf-voice-policy-check">
+            <input
+              type="checkbox"
+              checked={Boolean(form.complianceConfirmed)}
+              onChange={(event) =>
+                onChange("complianceConfirmed", event.target.checked)
+              }
+            />
+            <span>
+              <b>Approve calling & suppression policy</b>
+              <small>
+                I confirm that this workspace will call permitted leads, respect
+                DNC/suppression requests, use approved calling windows and follow
+                applicable disclosure/recording requirements.
+              </small>
+            </span>
+          </label>
+
+          <label className="rf-voice-policy-check secondary">
+            <input
+              type="checkbox"
+              checked={Boolean(form.recordingEnabled)}
+              onChange={(event) =>
+                onChange("recordingEnabled", event.target.checked)
+              }
+            />
+            <span>
+              <b>Enable call recording</b>
+              <small>
+                Optional. Enable only when your consent and disclosure policy allows it.
+              </small>
+            </span>
+          </label>
+
+          <div className="rf-voice-wizard-actions split">
+            <button
+              type="button"
+              className="btn light"
+              disabled={saving}
+              onClick={() => setStep(1)}
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              className="btn primary rf-voice-primary-action"
+              disabled={!form.complianceConfirmed || saving || analyzingWebsite}
+              onClick={() => void activate()}
+            >
+              {saving ? "Creating your Voice Agent…" : "Activate Voice Agent"}
+            </button>
+          </div>
+
+          <small className="rf-voice-legal-note">
+            ReachFly creates and links the workspace-managed provider agent in the
+            background. Provider credentials and IDs are never requested from the customer.
+          </small>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function WizardProgress({ current = 0, items = [] }) {
+  return (
+    <div className="rf-voice-progress" aria-label="Voice Agent setup progress">
+      {items.map((item, index) => (
+        <div
+          className={`rf-voice-progress-item ${
+            item.done ? "done" : index === current ? "current" : ""
+          }`}
+          key={item.label}
+        >
+          <span>{item.done ? "✓" : index + 1}</span>
+          <small>{item.label}</small>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 
 function VoiceAgentOnboardingGuide({
   state,
