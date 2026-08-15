@@ -232,9 +232,7 @@ export default function Marketing() {
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <span className="cu-kicker-v2">
-              Autonomous sales execution
-            </span>
+   
 
             <h1>
               One sales operator that can call, follow up, book meetings, and
