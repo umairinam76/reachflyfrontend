@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiRequest } from "../lib/workspace-platform-client.js";
-import "../styles.css";
+import "../styles/codesync-admin.css";
 
 const PLATFORM_OWNER_EMAIL = "owner@codesynclabs.com";
 
@@ -38,7 +38,7 @@ export default function CodesyncAdminPage() {
     } catch (requestError) {
       setErrorStatus(Number(requestError?.status || 0));
       setError(
-        requestError?.message || "Platform admin data could not be loaded."
+        requestError?.message || "Codesync dashboard data could not be loaded."
       );
     } finally {
       setLoading(false);
@@ -236,7 +236,7 @@ export default function CodesyncAdminPage() {
   if (loading) {
     return (
       <main className="cs-admin-page">
-        <div className="cs-admin-loading">Loading platform owner dashboard…</div>
+        <div className="cs-admin-loading">Loading Codesync dashboard…</div>
       </main>
     );
   }
@@ -245,8 +245,8 @@ export default function CodesyncAdminPage() {
     return (
       <main className="cs-admin-page">
         <section className="cs-admin-panel cs-admin-danger-panel">
-          <span>Restricted platform operations</span>
-          <h1>Platform Admin</h1>
+          <span>CodeSync Labs · restricted dashboard</span>
+          <h1>Dashboard</h1>
           <p>
             {errorStatus ? `HTTP ${errorStatus}: ${error}` : error}
           </p>
@@ -255,7 +255,7 @@ export default function CodesyncAdminPage() {
             control plane.
           </p>
           <button type="button" onClick={() => void load()}>
-            Retry platform admin
+            Retry dashboard
           </button>
         </section>
       </main>
@@ -266,8 +266,8 @@ export default function CodesyncAdminPage() {
     <main className="cs-admin-page">
       <header className="cs-admin-hero">
         <div>
-          <span>CodeSync Labs · platform owner only</span>
-          <h1>Platform Admin</h1>
+          <span>CodeSync Labs · owner dashboard</span>
+          <h1>Dashboard</h1>
           <p>
             Company subscriptions, live payments, general and AI-call credit
             usage, user access control, and platform activity. Backend access is
@@ -281,7 +281,7 @@ export default function CodesyncAdminPage() {
 
       {error ? (
         <section className="cs-admin-alert error">
-          <strong>Admin action warning</strong>
+          <strong>Dashboard action warning</strong>
           <span>{errorStatus ? `HTTP ${errorStatus}: ${error}` : error}</span>
           <button type="button" onClick={() => setError("")}>×</button>
         </section>
@@ -294,7 +294,7 @@ export default function CodesyncAdminPage() {
         </section>
       ) : null}
 
-      <nav className="cs-admin-tabs" aria-label="Platform admin sections">
+      <nav className="cs-admin-tabs" aria-label="Codesync dashboard sections">
         {TABS.map(([value, label]) => (
           <button
             key={value}

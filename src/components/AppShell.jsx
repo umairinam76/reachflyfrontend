@@ -17,7 +17,7 @@ import { api } from "../api";
 import { useAuth } from "../auth/AuthContext";
 
 import BrandLogo from "./BrandLogo";
-import "../styles.css";
+import "../voice-agent-sidebar-tree.css";
 
 import {
   BarChart3,
@@ -72,6 +72,7 @@ const CALLER_ROLES = new Set([
 ]);
 
 const PLATFORM_OWNER_EMAIL = "owner@codesynclabs.com";
+const CODESYNC_WORKSPACE_ID = "codesync-labs-workspace";
 
 export default function AppShell() {
   const location = useLocation();
@@ -128,6 +129,59 @@ export default function AppShell() {
       .trim()
       .toLowerCase() ===
     PLATFORM_OWNER_EMAIL;
+
+  const isCodesyncLabsWorkspace =
+    useMemo(() => {
+      const values = [
+        user?.workspaceId,
+        user?.companyId,
+        user?.workspaceSlug,
+        user?.companySlug,
+        user?.workspaceName,
+        user?.companyName,
+      ]
+        .filter(Boolean)
+        .map((value) =>
+          String(value)
+            .trim()
+            .toLowerCase()
+            .replace(/[\s-]+/g, "_")
+        );
+
+      const codesyncIds = new Set([
+        CODESYNC_WORKSPACE_ID.replace(/[\s-]+/g, "_"),
+        "codesync_labs",
+        "codesynclabs",
+        "codesync_labs_workspace",
+      ]);
+
+      return values.some(
+        (value) =>
+          codesyncIds.has(value) ||
+          value.startsWith("codesync_labs_")
+      );
+    }, [
+      user?.workspaceId,
+      user?.companyId,
+      user?.workspaceSlug,
+      user?.companySlug,
+      user?.workspaceName,
+      user?.companyName,
+    ]);
+
+  /*
+   * Codesync's existing platform-owner control plane becomes the primary
+   * Dashboard experience. The route and backend permissions stay unchanged;
+   * only navigation/presentation changes.
+   */
+  const useCodesyncPlatformDashboard =
+    isCodesyncLabsWorkspace &&
+    isPlatformOwner;
+
+  const dashboardHomePath =
+    useCodesyncPlatformDashboard
+      ? "/app/platform-admin"
+      : "/app/dashboard";
 
   const canManageWorkspace =
     isOwner ||
@@ -507,10 +561,12 @@ export default function AppShell() {
         items: [
           {
             label: "Dashboard",
-            to: "/app/dashboard",
+            to: dashboardHomePath,
             icon: LayoutDashboard,
-            matchPrefix:
-              "/app/dashboard",
+            matchPrefixes:
+              useCodesyncPlatformDashboard
+                ? ["/app/platform-admin"]
+                : ["/app/dashboard"],
             visible: true,
           },
 
@@ -969,7 +1025,9 @@ export default function AppShell() {
             to: "/app/platform-admin",
             icon: Building2,
             matchPrefix: "/app/platform-admin",
-            visible: isPlatformOwner,
+            visible:
+              isPlatformOwner &&
+              !isCodesyncLabsWorkspace,
           },
         ],
       });
@@ -1001,6 +1059,9 @@ export default function AppShell() {
       isCaller,
       isManager,
       isPlatformOwner,
+      isCodesyncLabsWorkspace,
+      useCodesyncPlatformDashboard,
+      dashboardHomePath,
     ]);
 
   function handleSearchSubmit(
@@ -1076,7 +1137,7 @@ export default function AppShell() {
         <div className="sb-brand">
           <Link
             className="sb-logo"
-            to="/app/dashboard"
+            to={dashboardHomePath}
             onClick={() =>
               setSidebarOpen(false)
             }
@@ -1085,7 +1146,7 @@ export default function AppShell() {
           </Link>
 
           <Link
-            to="/app/dashboard"
+            to={dashboardHomePath}
             className="sb-brand-copy"
             onClick={() =>
               setSidebarOpen(false)
