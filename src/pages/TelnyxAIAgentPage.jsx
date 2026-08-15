@@ -22,7 +22,7 @@ import {
 } from "../lib/workspace-platform-client.js";
 
 import "../styles.css";
-import "../voice-agent-onboarding-wizard.css";
+// import "../voice-agent-onboarding-wizard.css";
 
 const FAST_HUMAN_GREETING =
   "Hey {{greeting_name}}, James from {{company_name}}. Quick disclosure — I’m an AI sales agent with the team, and this call may be recorded. I’ll keep it brief. I was curious... is your website consistently turning visitors into real sales conversations, or do too many people land there and leave without ever becoming a lead?";
