@@ -17,7 +17,7 @@ import { api } from "../api";
 import { useAuth } from "../auth/AuthContext";
 
 import BrandLogo from "./BrandLogo";
-import "../styles/voice-agent-sidebar-tree.css";
+import "../styles.css";
 
 import {
   BarChart3,
