@@ -74,9 +74,8 @@ import CreditsBillingPage from "./pages/CreditsBillingPage";
 import AIWorkforcePage from "./pages/AIWorkforcePage";
 import VoiceCommerceStorePage from "./pages/VoiceCommerceStorePage";
 import ConnectionsPage from "./pages/ConnectionsPage";
-import "./styles/reachfly-v6-command-center.css";
-import "./styles/launch-qa-fixes.css";
-import "./styles/voice-lead-queue-premium-v5.5.css";
+
+import "./styles.css";
 
 /**
  * Routes rendered inside AuthProvider.
