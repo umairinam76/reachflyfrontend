@@ -68350,3 +68350,2175 @@ main a[href="/app/launch-campaign"] {
     flex-basis: 52px !important;
   }
 }
+/* ==========================================================================
+   REACHFLY VOICE STUDIO — DESIGNER RESET V3
+   --------------------------------------------------------------------------
+   ADD THIS AT THE ABSOLUTE END OF styles.css
+
+   Goals:
+   - remove the ugly nested page/pane scrolling
+   - create one intentional voice-library scroll area
+   - richer premium visual hierarchy
+   - simplify filters to essential controls
+   - make Agent + Voice feel like a creative voice studio
+   - keep Languages clearly separated
+   - make Previous / Next obvious
+   - preserve existing JSX/functionality
+   ========================================================================== */
+
+
+/* ==========================================================================
+   1. VOICE PAGE — BETTER LIGHT ENVIRONMENT
+   ========================================================================== */
+
+.rf-agent-page {
+  --vs-ink: #17162d;
+  --vs-ink-soft: #35334a;
+  --vs-muted: #7b7890;
+  --vs-dim: #a09bad;
+
+  --vs-violet: #7057f5;
+  --vs-purple: #7c3aed;
+  --vs-indigo: #5856e8;
+  --vs-pink: #e748b5;
+  --vs-blue: #4c8dff;
+  --vs-mint: #18ad7b;
+
+  --vs-line: rgba(79, 65, 132, 0.11);
+  --vs-line-strong: rgba(102, 77, 187, 0.18);
+
+  --vs-white: #ffffff;
+  --vs-surface: #fbfaff;
+  --vs-soft: #f7f5fc;
+
+  position: relative;
+
+  padding: 16px 22px 30px !important;
+
+  background:
+    radial-gradient(
+      circle at 84% 4%,
+      rgba(121, 92, 246, 0.085),
+      transparent 25rem
+    ),
+    radial-gradient(
+      circle at 54% 23%,
+      rgba(231, 72, 181, 0.045),
+      transparent 27rem
+    ),
+    linear-gradient(
+      180deg,
+      #fbfbff 0%,
+      #f8f7fc 58%,
+      #f7f7fb 100%
+    ) !important;
+}
+
+
+/* ==========================================================================
+   2. PAGE HEADER — CLEANER, STRONGER
+   ========================================================================== */
+
+.rf-agent-page .rf-agent-header {
+  margin-bottom: 12px !important;
+}
+
+.rf-agent-page .rf-agent-header h1 {
+  color: var(--vs-ink) !important;
+
+  font-size: clamp(29px, 3vw, 40px) !important;
+  font-weight: 850 !important;
+  letter-spacing: -0.055em !important;
+}
+
+.rf-agent-page .rf-agent-header .eyebrow {
+  color: #6548df !important;
+
+  border-color: rgba(112, 87, 245, 0.18) !important;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(112, 87, 245, 0.09),
+      rgba(231, 72, 181, 0.055)
+    ) !important;
+}
+
+
+/* ==========================================================================
+   3. TOP METRICS — LESS BORING WHITE BOXES
+   ========================================================================== */
+
+.rf-agent-page .rf-agent-metrics {
+  gap: 10px !important;
+}
+
+.rf-agent-page .rf-agent-metric {
+  position: relative;
+
+  min-height: 72px !important;
+
+  overflow: hidden;
+
+  padding: 11px 14px !important;
+
+  border: 1px solid rgba(80, 66, 127, 0.105) !important;
+  border-radius: 15px !important;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.98),
+      rgba(249, 248, 253, 0.97)
+    ) !important;
+
+  box-shadow:
+    0 9px 25px rgba(44, 31, 80, 0.045) !important;
+}
+
+.rf-agent-page .rf-agent-metric::before {
+  content: "";
+
+  position: absolute;
+
+  left: 0;
+  top: 0;
+
+  width: 100%;
+  height: 2px;
+
+  opacity: 0.72;
+
+  background:
+    linear-gradient(
+      90deg,
+      #7557f6,
+      #ac56ed,
+      #e549b2
+    );
+}
+
+.rf-agent-page .rf-agent-metric:nth-child(2)::before {
+  background:
+    linear-gradient(
+      90deg,
+      #5b7cf7,
+      #7057f5
+    );
+}
+
+.rf-agent-page .rf-agent-metric:nth-child(3)::before {
+  background:
+    linear-gradient(
+      90deg,
+      #16b98b,
+      #48cdb2
+    );
+}
+
+.rf-agent-page .rf-agent-metric:nth-child(4)::before {
+  background:
+    linear-gradient(
+      90deg,
+      #e548a7,
+      #f08a72
+    );
+}
+
+.rf-agent-page .rf-agent-metric b {
+  color: #1e1b38 !important;
+
+  font-size: 24px !important;
+}
+
+
+/* ==========================================================================
+   4. RUNTIME STRIP
+   ========================================================================== */
+
+.rf-agent-page .rf-agent-provider-card {
+  min-height: 55px;
+
+  border: 1px solid rgba(112, 87, 245, 0.16) !important;
+  border-radius: 15px !important;
+
+  background:
+    radial-gradient(
+      circle at 100% 0,
+      rgba(112, 87, 245, 0.07),
+      transparent 18rem
+    ),
+    rgba(255, 255, 255, 0.94) !important;
+
+  box-shadow:
+    0 9px 28px rgba(49, 35, 91, 0.045) !important;
+}
+
+.rf-agent-page .rf-agent-provider-logo {
+  background:
+    linear-gradient(
+      145deg,
+      #6352eb,
+      #7d48ec
+    ) !important;
+
+  box-shadow:
+    0 7px 18px rgba(102, 71, 224, 0.23);
+}
+
+
+/* ==========================================================================
+   5. PRIMARY TABS
+   ========================================================================== */
+
+.rf-agent-page .rf-agent-tabs {
+  width: max-content;
+
+  margin: 10px 0 12px !important;
+
+  padding: 4px !important;
+
+  border: 1px solid rgba(74, 63, 112, 0.1) !important;
+  border-radius: 14px !important;
+
+  background: rgba(255, 255, 255, 0.86) !important;
+
+  box-shadow:
+    0 8px 22px rgba(42, 31, 74, 0.04) !important;
+
+  backdrop-filter: blur(14px);
+}
+
+.rf-agent-page .rf-agent-tabs button {
+  min-height: 35px !important;
+
+  padding: 0 16px !important;
+
+  border-radius: 10px !important;
+
+  color: #777287 !important;
+
+  font-size: 9px !important;
+  font-weight: 800 !important;
+}
+
+.rf-agent-page .rf-agent-tabs button.active {
+  color: #fff !important;
+
+  background:
+    linear-gradient(
+      135deg,
+      #6654ec,
+      #774af0 55%,
+      #b64bdc
+    ) !important;
+
+  box-shadow:
+    0 7px 17px rgba(103, 76, 231, 0.22) !important;
+}
+
+
+/* ==========================================================================
+   6. CRITICAL FIX — REMOVE THE BAD GLOBAL WIZARD HEIGHT
+   ========================================================================== */
+
+.rf-agent-page .rf-voice-setup-shell {
+  width: 100% !important;
+  max-width: none !important;
+
+  /*
+    IMPORTANT:
+    Previous CSS constrained the ENTIRE wizard to viewport height.
+    That caused the compressed / cropped stage.
+  */
+  max-height: none !important;
+  height: auto !important;
+
+  display: block !important;
+
+  overflow: visible !important;
+
+  margin: 0 !important;
+
+  border:
+    1px solid rgba(105, 80, 190, 0.13) !important;
+
+  border-radius: 27px !important;
+
+  background:
+    radial-gradient(
+      circle at 93% 2%,
+      rgba(114, 82, 245, 0.12),
+      transparent 27rem
+    ),
+    radial-gradient(
+      circle at 7% 10%,
+      rgba(231, 72, 181, 0.055),
+      transparent 24rem
+    ),
+    linear-gradient(
+      180deg,
+      #fbfaff 0%,
+      #f8f6fd 100%
+    ) !important;
+
+  box-shadow:
+    0 26px 75px rgba(44, 29, 83, 0.09),
+    0 2px 8px rgba(39, 28, 70, 0.025) !important;
+}
+
+.rf-agent-page .rf-voice-setup-shell::before {
+  opacity: 0.11 !important;
+}
+
+
+/* ==========================================================================
+   7. WIZARD HERO — MORE PERSONALITY
+   ========================================================================== */
+
+.rf-agent-page .rf-voice-setup-hero {
+  position: relative;
+
+  grid-template-columns:
+    minmax(0, 1fr)
+    165px !important;
+
+  gap: 24px !important;
+
+  align-items: center !important;
+
+  padding: 21px 25px 15px !important;
+}
+
+.rf-agent-page .rf-voice-setup-hero::after {
+  content: "";
+
+  position: absolute;
+
+  width: 270px;
+  height: 270px;
+
+  right: 80px;
+  top: -190px;
+
+  border-radius: 50%;
+
+  pointer-events: none;
+
+  background:
+    radial-gradient(
+      circle,
+      rgba(134, 92, 246, 0.10),
+      transparent 66%
+    );
+}
+
+.rf-agent-page .rf-voice-setup-hero h2 {
+  max-width: 700px !important;
+
+  margin: 5px 0 5px !important;
+
+  color: #17152c !important;
+
+  font-size: clamp(25px, 2.7vw, 34px) !important;
+  font-weight: 850 !important;
+  line-height: 1.02 !important;
+  letter-spacing: -0.055em !important;
+}
+
+.rf-agent-page .rf-voice-setup-hero p {
+  max-width: 720px !important;
+
+  color: #777387 !important;
+
+  font-size: 10.5px !important;
+  line-height: 1.5 !important;
+}
+
+
+/* kicker */
+
+.rf-agent-page .rf-voice-wizard-kicker {
+  min-height: 24px !important;
+
+  padding: 0 9px !important;
+
+  border-color:
+    rgba(106, 79, 231, 0.17) !important;
+
+  color: #6749dd !important;
+
+  background:
+    rgba(116, 83, 237, 0.065) !important;
+
+  font-size: 7px !important;
+}
+
+
+/* ==========================================================================
+   8. CALL CREDIT — TURN IT INTO A REAL PRODUCT ELEMENT
+   ========================================================================== */
+
+.rf-agent-page .rf-voice-credit-orb {
+  position: relative;
+
+  min-height: 82px !important;
+
+  overflow: hidden;
+
+  padding: 12px 15px !important;
+
+  border:
+    1px solid rgba(255, 255, 255, 0.26) !important;
+
+  border-radius: 19px !important;
+
+  color: #fff !important;
+
+  background:
+    radial-gradient(
+      circle at 8% 100%,
+      rgba(255, 255, 255, 0.18),
+      transparent 42%
+    ),
+    radial-gradient(
+      circle at 86% 12%,
+      rgba(244, 104, 204, 0.34),
+      transparent 42%
+    ),
+    linear-gradient(
+      135deg,
+      #674de9,
+      #8244ea 55%,
+      #dd44b3
+    ) !important;
+
+  box-shadow:
+    0 15px 35px rgba(111, 66, 224, 0.25) !important;
+}
+
+.rf-agent-page .rf-voice-credit-orb span,
+.rf-agent-page .rf-voice-credit-orb small {
+  color: rgba(255, 255, 255, 0.78) !important;
+}
+
+.rf-agent-page .rf-voice-credit-orb strong {
+  color: #fff !important;
+
+  font-size: 27px !important;
+}
+
+
+/* ==========================================================================
+   9. SIX STEPS — CLEAN JOURNEY BAR
+   ========================================================================== */
+
+.rf-agent-page .rf-voice-setup-progress.six,
+.rf-agent-page .rf-voice-setup-progress {
+  gap: 7px !important;
+
+  padding: 0 25px 14px !important;
+}
+
+.rf-agent-page .rf-voice-setup-progress button {
+  min-height: 51px !important;
+
+  padding: 7px 9px !important;
+
+  border:
+    1px solid rgba(76, 66, 111, 0.09) !important;
+
+  border-radius: 13px !important;
+
+  color: #625f72 !important;
+
+  background:
+    rgba(255, 255, 255, 0.72) !important;
+
+  transition:
+    transform 0.17s ease,
+    border-color 0.17s ease,
+    box-shadow 0.17s ease,
+    background 0.17s ease !important;
+}
+
+.rf-agent-page .rf-voice-setup-progress button > span {
+  width: 30px !important;
+  height: 30px !important;
+
+  border-radius: 9px !important;
+
+  color: #777189 !important;
+
+  border:
+    1px solid rgba(87, 72, 131, 0.14);
+
+  background: #fbfaff;
+}
+
+.rf-agent-page .rf-voice-setup-progress button.current {
+  border-color:
+    rgba(111, 80, 237, 0.32) !important;
+
+  color: #5537ce !important;
+
+  background:
+    linear-gradient(
+      135deg,
+      #ffffff,
+      #f4f0ff
+    ) !important;
+
+  box-shadow:
+    0 8px 22px rgba(105, 74, 218, 0.10) !important;
+}
+
+.rf-agent-page
+.rf-voice-setup-progress
+button.current > span {
+  border-color: transparent !important;
+
+  color: #fff !important;
+
+  background:
+    linear-gradient(
+      135deg,
+      #6953ec,
+      #8a45e9,
+      #d747b4
+    ) !important;
+
+  box-shadow:
+    0 6px 14px rgba(105, 76, 225, 0.24);
+}
+
+.rf-agent-page .rf-voice-setup-progress button.done {
+  color: #177c5b !important;
+
+  border-color:
+    rgba(24, 173, 123, 0.16) !important;
+
+  background:
+    linear-gradient(
+      135deg,
+      #f2fff9,
+      #edf9f5
+    ) !important;
+}
+
+.rf-agent-page
+.rf-voice-setup-progress
+button.done > span {
+  color: #fff !important;
+
+  border-color: #18ad7b !important;
+
+  background: #18ad7b !important;
+}
+
+
+/* ==========================================================================
+   10. STEP CARD — REMOVE INTERNAL PAGE SCROLL
+   ========================================================================== */
+
+.rf-agent-page .rf-voice-setup-stage {
+  min-height: 0 !important;
+  height: auto !important;
+
+  display: block !important;
+
+  margin: 0 14px 14px !important;
+
+  overflow: visible !important;
+
+  border:
+    1px solid rgba(76, 63, 119, 0.11) !important;
+
+  border-radius: 21px !important;
+
+  background:
+    rgba(255, 255, 255, 0.97) !important;
+
+  box-shadow:
+    0 18px 48px rgba(42, 29, 77, 0.065) !important;
+}
+
+
+/* ==========================================================================
+   11. STEP HEADING
+   ========================================================================== */
+
+.rf-agent-page .rf-voice-setup-stage-head {
+  min-height: 77px;
+
+  padding: 14px 19px 12px !important;
+
+  border-bottom:
+    1px solid rgba(77, 66, 112, 0.08);
+
+  background:
+    linear-gradient(
+      135deg,
+      #ffffff 0%,
+      #fdfcff 58%,
+      #faf7ff 100%
+    );
+}
+
+.rf-agent-page
+.rf-voice-setup-stage-head
+> div
+> span {
+  color: #7254eb !important;
+
+  font-size: 7px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.09em !important;
+}
+
+.rf-agent-page .rf-voice-setup-stage-head h3 {
+  margin: 3px 0 3px !important;
+
+  color: #18162d !important;
+
+  font-size: clamp(18px, 1.8vw, 22px) !important;
+  font-weight: 850 !important;
+  letter-spacing: -0.035em !important;
+}
+
+.rf-agent-page .rf-voice-setup-stage-head p {
+  max-width: 790px !important;
+
+  margin: 0 !important;
+
+  overflow: visible !important;
+
+  color: #898496 !important;
+
+  font-size: 9px !important;
+  line-height: 1.45 !important;
+
+  text-overflow: unset !important;
+  white-space: normal !important;
+}
+
+.rf-agent-page .rf-voice-setup-step-number {
+  color:
+    rgba(112, 82, 239, 0.15) !important;
+
+  font-size: 30px !important;
+  font-weight: 900 !important;
+}
+
+
+/* ==========================================================================
+   12. CRITICAL FIX — THE PANE DOES NOT SCROLL ANYMORE
+   ========================================================================== */
+
+.rf-agent-page .rf-voice-setup-pane {
+  min-height: 0 !important;
+  height: auto !important;
+  max-height: none !important;
+
+  overflow: visible !important;
+
+  padding: 16px 18px 14px !important;
+
+  scrollbar-width: auto !important;
+}
+
+
+/* remove old pane scrollbar */
+
+.rf-agent-page
+.rf-voice-setup-pane::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+}
+
+
+/* ==========================================================================
+   13. AGENT + VOICE = "VOICE STUDIO"
+   ========================================================================== */
+
+@media (min-width: 1050px) {
+
+  .rf-agent-page
+  .rf-voice-setup-pane:has(> .rf-voice-identity-stack) {
+    display: grid !important;
+
+    grid-template-columns:
+      minmax(0, 1.22fr)
+      minmax(330px, 0.78fr) !important;
+
+    grid-template-areas:
+      "voice language"
+      "voice summary";
+
+    gap: 14px 16px !important;
+
+    align-items: start !important;
+  }
+
+  .rf-agent-page
+  .rf-voice-setup-pane:has(> .rf-voice-identity-stack)
+  > .rf-voice-identity-stack {
+    grid-area: voice;
+  }
+
+  .rf-agent-page
+  .rf-voice-setup-pane:has(> .rf-voice-identity-stack)
+  > .rf-voice-language-panel {
+    grid-area: language;
+  }
+
+  .rf-agent-page
+  .rf-voice-setup-pane:has(> .rf-voice-identity-stack)
+  > .rf-voice-summary-strip {
+    grid-area: summary;
+  }
+}
+
+
+/* ==========================================================================
+   14. VOICE STUDIO LEFT CARD
+   ========================================================================== */
+
+.rf-agent-page .rf-voice-identity-stack {
+  min-width: 0;
+
+  display: grid !important;
+
+  gap: 10px !important;
+
+  padding: 13px !important;
+
+  border:
+    1px solid rgba(105, 81, 186, 0.11);
+
+  border-radius: 17px;
+
+  background:
+    radial-gradient(
+      circle at 0 0,
+      rgba(113, 82, 240, 0.07),
+      transparent 17rem
+    ),
+    linear-gradient(
+      180deg,
+      #ffffff,
+      #fcfbff
+    );
+
+  box-shadow:
+    0 9px 28px rgba(41, 29, 74, 0.04);
+}
+
+
+/* compact agent-name row */
+
+.rf-agent-page
+.rf-voice-identity-stack
+> .rf-agent-field:first-child {
+  display: grid !important;
+
+  grid-template-columns:
+    78px minmax(0, 1fr);
+
+  gap: 9px !important;
+
+  align-items: center;
+}
+
+.rf-agent-page
+.rf-voice-identity-stack
+> .rf-agent-field:first-child
+> span {
+  margin: 0 !important;
+
+  color: #6f6879 !important;
+
+  font-size: 8px !important;
+}
+
+.rf-agent-page
+.rf-voice-identity-stack
+> .rf-agent-field:first-child
+input {
+  height: 35px !important;
+
+  border-radius: 9px !important;
+
+  background: #fbfafe !important;
+}
+
+
+/* Voice label */
+
+.rf-agent-page .rf-voice-picker-field > span {
+  color: #4b4556 !important;
+
+  font-size: 8px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+
+/* ==========================================================================
+   15. SELECTED VOICE — FEATURED ARTIST
+   ========================================================================== */
+
+.rf-agent-page .rf-selected-voice-summary {
+  min-height: 75px !important;
+
+  grid-template-columns:
+    auto minmax(0, 1fr) auto !important;
+
+  gap: 11px !important;
+
+  align-items: center !important;
+
+  padding: 9px 11px !important;
+
+  border:
+    1px solid rgba(113, 80, 239, 0.20) !important;
+
+  border-radius: 15px !important;
+
+  background:
+    radial-gradient(
+      circle at 0 40%,
+      rgba(119, 82, 242, 0.12),
+      transparent 110px
+    ),
+    radial-gradient(
+      circle at 100% 100%,
+      rgba(229, 66, 177, 0.07),
+      transparent 125px
+    ),
+    linear-gradient(
+      135deg,
+      #fbf9ff,
+      #ffffff
+    ) !important;
+
+  box-shadow:
+    0 8px 21px rgba(75, 48, 138, 0.055);
+}
+
+.rf-agent-page
+.rf-selected-voice-summary
+> div
+> span {
+  color: #8062ea !important;
+
+  font-size: 6.5px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase;
+}
+
+.rf-agent-page
+.rf-selected-voice-summary strong {
+  display: block;
+
+  margin-top: 2px;
+
+  color: #231e34 !important;
+
+  font-size: 11.5px !important;
+  font-weight: 850 !important;
+}
+
+.rf-agent-page
+.rf-selected-voice-summary small {
+  display: block;
+
+  margin-top: 2px;
+
+  overflow: hidden;
+
+  color: #847d8f !important;
+
+  font-size: 7.5px !important;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+/* preview button */
+
+.rf-agent-page .rf-voice-preview-main {
+  min-height: 35px !important;
+
+  padding: 0 11px !important;
+
+  border:
+    1px solid rgba(111, 78, 227, 0.18) !important;
+
+  border-radius: 10px !important;
+
+  color: #6545d9 !important;
+
+  background:
+    rgba(255, 255, 255, 0.88) !important;
+
+  box-shadow:
+    0 5px 14px rgba(78, 50, 137, 0.06);
+
+  font-size: 7px !important;
+  font-weight: 850 !important;
+}
+
+
+/* ==========================================================================
+   16. BIGGER / BETTER ARTIST AVATAR
+   ========================================================================== */
+
+.rf-agent-page .rf-voice-avatar {
+  width: 51px !important;
+  height: 51px !important;
+  flex: 0 0 51px !important;
+
+  border-radius: 15px !important;
+
+  border:
+    2px solid rgba(255, 255, 255, 0.92) !important;
+
+  outline:
+    1px solid rgba(102, 76, 212, 0.16);
+
+  box-shadow:
+    0 8px 20px rgba(78, 48, 142, 0.15) !important;
+}
+
+.rf-agent-page .rf-voice-avatar.large {
+  width: 57px !important;
+  height: 57px !important;
+  flex: 0 0 57px !important;
+
+  border-radius: 16px !important;
+}
+
+
+/* ==========================================================================
+   17. ESSENTIAL VOICE FILTERS ONLY
+   Search + Language + Accent remain visible.
+   Age and niche remain searchable from the text search.
+   ========================================================================== */
+
+.rf-agent-page .rf-voice-library-toolbar {
+  grid-template-columns:
+    minmax(200px, 1.5fr)
+    minmax(100px, 0.65fr)
+    minmax(100px, 0.65fr) !important;
+
+  gap: 7px !important;
+
+  padding: 7px !important;
+
+  border:
+    1px solid rgba(83, 69, 128, 0.08);
+
+  border-radius: 11px !important;
+
+  background:
+    #f8f7fb !important;
+}
+
+
+/* Hide Age + Niche filters to reduce clutter */
+
+.rf-agent-page
+.rf-voice-library-toolbar
+> label:nth-child(4),
+
+.rf-agent-page
+.rf-voice-library-toolbar
+> label:nth-child(5) {
+  display: none !important;
+}
+
+.rf-agent-page
+.rf-voice-library-toolbar
+label > span {
+  display: none !important;
+}
+
+.rf-agent-page
+.rf-voice-library-toolbar
+input,
+
+.rf-agent-page
+.rf-voice-library-toolbar
+select {
+  height: 34px !important;
+
+  padding: 0 9px !important;
+
+  border:
+    1px solid rgba(91, 75, 137, 0.12) !important;
+
+  border-radius: 9px !important;
+
+  color: #504a5d !important;
+
+  background: #fff !important;
+
+  font-size: 8px !important;
+}
+
+
+/* ==========================================================================
+   18. SMALL LIBRARY META
+   ========================================================================== */
+
+.rf-agent-page .rf-voice-library-meta {
+  min-height: 20px !important;
+
+  padding: 0 2px;
+
+  color: #96909e !important;
+
+  font-size: 7px !important;
+}
+
+.rf-agent-page .rf-voice-library-meta button {
+  color: #7254e4 !important;
+
+  font-size: 7px !important;
+}
+
+
+/* ==========================================================================
+   19. THE ONLY INTENTIONAL VERTICAL SCROLL:
+       THE VOICE LIBRARY
+   ========================================================================== */
+
+.rf-agent-page .rf-voice-card-grid {
+  max-height: 248px !important;
+
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr)) !important;
+
+  gap: 7px !important;
+
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+
+  padding:
+    2px 6px 2px 2px !important;
+
+  scrollbar-width: thin;
+
+  scrollbar-color:
+    rgba(113, 82, 224, 0.35)
+    rgba(111, 83, 175, 0.05);
+
+  scrollbar-gutter: stable;
+
+  overscroll-behavior: contain;
+}
+
+
+/* beautiful narrow scrollbar */
+
+.rf-agent-page
+.rf-voice-card-grid::-webkit-scrollbar {
+  width: 5px !important;
+}
+
+.rf-agent-page
+.rf-voice-card-grid::-webkit-scrollbar-track {
+  border-radius: 999px;
+
+  background:
+    rgba(88, 69, 133, 0.045);
+}
+
+.rf-agent-page
+.rf-voice-card-grid::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+
+  background:
+    linear-gradient(
+      #8464ee,
+      #c455da
+    );
+}
+
+
+/* ==========================================================================
+   20. VOICE CARDS — ARTIST COLLECTION
+   ========================================================================== */
+
+.rf-agent-page .rf-voice-card {
+  min-width: 0;
+  min-height: 78px !important;
+
+  padding: 7px !important;
+
+  border:
+    1px solid rgba(75, 64, 108, 0.10) !important;
+
+  border-radius: 13px !important;
+
+  background:
+    linear-gradient(
+      145deg,
+      #ffffff 0%,
+      #fbfafe 100%
+    ) !important;
+
+  box-shadow:
+    0 5px 15px rgba(43, 30, 77, 0.035) !important;
+
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease !important;
+}
+
+.rf-agent-page .rf-voice-card:hover {
+  transform: translateY(-1px);
+
+  border-color:
+    rgba(111, 79, 227, 0.22) !important;
+
+  box-shadow:
+    0 10px 22px rgba(65, 42, 119, 0.085) !important;
+}
+
+.rf-agent-page .rf-voice-card.selected {
+  border-color:
+    rgba(111, 79, 230, 0.36) !important;
+
+  background:
+    linear-gradient(
+      145deg,
+      #faf7ff,
+      #ffffff
+    ) !important;
+
+  box-shadow:
+    0 9px 24px rgba(96, 63, 197, 0.11) !important;
+}
+
+.rf-agent-page .rf-voice-card-select {
+  min-width: 0;
+
+  gap: 8px !important;
+}
+
+.rf-agent-page .rf-voice-card-copy {
+  min-width: 0;
+}
+
+.rf-agent-page
+.rf-voice-card-copy
+> div:first-child {
+  min-width: 0;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 5px;
+}
+
+.rf-agent-page .rf-voice-card-copy strong {
+  overflow: hidden;
+
+  color: #282334 !important;
+
+  font-size: 8.5px !important;
+  font-weight: 850 !important;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rf-agent-page .rf-voice-card-copy em {
+  flex: 0 0 auto;
+
+  padding: 2px 5px !important;
+
+  border-radius: 999px;
+
+  color: #6240d7;
+
+  background: #efeaff;
+
+  font-size: 5px !important;
+}
+
+.rf-agent-page .rf-voice-card-copy p {
+  min-height: 0 !important;
+
+  margin: 2px 0 4px !important;
+
+  overflow: hidden;
+
+  color: #8c8595 !important;
+
+  font-size: 6.5px !important;
+  line-height: 1.25 !important;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  display: block !important;
+}
+
+
+/* Only first 2 meaningful tags */
+.rf-agent-page
+.rf-voice-tags
+span:nth-child(n + 3) {
+  display: none !important;
+}
+
+.rf-agent-page .rf-voice-tags {
+  display: flex !important;
+
+  gap: 3px !important;
+
+  overflow: hidden;
+}
+
+.rf-agent-page .rf-voice-tags span {
+  max-width: 72px;
+
+  overflow: hidden;
+
+  padding: 2px 5px !important;
+
+  border-radius: 999px !important;
+
+  color: #756d80 !important;
+
+  background: #f4f2f7 !important;
+
+  font-size: 5.5px !important;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+/* preview */
+
+.rf-agent-page .rf-voice-card-preview {
+  width: 43px !important;
+
+  align-self: stretch;
+
+  gap: 3px !important;
+
+  border:
+    1px solid rgba(111, 80, 221, 0.11) !important;
+
+  border-radius: 10px !important;
+
+  color: #6845d9 !important;
+
+  background:
+    linear-gradient(
+      180deg,
+      #faf8ff,
+      #f5f1ff
+    ) !important;
+
+  font-size: 5.5px !important;
+}
+
+.rf-agent-page
+.rf-voice-card-preview > span {
+  width: 23px !important;
+  height: 23px !important;
+
+  color: #fff;
+
+  background:
+    linear-gradient(
+      135deg,
+      #7355ec,
+      #d845b4
+    ) !important;
+
+  box-shadow:
+    0 5px 12px rgba(113, 75, 224, 0.22);
+}
+
+
+/* ==========================================================================
+   21. VARIED NFT-LIKE FALLBACK ART
+   Even before imageUrl is populated, voices don't all look identical.
+   ========================================================================== */
+
+.rf-agent-page
+.rf-voice-card:nth-child(6n + 1)
+.rf-voice-avatar:not(:has(img)) {
+  background:
+    linear-gradient(
+      145deg,
+      #4f46e5,
+      #8b5cf6,
+      #ec4899
+    ) !important;
+}
+
+.rf-agent-page
+.rf-voice-card:nth-child(6n + 2)
+.rf-voice-avatar:not(:has(img)) {
+  background:
+    linear-gradient(
+      145deg,
+      #2563eb,
+      #6366f1,
+      #a855f7
+    ) !important;
+}
+
+.rf-agent-page
+.rf-voice-card:nth-child(6n + 3)
+.rf-voice-avatar:not(:has(img)) {
+  background:
+    linear-gradient(
+      145deg,
+      #0f766e,
+      #14b8a6,
+      #6366f1
+    ) !important;
+}
+
+.rf-agent-page
+.rf-voice-card:nth-child(6n + 4)
+.rf-voice-avatar:not(:has(img)) {
+  background:
+    linear-gradient(
+      145deg,
+      #9333ea,
+      #e548b4,
+      #fb7185
+    ) !important;
+}
+
+.rf-agent-page
+.rf-voice-card:nth-child(6n + 5)
+.rf-voice-avatar:not(:has(img)) {
+  background:
+    linear-gradient(
+      145deg,
+      #4338ca,
+      #7c3aed,
+      #c026d3
+    ) !important;
+}
+
+.rf-agent-page
+.rf-voice-card:nth-child(6n)
+.rf-voice-avatar:not(:has(img)) {
+  background:
+    linear-gradient(
+      145deg,
+      #0369a1,
+      #4f46e5,
+      #db2777
+    ) !important;
+}
+
+
+/* ==========================================================================
+   22. RIGHT SIDE — LANGUAGE STUDIO
+   ========================================================================== */
+
+.rf-agent-page .rf-voice-language-panel {
+  min-width: 0;
+
+  display: grid !important;
+
+  gap: 10px !important;
+
+  margin: 0 !important;
+
+  padding: 13px !important;
+
+  border:
+    1px solid rgba(93, 75, 151, 0.11) !important;
+
+  border-radius: 17px !important;
+
+  background:
+    radial-gradient(
+      circle at 100% 0,
+      rgba(100, 133, 255, 0.07),
+      transparent 15rem
+    ),
+    linear-gradient(
+      180deg,
+      #ffffff,
+      #fbfafe
+    ) !important;
+
+  box-shadow:
+    0 9px 28px rgba(41, 29, 74, 0.04);
+}
+
+
+/* language title */
+
+.rf-agent-page
+.rf-voice-language-panel
+.rf-agent-card-heading {
+  padding-bottom: 7px;
+
+  border-bottom:
+    1px solid rgba(78, 65, 116, 0.07);
+}
+
+.rf-agent-page
+.rf-voice-language-panel
+.rf-agent-card-heading
+> div
+> span {
+  color: #7051df !important;
+
+  font-size: 6.5px !important;
+}
+
+.rf-agent-page
+.rf-voice-language-panel
+.rf-agent-card-heading h3 {
+  color: #282337 !important;
+
+  font-size: 12px !important;
+  font-weight: 850 !important;
+  letter-spacing: -0.025em;
+}
+
+.rf-agent-page
+.rf-voice-language-panel
+.rf-agent-count {
+  min-height: 23px !important;
+
+  color: #6848df !important;
+
+  border:
+    1px solid rgba(109, 79, 223, 0.12);
+
+  background: #f2edff;
+
+  font-size: 6px !important;
+}
+
+
+/* ==========================================================================
+   23. PRIMARY LANGUAGE + AUTO DETECT
+   ========================================================================== */
+
+.rf-agent-page
+.rf-voice-language-panel
+.rf-voice-essential-grid.two {
+  grid-template-columns:
+    0.82fr
+    1.18fr !important;
+
+  gap: 7px !important;
+}
+
+.rf-agent-page .rf-agent-checkbox-card {
+  min-height: 50px !important;
+
+  padding: 7px 9px !important;
+
+  border:
+    1px solid rgba(83, 69, 124, 0.1) !important;
+
+  border-radius: 10px !important;
+
+  background: #faf9fc !important;
+}
+
+.rf-agent-page
+.rf-agent-checkbox-card b {
+  color: #4c4654 !important;
+
+  font-size: 7.5px !important;
+}
+
+.rf-agent-page
+.rf-agent-checkbox-card small {
+  font-size: 6.5px !important;
+  line-height: 1.25 !important;
+}
+
+
+/* ==========================================================================
+   24. LANGUAGE CHOICES — NO UGLY HORIZONTAL SCROLL
+   ========================================================================== */
+
+.rf-agent-page .rf-v6-language-chips {
+  width: 100%;
+
+  display: grid !important;
+
+  grid-template-columns:
+    repeat(4, minmax(0, 1fr)) !important;
+
+  gap: 4px !important;
+
+  overflow: visible !important;
+
+  padding: 1px !important;
+}
+
+.rf-agent-page
+.rf-v6-language-chips label {
+  min-width: 0 !important;
+  min-height: 26px !important;
+
+  justify-content: flex-start;
+
+  padding: 0 6px !important;
+
+  overflow: hidden;
+
+  border:
+    1px solid rgba(76, 64, 112, 0.10) !important;
+
+  border-radius: 8px !important;
+
+  color: #746e7b !important;
+
+  background: #fbfafc !important;
+}
+
+.rf-agent-page
+.rf-v6-language-chips label.active {
+  color: #5e42cd !important;
+
+  border-color:
+    rgba(107, 78, 221, 0.23) !important;
+
+  background:
+    linear-gradient(
+      135deg,
+      #f2edff,
+      #f8f5ff
+    ) !important;
+}
+
+.rf-agent-page
+.rf-v6-language-chips input {
+  width: 10px !important;
+  height: 10px !important;
+
+  flex: 0 0 10px;
+}
+
+.rf-agent-page
+.rf-v6-language-chips span {
+  min-width: 0;
+
+  overflow: hidden;
+
+  font-size: 6px !important;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+/* ==========================================================================
+   25. LANGUAGE OVERRIDES — NATURAL HEIGHT, NO NESTED SCROLL
+   ========================================================================== */
+
+.rf-agent-page .rf-v6-language-overrides {
+  max-height: none !important;
+
+  overflow: visible !important;
+
+  gap: 5px !important;
+
+  padding: 0 !important;
+}
+
+.rf-agent-page .rf-v6-language-row {
+  grid-template-columns:
+    62px minmax(0, 1fr) !important;
+
+  gap: 5px 7px !important;
+
+  align-items: center !important;
+
+  padding: 7px !important;
+
+  border:
+    1px solid rgba(77, 65, 111, 0.085) !important;
+
+  border-radius: 10px !important;
+
+  background:
+    #faf9fc !important;
+}
+
+.rf-agent-page
+.rf-v6-language-row
+> strong {
+  grid-row: 1 / span 2;
+
+  align-self: start;
+
+  padding-top: 17px;
+
+  color: #665e70 !important;
+
+  font-size: 7px !important;
+}
+
+.rf-agent-page
+.rf-v6-language-row
+.rf-agent-field {
+  min-width: 0;
+}
+
+.rf-agent-page
+.rf-v6-language-row
+.rf-agent-field select {
+  height: 31px !important;
+
+  font-size: 7px !important;
+}
+
+.rf-agent-page
+.rf-v6-language-row
+.rf-agent-field textarea {
+  min-height: 38px !important;
+  height: 38px !important;
+
+  padding: 6px 8px !important;
+
+  resize: none !important;
+
+  font-size: 7px !important;
+}
+
+
+/* ==========================================================================
+   26. SUMMARY — SMALL CONTEXT CARD ON RIGHT
+   ========================================================================== */
+
+@media (min-width: 1050px) {
+
+  .rf-agent-page
+  .rf-voice-setup-pane:has(> .rf-voice-identity-stack)
+  > .rf-voice-summary-strip {
+    display: grid !important;
+
+    grid-template-columns: 1fr !important;
+
+    gap: 5px !important;
+
+    margin: 0 !important;
+
+    padding: 8px !important;
+
+    border:
+      1px solid rgba(83, 68, 126, 0.09) !important;
+
+    border-radius: 14px !important;
+
+    background:
+      #faf9fc !important;
+  }
+
+  .rf-agent-page
+  .rf-voice-setup-pane:has(> .rf-voice-identity-stack)
+  > .rf-voice-summary-strip
+  > div {
+    min-height: 34px;
+
+    display: grid;
+
+    grid-template-columns:
+      95px minmax(0, 1fr);
+
+    align-items: center;
+
+    gap: 7px;
+
+    padding: 5px 8px !important;
+
+    border: 0 !important;
+    border-radius: 8px !important;
+
+    background: #fff !important;
+  }
+
+  .rf-agent-page
+  .rf-voice-setup-pane:has(> .rf-voice-identity-stack)
+  .rf-voice-summary-strip small {
+    margin: 0 !important;
+
+    font-size: 5.8px !important;
+  }
+
+  .rf-agent-page
+  .rf-voice-setup-pane:has(> .rf-voice-identity-stack)
+  .rf-voice-summary-strip b {
+    font-size: 7.5px !important;
+  }
+}
+
+
+/* ==========================================================================
+   27. PREVIOUS / NEXT — PROMINENT, CALM, EASY
+   ========================================================================== */
+
+.rf-agent-page .rf-voice-setup-nav {
+  position: relative !important;
+
+  min-height: 63px;
+
+  display: flex !important;
+
+  align-items: center !important;
+  justify-content: space-between !important;
+
+  gap: 12px !important;
+
+  margin: 0 14px 14px !important;
+
+  padding: 8px !important;
+
+  border:
+    1px solid rgba(81, 66, 124, 0.09) !important;
+
+  border-radius: 15px !important;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(250, 249, 253, 0.96),
+      rgba(255, 255, 255, 0.98)
+    ) !important;
+
+  box-shadow:
+    0 7px 21px rgba(42, 29, 78, 0.045);
+
+  backdrop-filter: blur(16px);
+}
+
+.rf-agent-page .rf-voice-arrow-button {
+  min-width: 165px !important;
+  min-height: 47px !important;
+
+  gap: 9px !important;
+
+  padding: 6px 8px !important;
+
+  border-radius: 12px !important;
+}
+
+.rf-agent-page
+.rf-voice-arrow-button > span {
+  width: 33px !important;
+  height: 33px !important;
+
+  border-radius: 9px !important;
+
+  font-size: 14px !important;
+}
+
+.rf-agent-page
+.rf-voice-arrow-button small {
+  margin-bottom: 1px;
+
+  font-size: 5.5px !important;
+  letter-spacing: 0.07em !important;
+  text-transform: uppercase;
+}
+
+.rf-agent-page
+.rf-voice-arrow-button b {
+  max-width: 165px !important;
+
+  color: inherit;
+
+  font-size: 8px !important;
+}
+
+.rf-agent-page
+.rf-voice-arrow-button.secondary {
+  color: #625c6b !important;
+
+  border:
+    1px solid rgba(74, 63, 108, 0.10) !important;
+
+  background: #fff !important;
+
+  box-shadow:
+    0 5px 13px rgba(38, 27, 70, 0.035) !important;
+}
+
+.rf-agent-page
+.rf-voice-arrow-button.primary {
+  color: #fff !important;
+
+  border: 0 !important;
+
+  background:
+    linear-gradient(
+      135deg,
+      #6551ea 0%,
+      #8147ea 55%,
+      #dd46b3 100%
+    ) !important;
+
+  box-shadow:
+    0 10px 24px rgba(111, 72, 222, 0.24) !important;
+}
+
+.rf-agent-page
+.rf-voice-arrow-button.primary
+> span {
+  background:
+    rgba(255, 255, 255, 0.13) !important;
+}
+
+
+/* ==========================================================================
+   28. STANDARD INPUT QUALITY
+   ========================================================================== */
+
+.rf-agent-page
+.rf-voice-setup-shell
+.rf-agent-field input,
+
+.rf-agent-page
+.rf-voice-setup-shell
+.rf-agent-field select,
+
+.rf-agent-page
+.rf-voice-setup-shell
+.rf-agent-field textarea {
+  border:
+    1px solid rgba(74, 63, 111, 0.12) !important;
+
+  color: #403a49 !important;
+
+  background:
+    #ffffff !important;
+
+  box-shadow:
+    inset 0 1px 1px rgba(40, 28, 71, 0.018) !important;
+
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    background 0.16s ease !important;
+}
+
+.rf-agent-page
+.rf-voice-setup-shell
+.rf-agent-field input:focus,
+
+.rf-agent-page
+.rf-voice-setup-shell
+.rf-agent-field select:focus,
+
+.rf-agent-page
+.rf-voice-setup-shell
+.rf-agent-field textarea:focus {
+  border-color:
+    rgba(107, 80, 224, 0.48) !important;
+
+  background: #fff !important;
+
+  box-shadow:
+    0 0 0 3px rgba(107, 80, 224, 0.07) !important;
+}
+
+
+/* ==========================================================================
+   29. SHORT LAPTOP SCREENS
+   Keep everything readable without crushing the stage.
+   ========================================================================== */
+
+@media (min-width: 1050px) and (max-height: 900px) {
+
+  .rf-agent-page {
+    padding-top: 12px !important;
+  }
+
+  .rf-agent-page .rf-agent-metric {
+    min-height: 65px !important;
+  }
+
+  .rf-agent-page .rf-agent-metric small {
+    display: none !important;
+  }
+
+  .rf-agent-page .rf-voice-setup-hero {
+    padding-top: 16px !important;
+    padding-bottom: 11px !important;
+  }
+
+  .rf-agent-page .rf-voice-setup-hero h2 {
+    font-size: 27px !important;
+  }
+
+  .rf-agent-page .rf-voice-setup-hero p {
+    -webkit-line-clamp: 1 !important;
+  }
+
+  .rf-agent-page .rf-voice-card-grid {
+    max-height: 215px !important;
+  }
+
+  .rf-agent-page .rf-voice-card {
+    min-height: 70px !important;
+  }
+
+  .rf-agent-page
+  .rf-voice-card-copy p {
+    display: none !important;
+  }
+}
+
+
+/* ==========================================================================
+   30. TABLET
+   ========================================================================== */
+
+@media (max-width: 1049px) {
+
+  .rf-agent-page
+  .rf-voice-setup-pane:has(> .rf-voice-identity-stack) {
+    display: grid !important;
+
+    grid-template-columns: 1fr !important;
+
+    gap: 12px !important;
+  }
+
+  .rf-agent-page .rf-voice-identity-stack,
+  .rf-agent-page .rf-voice-language-panel {
+    width: 100%;
+  }
+
+  .rf-agent-page .rf-voice-card-grid {
+    max-height: 290px !important;
+  }
+
+  .rf-agent-page .rf-voice-summary-strip {
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+
+
+/* ==========================================================================
+   31. MOBILE
+   ========================================================================== */
+
+@media (max-width: 760px) {
+
+  .rf-agent-page {
+    padding:
+      10px 10px 25px !important;
+  }
+
+  .rf-agent-page .rf-voice-setup-shell {
+    border-radius: 19px !important;
+  }
+
+  .rf-agent-page .rf-voice-setup-hero {
+    grid-template-columns: 1fr !important;
+
+    padding:
+      16px 15px 12px !important;
+  }
+
+  .rf-agent-page .rf-voice-setup-hero h2 {
+    font-size: 25px !important;
+  }
+
+  .rf-agent-page .rf-voice-credit-orb {
+    min-height: 55px !important;
+
+    display: flex !important;
+
+    align-items: center;
+    justify-content: space-between;
+
+    padding:
+      9px 12px !important;
+  }
+
+  .rf-agent-page
+  .rf-voice-credit-orb small {
+    display: none !important;
+  }
+
+  .rf-agent-page
+  .rf-voice-setup-progress.six {
+    display: flex !important;
+
+    overflow-x: auto !important;
+
+    gap: 6px !important;
+
+    padding:
+      0 14px 11px !important;
+
+    scrollbar-width: none;
+  }
+
+  .rf-agent-page
+  .rf-voice-setup-progress.six::-webkit-scrollbar {
+    display: none;
+  }
+
+  .rf-agent-page
+  .rf-voice-setup-progress button {
+    flex:
+      0 0 125px;
+
+    min-height: 47px !important;
+  }
+
+  .rf-agent-page
+  .rf-voice-setup-stage {
+    margin:
+      0 7px 9px !important;
+
+    border-radius: 15px !important;
+  }
+
+  .rf-agent-page
+  .rf-voice-setup-pane {
+    padding:
+      11px !important;
+  }
+
+  .rf-agent-page
+  .rf-voice-library-toolbar {
+    grid-template-columns:
+      1fr 1fr !important;
+  }
+
+  .rf-agent-page
+  .rf-voice-search {
+    grid-column: 1 / -1;
+  }
+
+  .rf-agent-page
+  .rf-voice-card-grid {
+    grid-template-columns:
+      1fr !important;
+
+    max-height: 330px !important;
+  }
+
+  .rf-agent-page
+  .rf-v6-language-chips {
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .rf-agent-page
+  .rf-voice-language-panel
+  .rf-voice-essential-grid.two {
+    grid-template-columns:
+      1fr !important;
+  }
+
+  .rf-agent-page .rf-voice-summary-strip {
+    grid-template-columns:
+      1fr !important;
+  }
+
+  .rf-agent-page .rf-voice-setup-nav {
+    position: sticky !important;
+
+    z-index: 30;
+
+    bottom: 7px;
+
+    margin:
+      0 7px 8px !important;
+
+    box-shadow:
+      0 12px 30px rgba(42, 28, 79, 0.13);
+  }
+
+  .rf-agent-page .rf-voice-arrow-button {
+    min-width: 0 !important;
+
+    flex: 1;
+  }
+}
+
+
+/* ==========================================================================
+   32. VERY SMALL MOBILE
+   ========================================================================== */
+
+@media (max-width: 480px) {
+
+  .rf-agent-page
+  .rf-v6-language-chips {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .rf-agent-page
+  .rf-selected-voice-summary {
+    grid-template-columns:
+      auto minmax(0, 1fr) !important;
+  }
+
+  .rf-agent-page
+  .rf-selected-voice-summary
+  .rf-voice-preview-main {
+    grid-column: 1 / -1;
+
+    width: 100%;
+  }
+
+  .rf-agent-page
+  .rf-voice-identity-stack
+  > .rf-agent-field:first-child {
+    grid-template-columns: 1fr !important;
+  }
+
+  .rf-agent-page
+  .rf-voice-setup-nav {
+    gap: 6px !important;
+  }
+
+  .rf-agent-page
+  .rf-voice-arrow-button b {
+    max-width: 92px !important;
+  }
+}
+
+
+/* ==========================================================================
+   33. MOTION
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+
+  .rf-agent-page .rf-voice-card,
+  .rf-agent-page .rf-voice-avatar img,
+  .rf-agent-page .rf-voice-arrow-button,
+  .rf-agent-page .rf-voice-setup-progress button {
+    transition: none !important;
+    animation: none !important;
+  }
+}
