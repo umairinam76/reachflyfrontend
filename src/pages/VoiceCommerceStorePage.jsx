@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { api } from "../../../api/test2/frontend/api";
+import { api } from "../api";
 
 export default function VoiceCommerceStorePage() {
   const [commerce, setCommerce] = useState(null);
