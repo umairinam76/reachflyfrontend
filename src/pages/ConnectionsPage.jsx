@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { api } from "../../../api/test2/frontend/api";
+import { api } from "../api";
 
 export default function ConnectionsPage() {
   const [data, setData] = useState(null);
