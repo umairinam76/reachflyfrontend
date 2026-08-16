@@ -274,6 +274,30 @@ export function AuthProvider({
       ]
     );
 
+  const googleAuth =
+    useCallback(
+      async (
+        data,
+        {
+          rememberMe = true,
+        } = {}
+      ) => {
+        const payload =
+          await api.googleAuth(data);
+
+        saveSession(
+          payload,
+          {
+            persistent:
+              rememberMe,
+          }
+        );
+
+        return payload;
+      },
+      [saveSession]
+    );
+
   const acceptInvite =
     useCallback(
       async (
@@ -621,6 +645,7 @@ export function AuthProvider({
 
         login,
         signup,
+        googleAuth,
         acceptInvite,
         logout,
         refreshUser,
@@ -634,6 +659,7 @@ export function AuthProvider({
       initializing,
       login,
       signup,
+      googleAuth,
       acceptInvite,
       logout,
       refreshUser,

@@ -1,149 +1,66 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowRight, Lock } from "../components/icons";
+import { Lock } from "../components/icons";
 import { api } from "../api";
 import AuthLayout from "./AuthLayout";
 
 export default function ResetPassword() {
   const navigate = useNavigate();
-  const [params] = useSearchParams();
-
-  const token = useMemo(() => params.get("token") || "", [params]);
-
-  const [form, setForm] = useState({
-    password: "",
-    confirmPassword: "",
-  });
-
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get("token") || "";
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const set = (key, value) => {
-    setForm((current) => ({ ...current, [key]: value }));
-  };
-
-  const submit = async (event) => {
+  async function submit(event) {
     event.preventDefault();
-
     if (!token) {
-      setError("Reset token is missing.");
+      setError("This reset link is incomplete. Request a new password reset email.");
       return;
     }
-
-    if (form.password.length < 8) {
+    if (password.length < 8) {
       setError("Password must be at least 8 characters.");
       return;
     }
-
-    if (form.password !== form.confirmPassword) {
+    if (password !== confirm) {
       setError("Passwords do not match.");
       return;
     }
-
     try {
       setLoading(true);
       setError("");
-      setMessage("");
-
-      const result = await api.resetPassword({
-        token,
-        password: form.password,
-      });
-
-      setMessage(result.message || "Password updated successfully.");
-
-      window.setTimeout(() => {
-        navigate("/login", { replace: true });
-      }, 900);
-    } catch (e) {
-      setError(e.message || "Could not reset password.");
+      await api.resetPassword({ token, password });
+      navigate("/login?reset=success", { replace: true });
+    } catch (requestError) {
+      setError(requestError?.message || "The password could not be reset.");
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   return (
     <AuthLayout
-      eyebrow="New password"
-      title="Create a new password."
-      text="Choose a secure password to regain access to your ReachFly.Ai workspace."
-      footer={
-        <>
-          Back to <Link to="/login">sign in</Link>
-        </>
-      }
+      eyebrow="Secure reset"
+      title="Choose a new password."
+      text="This secure reset link can be used once and expires after 30 minutes."
+      footer={<Link to="/forgot-password">Request a new reset link</Link>}
     >
-      <form className="rf-auth-form" onSubmit={submit}>
-        <div className="rf-auth-card-head">
-          <h2>Reset password</h2>
-          <p>Use a new password with at least 8 characters.</p>
-        </div>
-
-        {error ? <p className="rf-auth-error">{error}</p> : null}
-        {message ? <p className="rf-auth-success">{message}</p> : null}
-
-        <AuthField
-          label="New password"
-          type="password"
-          icon={Lock}
-          value={form.password}
-          onChange={(value) => set("password", value)}
-          placeholder="Minimum 8 characters"
-          minLength={8}
-          required
-        />
-
-        <AuthField
-          label="Confirm password"
-          type="password"
-          icon={Lock}
-          value={form.confirmPassword}
-          onChange={(value) => set("confirmPassword", value)}
-          placeholder="Repeat password"
-          minLength={8}
-          required
-        />
-
-        <button className="rf-auth-submit" type="submit" disabled={loading}>
-          {loading ? (
-            "Updating…"
-          ) : (
-            <>
-              Update password <ArrowRight size={17} />
-            </>
-          )}
+      <form className="rf-auth-form" onSubmit={submit} noValidate>
+        <div className="rf-auth-card-head"><h2>New password</h2></div>
+        {error ? <p className="rf-auth-error" role="alert">{error}</p> : null}
+        <label className="rf-auth-input">
+          <span>New password</span>
+          <div><Lock size={17} /><input type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} disabled={loading} /></div>
+        </label>
+        <label className="rf-auth-input">
+          <span>Confirm new password</span>
+          <div><Lock size={17} /><input type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} disabled={loading} /></div>
+        </label>
+        <button className="rf-auth-submit" type="submit" disabled={loading || !token}>
+          {loading ? "Updating password…" : "Update password"}
         </button>
       </form>
     </AuthLayout>
-  );
-}
-
-function AuthField({
-  label,
-  icon: Icon,
-  value,
-  onChange,
-  placeholder,
-  type = "text",
-  required,
-  minLength,
-}) {
-  return (
-    <label className="rf-auth-field">
-      <span>{label}</span>
-
-      <div>
-        <Icon size={17} />
-        <input
-          type={type}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder={placeholder}
-          required={required}
-          minLength={minLength}
-        />
-      </div>
-    </label>
   );
 }

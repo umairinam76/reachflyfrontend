@@ -121,7 +121,7 @@ const TABS = [
 
 const DEFAULT_VOICE_VIEWS = {
   setup: "calling",
-  leads: "quick-lead",
+  leads: "dialer",
   calls: "active-calls",
   meetings: "upcoming",
 };
@@ -147,6 +147,7 @@ const SETUP_STEP_VIEWS = [
 ];
 
 const LEAD_VIEW_TO_STEP = {
+  dialer: 0,
   "quick-lead": 0,
   "google-leads": 1,
   "lead-pool": 2,
@@ -155,7 +156,7 @@ const LEAD_VIEW_TO_STEP = {
 };
 
 const LEAD_STEP_VIEWS = [
-  "quick-lead",
+  "dialer",
   "google-leads",
   "lead-pool",
   "queue-activity",
@@ -210,6 +211,8 @@ export default function TelnyxAIAgentPage() {
   const [leadStatus, setLeadStatus] = useState("all");
   const [queueStatus, setQueueStatus] = useState("all");
   const [campaignLimit, setCampaignLimit] = useState(10);
+  const [executionAgentId, setExecutionAgentId] = useState("");
+  const [campaignContext, setCampaignContext] = useState("");
   const [googleLeadForm, setGoogleLeadForm] = useState(
     DEFAULT_GOOGLE_LEAD_FORM
   );
@@ -243,16 +246,23 @@ export default function TelnyxAIAgentPage() {
         if (!mountedRef.current) return;
         setDashboard(response);
         setAccessDenied(false);
+        const urlAgentId = new URLSearchParams(window.location.search).get("agentId") || "";
+        const responseAgents = Array.isArray(response?.agents) ? response.agents : [];
+        const selectedResponseAgent =
+          responseAgents.find((item) => item.id === urlAgentId) ||
+          response.agent ||
+          responseAgents[0] ||
+          null;
         setForm((current) =>
           normalizeAgentForm({
             ...current,
-            ...(response.agent || {}),
+            ...(selectedResponseAgent || {}),
             companyName:
-              response.agent?.companyName ||
+              selectedResponseAgent?.companyName ||
               response.workspace?.name ||
               current.companyName,
             fromNumber:
-              response.agent?.fromNumber ||
+              selectedResponseAgent?.fromNumber ||
               response.diagnostics?.selectedFromNumber ||
               current.fromNumber,
           })
@@ -674,7 +684,31 @@ export default function TelnyxAIAgentPage() {
     ? dashboard.meetings
     : [];
   const diagnostics = dashboard?.diagnostics || {};
-  const agent = dashboard?.agent || null;
+  const workspaceAgents = Array.isArray(dashboard?.agents)
+    ? dashboard.agents
+    : dashboard?.agent
+      ? [dashboard.agent]
+      : [];
+  const requestedAgentId = searchParams.get("agentId") || "";
+  const agent =
+    workspaceAgents.find((item) => item.id === requestedAgentId) ||
+    dashboard?.agent ||
+    workspaceAgents[0] ||
+    null;
+  const executionAgent =
+    workspaceAgents.find((item) => item.id === executionAgentId) ||
+    agent ||
+    null;
+  useEffect(() => {
+    if (!workspaceAgents.length) {
+      if (executionAgentId) setExecutionAgentId("");
+      return;
+    }
+    if (!workspaceAgents.some((item) => item.id === executionAgentId)) {
+      setExecutionAgentId(agent?.id || workspaceAgents[0].id);
+    }
+  }, [workspaceAgents, executionAgentId, agent?.id]);
+
   const onboardingState = useMemo(
     () =>
       buildVoiceOnboardingState({
@@ -825,7 +859,9 @@ export default function TelnyxAIAgentPage() {
             defaultTimezone: customLeadForm.timezone || "",
             maxAttempts: Number(form.maxAttempts || 3),
             dailyCallLimit: Number(form.dailyCallLimit || 25),
-            fromNumber: form.fromNumber,
+            fromNumber: executionAgent?.fromNumber || form.fromNumber,
+            agentId: executionAgent?.id || executionAgentId,
+            campaignContext,
           },
           timeoutMs: callNow ? 60_000 : 30_000,
         }
@@ -1018,7 +1054,12 @@ export default function TelnyxAIAgentPage() {
     }
 
     try {
-      let payload = normalizeAgentForm(form);
+      let payload = {
+        ...normalizeAgentForm(form),
+        ...(agent?.id || requestedAgentId
+          ? { agentId: agent?.id || requestedAgentId }
+          : {}),
+      };
       const normalizedWebsite = String(payload.websiteUrl || "").trim();
       const analyzedSource = String(
         payload.websiteIntelligence?.sourceUrl || ""
@@ -1036,6 +1077,9 @@ export default function TelnyxAIAgentPage() {
             body: {
               websiteUrl: normalizedWebsite,
               companyName: payload.companyName,
+              ...(agent?.id || requestedAgentId
+                ? { agentId: agent?.id || requestedAgentId }
+                : {}),
             },
             timeoutMs: 120_000,
           }
@@ -1067,10 +1111,22 @@ export default function TelnyxAIAgentPage() {
 
       const savedAgent = response?.agent || null;
 
-      setDashboard((current) => ({
-        ...(current || {}),
-        agent: savedAgent || current?.agent || null,
-      }));
+      setDashboard((current) => {
+        const currentAgents = Array.isArray(current?.agents) ? current.agents : [];
+        const nextAgents = savedAgent
+          ? currentAgents.some((item) => item.id === savedAgent.id)
+            ? currentAgents.map((item) => item.id === savedAgent.id ? savedAgent : item)
+            : [...currentAgents, savedAgent]
+          : currentAgents;
+        return {
+          ...(current || {}),
+          agent:
+            savedAgent?.primary === true || !current?.agent
+              ? savedAgent || current?.agent || null
+              : current?.agent,
+          agents: nextAgents,
+        };
+      });
 
       if (savedAgent) {
         setForm((current) =>
@@ -1122,7 +1178,7 @@ export default function TelnyxAIAgentPage() {
     }
   }
 
-  async function ensureVoiceAgentReady() {
+  async function ensureVoiceAgentReady(agentId = executionAgentId) {
     const purchasedNumberRequired =
       diagnostics?.purchasedNumberRequired !== false;
     const paidCreditsRequired =
@@ -1148,8 +1204,16 @@ export default function TelnyxAIAgentPage() {
       );
     }
 
-    if (agent?.elevenLabsAgentId && agent?.elevenLabsPhoneNumberId) {
-      return agent;
+    const targetAgent =
+      workspaceAgents.find((item) => item.id === agentId) || agent || null;
+    if (targetAgent?.elevenLabsAgentId && targetAgent?.elevenLabsPhoneNumberId) {
+      return targetAgent;
+    }
+
+    if (workspaceAgents.length > 1 || (targetAgent && targetAgent.id !== agent?.id)) {
+      throw new Error(
+        "Configure and activate the selected AI agent from AI Workforce before assigning or starting calls."
+      );
     }
 
     if (!form.complianceConfirmed) {
@@ -1191,6 +1255,9 @@ export default function TelnyxAIAgentPage() {
             defaultTimezone:
               form.defaultLeadTimezone,
             maxAttempts: form.maxAttempts,
+            agentId: executionAgent?.id || executionAgentId,
+            campaignContext,
+            contextVersion: Date.now(),
           },
           timeoutMs: 30_000,
         }
@@ -1232,7 +1299,8 @@ export default function TelnyxAIAgentPage() {
             limit: Number(campaignLimit),
             concurrency: Number(form.concurrency),
             dailyCallLimit: Number(form.dailyCallLimit),
-            fromNumber: form.fromNumber,
+            fromNumber: executionAgent?.fromNumber || form.fromNumber,
+            agentId: executionAgent?.id || executionAgentId,
           },
           timeoutMs: 60_000,
         }
@@ -1558,7 +1626,10 @@ export default function TelnyxAIAgentPage() {
 
       {activeTab === "leads" ? (
         <LeadQueue
-          agent={agent}
+          agent={executionAgent || agent}
+          agents={workspaceAgents}
+          executionAgentId={executionAgent?.id || executionAgentId}
+          campaignContext={campaignContext}
           leads={assignableLeads}
           queue={queue}
           selectedLeadIds={selectedLeadIds}
@@ -1607,6 +1678,8 @@ export default function TelnyxAIAgentPage() {
           onLeadStatus={setLeadStatus}
           onQueueStatus={setQueueStatus}
           onCampaignLimit={setCampaignLimit}
+          onExecutionAgentId={setExecutionAgentId}
+          onCampaignContext={setCampaignContext}
           onToggleLead={toggleLead}
           onToggleAll={toggleAllVisible}
           onAssign={() => void assignSelectedLeads()}
@@ -2951,7 +3024,15 @@ function AgentSetup({
       existingPending?.number?.id ||
       existingPending?.id ||
       "";
-    if (!numberId || !verificationCode) {
+    const sandboxVerification = Boolean(
+      existingPending?.testVerificationCode
+    );
+
+    if (!numberId) {
+      onError?.("Start existing-number verification first.");
+      return;
+    }
+    if (sandboxVerification && !verificationCode) {
       onError?.("Enter the ownership verification code.");
       return;
     }
@@ -2967,22 +3048,87 @@ function AgentSetup({
         )}/verify`,
         {
           method: "POST",
-          body: { code: verificationCode },
+          body: sandboxVerification
+            ? { code: verificationCode }
+            : {},
+          timeoutMs: 30_000,
+        }
+      );
+      setExistingPending(response);
+      await onRefresh?.();
+
+      const status = normalizeStatus(
+        response?.number?.status
+      );
+      if (response?.pending) {
+        onSuccess?.(
+          response?.verification ||
+            "Ownership verification is still pending."
+        );
+      } else if (status === "routing_required") {
+        onSuccess?.(
+          "Ownership verified. Complete the SIP routing test below to activate inbound calling."
+        );
+      } else if (status === "carrier_action_required") {
+        onSuccess?.(
+          response?.verification ||
+            "Ownership verified. Complete the remaining carrier step to activate the number."
+        );
+      } else {
+        onSuccess?.(
+          `${formatPhone(
+            response?.number?.phoneNumber ||
+              existingNumberForm.phoneNumber
+          )} is verified and active for this workspace.`
+        );
+      }
+    } catch (requestError) {
+      onError?.(
+        requestError?.message ||
+          "The business-number verification could not be completed."
+      );
+    } finally {
+      setVerifyingExisting(false);
+    }
+  }
+
+  async function testExistingNumberRouting() {
+    const numberId =
+      existingPending?.number?.id ||
+      existingPending?.id ||
+      "";
+    if (!numberId) {
+      onError?.("Verify the existing business number first.");
+      return;
+    }
+
+    setVerifyingExisting(true);
+    onError?.("");
+    onSuccess?.("");
+
+    try {
+      const response = await apiRequest(
+        `/voice-commerce/numbers/${encodeURIComponent(
+          numberId
+        )}/routing-test`,
+        {
+          method: "POST",
+          body: {},
           timeoutMs: 30_000,
         }
       );
       setExistingPending(response);
       await onRefresh?.();
       onSuccess?.(
-        `${formatPhone(
-          response?.number?.phoneNumber ||
-            existingNumberForm.phoneNumber
-        )} is verified and active for this workspace.`
+        response?.message ||
+          (response?.routingVerified
+            ? "Existing-number routing is verified and active."
+            : "Inbound routing has not reached ReachFly yet.")
       );
     } catch (requestError) {
       onError?.(
         requestError?.message ||
-          "The business-number verification could not be completed."
+          "The inbound routing test could not be completed."
       );
     } finally {
       setVerifyingExisting(false);
@@ -3667,6 +3813,74 @@ function AgentSetup({
                                               ? "Verifying…"
                                               : "Confirm ownership"}
                                           </button>
+                                        </div>
+                                      ) : [
+                                          "pending_verification",
+                                          "verifying",
+                                        ].includes(
+                                          normalizeStatus(
+                                            existingPending?.number?.status
+                                          )
+                                        ) ? (
+                                        <div className="rf-voice-production-verification">
+                                          <b>Answer the verification call and press 1</b>
+                                          <span>
+                                            ReachFly checks ownership before this number can be used as an AI calling identity.
+                                          </span>
+                                          <button
+                                            type="button"
+                                            className="btn primary"
+                                            disabled={verifyingExisting}
+                                            onClick={() =>
+                                              void verifyExistingNumber()
+                                            }
+                                          >
+                                            {verifyingExisting
+                                              ? "Checking…"
+                                              : "Check verification status"}
+                                          </button>
+                                        </div>
+                                      ) : null}
+
+                                      {normalizeStatus(
+                                        existingPending?.number?.status
+                                      ) === "routing_required" ? (
+                                        <div className="rf-voice-sip-routing-step">
+                                          <span>Inbound SIP destination</span>
+                                          <code>
+                                            {existingPending?.sipDestination ||
+                                              `sip:${normalizePhoneForUi(
+                                                existingPending?.number?.phoneNumber ||
+                                                  existingNumberForm.phoneNumber
+                                              )}@sip.rtc.elevenlabs.io:5060`}
+                                          </code>
+                                          <p>
+                                            Route the existing number to this destination from your carrier or PBX, place one inbound test call, then verify the route.
+                                          </p>
+                                          <button
+                                            type="button"
+                                            className="btn primary"
+                                            disabled={verifyingExisting}
+                                            onClick={() =>
+                                              void testExistingNumberRouting()
+                                            }
+                                          >
+                                            {verifyingExisting
+                                              ? "Checking route…"
+                                              : "Check inbound routing"}
+                                          </button>
+                                        </div>
+                                      ) : null}
+
+                                      {normalizeStatus(
+                                        existingPending?.number?.status
+                                      ) === "carrier_action_required" ? (
+                                        <div className="rf-voice-carrier-assisted-step">
+                                          <b>Ownership verified</b>
+                                          <span>
+                                            {existingPending?.verification ||
+                                              "Complete the guided carrier step before ReachFly marks this number active."}
+                                          </span>
                                         </div>
                                       ) : null}
                                     </div>
@@ -4916,6 +5130,9 @@ function IntelList({ title, items }) {
 
 function LeadQueue({
   agent,
+  agents = [],
+  executionAgentId = "",
+  campaignContext = "",
   leads,
   queue,
   selectedLeadIds,
@@ -4936,7 +5153,7 @@ function LeadQueue({
   canTestCall,
   assigning,
   starting,
-  requestedView = "quick-lead",
+  requestedView = "dialer",
   onViewChange,
   onGoogleLeadForm,
   onFindGoogleLeads,
@@ -4950,6 +5167,8 @@ function LeadQueue({
   onLeadStatus,
   onQueueStatus,
   onCampaignLimit,
+  onExecutionAgentId,
+  onCampaignContext,
   onToggleLead,
   onToggleAll,
   onAssign,
@@ -4957,12 +5176,12 @@ function LeadQueue({
 }) {
   const leadFlowSteps = [
     {
-      key: "quick",
-      view: "quick-lead",
-      label: "Quick lead",
-      title: "Add or call one lead",
+      key: "dialer",
+      view: "dialer",
+      label: "Dialer",
+      title: "Dial one lead now",
       description:
-        "Use a phone number and optional private context for a one-off or high-priority conversation.",
+        "Enter a phone number, choose the AI agent and add private call context for a controlled one-off conversation.",
     },
     {
       key: "discover",
@@ -5073,6 +5292,33 @@ function LeadQueue({
           ))}
         </div>
       </header>
+
+      <div className="rf-v6-lead-control-bar">
+        <label>
+          <span>AI agent</span>
+          <select
+            value={executionAgentId || agent?.id || ""}
+            onChange={(event) => onExecutionAgentId?.(event.target.value)}
+          >
+            {agents.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name} · {String(item.callingMode || "outbound").replace(/_/g, " ")}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="context">
+          <span>Campaign call context</span>
+          <textarea
+            rows="2"
+            value={campaignContext}
+            onChange={(event) => onCampaignContext?.(event.target.value)}
+            placeholder="Optional context for this calling batch: offer, goal, positioning, current promotion, constraints…"
+          />
+          <small>Agent context + this campaign context + each lead's private context are snapshotted when the call starts.</small>
+        </label>
+        <a href="/app/agents">Manage agents</a>
+      </div>
 
       <div className="rf-lead-flow-stage">
         {leadFlowStep === 0 ? (

@@ -328,6 +328,12 @@ export const api = {
       auth: false,
     }),
 
+  googleAuth: (data) =>
+    request("/api/auth/google", {
+      ...jsonOptions("POST", data),
+      auth: false,
+    }),
+
   me: () => request("/api/auth/me"),
 
   forgotPassword: (data) =>
@@ -346,6 +352,72 @@ export const api = {
     request("/api/auth/accept-invite", {
       ...jsonOptions("POST", data),
       auth: false,
+    }),
+
+  /* ------------------------------------------------------------------------ */
+  /* AI workforce, voice commerce and workspace connections                    */
+  /* ------------------------------------------------------------------------ */
+
+  voiceAgentDashboard: () => request("/api/telnyx/ai-agent/dashboard"),
+
+  voiceAgents: () => request("/api/telnyx/ai-agent/agents"),
+
+  voiceAgentVoices: () => request("/api/telnyx/ai-agent/voices"),
+
+  saveVoiceAgent: (data) =>
+    request("/api/telnyx/ai-agent", {
+      ...jsonOptions("PUT", data),
+      timeoutMs: 120_000,
+    }),
+
+  voiceCommerce: () => request("/api/voice-commerce"),
+
+  searchVoiceNumbers: (data) =>
+    request("/api/voice-commerce/numbers/search", {
+      ...jsonOptions("POST", data),
+      timeoutMs: 60_000,
+    }),
+
+  checkoutVoiceNumber: (data) =>
+    request("/api/voice-commerce/numbers/checkout", {
+      ...jsonOptions("POST", data),
+      timeoutMs: 30_000,
+    }),
+
+  checkoutVoiceBundle: (data) =>
+    request("/api/voice-commerce/bundles/checkout", {
+      ...jsonOptions("POST", data),
+      timeoutMs: 30_000,
+    }),
+
+  billingCredits: () => request("/api/billing/credits"),
+
+  checkoutAiCallCredits: (data) =>
+    request("/api/billing/ai-calling/checkout", {
+      ...jsonOptions("POST", data),
+      timeoutMs: 30_000,
+    }),
+
+  connections: () => request("/api/connections"),
+
+  startGoogleConnection: (data = {}) =>
+    request("/api/connections/google/start", {
+      ...jsonOptions("POST", data),
+    }),
+
+  disconnectConnection: (connectionId) =>
+    request(`/api/connections/${encode(connectionId)}`, {
+      method: "DELETE",
+    }),
+
+  testConnectionEmail: (connectionId, data = {}) =>
+    request(`/api/connections/${encode(connectionId)}/test-email`, {
+      ...jsonOptions("POST", data),
+    }),
+
+  testConnectionCalendar: (connectionId, data = {}) =>
+    request(`/api/connections/${encode(connectionId)}/test-calendar`, {
+      ...jsonOptions("POST", data),
     }),
 
   /* ------------------------------------------------------------------------ */
@@ -1242,73 +1314,6 @@ export const api = {
         assignmentId
       )}/callback`,
       jsonOptions("POST", data)
-    ),
-
-  /* ------------------------------------------------------------------------ */
-  /* Telnyx browser dialer and call recordings                                */
-  /* ------------------------------------------------------------------------ */
-
-  telnyxDiagnostics: () =>
-    request("/api/telnyx/diagnostics"),
-
-  telnyxSession: () =>
-    request("/api/telnyx/session", {
-      timeoutMs: 60_000,
-    }),
-
-  telnyxDialers: () =>
-    request("/api/telnyx/dialers"),
-
-  provisionTelnyxDialers: () =>
-    request("/api/telnyx/dialers/provision", {
-      method: "POST",
-      timeoutMs: 180_000,
-    }),
-
-  createTelnyxCall: (data) =>
-    request(
-      "/api/telnyx/calls",
-      jsonOptions("POST", data)
-    ),
-
-  telnyxCalls: (filters = {}) =>
-    request(
-      withQuery("/api/telnyx/calls", filters)
-    ),
-
-  telnyxCall: (callId) =>
-    request(
-      `/api/telnyx/calls/${encode(callId)}`
-    ),
-
-  linkTelnyxCall: (callId, data) =>
-    request(
-      `/api/telnyx/calls/${encode(callId)}/link`,
-      jsonOptions("PATCH", data)
-    ),
-
-  updateTelnyxCallState: (callId, data) =>
-    request(
-      `/api/telnyx/calls/${encode(callId)}/state`,
-      jsonOptions("PATCH", data)
-    ),
-
-  completeTelnyxCall: (callId, data = {}) =>
-    request(
-      `/api/telnyx/calls/${encode(callId)}/complete`,
-      jsonOptions("PATCH", data)
-    ),
-
-  telnyxRecordingUrl: (callId) =>
-    buildUrl(
-      `/api/telnyx/recordings/${encode(callId)}`
-    ),
-
-  telnyxContactPolicy: (lead = {}) =>
-    request(
-      withQuery("/api/telnyx/contact-policy", {
-        lead: JSON.stringify(lead),
-      })
     ),
 
   /* ------------------------------------------------------------------------ */

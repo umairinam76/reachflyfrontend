@@ -38,11 +38,12 @@ import Login from "./pages/Login";
 import Signup from "./pages/SignUp";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import LegalPage from "./pages/LegalPage";
 
 /*
  * Main application pages
  */
-import Dashboard from "./pages/Dashboard";
+import DashboardV6 from "./pages/DashboardV6";
 import Builder from "./pages/Builder";
 import CampaignList from "./pages/CampaignList";
 import CampaignDetail from "./pages/CampaignDetail";
@@ -70,6 +71,12 @@ import ManagerResourceBoard from "../src/pages/ManagerResourceBoard";
 import TelnyxAIAgentPage from "../src/pages/TelnyxAIAgentPage";
 import CodesyncAdminPage from "./pages/CodesyncAdminPage";
 import CreditsBillingPage from "./pages/CreditsBillingPage";
+import AIWorkforcePage from "./pages/AIWorkforcePage";
+import VoiceCommerceStorePage from "./pages/VoiceCommerceStorePage";
+import ConnectionsPage from "./pages/ConnectionsPage";
+import "./styles/reachfly-v6-command-center.css";
+import "./styles/launch-qa-fixes.css";
+import "./styles/voice-lead-queue-premium-v5.5.css";
 
 /**
  * Routes rendered inside AuthProvider.
@@ -152,6 +159,10 @@ function AppRoutes() {
           path="/blog/:slug"
           element={<BlogPostPage />}
         />
+
+        <Route path="/terms" element={<LegalPage kind="terms" />} />
+        <Route path="/privacy" element={<LegalPage kind="privacy" />} />
+        <Route path="/contact" element={<LegalPage kind="contact" />} />
 
         {/*
          * Authentication pages
@@ -389,6 +400,33 @@ function AppRoutes() {
               element={
                 <WorkspaceManagementRoute>
                   <ManagerResourceBoard />
+                </WorkspaceManagementRoute>
+              }
+            />
+
+            <Route
+              path="agents"
+              element={
+                <WorkspaceManagementRoute>
+                  <AIWorkforcePage />
+                </WorkspaceManagementRoute>
+              }
+            />
+
+            <Route
+              path="commerce"
+              element={
+                <WorkspaceManagementRoute>
+                  <VoiceCommerceStorePage />
+                </WorkspaceManagementRoute>
+              }
+            />
+
+            <Route
+              path="connections"
+              element={
+                <WorkspaceManagementRoute>
+                  <ConnectionsPage />
                 </WorkspaceManagementRoute>
               }
             />
@@ -647,9 +685,51 @@ function DashboardRoute() {
       "caller"
   );
 
+  if (isCodesyncDashboardUser(user)) {
+    return <CodesyncAdminPage />;
+  }
+
   return role === "caller"
     ? <CallerDashboard />
-    : <Dashboard />;
+    : <DashboardV6 />;
+}
+
+function isCodesyncDashboardUser(user) {
+  const email = String(user?.email || "")
+    .trim()
+    .toLowerCase();
+
+  if (email !== "owner@codesynclabs.com") {
+    return false;
+  }
+
+  const values = [
+    user?.workspaceId,
+    user?.companyId,
+    user?.workspaceSlug,
+    user?.companySlug,
+    user?.workspaceName,
+    user?.companyName,
+  ]
+    .filter(Boolean)
+    .map((value) =>
+      String(value)
+        .trim()
+        .toLowerCase()
+        .replace(/[\s-]+/g, "_")
+    );
+
+  const codesyncIds = new Set([
+    "codesync_labs_workspace",
+    "codesync_labs",
+    "codesynclabs",
+  ]);
+
+  return values.some(
+    (value) =>
+      codesyncIds.has(value) ||
+      value.startsWith("codesync_labs_")
+  );
 }
 
 /**

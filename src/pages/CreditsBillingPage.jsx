@@ -23,8 +23,6 @@ export default function CreditsBillingPage() {
     useState(false);
   const [buying, setBuying] =
     useState("");
-  const [buyingAi, setBuyingAi] =
-    useState("");
   const [error, setError] =
     useState("");
   const [message, setMessage] =
@@ -83,36 +81,8 @@ export default function CreditsBillingPage() {
 
       const paymentState =
         params.get("payment");
-      const voicePaymentState =
-        params.get("voicePayment");
 
       if (
-        voicePaymentState ===
-        "success"
-      ) {
-        setMessage(
-          "AI call-credit payment returned successfully. ReachFly is verifying the payment before funding the dedicated call wallet."
-        );
-
-        for (const delay of PAYMENT_REFRESH_DELAYS_MS) {
-          const timer = window.setTimeout(() => {
-            if (!disposed) {
-              void load({ background: true });
-            }
-          }, delay);
-          timers.push(timer);
-        }
-
-        clearPaymentQuery();
-      } else if (
-        voicePaymentState ===
-        "cancelled"
-      ) {
-        setMessage(
-          "AI call-credit purchase was cancelled. No call credits were added."
-        );
-        clearPaymentQuery();
-      } else if (
         paymentState ===
         "success"
       ) {
@@ -209,24 +179,6 @@ export default function CreditsBillingPage() {
           ? aiCalling.ledger
           : [],
       [aiCalling?.ledger]
-    );
-
-  const aiCallPacks =
-    useMemo(
-      () =>
-        (Array.isArray(aiCalling?.packs) ? aiCalling.packs : [])
-          .filter(
-            (pack) =>
-              pack?.active === true &&
-              Number(pack?.amountMinor || 0) > 0 &&
-              Number(pack?.credits || 0) > 0
-          )
-          .sort(
-            (left, right) =>
-              Number(left?.credits || 0) -
-              Number(right?.credits || 0)
-          ),
-      [aiCalling?.packs]
     );
 
   const activePacks =
@@ -352,44 +304,6 @@ export default function CreditsBillingPage() {
           "Could not start secure checkout."
       );
       setBuying("");
-    }
-  }
-
-  async function buyAiCallCredits(packId) {
-    if (!packId || buyingAi) {
-      return;
-    }
-
-    setBuyingAi(packId);
-    setError("");
-    setMessage("");
-
-    try {
-      const result = await apiRequest(
-        "/billing/ai-calling/checkout",
-        {
-          method: "POST",
-          body: { packId },
-          timeoutMs: 30_000,
-        }
-      );
-
-      if (
-        !result?.checkoutUrl ||
-        !/^https?:\/\//i.test(result.checkoutUrl)
-      ) {
-        throw new Error(
-          "Secure AI call-credit checkout could not be opened."
-        );
-      }
-
-      window.location.assign(result.checkoutUrl);
-    } catch (requestError) {
-      setError(
-        requestError?.message ||
-          "Could not start AI call-credit checkout."
-      );
-      setBuyingAi("");
     }
   }
 
@@ -538,11 +452,6 @@ export default function CreditsBillingPage() {
         policy={aiCallPolicy}
         usage={aiCallUsage}
         ledger={aiCallLedger}
-        packs={aiCallPacks}
-        canPurchase={Boolean(aiCalling?.canPurchase)}
-        checkoutReady={secureCheckoutReady}
-        buyingAi={buyingAi}
-        onBuyAi={buyAiCallCredits}
         callingRateEntries={
           callingRateEntries
         }
@@ -1023,11 +932,6 @@ function AiCallingPanel({
   policy,
   usage,
   ledger,
-  packs = [],
-  canPurchase = false,
-  checkoutReady = false,
-  buyingAi = "",
-  onBuyAi,
   callingRateEntries,
 }) {
   if (!aiCalling || !wallet || !policy) {
@@ -1166,7 +1070,7 @@ function AiCallingPanel({
           value={formatCredits(
             wallet.totalPurchased
           )}
-          note="Dedicated AI call credits purchased through secure checkout"
+          note="Dedicated AI call credits purchased, if supported"
         />
       </section>
 
@@ -1291,63 +1195,14 @@ function AiCallingPanel({
         </div>
       ) : null}
 
-      <div className="rf-credit-panel-head" style={{ marginTop: 20 }}>
-        <div>
-          <h3>Buy AI call credits</h3>
-          <p>
-            These packs fund only the dedicated AI calling wallet.
-            Pack size, currency and price are loaded from the server.
-          </p>
-        </div>
-        <span
-          className={`rf-credit-status ${checkoutReady ? "ready" : "pending"}`}
-        >
-          {checkoutReady ? "Secure checkout ready" : "Checkout unavailable"}
-        </span>
+      <div className="rf-credit-empty">
+        Dedicated AI call-credit
+        checkout is not exposed by
+        this page yet. Do not buy
+        general workspace credit packs
+        expecting them to increase the
+        AI call-credit balance.
       </div>
-
-      {aiCalling?.requiresPurchasedNumber && !aiCalling?.hasActivePurchasedNumber ? (
-        <div className="rf-credit-empty">
-          Buy and activate a ReachFly business number in Voice Agent onboarding before purchasing AI call credits.
-        </div>
-      ) : !canPurchase ? (
-        <div className="rf-credit-empty">
-          Only a workspace owner or administrator can purchase AI call credits.
-        </div>
-      ) : !checkoutReady ? (
-        <div className="rf-credit-empty">
-          Secure checkout is not configured right now. Existing AI call credits remain usable.
-        </div>
-      ) : !packs.length ? (
-        <div className="rf-credit-empty">
-          No AI call-credit packs are currently active.
-        </div>
-      ) : (
-        <div className="rf-credit-packs">
-          {packs.map((pack) => (
-            <article key={pack.id} className="rf-credit-pack">
-              <span>AI calling</span>
-              <h3>{formatCredits(pack.credits)} call credits</h3>
-              <strong>
-                {formatMoneyMinor(pack.amountMinor, pack.currency)}
-              </strong>
-              <button
-                type="button"
-                disabled={Boolean(buyingAi)}
-                onClick={() => onBuyAi?.(pack.id)}
-              >
-                {buyingAi === pack.id
-                  ? "Opening checkout…"
-                  : "Buy call credits"}
-              </button>
-            </article>
-          ))}
-        </div>
-      )}
-
-      <p className="rf-credit-muted">
-        General ReachFly credit packs do not fund AI calls. New paid AI calls are blocked when this dedicated balance is zero.
-      </p>
 
       <h3>
         Recent AI connected-call usage
@@ -1691,9 +1546,6 @@ function clearPaymentQuery() {
     );
     url.searchParams.delete(
       "purchase"
-    );
-    url.searchParams.delete(
-      "voicePayment"
     );
 
     window.history.replaceState(

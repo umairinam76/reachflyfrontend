@@ -1,110 +1,70 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Mail } from "../components/icons";
+import { Mail } from "../components/icons";
 import { api } from "../api";
 import AuthLayout from "./AuthLayout";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
-  const [resetUrl, setResetUrl] = useState("");
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
 
-  const submit = async (event) => {
+  async function submit(event) {
     event.preventDefault();
-
+    const value = email.trim().toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(value)) {
+      setError("Enter a valid email address.");
+      return;
+    }
     try {
       setLoading(true);
       setError("");
-      setMessage("");
-      setResetUrl("");
-
-      const result = await api.forgotPassword({ email });
-
-      setMessage(result.message || "Password reset instructions have been created.");
-      if (result.resetUrl) setResetUrl(result.resetUrl);
-    } catch (e) {
-      setError(e.message || "Could not create reset instructions.");
+      const response = await api.forgotPassword({ email: value });
+      setMessage(response?.message || "If an account exists, password reset instructions have been sent.");
+    } catch (requestError) {
+      setError(requestError?.message || "Password recovery could not be started.");
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   return (
     <AuthLayout
-      eyebrow="Recover access"
+      eyebrow="Account recovery"
       title="Reset your ReachFly.Ai password."
-      text="Enter your email address and we will create a secure password reset link for your workspace."
-      footer={
-        <>
-          Remember your password? <Link to="/login">Sign in</Link>
-        </>
-      }
+      text="Enter your account email. ReachFly will send a secure, time-limited reset link."
+      footer={<Link to="/login">Back to sign in</Link>}
     >
-      <form className="rf-auth-form" onSubmit={submit}>
+      <form className="rf-auth-form" onSubmit={submit} noValidate>
         <div className="rf-auth-card-head">
-          <h2>Forgot password</h2>
-          <p>We’ll help you get back into your workspace.</p>
+          <h2>Forgot password?</h2>
+          <p>No account details are exposed by this form.</p>
         </div>
-
-        {error ? <p className="rf-auth-error">{error}</p> : null}
-        {message ? <p className="rf-auth-success">{message}</p> : null}
-
-        {resetUrl ? (
-          <div className="rf-auth-dev-link">
-            <b>Development reset link</b>
-            <a href={resetUrl}>{resetUrl}</a>
+        {error ? <p className="rf-auth-error" role="alert">{error}</p> : null}
+        {message ? <p className="rf-auth-success" role="status">{message}</p> : null}
+        <label className="rf-auth-input">
+          <span>Email address</span>
+          <div>
+            <Mail size={17} />
+            <input
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="you@company.com"
+              disabled={loading || Boolean(message)}
+            />
           </div>
-        ) : null}
-
-        <AuthField
-          label="Email address"
-          type="email"
-          icon={Mail}
-          value={email}
-          onChange={setEmail}
-          placeholder="you@company.com"
-          required
-        />
-
-        <button className="rf-auth-submit" type="submit" disabled={loading}>
-          {loading ? (
-            "Sending…"
-          ) : (
-            <>
-              Send reset link <ArrowRight size={17} />
-            </>
-          )}
-        </button>
+        </label>
+        {!message ? (
+          <button className="rf-auth-submit" type="submit" disabled={loading}>
+            {loading ? "Sending reset link…" : "Send reset link"}
+          </button>
+        ) : (
+          <Link className="rf-auth-submit rf-auth-submit-link" to="/login">Return to sign in</Link>
+        )}
       </form>
     </AuthLayout>
-  );
-}
-
-function AuthField({
-  label,
-  icon: Icon,
-  value,
-  onChange,
-  placeholder,
-  type = "text",
-  required,
-}) {
-  return (
-    <label className="rf-auth-field">
-      <span>{label}</span>
-
-      <div>
-        <Icon size={17} />
-        <input
-          type={type}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder={placeholder}
-          required={required}
-        />
-      </div>
-    </label>
   );
 }
