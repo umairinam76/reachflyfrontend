@@ -68007,3 +68007,346 @@ main a[href="/app/launch-campaign"] {
     transition: none !important;
   }
 }
+/* ==========================================================================
+   REACHFLY VOICE NFT / DIGITAL ART AVATARS
+   Add at the VERY END of styles.css
+   ========================================================================== */
+
+
+/* ----------------------------------------------------------
+   Base NFT portrait
+   ---------------------------------------------------------- */
+
+.rf-agent-page .rf-voice-avatar {
+  position: relative;
+
+  width: 46px !important;
+  height: 46px !important;
+  flex: 0 0 46px !important;
+
+  overflow: hidden;
+
+  border-radius: 14px !important;
+
+  background:
+    linear-gradient(
+      145deg,
+      #ece6ff,
+      #fdf7ff
+    ) !important;
+
+  border: 1px solid rgba(112, 71, 239, 0.16);
+
+  box-shadow:
+    0 7px 18px rgba(74, 45, 143, 0.13),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.7);
+
+  isolation: isolate;
+}
+
+
+/* image fills portrait */
+
+.rf-agent-page .rf-voice-avatar img {
+  display: block;
+
+  width: 100%;
+  height: 100%;
+
+  object-fit: cover;
+  object-position: center;
+
+  transform: scale(1.015);
+
+  transition:
+    transform 0.28s ease,
+    filter 0.28s ease;
+}
+
+
+/* subtle premium light overlay */
+
+.rf-agent-page .rf-voice-avatar::before {
+  content: "";
+
+  position: absolute;
+  z-index: 2;
+
+  inset: 0;
+
+  pointer-events: none;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255,255,255,.26),
+      transparent 38%,
+      rgba(92,52,211,.09)
+    );
+}
+
+
+/* NFT-style lower glow */
+
+.rf-agent-page .rf-voice-avatar::after {
+  content: "";
+
+  position: absolute;
+  z-index: 3;
+
+  width: 28px;
+  height: 12px;
+
+  right: -5px;
+  bottom: -5px;
+
+  border-radius: 50%;
+
+  pointer-events: none;
+
+  background: rgba(203, 72, 204, 0.42);
+
+  filter: blur(8px);
+}
+
+
+/* ----------------------------------------------------------
+   Selected voice = hero artwork
+   ---------------------------------------------------------- */
+
+.rf-agent-page .rf-voice-avatar.large {
+  width: 58px !important;
+  height: 58px !important;
+  flex: 0 0 58px !important;
+
+  border-radius: 17px !important;
+
+  border:
+    2px solid rgba(255, 255, 255, 0.94) !important;
+
+  outline:
+    1px solid rgba(112, 71, 239, 0.25);
+
+  box-shadow:
+    0 10px 28px rgba(94, 55, 180, 0.22),
+    0 0 0 4px rgba(112, 71, 239, 0.055) !important;
+}
+
+
+/* ----------------------------------------------------------
+   Voice card becomes more like an artist card
+   ---------------------------------------------------------- */
+
+.rf-agent-page .rf-voice-card {
+  position: relative;
+
+  overflow: hidden;
+}
+
+.rf-agent-page .rf-voice-card::before {
+  content: "";
+
+  position: absolute;
+
+  width: 90px;
+  height: 90px;
+
+  left: -35px;
+  top: -42px;
+
+  border-radius: 50%;
+
+  pointer-events: none;
+
+  background:
+    radial-gradient(
+      circle,
+      rgba(111, 70, 237, 0.09),
+      transparent 70%
+    );
+}
+
+.rf-agent-page .rf-voice-card:hover .rf-voice-avatar img {
+  transform: scale(1.08);
+}
+
+
+/* ----------------------------------------------------------
+   Selected artist card
+   ---------------------------------------------------------- */
+
+.rf-agent-page .rf-voice-card.selected .rf-voice-avatar {
+  border-color:
+    rgba(112, 71, 239, 0.38);
+
+  box-shadow:
+    0 9px 22px rgba(112, 71, 239, 0.20),
+    0 0 0 3px rgba(112, 71, 239, 0.065);
+}
+
+
+/* ----------------------------------------------------------
+   Selected voice banner
+   ---------------------------------------------------------- */
+
+.rf-agent-page .rf-selected-voice-summary {
+  position: relative;
+
+  overflow: hidden;
+
+  background:
+    radial-gradient(
+      circle at 8% 0%,
+      rgba(119, 73, 239, 0.12),
+      transparent 150px
+    ),
+    radial-gradient(
+      circle at 93% 100%,
+      rgba(232, 65, 174, 0.07),
+      transparent 150px
+    ),
+    linear-gradient(
+      135deg,
+      #fbf9ff,
+      #ffffff
+    ) !important;
+}
+
+.rf-agent-page .rf-selected-voice-summary::after {
+  content: "";
+
+  position: absolute;
+
+  width: 150px;
+  height: 150px;
+
+  right: -90px;
+  top: -90px;
+
+  border-radius: 50%;
+
+  pointer-events: none;
+
+  background:
+    radial-gradient(
+      circle,
+      rgba(113, 72, 239, 0.08),
+      transparent 70%
+    );
+}
+
+
+/* selected artist title */
+
+.rf-agent-page
+.rf-selected-voice-summary strong {
+  font-size: 11.5px !important;
+  font-weight: 800 !important;
+
+  letter-spacing: -0.02em;
+}
+
+
+/* ----------------------------------------------------------
+   Artistic preview button
+   ---------------------------------------------------------- */
+
+.rf-agent-page .rf-voice-card-preview {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(250,248,255,.96),
+      rgba(244,239,255,.96)
+    ) !important;
+}
+
+.rf-agent-page
+.rf-voice-card:hover
+.rf-voice-card-preview {
+  border-color:
+    rgba(112, 71, 239, 0.27) !important;
+
+  color: #6540dd !important;
+}
+
+
+/* ----------------------------------------------------------
+   Fallback when image is missing
+   Keep existing initials but make them artistic too
+   ---------------------------------------------------------- */
+
+.rf-agent-page
+.rf-voice-avatar:not(:has(img)) {
+  background:
+    radial-gradient(
+      circle at 25% 20%,
+      rgba(255,255,255,.8),
+      transparent 32%
+    ),
+    linear-gradient(
+      145deg,
+      #734be9,
+      #9e52e8 54%,
+      #e64baf
+    ) !important;
+
+  color: #fff;
+}
+
+.rf-agent-page
+.rf-voice-avatar:not(:has(img)) > b {
+  position: relative;
+  z-index: 2;
+
+  font-size: 11px;
+  font-weight: 900;
+
+  letter-spacing: -0.03em;
+}
+
+
+/* ----------------------------------------------------------
+   Desktop: allow portrait slightly more visual importance
+   ---------------------------------------------------------- */
+
+@media (min-width: 1100px) {
+
+  .rf-agent-page .rf-voice-card {
+    min-height: 76px !important;
+  }
+
+  .rf-agent-page .rf-voice-avatar {
+    width: 50px !important;
+    height: 50px !important;
+    flex-basis: 50px !important;
+  }
+
+  .rf-agent-page .rf-voice-avatar.large {
+    width: 62px !important;
+    height: 62px !important;
+    flex-basis: 62px !important;
+  }
+}
+
+
+/* ----------------------------------------------------------
+   Mobile
+   ---------------------------------------------------------- */
+
+@media (max-width: 520px) {
+
+  .rf-agent-page .rf-voice-avatar {
+    width: 45px !important;
+    height: 45px !important;
+    flex-basis: 45px !important;
+  }
+
+  .rf-agent-page .rf-voice-avatar.large {
+    width: 52px !important;
+    height: 52px !important;
+    flex-basis: 52px !important;
+  }
+}
