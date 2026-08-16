@@ -18,7 +18,6 @@ import {
   Workflow,
   Zap,
 } from "../components/icons";
-import "../styles.css";
 
 const chips = [
   "Autonomous voice calling",

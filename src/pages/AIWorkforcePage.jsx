@@ -8,6 +8,14 @@ const PURPOSES = [
   ["custom", "Custom agent", "Create a specialized playbook for a specific campaign or workflow."],
 ];
 
+const LANGUAGES = [
+  ["en", "English"], ["es", "Spanish"], ["fr", "French"], ["de", "German"],
+  ["pt", "Portuguese"], ["it", "Italian"], ["nl", "Dutch"], ["ar", "Arabic"],
+  ["hi", "Hindi"], ["ur", "Urdu"], ["zh", "Chinese"], ["ja", "Japanese"], ["ko", "Korean"],
+  ["ru", "Russian"], ["tr", "Turkish"], ["pl", "Polish"], ["id", "Indonesian"],
+  ["vi", "Vietnamese"], ["uk", "Ukrainian"],
+];
+
 const EMPTY = {
   name: "",
   purpose: "sales",
@@ -17,6 +25,11 @@ const EMPTY = {
   emailConnectionId: "",
   calendarConnectionId: "",
   agentContext: "",
+  primaryLanguage: "en",
+  supportedLanguages: ["en"],
+  autoDetectLanguage: true,
+  languageVoices: {},
+  languageGreetings: {},
   concurrency: 1,
   sendEmail: false,
   bookMeeting: false,
@@ -93,6 +106,14 @@ export default function AIWorkforcePage() {
       emailConnectionId: agent.emailConnectionId || "",
       calendarConnectionId: agent.calendarConnectionId || "",
       agentContext: agent.agentContext || "",
+      primaryLanguage: agent.primaryLanguage || "en",
+      supportedLanguages:
+        Array.isArray(agent.supportedLanguages) && agent.supportedLanguages.length
+          ? agent.supportedLanguages
+          : [agent.primaryLanguage || "en"],
+      autoDetectLanguage: agent.autoDetectLanguage !== false,
+      languageVoices: agent.languageVoices || {},
+      languageGreetings: agent.languageGreetings || {},
       concurrency: Number(agent.concurrency || 1),
       sendEmail: agent.outboundActions?.sendEmail === true || agent.inboundActions?.sendEmail === true,
       bookMeeting: agent.outboundActions?.bookMeeting !== false || agent.inboundActions?.bookMeeting !== false,
@@ -128,6 +149,13 @@ export default function AIWorkforcePage() {
         emailConnectionId: form.emailConnectionId,
         calendarConnectionId: form.calendarConnectionId,
         agentContext: form.agentContext,
+        primaryLanguage: form.primaryLanguage || "en",
+        supportedLanguages: Array.from(
+          new Set([form.primaryLanguage || "en", ...(form.supportedLanguages || [])])
+        ),
+        autoDetectLanguage: form.autoDetectLanguage === true,
+        languageVoices: form.languageVoices || {},
+        languageGreetings: form.languageGreetings || {},
         concurrency: Number(form.concurrency || 1),
         complianceConfirmed: true,
         enabled: true,
@@ -190,7 +218,7 @@ export default function AIWorkforcePage() {
               return (
                 <article className="rf-v6-agent-card" key={agent.id}>
                   <div className="rf-v6-agent-top"><span className={`rf-v6-agent-avatar purpose-${agent.purpose || "sales"}`}>{initials(agent.name)}</span><div><strong>{agent.name}</strong><small>{label(agent.purpose || "sales")} · {label(agent.callingMode || "outbound")}</small></div><span className={`rf-v6-status ${agent.enabled !== false ? "good" : "muted"}`}>● {agent.enabled !== false ? "Active" : "Paused"}</span></div>
-                  <div className="rf-v6-agent-resources"><Resource label="Phone" value={agent.fromNumber || "Not assigned"} /><Resource label="Email" value={emailConnections.find((item) => item.id === agent.emailConnectionId)?.accountEmail || "Not linked"} /><Resource label="Calendar" value={calendarConnections.find((item) => item.id === agent.calendarConnectionId)?.accountEmail || "Not linked"} /></div>
+                  <div className="rf-v6-agent-resources"><Resource label="Phone" value={agent.fromNumber || "Not assigned"} /><Resource label="Email" value={emailConnections.find((item) => item.id === agent.emailConnectionId)?.accountEmail || "Not linked"} /><Resource label="Calendar" value={calendarConnections.find((item) => item.id === agent.calendarConnectionId)?.accountEmail || "Not linked"} /><Resource label="Languages" value={languageSummary(agent)} /></div>
                   <div className="rf-v6-agent-stats"><div><strong>{live}</strong><span>live</span></div><div><strong>{queued}</strong><span>queued</span></div><div><strong>{booked}</strong><span>meetings</span></div><div><strong>{agent.concurrency || 1}</strong><span>parallel</span></div></div>
                   <div className="rf-v6-row-actions"><button onClick={() => editAgent(agent)}>Quick manage</button><a href={`/app/voice-agent?tab=setup&agentId=${encodeURIComponent(agent.id)}`}>Full setup</a></div>
                 </article>
@@ -219,6 +247,97 @@ export default function AIWorkforcePage() {
               <Field label="Parallel calls"><input type="number" min="1" max="20" value={form.concurrency} onChange={(event) => setForm((current) => ({ ...current, concurrency: event.target.value }))} /></Field>
             </div>
 
+            <section className="rf-v6-language-editor">
+              <div className="rf-v6-section-head compact">
+                <div>
+                  <span>Voice & language</span>
+                  <h3>Choose how this agent speaks</h3>
+                  <p>Outbound calls start in the resolved lead/campaign language. Inbound calls can detect and switch between enabled languages.</p>
+                </div>
+              </div>
+
+              <div className="rf-v6-form-grid two">
+                <Field label="Primary language">
+                  <select
+                    value={form.primaryLanguage}
+                    onChange={(event) => {
+                      const language = event.target.value;
+                      setForm((current) => ({
+                        ...current,
+                        primaryLanguage: language,
+                        supportedLanguages: Array.from(new Set([language, ...(current.supportedLanguages || [])])),
+                      }));
+                    }}
+                  >
+                    {LANGUAGES.map(([code, name]) => <option value={code} key={code}>{name}</option>)}
+                  </select>
+                </Field>
+                <Toggle
+                  checked={form.autoDetectLanguage}
+                  onChange={(checked) => setForm((current) => ({ ...current, autoDetectLanguage: checked }))}
+                  title="Auto-detect caller language"
+                  text="When a caller speaks another enabled language, allow ElevenLabs to switch naturally during the conversation."
+                />
+              </div>
+
+              <div className="rf-v6-language-chips">
+                {LANGUAGES.map(([code, name]) => {
+                  const checked = (form.supportedLanguages || []).includes(code);
+                  const locked = code === form.primaryLanguage;
+                  return (
+                    <label key={code} className={checked ? "active" : ""}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={locked}
+                        onChange={(event) => setForm((current) => ({
+                          ...current,
+                          supportedLanguages: event.target.checked
+                            ? Array.from(new Set([...(current.supportedLanguages || []), code]))
+                            : (current.supportedLanguages || []).filter((item) => item !== code),
+                        }))}
+                      />
+                      <span>{name}</span>
+                    </label>
+                  );
+                })}
+              </div>
+
+              <div className="rf-v6-language-overrides">
+                {(form.supportedLanguages || []).map((code) => {
+                  const name = LANGUAGES.find(([item]) => item === code)?.[1] || code.toUpperCase();
+                  return (
+                    <div className="rf-v6-language-row" key={code}>
+                      <strong>{name}</strong>
+                      <Field label="Voice override (optional)">
+                        <select
+                          value={form.languageVoices?.[code] || ""}
+                          onChange={(event) => setForm((current) => ({
+                            ...current,
+                            languageVoices: { ...(current.languageVoices || {}), [code]: event.target.value },
+                          }))}
+                        >
+                          <option value="">Use agent voice</option>
+                          {voices.map((voice) => <option value={voice.id || voice.voiceId} key={`${code}-${voice.id || voice.voiceId}`}>{voice.name || voice.voiceName || voice.id}</option>)}
+                        </select>
+                      </Field>
+                      <Field label="Opening line (optional)">
+                        <textarea
+                          rows="2"
+                          value={form.languageGreetings?.[code] || ""}
+                          onChange={(event) => setForm((current) => ({
+                            ...current,
+                            languageGreetings: { ...(current.languageGreetings || {}), [code]: event.target.value },
+                          }))}
+                          placeholder={`Leave blank for ReachFly's managed ${name} opening.`}
+                        />
+                      </Field>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
             <Field label="Agent context"><textarea rows="7" value={form.agentContext} onChange={(event) => setForm((current) => ({ ...current, agentContext: event.target.value }))} placeholder="Persistent context for this agent: offer, positioning, guardrails, what it should know across campaigns…" /></Field>
 
             <div className="rf-v6-permission-grid">
@@ -239,5 +358,11 @@ export default function AIWorkforcePage() {
 function Field({ label, children }) { return <label className="rf-v6-field"><span>{label}</span>{children}</label>; }
 function Toggle({ checked, onChange, title, text }) { return <label className="rf-v6-toggle"><input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} /><span><b>{title}</b><small>{text}</small></span></label>; }
 function Resource({ label: title, value }) { return <div><span>{title}</span><b>{value}</b></div>; }
+function languageSummary(agent) {
+  const primary = agent?.primaryLanguage || "en";
+  const supported = Array.isArray(agent?.supportedLanguages) && agent.supportedLanguages.length ? agent.supportedLanguages : [primary];
+  const primaryName = LANGUAGES.find(([code]) => code === primary)?.[1] || primary.toUpperCase();
+  return `${primaryName}${supported.length > 1 ? ` +${supported.length - 1}` : ""}${agent?.autoDetectLanguage !== false && supported.length > 1 ? " · auto-switch" : ""}`;
+}
 function label(value) { return String(value || "").replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()); }
 function initials(value) { return String(value || "AI").trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase(); }

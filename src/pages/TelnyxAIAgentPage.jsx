@@ -30,6 +30,14 @@ const FAST_HUMAN_GREETING =
 const FAST_HUMAN_PERSONA =
   "Warm, sharp, concise, and conversational. Keep most turns short, use contractions and plain words, and match the prospect’s pace. React naturally without repetitive acknowledgement phrases. Avoid canned AI or call-center filler such as got it, gotcha, absolutely, certainly, perfect, awesome, I understand, or that makes sense. Allow brief silence instead of filling every gap. Never use fake laughter, fake breathing, written stage directions, or claim to be human.";
 
+const LANGUAGE_OPTIONS = [
+  ["en", "English"], ["es", "Spanish"], ["fr", "French"], ["de", "German"],
+  ["pt", "Portuguese"], ["it", "Italian"], ["nl", "Dutch"], ["ar", "Arabic"],
+  ["hi", "Hindi"], ["ur", "Urdu"], ["zh", "Chinese"], ["ja", "Japanese"], ["ko", "Korean"],
+  ["ru", "Russian"], ["tr", "Turkish"], ["pl", "Polish"], ["id", "Indonesian"],
+  ["vi", "Vietnamese"], ["uk", "Ukrainian"],
+];
+
 const DEFAULT_FORM = {
   name: "James",
   description:
@@ -38,6 +46,11 @@ const DEFAULT_FORM = {
   elevenLabsAgentId: "",
   voice: "fNZkPhLHNXqE8oMjamg6",
   model: "elevenlabs-managed-llm",
+  primaryLanguage: "en",
+  supportedLanguages: ["en"],
+  autoDetectLanguage: true,
+  languageVoices: {},
+  languageGreetings: {},
   websiteUrl: "",
   websiteIntelligence: {},
   greeting: FAST_HUMAN_GREETING,
@@ -109,6 +122,7 @@ const DEFAULT_CUSTOM_LEAD_FORM = {
   website: "",
   location: "",
   timezone: "",
+  preferredLanguage: "",
   context: "",
 };
 
@@ -213,6 +227,7 @@ export default function TelnyxAIAgentPage() {
   const [campaignLimit, setCampaignLimit] = useState(10);
   const [executionAgentId, setExecutionAgentId] = useState("");
   const [campaignContext, setCampaignContext] = useState("");
+  const [campaignLanguage, setCampaignLanguage] = useState("");
   const [googleLeadForm, setGoogleLeadForm] = useState(
     DEFAULT_GOOGLE_LEAD_FORM
   );
@@ -1257,6 +1272,7 @@ export default function TelnyxAIAgentPage() {
             maxAttempts: form.maxAttempts,
             agentId: executionAgent?.id || executionAgentId,
             campaignContext,
+            preferredLanguage: campaignLanguage,
             contextVersion: Date.now(),
           },
           timeoutMs: 30_000,
@@ -1630,6 +1646,7 @@ export default function TelnyxAIAgentPage() {
           agents={workspaceAgents}
           executionAgentId={executionAgent?.id || executionAgentId}
           campaignContext={campaignContext}
+          campaignLanguage={campaignLanguage}
           leads={assignableLeads}
           queue={queue}
           selectedLeadIds={selectedLeadIds}
@@ -1680,6 +1697,7 @@ export default function TelnyxAIAgentPage() {
           onCampaignLimit={setCampaignLimit}
           onExecutionAgentId={setExecutionAgentId}
           onCampaignContext={setCampaignContext}
+          onCampaignLanguage={setCampaignLanguage}
           onToggleLead={toggleLead}
           onToggleAll={toggleAllVisible}
           onAssign={() => void assignSelectedLeads()}
@@ -3915,6 +3933,129 @@ function AgentSetup({
               </div>
             </div>
 
+            <div className="rf-voice-language-panel">
+              <div className="rf-agent-card-heading compact">
+                <div>
+                  <span>Languages</span>
+                  <h3>Speak to every lead in the right language</h3>
+                </div>
+                <b className="rf-agent-count">
+                  {normalizeLanguageList(form.supportedLanguages, form.primaryLanguage).length} enabled
+                </b>
+              </div>
+
+              <div className="rf-voice-essential-grid two">
+                <label className="rf-agent-field">
+                  <span>Primary language</span>
+                  <select
+                    value={normalizeLanguageCode(form.primaryLanguage)}
+                    onChange={(event) => {
+                      const language = normalizeLanguageCode(event.target.value);
+                      onChange("primaryLanguage", language);
+                      onChange(
+                        "supportedLanguages",
+                        Array.from(
+                          new Set([language, ...(form.supportedLanguages || [])])
+                        )
+                      );
+                    }}
+                  >
+                    {LANGUAGE_OPTIONS.map(([code, name]) => (
+                      <option key={code} value={code}>{name}</option>
+                    ))}
+                  </select>
+                  <small>Used when a lead or campaign has no explicit language.</small>
+                </label>
+
+                <label className="rf-agent-checkbox-card">
+                  <input
+                    type="checkbox"
+                    checked={form.autoDetectLanguage !== false}
+                    onChange={(event) =>
+                      onChange("autoDetectLanguage", event.target.checked)
+                    }
+                  />
+                  <span>
+                    <b>Auto-detect caller language</b>
+                    <small>For inbound or mid-call language changes, switch only between languages enabled below.</small>
+                  </span>
+                </label>
+              </div>
+
+              <div className="rf-v6-language-chips">
+                {LANGUAGE_OPTIONS.map(([code, name]) => {
+                  const supported = normalizeLanguageList(
+                    form.supportedLanguages,
+                    form.primaryLanguage
+                  );
+                  const checked = supported.includes(code);
+                  const locked = code === normalizeLanguageCode(form.primaryLanguage);
+                  return (
+                    <label key={code} className={checked ? "active" : ""}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={locked}
+                        onChange={(event) =>
+                          onChange(
+                            "supportedLanguages",
+                            event.target.checked
+                              ? Array.from(new Set([...supported, code]))
+                              : supported.filter((item) => item !== code)
+                          )
+                        }
+                      />
+                      <span>{name}</span>
+                    </label>
+                  );
+                })}
+              </div>
+
+              <div className="rf-v6-language-overrides">
+                {normalizeLanguageList(
+                  form.supportedLanguages,
+                  form.primaryLanguage
+                ).map((code) => (
+                  <div className="rf-v6-language-row" key={code}>
+                    <strong>{languageLabel(code)}</strong>
+                    <label className="rf-agent-field">
+                      <span>Voice override <em>optional</em></span>
+                      <select
+                        value={form.languageVoices?.[code] || ""}
+                        onChange={(event) =>
+                          onChange("languageVoices", {
+                            ...(form.languageVoices || {}),
+                            [code]: event.target.value,
+                          })
+                        }
+                      >
+                        <option value="">Use primary agent voice</option>
+                        {voices.map((voice) => (
+                          <option key={`${code}-${voice.id}`} value={voice.id}>
+                            {voice.name || voice.label || voice.id}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="rf-agent-field">
+                      <span>Opening line <em>optional</em></span>
+                      <textarea
+                        rows={2}
+                        value={form.languageGreetings?.[code] || ""}
+                        onChange={(event) =>
+                          onChange("languageGreetings", {
+                            ...(form.languageGreetings || {}),
+                            [code]: event.target.value,
+                          })
+                        }
+                        placeholder={`Leave blank for ReachFly's managed ${languageLabel(code)} opening.`}
+                      />
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="rf-voice-summary-strip">
               <div>
                 <small>Company</small>
@@ -5133,6 +5274,7 @@ function LeadQueue({
   agents = [],
   executionAgentId = "",
   campaignContext = "",
+  campaignLanguage = "",
   leads,
   queue,
   selectedLeadIds,
@@ -5169,6 +5311,7 @@ function LeadQueue({
   onCampaignLimit,
   onExecutionAgentId,
   onCampaignContext,
+  onCampaignLanguage,
   onToggleLead,
   onToggleAll,
   onAssign,
@@ -5307,6 +5450,23 @@ function LeadQueue({
             ))}
           </select>
         </label>
+        <label>
+          <span>Campaign call language</span>
+          <select
+            value={
+              supportedAgentLanguageOptions(agent).some(([code]) => code === campaignLanguage)
+                ? campaignLanguage
+                : ""
+            }
+            onChange={(event) => onCampaignLanguage?.(event.target.value)}
+          >
+            <option value="">Use each lead / agent default</option>
+            {supportedAgentLanguageOptions(agent).map(([code, name]) => (
+              <option key={code} value={code}>{name}</option>
+            ))}
+          </select>
+          <small>Applied to newly assigned leads. A lead-specific language can override it.</small>
+        </label>
         <label className="context">
           <span>Campaign call context</span>
           <textarea
@@ -5373,6 +5533,22 @@ function LeadQueue({
                         }
                         placeholder="e.g. Acme Dental"
                       />
+                    </label>
+
+                    <label className="rf-agent-field">
+                      <span>Call language <em>optional</em></span>
+                      <select
+                        value={customLeadForm.preferredLanguage || ""}
+                        onChange={(event) =>
+                          onCustomLeadForm("preferredLanguage", event.target.value)
+                        }
+                      >
+                        <option value="">Use agent default</option>
+                        {supportedAgentLanguageOptions(agent).map(([code, name]) => (
+                          <option key={code} value={code}>{name}</option>
+                        ))}
+                      </select>
+                      <small>The outbound conversation starts in this language.</small>
                     </label>
                   </div>
 
@@ -5656,6 +5832,9 @@ function LeadQueue({
                                 <b>{lead.name}</b>
                                 <small>{formatPhone(lead.phone)}</small>
                                 {lead.email ? <small>{lead.email}</small> : null}
+                                {lead.preferredLanguage ? (
+                                  <small>Language: {languageLabel(lead.preferredLanguage)}</small>
+                                ) : null}
                               </td>
                               <td>{lead.campaignName || "Uncategorized"}</td>
                               <td>
@@ -5745,6 +5924,9 @@ function LeadQueue({
                                   ? `${item.customLeadDetails.companyName} · `
                                   : ""}
                                 {formatPhone(item.phone || item.lead?.phone)} · {item.campaignName || "Lead"}
+                                {item.preferredLanguage || item.lead?.preferredLanguage
+                                  ? ` · ${languageLabel(item.preferredLanguage || item.lead?.preferredLanguage)}`
+                                  : ""}
                               </small>
                               {item.customContext ? (
                                 <small className="rf-agent-queue-context">
@@ -7874,9 +8056,27 @@ function buildVoiceOnboardingState({
 }
 
 function normalizeAgentForm(value = {}) {
+  const primaryLanguage = normalizeLanguageCode(
+    value.primaryLanguage || value.language || DEFAULT_FORM.primaryLanguage
+  );
+  const supportedLanguages = normalizeLanguageList(
+    value.supportedLanguages,
+    primaryLanguage
+  );
   return {
     ...DEFAULT_FORM,
     ...value,
+    primaryLanguage,
+    supportedLanguages,
+    autoDetectLanguage: value.autoDetectLanguage !== false,
+    languageVoices:
+      value.languageVoices && typeof value.languageVoices === "object" && !Array.isArray(value.languageVoices)
+        ? value.languageVoices
+        : {},
+    languageGreetings:
+      value.languageGreetings && typeof value.languageGreetings === "object" && !Array.isArray(value.languageGreetings)
+        ? value.languageGreetings
+        : {},
     model:
       value.model ||
       DEFAULT_FORM.model,
@@ -7911,6 +8111,34 @@ function normalizeAgentForm(value = {}) {
     complianceConfirmed: value.complianceConfirmed === true,
     enabled: value.enabled !== false,
   };
+}
+
+function normalizeLanguageCode(value) {
+  const raw = String(value || "en").trim().toLowerCase().replace(/_/g, "-");
+  const aliases = {
+    "en-us": "en", "en-gb": "en", "es-es": "es", "es-mx": "es",
+    "pt-br": "pt", "pt-pt": "pt", "zh-cn": "zh", "zh-hans": "zh",
+    "zh-tw": "zh", "zh-hant": "zh",
+  };
+  const code = aliases[raw] || raw.split("-")[0] || "en";
+  return LANGUAGE_OPTIONS.some(([item]) => item === code) ? code : "en";
+}
+
+function normalizeLanguageList(value, primary = "en") {
+  const raw = Array.isArray(value) ? value : [];
+  return Array.from(
+    new Set([normalizeLanguageCode(primary), ...raw.map(normalizeLanguageCode)])
+  ).filter((code) => LANGUAGE_OPTIONS.some(([item]) => item === code));
+}
+
+function languageLabel(code) {
+  return LANGUAGE_OPTIONS.find(([item]) => item === code)?.[1] || String(code || "").toUpperCase();
+}
+
+function supportedAgentLanguageOptions(agent) {
+  const primary = normalizeLanguageCode(agent?.primaryLanguage || "en");
+  const supported = normalizeLanguageList(agent?.supportedLanguages, primary);
+  return supported.map((code) => [code, languageLabel(code)]);
 }
 
 function safeNumber(value, fallback) {
