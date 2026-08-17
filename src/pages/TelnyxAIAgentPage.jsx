@@ -28,6 +28,7 @@ import {
 } from "../lib/workspace-platform-client.js";
 
 import "../styles.css";
+import "../voice-agent-v55.css";
 // import "../voice-agent-onboarding-wizard.css";
 
 const REACHFLY_VOICE_ART_STYLE = new Style(loreleiDefinition);
@@ -185,7 +186,7 @@ const LEAD_STEP_VIEWS = [
   "launch-calls",
 ];
 
-const VOICE_UI_VERSION = "5.4-nested-sidebar-views";
+const VOICE_UI_VERSION = "5.5-artist-portraits-layout";
 
 const LIVE_CALL_STATES = new Set([
   "creating",
@@ -5194,35 +5195,73 @@ function VoiceAvatar({ voice, large = false }) {
     () =>
       new Avatar(REACHFLY_VOICE_ART_STYLE, {
         seed: voiceSeed,
-        size: large ? 256 : 160,
+        size: large ? 256 : 180,
+        backgroundColor: ["#ede9fe", "#fce7f3", "#e0f2fe"],
       }).toDataUri(),
     [voiceSeed, large]
   );
 
+  const diceBearHttpFallback = useMemo(() => {
+    const url = new URL("https://api.dicebear.com/10.x/lorelei/svg");
+    url.searchParams.set("seed", voiceSeed);
+    url.searchParams.set("size", String(large ? 256 : 180));
+    return url.href;
+  }, [voiceSeed, large]);
+
+  const initials = String(
+    voice?.name || voice?.voiceName || "RF"
+  )
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0))
+    .join("")
+    .toUpperCase();
+
   const [imageSrc, setImageSrc] = useState(
     providerImageUrl || generatedImageUrl
   );
+  const [imageUnavailable, setImageUnavailable] = useState(false);
 
   useEffect(() => {
+    setImageUnavailable(false);
     setImageSrc(providerImageUrl || generatedImageUrl);
   }, [providerImageUrl, generatedImageUrl]);
+
+  function handleImageError() {
+    if (imageSrc === providerImageUrl && providerImageUrl) {
+      setImageSrc(generatedImageUrl);
+      return;
+    }
+
+    if (imageSrc === generatedImageUrl) {
+      setImageSrc(diceBearHttpFallback);
+      return;
+    }
+
+    setImageUnavailable(true);
+  }
 
   return (
     <span
       className={`rf-voice-avatar ${large ? "large" : ""}`}
+      data-voice-art="dicebear-lorelei"
       aria-hidden="true"
     >
-      <img
-        src={imageSrc}
-        alt=""
-        loading="lazy"
-        decoding="async"
-        onError={() => {
-          if (imageSrc !== generatedImageUrl) {
-            setImageSrc(generatedImageUrl);
-          }
-        }}
-      />
+      {!imageUnavailable ? (
+        <img
+          src={imageSrc}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          draggable="false"
+          onError={handleImageError}
+        />
+      ) : (
+        <b className="rf-voice-avatar-fallback">
+          {initials || "RF"}
+        </b>
+      )}
     </span>
   );
 }
