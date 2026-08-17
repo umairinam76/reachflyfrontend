@@ -28,7 +28,7 @@ import {
 } from "../lib/workspace-platform-client.js";
 
 import "../styles.css";
-// import "../voice-agent-v56.css";
+import "../voice-agent-v57.css";
 // import "../voice-agent-onboarding-wizard.css";
 
 const REACHFLY_VOICE_ART_STYLE = new Style(avataaarsDefinition);
@@ -186,7 +186,7 @@ const LEAD_STEP_VIEWS = [
   "launch-calls",
 ];
 
-const VOICE_UI_VERSION = "5.6-gender-aware-fictional-portraits";
+const VOICE_UI_VERSION = "5.7-dicebear-validation-safe";
 
 const LIVE_CALL_STATES = new Set([
   "creating",
@@ -5248,11 +5248,19 @@ function getVoiceAvatarOptions(voice, large = false) {
   const gender = inferVoiceGender(voice);
   const size = large ? 256 : 180;
 
+  /*
+   * Keep DiceBear core options deliberately conservative.
+   *
+   * DiceBear v10 uses scale as a factor from 0–10 where 1 = 100%.
+   * Earlier ReachFly code passed 92, which throws OptionsValidationError.
+   *
+   * We do not need the scale option here at all because the CSS controls
+   * portrait framing. Omitting it also keeps this compatible with future
+   * DiceBear package updates.
+   */
   const base = {
     seed: getVoiceArtSeed(voice),
     size,
-    scale: 92,
-    backgroundType: "gradientLinear",
     backgroundColor:
       gender === "female"
         ? ["fce7f3", "ede9fe", "ffe4e6"]
@@ -5283,7 +5291,7 @@ function getVoiceAvatarOptions(voice, large = false) {
   if (gender === "male") {
     return {
       ...base,
-      facialHairProbability: 35,
+      facialHairProbability: 30,
       topVariant: {
         shavedSides: 1,
         shortCurly: 2,
@@ -5314,33 +5322,52 @@ function getVoiceAvatarOptions(voice, large = false) {
 }
 
 function buildVoiceAvatarHttpFallback(voice, large = false) {
-  const gender = inferVoiceGender(voice);
   const options = getVoiceAvatarOptions(voice, large);
   const url = new URL("https://api.dicebear.com/10.x/avataaars/svg");
 
   url.searchParams.set("seed", options.seed);
   url.searchParams.set("size", String(options.size));
-  url.searchParams.set("scale", String(options.scale));
-  url.searchParams.set("backgroundType", "gradientLinear");
-  url.searchParams.set(
-    "backgroundColor",
-    options.backgroundColor.join(",")
-  );
-  url.searchParams.set(
-    "facialHairProbability",
-    String(options.facialHairProbability)
-  );
+
+  if (Array.isArray(options.backgroundColor) && options.backgroundColor.length) {
+    url.searchParams.set(
+      "backgroundColor",
+      options.backgroundColor.join(",")
+    );
+  }
+
+  if (Number.isFinite(options.facialHairProbability)) {
+    url.searchParams.set(
+      "facialHairProbability",
+      String(options.facialHairProbability)
+    );
+  }
 
   const topVariants = Object.keys(options.topVariant || {});
   if (topVariants.length) {
     url.searchParams.set("topVariant", topVariants.join(","));
   }
 
-  if (gender === "female") {
-    url.searchParams.set("facialHairProbability", "0");
-  }
-
   return url.href;
+}
+
+function createLocalVoiceAvatar(voice, large = false) {
+  try {
+    return new Avatar(
+      REACHFLY_VOICE_ART_STYLE,
+      getVoiceAvatarOptions(voice, large)
+    ).toDataUri();
+  } catch (avatarError) {
+    /*
+     * Avatar decoration must never take down the Voice Agent workflow.
+     * If DiceBear changes option validation again, keep the app usable and
+     * fall through to the HTTP SVG / initials fallback below.
+     */
+    console.warn(
+      "[ReachFly Voice] Local avatar generation failed.",
+      avatarError
+    );
+    return "";
+  }
 }
 
 function VoiceAvatar({ voice, large = false }) {
@@ -5355,11 +5382,7 @@ function VoiceAvatar({ voice, large = false }) {
   const gender = inferVoiceGender(voice);
 
   const generatedImageUrl = useMemo(
-    () =>
-      new Avatar(
-        REACHFLY_VOICE_ART_STYLE,
-        getVoiceAvatarOptions(voice, large)
-      ).toDataUri(),
+    () => createLocalVoiceAvatar(voice, large),
     [
       voiceSeed,
       gender,
@@ -5388,68 +5411,72 @@ function VoiceAvatar({ voice, large = false }) {
     .join("")
     .toUpperCase();
 
-  const [imageSrc, setImageSrc] = useState(
-    providerImageUrl || generatedImageUrl
-  );
-  const [imageUnavailable, setImageUnavailable] =
-    useState(false);
+  const initialImage =
+    providerImageUrl ||
+    generatedImageUrl ||
+    diceBearHttpFallback;
+
+  const [imageSrc, setImageSrc] = useState(initialImage);
+  const [failedSources, setFailedSources] = useState(() => new Set());
 
   useEffect(() => {
-    setImageUnavailable(false);
     setImageSrc(
-      providerImageUrl || generatedImageUrl
+      providerImageUrl ||
+        generatedImageUrl ||
+        diceBearHttpFallback
     );
+    setFailedSources(new Set());
   }, [
     providerImageUrl,
     generatedImageUrl,
+    diceBearHttpFallback,
   ]);
 
-  function handleImageError() {
-    if (
-      providerImageUrl &&
-      imageSrc === providerImageUrl
-    ) {
-      setImageSrc(generatedImageUrl);
-      return;
-    }
+  function useNextImageSource() {
+    setFailedSources((current) => {
+      const nextFailed = new Set(current);
 
-    if (
-      imageSrc === generatedImageUrl &&
-      diceBearHttpFallback
-    ) {
-      setImageSrc(diceBearHttpFallback);
-      return;
-    }
+      if (imageSrc) {
+        nextFailed.add(imageSrc);
+      }
 
-    setImageUnavailable(true);
+      const candidates = [
+        providerImageUrl,
+        generatedImageUrl,
+        diceBearHttpFallback,
+      ].filter(Boolean);
+
+      const nextSource = candidates.find(
+        (candidate) => !nextFailed.has(candidate)
+      );
+
+      setImageSrc(nextSource || "");
+      return nextFailed;
+    });
   }
 
   return (
     <span
-      className={`rf-voice-avatar ${
-        large ? "large" : ""
-      }`}
-      data-voice-art="dicebear-avataaars-gender-aware"
+      className={`rf-voice-avatar ${large ? "large" : ""}`}
       data-voice-gender={gender}
+      data-voice-art="dicebear-avataaars-validation-safe"
       aria-hidden="true"
     >
-      {!imageUnavailable ? (
+      {imageSrc ? (
         <img
           src={imageSrc}
           alt=""
           loading="lazy"
           decoding="async"
-          draggable="false"
-          onError={handleImageError}
+          onError={useNextImageSource}
         />
       ) : (
-        <b className="rf-voice-avatar-fallback">
-          {initials || "RF"}
-        </b>
+        <b>{initials || "RF"}</b>
       )}
     </span>
   );
 }
+
 
 function normalizePhoneForUi(value) {
   return String(value || "").replace(/[^\d+]/g, "");
