@@ -70522,3 +70522,424 @@ span:nth-child(n + 3) {
     animation: none !important;
   }
 }
+
+/* ==========================================================================\n   REACHFLY AI WORKFORCE — GENERATED VOICE ART / COMPACT VOICE PICKER\n   Append after your existing rf-v6 styles.\n   ========================================================================== */
+
+.rf-v6-agent-top {
+  grid-template-columns: auto minmax(0, 1fr) auto !important;
+  align-items: center;
+  gap: 12px;
+}
+
+.rf-v6-agent-name {
+  min-width: 0;
+}
+
+.rf-v6-agent-name > strong,
+.rf-v6-agent-name > small,
+.rf-v6-agent-voice-line {
+  display: block;
+}
+
+.rf-v6-agent-voice-line {
+  margin-top: 4px;
+  overflow: hidden;
+  color: #7051df;
+  font-size: 10px;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rf-v6-voice-field {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.rf-v6-voice-field-label {
+  color: #625b6d;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.rf-v6-voice-art {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
+  display: block;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.96);
+  border-radius: 16px;
+  outline: 1px solid rgba(111, 79, 225, 0.18);
+  background:
+    radial-gradient(circle at 20% 15%, rgba(255,255,255,.95), transparent 32%),
+    linear-gradient(145deg, #ebe6ff, #fbe7f6);
+  box-shadow:
+    0 9px 22px rgba(67, 43, 126, 0.15),
+    0 0 0 4px rgba(111, 79, 225, 0.04);
+  isolation: isolate;
+}
+
+.rf-v6-voice-art.large {
+  width: 66px;
+  height: 66px;
+  flex-basis: 66px;
+  border-radius: 20px;
+}
+
+.rf-v6-agent-art {
+  width: 58px;
+  height: 58px;
+  flex-basis: 58px;
+}
+
+.rf-v6-voice-art img {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rf-v6-voice-art::before {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(145deg, rgba(255,255,255,.34), transparent 36%, rgba(96,61,211,.08));
+}
+
+.rf-v6-voice-art > i {
+  position: absolute;
+  z-index: 3;
+  right: -8px;
+  bottom: -9px;
+  width: 34px;
+  height: 22px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: rgba(217, 73, 181, 0.42);
+  filter: blur(10px);
+}
+
+.rf-v6-voice-picker {
+  display: grid;
+  gap: 9px;
+}
+
+.rf-v6-selected-voice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 84px;
+  padding: 9px 11px;
+  border: 1px solid rgba(111, 78, 227, 0.18);
+  border-radius: 17px;
+  background:
+    radial-gradient(circle at 0 50%, rgba(111, 82, 239, 0.11), transparent 140px),
+    radial-gradient(circle at 100% 100%, rgba(229, 72, 181, 0.07), transparent 150px),
+    #fff;
+  box-shadow: 0 8px 22px rgba(65, 43, 117, 0.05);
+}
+
+.rf-v6-selected-voice-copy {
+  min-width: 0;
+}
+
+.rf-v6-selected-voice-copy > span,
+.rf-v6-selected-voice-copy > strong,
+.rf-v6-selected-voice-copy > small {
+  display: block;
+}
+
+.rf-v6-selected-voice-copy > span {
+  color: #7253e4;
+  font-size: 7px;
+  font-weight: 950;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.rf-v6-selected-voice-copy > strong {
+  margin-top: 3px;
+  overflow: hidden;
+  color: #282238;
+  font-size: 13px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rf-v6-selected-voice-copy > small {
+  margin-top: 3px;
+  overflow: hidden;
+  color: #89828f;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rf-v6-selected-voice-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.rf-v6-selected-voice-actions button {
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 10px;
+  font-size: 8px;
+  font-weight: 900;
+}
+
+.rf-v6-voice-preview {
+  border: 1px solid rgba(108, 78, 221, 0.16);
+  color: #6544d8;
+  background: #f7f3ff;
+}
+
+.rf-v6-voice-change {
+  border: 0;
+  color: #fff;
+  background: linear-gradient(135deg, #6653eb, #8449e9 58%, #d546b4);
+  box-shadow: 0 8px 18px rgba(104, 72, 218, 0.19);
+}
+
+.rf-v6-voice-browser {
+  padding: 8px;
+  border: 1px solid rgba(82, 68, 124, 0.09);
+  border-radius: 14px;
+  background: #f9f8fc;
+}
+
+.rf-v6-voice-browser-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+
+.rf-v6-voice-browser-head input {
+  width: 100%;
+  height: 35px;
+  padding: 0 10px;
+  border: 1px solid rgba(82, 68, 124, 0.12);
+  border-radius: 9px;
+  outline: 0;
+  color: #433d4c;
+  background: #fff;
+  font-size: 9px;
+}
+
+.rf-v6-voice-browser-head input:focus {
+  border-color: rgba(108, 78, 222, 0.45);
+  box-shadow: 0 0 0 3px rgba(108, 78, 222, 0.07);
+}
+
+.rf-v6-voice-browser-head > span {
+  color: #8d8697;
+  font-size: 8px;
+  font-weight: 850;
+}
+
+/* This is the only voice-list scroll area. */
+.rf-v6-voice-grid {
+  max-height: 255px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  overflow-y: auto;
+  padding: 2px 5px 2px 2px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(112, 80, 226, 0.38) transparent;
+  overscroll-behavior: contain;
+}
+
+.rf-v6-voice-grid::-webkit-scrollbar {
+  width: 5px;
+}
+
+.rf-v6-voice-grid::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: linear-gradient(#8060ef, #ce50bd);
+}
+
+.rf-v6-voice-card {
+  min-width: 0;
+  min-height: 70px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 36px;
+  gap: 4px;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid rgba(79, 65, 116, 0.095);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 5px 15px rgba(45, 31, 77, 0.03);
+}
+
+.rf-v6-voice-card.selected {
+  border-color: rgba(108, 76, 224, 0.34);
+  background: linear-gradient(145deg, #faf7ff, #fff);
+  box-shadow: 0 9px 22px rgba(89, 58, 177, 0.09);
+}
+
+.rf-v6-voice-select {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  padding: 6px;
+  border: 0;
+  text-align: left;
+  background: transparent;
+}
+
+.rf-v6-voice-select .rf-v6-voice-art {
+  width: 47px;
+  height: 47px;
+  flex-basis: 47px;
+  border-radius: 13px;
+}
+
+.rf-v6-voice-card-copy {
+  min-width: 0;
+}
+
+.rf-v6-voice-card-copy strong,
+.rf-v6-voice-card-copy small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rf-v6-voice-card-copy strong {
+  color: #2c2737;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.rf-v6-voice-card-copy small {
+  margin-top: 4px;
+  color: #8e8795;
+  font-size: 7px;
+}
+
+.rf-v6-voice-select em {
+  padding: 3px 5px;
+  border-radius: 999px;
+  color: #6545d8;
+  background: #efeaff;
+  font-size: 5px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.rf-v6-voice-card-play {
+  min-width: 36px;
+  border: 0;
+  border-left: 1px solid rgba(78, 65, 111, 0.07);
+  color: #704ce3;
+  background: linear-gradient(180deg, #faf8ff, #f4efff);
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.rf-v6-voice-card-play:hover {
+  background: #eee7ff;
+}
+
+.rf-v6-voice-empty {
+  display: grid;
+  gap: 5px;
+  padding: 13px;
+  border: 1px dashed rgba(102, 79, 174, 0.2);
+  border-radius: 12px;
+  color: #7f778a;
+  background: #faf9fc;
+}
+
+.rf-v6-voice-empty b {
+  color: #4c4457;
+  font-size: 10px;
+}
+
+.rf-v6-voice-empty span {
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.rf-v6-voice-empty.compact {
+  margin-top: 7px;
+}
+
+.rf-v6-voice-empty.compact button {
+  width: max-content;
+  padding: 0;
+  border: 0;
+  color: #6846db;
+  background: transparent;
+  font-size: 8px;
+  font-weight: 900;
+}
+
+/* Keep modal actions reachable without making the content cramped. */
+.rf-v6-agent-editor {
+  width: min(940px, calc(100vw - 32px)) !important;
+  max-height: calc(100dvh - 32px) !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(108, 78, 220, 0.3) transparent;
+}
+
+.rf-v6-editor-actions {
+  position: sticky;
+  z-index: 20;
+  bottom: 0;
+  margin-bottom: -1px;
+  border-top: 1px solid rgba(80, 65, 120, 0.08);
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+@media (max-width: 760px) {
+  .rf-v6-selected-voice {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .rf-v6-selected-voice-actions {
+    grid-column: 1 / -1;
+  }
+
+  .rf-v6-selected-voice-actions button {
+    flex: 1;
+  }
+
+  .rf-v6-voice-grid {
+    grid-template-columns: 1fr;
+    max-height: 315px;
+  }
+}
+
+@media (max-width: 480px) {
+  .rf-v6-voice-art.large {
+    width: 58px;
+    height: 58px;
+    flex-basis: 58px;
+  }
+
+  .rf-v6-voice-browser-head {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,5 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { Avatar, Style } from "@dicebear/core";
+import loreleiDefinition from "@dicebear/styles/lorelei.json" with { type: "json" };
 import { api } from "../api";
+
+const VOICE_ART_STYLE = new Style(loreleiDefinition);
 
 const PURPOSES = [
   ["sales", "Outbound sales", "Qualify prospects, handle objections and book meetings."],
@@ -128,6 +133,7 @@ export default function AIWorkforcePage() {
     event.preventDefault();
     if (!form.name.trim()) return setError("Give this AI agent a name.");
     if (!form.fromNumber) return setError("Assign an active business number first.");
+    if (voices.length > 0 && !form.voice) return setError("Choose a voice before saving the agent.");
     if (form.sendEmail && !form.emailConnectionId) {
       return setError("Choose a linked email account before enabling email follow-up.");
     }
@@ -192,7 +198,7 @@ export default function AIWorkforcePage() {
           <span className="rf-v6-kicker">AI workforce</span>
           <h1>Build a team of AI agents that works in parallel.</h1>
           <p>Each agent can have its own role, voice, context, phone identity, email connection, calendar and concurrency while remaining isolated to this workspace.</p>
-          <div className="rf-v6-hero-actions"><button className="rf-v6-btn primary" type="button" onClick={openCreate}>+ Create AI agent</button><a className="rf-v6-btn ghost" href="/app/builder">Create campaign</a></div>
+          <div className="rf-v6-hero-actions"><button className="rf-v6-btn primary" type="button" onClick={openCreate}>+ Create AI agent</button><Link className="rf-v6-btn ghost" to="/app/builder">Create campaign</Link></div>
         </div>
         <div className="rf-v6-workforce-orbit">
           <div><span>Agents</span><strong>{agents.length}</strong></div>
@@ -215,12 +221,16 @@ export default function AIWorkforcePage() {
               const live = agentCalls.filter((item) => ["initiated", "dialing", "ringing", "connected", "in_progress"].includes(String(item.status || "").toLowerCase())).length;
               const queued = queue.filter((item) => item.agentId === agent.id && item.status === "queued").length;
               const booked = meetings.filter((item) => item.agentId === agent.id).length;
+              const agentVoice = findVoice(voices, agent.voice) || {
+                id: agent.voice || agent.id,
+                name: agent.name || "ReachFly AI",
+              };
               return (
                 <article className="rf-v6-agent-card" key={agent.id}>
-                  <div className="rf-v6-agent-top"><span className={`rf-v6-agent-avatar purpose-${agent.purpose || "sales"}`}>{initials(agent.name)}</span><div><strong>{agent.name}</strong><small>{label(agent.purpose || "sales")} · {label(agent.callingMode || "outbound")}</small></div><span className={`rf-v6-status ${agent.enabled !== false ? "good" : "muted"}`}>● {agent.enabled !== false ? "Active" : "Paused"}</span></div>
+                  <div className="rf-v6-agent-top"><VoiceArtwork voice={agentVoice} className="rf-v6-agent-art" /><div className="rf-v6-agent-name"><strong>{agent.name}</strong><small>{label(agent.purpose || "sales")} · {label(agent.callingMode || "outbound")}</small><span className="rf-v6-agent-voice-line">{getVoiceName(agentVoice)}</span></div><span className={`rf-v6-status ${agent.enabled !== false ? "good" : "muted"}`}>● {agent.enabled !== false ? "Active" : "Paused"}</span></div>
                   <div className="rf-v6-agent-resources"><Resource label="Phone" value={agent.fromNumber || "Not assigned"} /><Resource label="Email" value={emailConnections.find((item) => item.id === agent.emailConnectionId)?.accountEmail || "Not linked"} /><Resource label="Calendar" value={calendarConnections.find((item) => item.id === agent.calendarConnectionId)?.accountEmail || "Not linked"} /><Resource label="Languages" value={languageSummary(agent)} /></div>
                   <div className="rf-v6-agent-stats"><div><strong>{live}</strong><span>live</span></div><div><strong>{queued}</strong><span>queued</span></div><div><strong>{booked}</strong><span>meetings</span></div><div><strong>{agent.concurrency || 1}</strong><span>parallel</span></div></div>
-                  <div className="rf-v6-row-actions"><button onClick={() => editAgent(agent)}>Quick manage</button><a href={`/app/voice-agent?tab=setup&agentId=${encodeURIComponent(agent.id)}`}>Full setup</a></div>
+                  <div className="rf-v6-row-actions"><button type="button" onClick={() => editAgent(agent)}>Quick manage</button><Link to={`/app/voice-agent?tab=setup&view=agent&agentId=${encodeURIComponent(agent.id)}`}>Full setup</Link></div>
                 </article>
               );
             })}
@@ -239,7 +249,14 @@ export default function AIWorkforcePage() {
 
             <div className="rf-v6-form-grid two">
               <Field label="Agent name"><input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder="e.g. Sara — US Sales" /></Field>
-              <Field label="Voice"><select value={form.voice} onChange={(event) => setForm((current) => ({ ...current, voice: event.target.value }))}><option value="">Managed voice</option>{voices.map((voice) => <option value={voice.id || voice.voiceId} key={voice.id || voice.voiceId}>{voice.name || voice.voiceName || voice.id}</option>)}</select></Field>
+              <div className="rf-v6-voice-field">
+                <span className="rf-v6-voice-field-label">Voice artist</span>
+                <VoicePicker
+                  voices={voices}
+                  value={form.voice}
+                  onChange={(voiceId) => setForm((current) => ({ ...current, voice: voiceId }))}
+                />
+              </div>
               <Field label="Calling mode"><select value={form.callingMode} onChange={(event) => setForm((current) => ({ ...current, callingMode: event.target.value }))}><option value="outbound">Outbound</option><option value="inbound">Inbound</option><option value="both">Inbound + outbound</option></select></Field>
               <Field label="Business number"><select value={form.fromNumber} onChange={(event) => setForm((current) => ({ ...current, fromNumber: event.target.value }))}><option value="">Choose number</option>{phoneNumbers.map((item) => <option key={item.phoneNumber} value={item.phoneNumber}>{item.phoneNumber}</option>)}</select></Field>
               <Field label="Email account"><select value={form.emailConnectionId} onChange={(event) => setForm((current) => ({ ...current, emailConnectionId: event.target.value }))}><option value="">No email</option>{emailConnections.map((item) => <option key={item.id} value={item.id}>{item.accountEmail}</option>)}</select></Field>
@@ -355,6 +372,238 @@ export default function AIWorkforcePage() {
   );
 }
 
+function VoicePicker({ voices = [], value = "", onChange }) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(!value);
+  const [playingId, setPlayingId] = useState("");
+  const audioRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = "";
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!value) setOpen(true);
+  }, [value]);
+
+  const selected = findVoice(voices, value);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return voices;
+
+    return voices.filter((voice) =>
+      [
+        getVoiceName(voice),
+        voice?.language,
+        voice?.accent,
+        voice?.age,
+        voice?.gender,
+        voice?.useCase,
+        voice?.niche,
+        voice?.category,
+        voice?.description,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [voices, query]);
+
+  function stopPreview() {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current.src = "";
+      audioRef.current = null;
+    }
+    setPlayingId("");
+  }
+
+  function togglePreview(event, voice) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const id = getVoiceId(voice);
+    const previewUrl = getVoicePreviewUrl(voice);
+    if (!id || !previewUrl) return;
+
+    if (playingId === id) {
+      stopPreview();
+      return;
+    }
+
+    stopPreview();
+    const audio = new Audio(previewUrl);
+    audioRef.current = audio;
+    setPlayingId(id);
+
+    audio.onended = stopPreview;
+    audio.onerror = stopPreview;
+    audio.play().catch(stopPreview);
+  }
+
+  if (!voices.length) {
+    return (
+      <div className="rf-v6-voice-empty">
+        <b>Voice catalog unavailable</b>
+        <span>Refresh after the voice API is healthy. ReachFly will not create a fake provider voice ID in the browser.</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rf-v6-voice-picker">
+      {selected ? (
+        <div className="rf-v6-selected-voice">
+          <VoiceArtwork voice={selected} className="large" />
+          <div className="rf-v6-selected-voice-copy">
+            <span>Selected voice</span>
+            <strong>{getVoiceName(selected)}</strong>
+            <small>{getVoiceMeta(selected)}</small>
+          </div>
+          <div className="rf-v6-selected-voice-actions">
+            {getVoicePreviewUrl(selected) ? (
+              <button type="button" className="rf-v6-voice-preview" onClick={(event) => togglePreview(event, selected)}>
+                {playingId === getVoiceId(selected) ? "■ Stop" : "▶ Preview"}
+              </button>
+            ) : null}
+            <button type="button" className="rf-v6-voice-change" onClick={() => setOpen((current) => !current)}>
+              {open ? "Done" : "Change voice"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {open ? (
+        <div className="rf-v6-voice-browser">
+          <div className="rf-v6-voice-browser-head">
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search voice, language, accent or use case…"
+              aria-label="Search voices"
+            />
+            <span>{filtered.length} {filtered.length === 1 ? "voice" : "voices"}</span>
+          </div>
+
+          <div className="rf-v6-voice-grid">
+            {filtered.map((voice) => {
+              const id = getVoiceId(voice);
+              const isSelected = id === value;
+              return (
+                <article className={`rf-v6-voice-card ${isSelected ? "selected" : ""}`} key={id}>
+                  <button
+                    type="button"
+                    className="rf-v6-voice-select"
+                    onClick={() => {
+                      onChange?.(id);
+                      setOpen(false);
+                      setQuery("");
+                      stopPreview();
+                    }}
+                  >
+                    <VoiceArtwork voice={voice} />
+                    <span className="rf-v6-voice-card-copy">
+                      <strong>{getVoiceName(voice)}</strong>
+                      <small>{getVoiceMeta(voice)}</small>
+                    </span>
+                    {isSelected ? <em>Selected</em> : null}
+                  </button>
+
+                  {getVoicePreviewUrl(voice) ? (
+                    <button
+                      type="button"
+                      className="rf-v6-voice-card-play"
+                      onClick={(event) => togglePreview(event, voice)}
+                      aria-label={`Preview ${getVoiceName(voice)}`}
+                    >
+                      {playingId === id ? "■" : "▶"}
+                    </button>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
+
+          {!filtered.length ? (
+            <div className="rf-v6-voice-empty compact">
+              <b>No voices found.</b>
+              <button type="button" onClick={() => setQuery("")}>Clear search</button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function VoiceArtwork({ voice, className = "" }) {
+  const seed = getVoiceId(voice) || getVoiceName(voice) || "ReachFly Voice";
+
+  const generatedArt = useMemo(
+    () => new Avatar(VOICE_ART_STYLE, { seed, size: 160 }).toDataUri(),
+    [seed]
+  );
+
+  const providerImage = String(
+    voice?.imageUrl || voice?.image || voice?.avatarUrl || ""
+  ).trim();
+
+  const [src, setSrc] = useState(providerImage || generatedArt);
+
+  useEffect(() => {
+    setSrc(providerImage || generatedArt);
+  }, [providerImage, generatedArt]);
+
+  return (
+    <span className={`rf-v6-voice-art ${className}`.trim()} aria-hidden="true">
+      <img
+        src={src}
+        alt=""
+        loading="lazy"
+        onError={() => {
+          if (src !== generatedArt) setSrc(generatedArt);
+        }}
+      />
+      <i />
+    </span>
+  );
+}
+
+function getVoiceId(voice) {
+  return String(voice?.id || voice?.voiceId || voice?.voice_id || "").trim();
+}
+
+function getVoiceName(voice) {
+  return voice?.name || voice?.voiceName || voice?.label || getVoiceId(voice) || "Managed voice";
+}
+
+function getVoicePreviewUrl(voice) {
+  return String(voice?.previewUrl || voice?.preview_url || voice?.sampleUrl || "").trim();
+}
+
+function getVoiceMeta(voice) {
+  return [
+    voice?.language,
+    voice?.accent,
+    voice?.age,
+    voice?.useCase || voice?.niche || voice?.category,
+  ].filter(Boolean).join(" · ") || voice?.description || "ReachFly managed voice";
+}
+
+function findVoice(voices, id) {
+  const target = String(id || "").trim();
+  if (!target) return null;
+  return voices.find((voice) => getVoiceId(voice) === target) || null;
+}
+
 function Field({ label, children }) { return <label className="rf-v6-field"><span>{label}</span>{children}</label>; }
 function Toggle({ checked, onChange, title, text }) { return <label className="rf-v6-toggle"><input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} /><span><b>{title}</b><small>{text}</small></span></label>; }
 function Resource({ label: title, value }) { return <div><span>{title}</span><b>{value}</b></div>; }
@@ -365,4 +614,3 @@ function languageSummary(agent) {
   return `${primaryName}${supported.length > 1 ? ` +${supported.length - 1}` : ""}${agent?.autoDetectLanguage !== false && supported.length > 1 ? " · auto-switch" : ""}`;
 }
 function label(value) { return String(value || "").replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()); }
-function initials(value) { return String(value || "AI").trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase(); }
