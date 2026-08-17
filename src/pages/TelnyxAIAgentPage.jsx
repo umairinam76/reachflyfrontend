@@ -12,6 +12,12 @@ import {
 } from "react-router-dom";
 
 import {
+  Avatar,
+  Style,
+} from "@dicebear/core";
+import loreleiDefinition from "@dicebear/styles/lorelei.json" with { type: "json" };
+
+import {
   useAuth,
 } from "../auth/AuthContext";
 
@@ -23,6 +29,8 @@ import {
 
 import "../styles.css";
 // import "../voice-agent-onboarding-wizard.css";
+
+const REACHFLY_VOICE_ART_STYLE = new Style(loreleiDefinition);
 
 const FAST_HUMAN_GREETING =
   "Hey {{greeting_name}}, James from {{company_name}}. Quick disclosure — I’m an AI sales agent with the team, and this call may be recorded. I’ll keep it brief. I was curious... is your website consistently turning visitors into real sales conversations, or do too many people land there and leave without ever becoming a lead?";
@@ -5166,33 +5174,55 @@ function VoiceLibraryPicker({
 }
 
 function VoiceAvatar({ voice, large = false }) {
-  const imageUrl = String(voice?.imageUrl || "").trim();
-  const name = String(voice?.name || "Voice").trim();
-  const initials = name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part.charAt(0))
-    .join("")
-    .toUpperCase();
+  const providerImageUrl = String(
+    voice?.imageUrl ||
+      voice?.image ||
+      voice?.avatarUrl ||
+      ""
+  ).trim();
+
+  const voiceSeed = String(
+    voice?.id ||
+      voice?.voiceId ||
+      voice?.voice_id ||
+      voice?.name ||
+      voice?.voiceName ||
+      "ReachFly Voice"
+  ).trim();
+
+  const generatedImageUrl = useMemo(
+    () =>
+      new Avatar(REACHFLY_VOICE_ART_STYLE, {
+        seed: voiceSeed,
+        size: large ? 256 : 160,
+      }).toDataUri(),
+    [voiceSeed, large]
+  );
+
+  const [imageSrc, setImageSrc] = useState(
+    providerImageUrl || generatedImageUrl
+  );
+
+  useEffect(() => {
+    setImageSrc(providerImageUrl || generatedImageUrl);
+  }, [providerImageUrl, generatedImageUrl]);
 
   return (
     <span
       className={`rf-voice-avatar ${large ? "large" : ""}`}
       aria-hidden="true"
     >
-      {imageUrl ? (
-        <img src={imageUrl} alt="" loading="lazy" />
-      ) : (
-        <>
-          <b>{initials || "RF"}</b>
-          <i>
-            <span />
-            <span />
-            <span />
-            <span />
-          </i>
-        </>
-      )}
+      <img
+        src={imageSrc}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        onError={() => {
+          if (imageSrc !== generatedImageUrl) {
+            setImageSrc(generatedImageUrl);
+          }
+        }}
+      />
     </span>
   );
 }

@@ -70943,3 +70943,777 @@ span:nth-child(n + 3) {
     grid-template-columns: 1fr;
   }
 }
+/* ==========================================================================
+   REACHFLY VOICE AGENT — ARTIST CARDS + BALANCED AGENT STEP
+   ADD THIS AT THE ABSOLUTE END OF styles.css
+   ========================================================================== */
+
+
+/* ==========================================================================
+   1. FIX THE LARGE EMPTY LEFT SIDE
+   ========================================================================== */
+
+@media (min-width: 1050px) {
+
+  .rf-agent-page
+  .rf-voice-setup-pane:has(> .rf-voice-identity-stack) {
+    display: grid !important;
+
+    grid-template-columns:
+      minmax(0, 1.22fr)
+      minmax(340px, 0.78fr) !important;
+
+    grid-template-areas:
+      "voice language"
+      "voice summary" !important;
+
+    grid-template-rows:
+      auto auto !important;
+
+    gap: 14px 16px !important;
+
+    /*
+      Important:
+      old CSS used align-items:start, which leaves the entire
+      lower-left area empty when the language column is taller.
+    */
+    align-items: stretch !important;
+  }
+
+  .rf-agent-page
+  .rf-voice-setup-pane:has(> .rf-voice-identity-stack)
+  > .rf-voice-identity-stack {
+    grid-area: voice;
+
+    height: 100% !important;
+
+    display: grid !important;
+
+    grid-template-rows:
+      auto
+      minmax(0, 1fr) !important;
+
+    align-self: stretch !important;
+  }
+
+  .rf-agent-page
+  .rf-voice-setup-pane:has(> .rf-voice-identity-stack)
+  > .rf-voice-language-panel {
+    grid-area: language;
+  }
+
+  .rf-agent-page
+  .rf-voice-setup-pane:has(> .rf-voice-identity-stack)
+  > .rf-voice-summary-strip {
+    grid-area: summary;
+  }
+}
+
+
+/* ==========================================================================
+   2. LET THE VOICE LIBRARY USE THE AVAILABLE LEFT COLUMN
+   ========================================================================== */
+
+.rf-agent-page .rf-voice-picker-field {
+  min-height: 0 !important;
+
+  display: grid !important;
+
+  grid-template-rows:
+    auto
+    minmax(0, 1fr) !important;
+}
+
+.rf-agent-page .rf-voice-library {
+  min-height: 0 !important;
+
+  display: flex !important;
+
+  flex-direction: column;
+
+  gap: 9px !important;
+}
+
+
+/* Old CSS capped this around 185–245px, which caused the dead whitespace. */
+
+@media (min-width: 1050px) {
+
+  .rf-agent-page
+  .rf-voice-setup-pane:has(> .rf-voice-identity-stack)
+  .rf-voice-card-grid {
+    flex: 1 1 auto;
+
+    min-height: 330px !important;
+    max-height: 430px !important;
+  }
+}
+
+
+/* ==========================================================================
+   3. ACTUAL GENERATED ARTIST AVATARS
+   ========================================================================== */
+
+.rf-agent-page .rf-voice-avatar {
+  position: relative;
+
+  width: 54px !important;
+  height: 54px !important;
+
+  flex: 0 0 54px !important;
+
+  overflow: hidden;
+
+  border:
+    2px solid rgba(255, 255, 255, 0.96) !important;
+
+  border-radius: 16px !important;
+
+  outline:
+    1px solid rgba(107, 79, 222, 0.18);
+
+  background:
+    linear-gradient(
+      145deg,
+      #ece8ff,
+      #fde9f7
+    ) !important;
+
+  box-shadow:
+    0 9px 22px rgba(73, 45, 139, 0.15),
+    0 0 0 4px rgba(111, 78, 226, 0.045) !important;
+
+  isolation: isolate;
+}
+
+
+.rf-agent-page .rf-voice-avatar.large {
+  width: 68px !important;
+  height: 68px !important;
+
+  flex-basis: 68px !important;
+
+  border-radius: 19px !important;
+
+  box-shadow:
+    0 12px 29px rgba(75, 45, 145, 0.20),
+    0 0 0 5px rgba(111, 78, 226, 0.05) !important;
+}
+
+
+.rf-agent-page .rf-voice-avatar img {
+  position: relative;
+  z-index: 1;
+
+  display: block;
+
+  width: 100%;
+  height: 100%;
+
+  object-fit: cover;
+  object-position: center;
+
+  transform: scale(1.02);
+
+  transition:
+    transform 0.22s ease,
+    filter 0.22s ease !important;
+}
+
+
+/* premium lighting over generated art */
+
+.rf-agent-page .rf-voice-avatar::before {
+  content: "";
+
+  position: absolute;
+  z-index: 2;
+
+  inset: 0;
+
+  pointer-events: none;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.31),
+      transparent 36%,
+      rgba(80, 49, 182, 0.08)
+    );
+}
+
+
+/* subtle pink/purple collectible-art glow */
+
+.rf-agent-page .rf-voice-avatar::after {
+  content: "";
+
+  position: absolute;
+  z-index: 3;
+
+  right: -9px;
+  bottom: -9px;
+
+  width: 33px;
+  height: 22px;
+
+  border-radius: 50%;
+
+  pointer-events: none;
+
+  background:
+    rgba(224, 70, 180, 0.43);
+
+  filter: blur(10px);
+}
+
+
+/* ==========================================================================
+   4. SELECTED VOICE = FEATURED ARTIST
+   ========================================================================== */
+
+.rf-agent-page .rf-selected-voice-summary {
+  min-height: 86px !important;
+
+  grid-template-columns:
+    auto
+    minmax(0, 1fr)
+    auto !important;
+
+  gap: 12px !important;
+
+  align-items: center !important;
+
+  padding: 10px 12px !important;
+
+  border:
+    1px solid rgba(107, 78, 226, 0.21) !important;
+
+  border-radius: 17px !important;
+
+  background:
+    radial-gradient(
+      circle at 0% 50%,
+      rgba(112, 80, 239, 0.14),
+      transparent 140px
+    ),
+    radial-gradient(
+      circle at 100% 100%,
+      rgba(228, 68, 179, 0.075),
+      transparent 170px
+    ),
+    linear-gradient(
+      135deg,
+      #faf8ff,
+      #ffffff
+    ) !important;
+
+  box-shadow:
+    0 10px 26px rgba(71, 45, 132, 0.065) !important;
+}
+
+
+.rf-agent-page
+.rf-selected-voice-summary
+> div {
+  min-width: 0;
+}
+
+
+.rf-agent-page
+.rf-selected-voice-summary
+strong {
+  color: #241e34 !important;
+
+  font-size: 11px !important;
+  font-weight: 900 !important;
+
+  letter-spacing: -0.025em !important;
+}
+
+
+.rf-agent-page
+.rf-selected-voice-summary
+small {
+  margin-top: 3px !important;
+
+  overflow: hidden;
+
+  color: #8c8596 !important;
+
+  font-size: 7.5px !important;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+/* ==========================================================================
+   5. VOICE BROWSER TOOLBAR
+   ========================================================================== */
+
+.rf-agent-page .rf-voice-library-toolbar {
+  grid-template-columns:
+    minmax(180px, 1.5fr)
+    minmax(95px, 0.65fr)
+    minmax(95px, 0.65fr) !important;
+
+  gap: 7px !important;
+
+  padding: 7px !important;
+
+  border:
+    1px solid rgba(82, 68, 124, 0.085) !important;
+
+  border-radius: 12px !important;
+
+  background:
+    #f8f7fb !important;
+}
+
+
+/* Age and use-case are still searchable; don't make users stare at 5 filters. */
+
+.rf-agent-page
+.rf-voice-library-toolbar
+> label:nth-child(4),
+
+.rf-agent-page
+.rf-voice-library-toolbar
+> label:nth-child(5) {
+  display: none !important;
+}
+
+
+.rf-agent-page
+.rf-voice-library-toolbar
+label > span {
+  display: none !important;
+}
+
+
+.rf-agent-page
+.rf-voice-library-toolbar
+input,
+
+.rf-agent-page
+.rf-voice-library-toolbar
+select {
+  height: 35px !important;
+
+  border:
+    1px solid rgba(79, 65, 116, 0.12) !important;
+
+  border-radius: 9px !important;
+
+  background:
+    #ffffff !important;
+
+  font-size: 8px !important;
+}
+
+
+/* ==========================================================================
+   6. ARTIST VOICE CARDS
+   ========================================================================== */
+
+.rf-agent-page .rf-voice-card-grid {
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr)) !important;
+
+  gap: 8px !important;
+
+  padding:
+    2px 6px 2px 2px !important;
+
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+
+  scrollbar-width: thin;
+
+  scrollbar-color:
+    rgba(110, 78, 224, 0.42)
+    rgba(81, 65, 122, 0.04);
+
+  overscroll-behavior: contain;
+}
+
+
+.rf-agent-page
+.rf-voice-card-grid::-webkit-scrollbar {
+  width: 5px !important;
+}
+
+
+.rf-agent-page
+.rf-voice-card-grid::-webkit-scrollbar-track {
+  border-radius: 999px;
+
+  background:
+    rgba(74, 61, 107, 0.04);
+}
+
+
+.rf-agent-page
+.rf-voice-card-grid::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+
+  background:
+    linear-gradient(
+      #8060ef,
+      #d04fbe
+    );
+}
+
+
+.rf-agent-page .rf-voice-card {
+  min-width: 0;
+  min-height: 82px !important;
+
+  padding: 7px !important;
+
+  border:
+    1px solid rgba(76, 63, 111, 0.105) !important;
+
+  border-radius: 14px !important;
+
+  background:
+    linear-gradient(
+      145deg,
+      #ffffff,
+      #fbfafe
+    ) !important;
+
+  box-shadow:
+    0 6px 18px rgba(44, 30, 77, 0.035) !important;
+
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease !important;
+}
+
+
+.rf-agent-page .rf-voice-card:hover {
+  transform:
+    translateY(-1px);
+
+  border-color:
+    rgba(109, 78, 226, 0.24) !important;
+
+  box-shadow:
+    0 11px 25px rgba(67, 43, 122, 0.085) !important;
+}
+
+
+.rf-agent-page
+.rf-voice-card:hover
+.rf-voice-avatar img {
+  transform:
+    scale(1.08);
+}
+
+
+.rf-agent-page .rf-voice-card.selected {
+  border-color:
+    rgba(108, 77, 226, 0.37) !important;
+
+  background:
+    linear-gradient(
+      145deg,
+      #faf7ff,
+      #ffffff
+    ) !important;
+
+  box-shadow:
+    0 10px 25px rgba(91, 58, 182, 0.11) !important;
+}
+
+
+.rf-agent-page .rf-voice-card-select {
+  min-width: 0;
+
+  gap: 9px !important;
+}
+
+
+.rf-agent-page .rf-voice-card-copy {
+  min-width: 0;
+}
+
+
+.rf-agent-page .rf-voice-card-copy strong {
+  overflow: hidden;
+
+  color:
+    #2b2636 !important;
+
+  font-size:
+    8.5px !important;
+
+  font-weight:
+    900 !important;
+
+  text-overflow:
+    ellipsis;
+
+  white-space:
+    nowrap;
+}
+
+
+.rf-agent-page .rf-voice-card-copy p {
+  margin:
+    2px 0 4px !important;
+
+  overflow:
+    hidden;
+
+  color:
+    #918a99 !important;
+
+  font-size:
+    6.5px !important;
+
+  text-overflow:
+    ellipsis;
+
+  white-space:
+    nowrap;
+
+  display:
+    block !important;
+}
+
+
+/* Keep tags useful but quiet */
+
+.rf-agent-page
+.rf-voice-tags
+span:nth-child(n + 3) {
+  display:
+    none !important;
+}
+
+
+.rf-agent-page .rf-voice-tags span {
+  max-width:
+    74px;
+
+  overflow:
+    hidden;
+
+  padding:
+    2px 5px !important;
+
+  border-radius:
+    999px !important;
+
+  background:
+    #f3f1f7 !important;
+
+  color:
+    #756e7e !important;
+
+  font-size:
+    5.5px !important;
+
+  text-overflow:
+    ellipsis;
+
+  white-space:
+    nowrap;
+}
+
+
+/* ==========================================================================
+   7. PREVIEW BUTTON
+   ========================================================================== */
+
+.rf-agent-page .rf-voice-card-preview {
+  width:
+    44px !important;
+
+  border:
+    1px solid rgba(107, 77, 220, 0.11) !important;
+
+  border-radius:
+    10px !important;
+
+  background:
+    linear-gradient(
+      180deg,
+      #faf8ff,
+      #f3efff
+    ) !important;
+
+  color:
+    #6846db !important;
+
+  font-size:
+    5.5px !important;
+}
+
+
+.rf-agent-page
+.rf-voice-card-preview
+> span {
+  width:
+    24px !important;
+
+  height:
+    24px !important;
+
+  color:
+    #ffffff !important;
+
+  background:
+    linear-gradient(
+      135deg,
+      #7254ec,
+      #dc46b3
+    ) !important;
+
+  box-shadow:
+    0 5px 12px rgba(110, 74, 220, 0.24);
+}
+
+
+/* ==========================================================================
+   8. LANGUAGE PANEL — CLEANER / LESS DENSE
+   ========================================================================== */
+
+.rf-agent-page .rf-voice-language-panel {
+  border:
+    1px solid rgba(86, 70, 134, 0.105) !important;
+
+  border-radius:
+    17px !important;
+
+  background:
+    radial-gradient(
+      circle at 100% 0,
+      rgba(83, 123, 255, 0.065),
+      transparent 15rem
+    ),
+    linear-gradient(
+      180deg,
+      #ffffff,
+      #fbfafe
+    ) !important;
+
+  box-shadow:
+    0 9px 28px rgba(41, 29, 74, 0.04) !important;
+}
+
+
+.rf-agent-page
+.rf-v6-language-chips {
+  grid-template-columns:
+    repeat(4, minmax(0, 1fr)) !important;
+
+  gap:
+    5px !important;
+
+  overflow:
+    visible !important;
+}
+
+
+.rf-agent-page
+.rf-v6-language-chips
+label {
+  min-width:
+    0 !important;
+
+  min-height:
+    27px !important;
+
+  border-radius:
+    8px !important;
+}
+
+
+/* ==========================================================================
+   9. SUMMARY CARD SHOULD BELONG TO THE RIGHT COLUMN
+   ========================================================================== */
+
+@media (min-width: 1050px) {
+
+  .rf-agent-page
+  .rf-voice-setup-pane:has(> .rf-voice-identity-stack)
+  > .rf-voice-summary-strip {
+    grid-template-columns:
+      1fr !important;
+
+    gap:
+      5px !important;
+
+    margin:
+      0 !important;
+
+    padding:
+      8px !important;
+
+    border:
+      1px solid rgba(82, 67, 124, 0.085) !important;
+
+    border-radius:
+      14px !important;
+
+    background:
+      #faf9fc !important;
+  }
+}
+
+
+/* ==========================================================================
+   10. MOBILE
+   ========================================================================== */
+
+@media (max-width: 760px) {
+
+  .rf-agent-page .rf-voice-card-grid {
+    grid-template-columns:
+      1fr !important;
+
+    min-height:
+      0 !important;
+
+    max-height:
+      350px !important;
+  }
+
+  .rf-agent-page
+  .rf-selected-voice-summary {
+    grid-template-columns:
+      auto
+      minmax(0, 1fr) !important;
+  }
+
+  .rf-agent-page
+  .rf-selected-voice-summary
+  .rf-voice-preview-main {
+    grid-column:
+      1 / -1;
+
+    width:
+      100%;
+  }
+
+  .rf-agent-page
+  .rf-v6-language-chips {
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+
+
+@media (max-width: 480px) {
+
+  .rf-agent-page
+  .rf-v6-language-chips {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr)) !important;
+  }
+}
