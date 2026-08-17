@@ -15,7 +15,7 @@ import {
   Avatar,
   Style,
 } from "@dicebear/core";
-import loreleiDefinition from "@dicebear/styles/lorelei.json" with { type: "json" };
+import avataaarsDefinition from "@dicebear/styles/avataaars.json" with { type: "json" };
 
 import {
   useAuth,
@@ -28,10 +28,10 @@ import {
 } from "../lib/workspace-platform-client.js";
 
 import "../styles.css";
-// import "../voice-agent-v55.css";
+import "../voice-agent-v56.css";
 // import "../voice-agent-onboarding-wizard.css";
 
-const REACHFLY_VOICE_ART_STYLE = new Style(loreleiDefinition);
+const REACHFLY_VOICE_ART_STYLE = new Style(avataaarsDefinition);
 
 const FAST_HUMAN_GREETING =
   "Hey {{greeting_name}}, James from {{company_name}}. Quick disclosure — I’m an AI sales agent with the team, and this call may be recorded. I’ll keep it brief. I was curious... is your website consistently turning visitors into real sales conversations, or do too many people land there and leave without ever becoming a lead?";
@@ -186,7 +186,7 @@ const LEAD_STEP_VIEWS = [
   "launch-calls",
 ];
 
-const VOICE_UI_VERSION = "5.5-artist-portraits-layout";
+const VOICE_UI_VERSION = "5.6-gender-aware-fictional-portraits";
 
 const LIVE_CALL_STATES = new Set([
   "creating",
@@ -5174,6 +5174,175 @@ function VoiceLibraryPicker({
   );
 }
 
+function inferVoiceGender(voice) {
+  const directGender = String(
+    voice?.gender ||
+      voice?.sex ||
+      voice?.speakerGender ||
+      voice?.labels?.gender ||
+      ""
+  )
+    .trim()
+    .toLowerCase();
+
+  if (
+    directGender === "female" ||
+    directGender === "woman" ||
+    directGender === "f"
+  ) {
+    return "female";
+  }
+
+  if (
+    directGender === "male" ||
+    directGender === "man" ||
+    directGender === "m"
+  ) {
+    return "male";
+  }
+
+  const searchable = [
+    voice?.name,
+    voice?.voiceName,
+    voice?.description,
+    voice?.labels?.description,
+    voice?.useCase,
+    voice?.niche,
+    voice?.category,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  if (
+    /\b(female|woman|girl|lady|she|her|alice|bella|sara|sarah|sharon|sia|savi)\b/i.test(
+      searchable
+    )
+  ) {
+    return "female";
+  }
+
+  if (
+    /\b(male|man|boy|gentleman|he|him|adam|bill|brian|callum|charlie|chris|daniel|roger|ruhaan|siddhu|will|yelsin|yug)\b/i.test(
+      searchable
+    )
+  ) {
+    return "male";
+  }
+
+  return "neutral";
+}
+
+function getVoiceArtSeed(voice) {
+  return String(
+    voice?.id ||
+      voice?.voiceId ||
+      voice?.voice_id ||
+      voice?.name ||
+      voice?.voiceName ||
+      "ReachFly Voice"
+  ).trim();
+}
+
+function getVoiceAvatarOptions(voice, large = false) {
+  const gender = inferVoiceGender(voice);
+  const size = large ? 256 : 180;
+
+  const base = {
+    seed: getVoiceArtSeed(voice),
+    size,
+    scale: 92,
+    backgroundType: "gradientLinear",
+    backgroundColor:
+      gender === "female"
+        ? ["fce7f3", "ede9fe", "ffe4e6"]
+        : gender === "male"
+          ? ["dbeafe", "e0e7ff", "e2e8f0"]
+          : ["ede9fe", "dbeafe", "fce7f3"],
+  };
+
+  if (gender === "female") {
+    return {
+      ...base,
+      facialHairProbability: 0,
+      topVariant: {
+        bob: 2,
+        bun: 2,
+        curly: 2,
+        curvy: 2,
+        frizzle: 1,
+        longButNotTooLong: 2,
+        miaWallace: 1,
+        straight01: 2,
+        straight02: 2,
+        straightAndStrand: 2,
+      },
+    };
+  }
+
+  if (gender === "male") {
+    return {
+      ...base,
+      facialHairProbability: 35,
+      topVariant: {
+        shavedSides: 1,
+        shortCurly: 2,
+        shortFlat: 2,
+        shortRound: 2,
+        shortWaved: 2,
+        sides: 2,
+        theCaesar: 2,
+        theCaesarAndSidePart: 2,
+      },
+    };
+  }
+
+  return {
+    ...base,
+    facialHairProbability: 8,
+    topVariant: {
+      bob: 1,
+      curly: 1,
+      shortCurly: 1,
+      shortRound: 1,
+      shortWaved: 1,
+      straight01: 1,
+      straight02: 1,
+      theCaesar: 1,
+    },
+  };
+}
+
+function buildVoiceAvatarHttpFallback(voice, large = false) {
+  const gender = inferVoiceGender(voice);
+  const options = getVoiceAvatarOptions(voice, large);
+  const url = new URL("https://api.dicebear.com/10.x/avataaars/svg");
+
+  url.searchParams.set("seed", options.seed);
+  url.searchParams.set("size", String(options.size));
+  url.searchParams.set("scale", String(options.scale));
+  url.searchParams.set("backgroundType", "gradientLinear");
+  url.searchParams.set(
+    "backgroundColor",
+    options.backgroundColor.join(",")
+  );
+  url.searchParams.set(
+    "facialHairProbability",
+    String(options.facialHairProbability)
+  );
+
+  const topVariants = Object.keys(options.topVariant || {});
+  if (topVariants.length) {
+    url.searchParams.set("topVariant", topVariants.join(","));
+  }
+
+  if (gender === "female") {
+    url.searchParams.set("facialHairProbability", "0");
+  }
+
+  return url.href;
+}
+
 function VoiceAvatar({ voice, large = false }) {
   const providerImageUrl = String(
     voice?.imageUrl ||
@@ -5182,34 +5351,35 @@ function VoiceAvatar({ voice, large = false }) {
       ""
   ).trim();
 
-  const voiceSeed = String(
-    voice?.id ||
-      voice?.voiceId ||
-      voice?.voice_id ||
-      voice?.name ||
-      voice?.voiceName ||
-      "ReachFly Voice"
-  ).trim();
+  const voiceSeed = getVoiceArtSeed(voice);
+  const gender = inferVoiceGender(voice);
 
   const generatedImageUrl = useMemo(
     () =>
-      new Avatar(REACHFLY_VOICE_ART_STYLE, {
-        seed: voiceSeed,
-        size: large ? 256 : 180,
-        backgroundColor: ["#ede9fe", "#fce7f3", "#e0f2fe"],
-      }).toDataUri(),
-    [voiceSeed, large]
+      new Avatar(
+        REACHFLY_VOICE_ART_STYLE,
+        getVoiceAvatarOptions(voice, large)
+      ).toDataUri(),
+    [
+      voiceSeed,
+      gender,
+      large,
+    ]
   );
 
-  const diceBearHttpFallback = useMemo(() => {
-    const url = new URL("https://api.dicebear.com/10.x/lorelei/svg");
-    url.searchParams.set("seed", voiceSeed);
-    url.searchParams.set("size", String(large ? 256 : 180));
-    return url.href;
-  }, [voiceSeed, large]);
+  const diceBearHttpFallback = useMemo(
+    () => buildVoiceAvatarHttpFallback(voice, large),
+    [
+      voiceSeed,
+      gender,
+      large,
+    ]
+  );
 
   const initials = String(
-    voice?.name || voice?.voiceName || "RF"
+    voice?.name ||
+      voice?.voiceName ||
+      "RF"
   )
     .trim()
     .split(/\s+/)
@@ -5221,20 +5391,32 @@ function VoiceAvatar({ voice, large = false }) {
   const [imageSrc, setImageSrc] = useState(
     providerImageUrl || generatedImageUrl
   );
-  const [imageUnavailable, setImageUnavailable] = useState(false);
+  const [imageUnavailable, setImageUnavailable] =
+    useState(false);
 
   useEffect(() => {
     setImageUnavailable(false);
-    setImageSrc(providerImageUrl || generatedImageUrl);
-  }, [providerImageUrl, generatedImageUrl]);
+    setImageSrc(
+      providerImageUrl || generatedImageUrl
+    );
+  }, [
+    providerImageUrl,
+    generatedImageUrl,
+  ]);
 
   function handleImageError() {
-    if (imageSrc === providerImageUrl && providerImageUrl) {
+    if (
+      providerImageUrl &&
+      imageSrc === providerImageUrl
+    ) {
       setImageSrc(generatedImageUrl);
       return;
     }
 
-    if (imageSrc === generatedImageUrl) {
+    if (
+      imageSrc === generatedImageUrl &&
+      diceBearHttpFallback
+    ) {
       setImageSrc(diceBearHttpFallback);
       return;
     }
@@ -5244,8 +5426,11 @@ function VoiceAvatar({ voice, large = false }) {
 
   return (
     <span
-      className={`rf-voice-avatar ${large ? "large" : ""}`}
-      data-voice-art="dicebear-lorelei"
+      className={`rf-voice-avatar ${
+        large ? "large" : ""
+      }`}
+      data-voice-art="dicebear-avataaars-gender-aware"
+      data-voice-gender={gender}
       aria-hidden="true"
     >
       {!imageUnavailable ? (
