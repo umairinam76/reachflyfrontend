@@ -28,7 +28,7 @@ import {
 } from "../lib/workspace-platform-client.js";
 
 import "../styles.css";
-import "../voice-agent-v55.css";
+// import "../voice-agent-v55.css";
 // import "../voice-agent-onboarding-wizard.css";
 
 const REACHFLY_VOICE_ART_STYLE = new Style(loreleiDefinition);
