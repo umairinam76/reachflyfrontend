@@ -159,6 +159,18 @@ export default function CallWorkspace() {
   const [activeTab, setActiveTab] =
     useState("audit");
 
+  useEffect(() => {
+    if (!success) {
+      return;
+    }
+
+    notifyCallWorkspace(
+      "success",
+      "Call workspace updated",
+      success
+    );
+  }, [success]);
+
   const audioRef = useRef(null);
 
   const callTimerRef = useRef(null);
@@ -1220,7 +1232,8 @@ export default function CallWorkspace() {
 
   if (!lead) {
     return (
-      <main className="rf-call-workspace">
+      <main className="rf-call-workspace rf-call-workspace-v7">
+      <CallWorkspaceLegacyV7Styles />
         <section className="rf-call-empty-state">
           <div>!</div>
 
@@ -1243,7 +1256,8 @@ export default function CallWorkspace() {
   }
 
   return (
-    <main className="rf-call-workspace">
+    <main className="rf-call-workspace rf-call-workspace-v7">
+      <CallWorkspaceLegacyV7Styles />
       <audio
         ref={audioRef}
         autoPlay
@@ -2164,7 +2178,7 @@ function WorkspaceAlert({
     <div
       className={`rf-call-alert rf-call-alert--${type}`}
     >
-      <span>{message}</span>
+      <span>{safeCallWorkspaceMessage(message)}</span>
 
       <button
         type="button"
@@ -2178,7 +2192,8 @@ function WorkspaceAlert({
 
 function CallWorkspaceSkeleton() {
   return (
-    <main className="rf-call-workspace">
+    <main className="rf-call-workspace rf-call-workspace-v7">
+      <CallWorkspaceLegacyV7Styles />
       <div className="rf-call-skeleton-header" />
 
       <section className="rf-call-skeleton-layout">
@@ -2494,4 +2509,567 @@ function getInitials(value) {
   return `${words[0][0]}${
     words[words.length - 1][0]
   }`.toUpperCase();
+}
+
+function safeCallWorkspaceMessage(value) {
+  return String(value || "")
+    .replace(/ElevenLabs/gi, "voice service")
+    .replace(/Telnyx/gi, "calling service")
+    .replace(/\bSIP\b/gi, "voice connection")
+    .replace(/\bWebRTC\b/gi, "browser calling");
+}
+
+function notifyCallWorkspace(
+  type,
+  title,
+  message
+) {
+  if (
+    typeof window ===
+    "undefined"
+  ) {
+    return;
+  }
+
+  const bridge =
+    window.reachflyToast;
+
+  if (
+    bridge &&
+    typeof bridge[type] ===
+      "function"
+  ) {
+    bridge[type](
+      title,
+      message
+    );
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent(
+      "reachfly:toast",
+      {
+        detail: {
+          type,
+          title,
+          message,
+        },
+      }
+    )
+  );
+}
+
+function CallWorkspaceLegacyV7Styles() {
+  return (
+    <style>{`
+      .rf-call-workspace-v7{
+        --rfcw-card:#fff;
+        --rfcw-soft:#f6f7f8;
+        --rfcw-text:#191c1d;
+        --rfcw-text2:#4d4c59;
+        --rfcw-muted:#777784;
+        --rfcw-line:#e2e4e7;
+        --rfcw-primary:#4648d4;
+        --rfcw-primary-dark:#393bbb;
+        --rfcw-primary-soft:#e8e9ff;
+        --rfcw-green:#087a51;
+        --rfcw-green-soft:#e4f7ee;
+        --rfcw-red:#ba1a1a;
+        --rfcw-red-soft:#ffedeb;
+        --rfcw-dark:#2e3132;
+        --rfcw-ease:cubic-bezier(.2,.8,.2,1);
+        width:100%;
+        min-height:100%;
+        padding:24px 30px 52px;
+        color:var(--rfcw-text);
+        font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+        animation:rfcwPageIn .24s var(--rfcw-ease);
+      }
+
+      .rf-call-workspace-v7 *,
+      .rf-call-workspace-v7 *::before,
+      .rf-call-workspace-v7 *::after{
+        box-sizing:border-box;
+      }
+
+      @keyframes rfcwPageIn{
+        from{opacity:0;transform:translateY(5px)}
+        to{opacity:1;transform:none}
+      }
+
+      @keyframes rfcwPulse{
+        0%,100%{opacity:.42}
+        50%{opacity:1}
+      }
+
+      .rf-call-workspace-v7 .rf-call-header{
+        display:flex;
+        align-items:flex-end;
+        justify-content:space-between;
+        gap:18px;
+        padding:0 0 16px;
+        margin-bottom:12px;
+        border-bottom:1px solid var(--rfcw-line);
+      }
+
+      .rf-call-workspace-v7 .rf-call-header__identity{
+        min-width:0;
+      }
+
+      .rf-call-workspace-v7 .rf-call-eyebrow{
+        margin:0 0 4px;
+        color:var(--rfcw-primary);
+        font-size:8px;
+        font-weight:800;
+        letter-spacing:.08em;
+        text-transform:uppercase;
+      }
+
+      .rf-call-workspace-v7 .rf-call-header h1{
+        margin:0;
+        font:600 30px/38px Geist,Inter,sans-serif;
+        letter-spacing:-.028em;
+      }
+
+      .rf-call-workspace-v7 .rf-call-header p{
+        max-width:760px;
+        margin:5px 0 0;
+        color:var(--rfcw-text2);
+        font-size:10px;
+        line-height:16px;
+      }
+
+      .rf-call-workspace-v7 .rf-call-header__actions{
+        display:flex;
+        flex-wrap:wrap;
+        gap:7px;
+      }
+
+      .rf-call-workspace-v7 .rf-call-button{
+        min-height:38px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        gap:6px;
+        padding:7px 10px;
+        color:var(--rfcw-text);
+        background:#fff;
+        border:1px solid var(--rfcw-line);
+        border-radius:8px;
+        cursor:pointer;
+        font-size:7px;
+        font-weight:750;
+        transition:.14s var(--rfcw-ease);
+      }
+
+      .rf-call-workspace-v7 .rf-call-button:hover:not(:disabled){
+        transform:translateY(-1px);
+      }
+
+      .rf-call-workspace-v7 .rf-call-button:disabled{
+        opacity:.44;
+        cursor:not-allowed;
+      }
+
+      .rf-call-workspace-v7 .rf-call-button--primary{
+        color:#fff;
+        background:var(--rfcw-primary);
+        border-color:var(--rfcw-primary);
+        box-shadow:0 7px 16px rgba(70,72,212,.14);
+      }
+
+      .rf-call-workspace-v7 .rf-call-button--primary:hover:not(:disabled){
+        background:var(--rfcw-primary-dark);
+      }
+
+      .rf-call-workspace-v7 .rf-call-button--danger{
+        color:#fff;
+        background:#b42318;
+        border-color:#b42318;
+      }
+
+      .rf-call-workspace-v7 .rf-call-alert{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:10px;
+        padding:10px 11px;
+        margin-bottom:10px;
+        border:1px solid;
+        border-radius:9px;
+        font-size:7px;
+        line-height:12px;
+        animation:rfcwPageIn .16s var(--rfcw-ease);
+      }
+
+      .rf-call-workspace-v7 .rf-call-alert--error{
+        color:#7c1d1d;
+        background:var(--rfcw-red-soft);
+        border-color:#ffd0cc;
+      }
+
+      .rf-call-workspace-v7 .rf-call-alert--success{
+        color:#086846;
+        background:var(--rfcw-green-soft);
+        border-color:#caeadb;
+      }
+
+      .rf-call-workspace-v7 .rf-call-alert button{
+        min-height:28px;
+        padding:4px 7px;
+        color:inherit;
+        background:#fff;
+        border:1px solid currentColor;
+        border-radius:6px;
+        cursor:pointer;
+        font-size:5.5px;
+        font-weight:750;
+      }
+
+      .rf-call-workspace-v7 .rf-call-layout{
+        display:grid;
+        grid-template-columns:minmax(0,1.45fr) minmax(310px,.55fr);
+        align-items:start;
+        gap:11px;
+      }
+
+      .rf-call-workspace-v7 .rf-call-layout__primary,
+      .rf-call-workspace-v7 .rf-call-layout__secondary{
+        min-width:0;
+        display:grid;
+        gap:11px;
+      }
+
+      .rf-call-workspace-v7 .rf-call-panel,
+      .rf-call-workspace-v7 .rf-call-control-card,
+      .rf-call-workspace-v7 .rf-call-contact-card,
+      .rf-call-workspace-v7 .rf-call-information-panel,
+      .rf-call-workspace-v7 .rf-call-instructions{
+        min-width:0;
+        background:#fff;
+        border:1px solid var(--rfcw-line);
+        border-radius:12px;
+        box-shadow:0 1px 3px rgba(25,28,29,.025);
+      }
+
+      .rf-call-workspace-v7 .rf-call-panel,
+      .rf-call-workspace-v7 .rf-call-control-card,
+      .rf-call-workspace-v7 .rf-call-contact-card,
+      .rf-call-workspace-v7 .rf-call-information-panel{
+        padding:14px;
+      }
+
+      .rf-call-workspace-v7 .rf-call-control-card{
+        color:#fff;
+        background:
+          radial-gradient(circle at 90% 8%,rgba(82,85,223,.26),transparent 30%),
+          #2e3132;
+        border-color:rgba(255,255,255,.06);
+      }
+
+      .rf-call-workspace-v7 .rf-call-control-card h2,
+      .rf-call-workspace-v7 .rf-call-control-card strong{
+        color:#fff;
+      }
+
+      .rf-call-workspace-v7 .rf-call-control-card p,
+      .rf-call-workspace-v7 .rf-call-control-card small{
+        color:rgba(244,246,247,.64);
+      }
+
+      .rf-call-workspace-v7 .rf-call-control-card .rf-call-button--secondary{
+        color:#fff;
+        background:rgba(255,255,255,.08);
+        border-color:rgba(255,255,255,.12);
+      }
+
+      .rf-call-workspace-v7 .rf-call-panel-header{
+        padding-bottom:9px;
+        margin-bottom:9px;
+        border-bottom:1px solid #eff0f1;
+      }
+
+      .rf-call-workspace-v7 .rf-call-panel-header h2{
+        margin:0;
+        font:600 14px/19px Geist,Inter,sans-serif;
+        letter-spacing:-.015em;
+      }
+
+      .rf-call-workspace-v7 .rf-call-panel-header p{
+        margin:3px 0 0;
+        color:var(--rfcw-muted);
+        font-size:6px;
+        line-height:10px;
+      }
+
+      .rf-call-workspace-v7 .rf-call-live-status{
+        display:inline-flex;
+        align-items:center;
+        gap:5px;
+        width:max-content;
+        padding:5px 7px;
+        color:#d7ffed;
+        background:rgba(8,122,81,.22);
+        border:1px solid rgba(184,237,214,.15);
+        border-radius:999px;
+        font-size:5.5px;
+        font-weight:750;
+      }
+
+      .rf-call-workspace-v7 .rf-call-live-status::before{
+        content:"";
+        width:6px;
+        height:6px;
+        background:#65d7a8;
+        border-radius:50%;
+        animation:rfcwPulse 1.1s infinite ease-in-out;
+      }
+
+      .rf-call-workspace-v7 .rf-call-outcome-grid{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:7px;
+      }
+
+      .rf-call-workspace-v7 .rf-call-field{
+        display:grid;
+        gap:4px;
+      }
+
+      .rf-call-workspace-v7 .rf-call-field--wide{
+        grid-column:1/-1;
+      }
+
+      .rf-call-workspace-v7 .rf-call-field > span{
+        color:var(--rfcw-muted);
+        font-size:5.5px;
+        font-weight:750;
+        text-transform:uppercase;
+      }
+
+      .rf-call-workspace-v7 input,
+      .rf-call-workspace-v7 select,
+      .rf-call-workspace-v7 textarea{
+        width:100%;
+        min-height:38px;
+        padding:8px 9px;
+        color:var(--rfcw-text);
+        background:#f7f8f9;
+        border:1px solid transparent;
+        border-radius:8px;
+        outline:0;
+        font:400 7px/12px Inter,sans-serif;
+      }
+
+      .rf-call-workspace-v7 textarea{
+        min-height:90px;
+        resize:vertical;
+      }
+
+      .rf-call-workspace-v7 input:focus,
+      .rf-call-workspace-v7 select:focus,
+      .rf-call-workspace-v7 textarea:focus{
+        background:#fff;
+        border-color:rgba(70,72,212,.5);
+        box-shadow:0 0 0 3px rgba(70,72,212,.06);
+      }
+
+      .rf-call-workspace-v7 .rf-call-tabs{
+        display:flex;
+        gap:4px;
+        overflow-x:auto;
+        padding:4px;
+        background:#f2f3f4;
+        border-radius:8px;
+        scrollbar-width:none;
+      }
+
+      .rf-call-workspace-v7 .rf-call-tabs::-webkit-scrollbar{
+        display:none;
+      }
+
+      .rf-call-workspace-v7 .rf-call-tabs button{
+        min-height:32px;
+        flex:0 0 auto;
+        padding:5px 7px;
+        color:var(--rfcw-text2);
+        background:transparent;
+        border:0;
+        border-radius:6px;
+        cursor:pointer;
+        font-size:5.8px;
+        font-weight:750;
+      }
+
+      .rf-call-workspace-v7 .rf-call-tabs button.active,
+      .rf-call-workspace-v7 .rf-call-tabs button[aria-selected="true"]{
+        color:var(--rfcw-primary);
+        background:#fff;
+        box-shadow:0 1px 3px rgba(25,28,29,.06);
+      }
+
+      .rf-call-workspace-v7 .rf-call-contact-list,
+      .rf-call-workspace-v7 .rf-call-history-list{
+        display:grid;
+        gap:5px;
+      }
+
+      .rf-call-workspace-v7 .rf-call-contact-row,
+      .rf-call-workspace-v7 .rf-call-history-item{
+        min-height:54px;
+        display:grid;
+        align-items:center;
+        gap:7px;
+        padding:8px;
+        background:#f7f8f9;
+        border-radius:8px;
+      }
+
+      .rf-call-workspace-v7 .rf-call-history-item{
+        grid-template-columns:34px minmax(0,1fr) auto;
+      }
+
+      .rf-call-workspace-v7 .rf-call-history-icon{
+        width:34px;
+        height:34px;
+        display:grid;
+        place-items:center;
+        color:var(--rfcw-primary);
+        background:#fff;
+        border-radius:8px;
+      }
+
+      .rf-call-workspace-v7 .rf-call-instructions{
+        overflow:hidden;
+      }
+
+      .rf-call-workspace-v7 .rf-call-instructions__header{
+        padding:10px 12px;
+        color:var(--rfcw-primary);
+        background:var(--rfcw-primary-soft);
+        border-bottom:1px solid #dcddff;
+        font-size:6px;
+        font-weight:800;
+      }
+
+      .rf-call-workspace-v7 .rf-call-instructions__body{
+        padding:12px;
+        color:var(--rfcw-text2);
+        font-size:6.5px;
+        line-height:11px;
+      }
+
+      .rf-call-workspace-v7 .rf-call-empty-state{
+        min-height:390px;
+        display:grid;
+        place-items:center;
+        align-content:center;
+        gap:7px;
+        max-width:720px;
+        margin:40px auto 0;
+        padding:28px;
+        text-align:center;
+        background:#fff;
+        border:1px solid var(--rfcw-line);
+        border-radius:14px;
+      }
+
+      .rf-call-workspace-v7 .rf-call-empty-state > div{
+        width:48px;
+        height:48px;
+        display:grid;
+        place-items:center;
+        color:var(--rfcw-primary);
+        background:var(--rfcw-primary-soft);
+        border-radius:12px;
+        font-size:16px;
+        font-weight:800;
+      }
+
+      .rf-call-workspace-v7 .rf-call-empty-state h1{
+        margin:2px 0 0;
+        font:600 20px/26px Geist,Inter,sans-serif;
+      }
+
+      .rf-call-workspace-v7 .rf-call-empty-state p{
+        max-width:420px;
+        margin:0;
+        color:var(--rfcw-muted);
+        font-size:7px;
+        line-height:12px;
+      }
+
+      .rf-call-workspace-v7 .rf-call-empty-state a{
+        margin-top:6px;
+        color:var(--rfcw-primary);
+        font-size:7px;
+        font-weight:750;
+        text-decoration:none;
+      }
+
+      .rf-call-workspace-v7 .rf-call-skeleton-header,
+      .rf-call-workspace-v7 .rf-call-skeleton-layout > div > div,
+      .rf-call-workspace-v7 .rf-call-skeleton-layout aside > div{
+        background:linear-gradient(90deg,#eceef0,#f8f9fa,#eceef0);
+        background-size:220% 100%;
+        border-radius:10px;
+        animation:rfcwPulse 1.15s infinite ease-in-out;
+      }
+
+      @media(max-width:1060px){
+        .rf-call-workspace-v7{
+          padding:22px;
+        }
+
+        .rf-call-workspace-v7 .rf-call-layout{
+          grid-template-columns:1fr;
+        }
+      }
+
+      @media(max-width:680px){
+        .rf-call-workspace-v7{
+          padding:18px 12px 80px;
+        }
+
+        .rf-call-workspace-v7 .rf-call-header{
+          align-items:flex-start;
+          flex-direction:column;
+        }
+
+        .rf-call-workspace-v7 .rf-call-header h1{
+          font-size:24px;
+          line-height:31px;
+        }
+
+        .rf-call-workspace-v7 .rf-call-header__actions{
+          display:grid;
+          grid-template-columns:1fr;
+          width:100%;
+        }
+
+        .rf-call-workspace-v7 .rf-call-header__actions .rf-call-button{
+          width:100%;
+        }
+
+        .rf-call-workspace-v7 .rf-call-outcome-grid{
+          grid-template-columns:1fr;
+        }
+
+        .rf-call-workspace-v7 .rf-call-field--wide{
+          grid-column:auto;
+        }
+      }
+
+      @media(prefers-reduced-motion:reduce){
+        .rf-call-workspace-v7,
+        .rf-call-workspace-v7 *,
+        .rf-call-workspace-v7 *::before,
+        .rf-call-workspace-v7 *::after{
+          animation:none!important;
+          transition-duration:.01ms!important;
+        }
+      }
+    `}</style>
+  );
 }

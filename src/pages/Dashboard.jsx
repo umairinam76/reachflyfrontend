@@ -220,7 +220,8 @@ export default function RoleDashboard() {
     dashboard?.role || "viewer";
 
   return (
-    <main className="rf-role-dashboard">
+    <main className="rf-role-dashboard rf-role-dashboard-v7">
+      <RoleDashboardV7Styles />
       <DashboardHeader
         dashboard={dashboard}
         refreshing={refreshing}
@@ -233,7 +234,7 @@ export default function RoleDashboard() {
 
       {error ? (
         <div className="rf-inline-alert">
-          <span>{error}</span>
+          <span>{safeDashboardMessage(error)}</span>
 
           <button
             type="button"
@@ -740,11 +741,11 @@ function AdminDashboard({
             icon: "AM",
           },
           {
-            label: "Dialers",
+            label: "Calling connections",
             value:
               summary.configuredDialers ||
               0,
-            note: "Configured systems",
+            note: "Ready calling resources",
             icon: "DL",
           },
           {
@@ -752,7 +753,7 @@ function AdminDashboard({
             value:
               summary.configuredSenders ||
               0,
-            note: "Approved SMTP senders",
+            note: "Approved sender identities",
             icon: "SI",
           },
           {
@@ -2231,7 +2232,8 @@ function EmptyState({
 
 function DashboardSkeleton() {
   return (
-    <main className="rf-role-dashboard">
+    <main className="rf-role-dashboard rf-role-dashboard-v7">
+      <RoleDashboardV7Styles />
       <div className="rf-dashboard-skeleton-header" />
 
       <section className="rf-metric-grid">
@@ -2257,7 +2259,8 @@ function DashboardError({
   onRetry,
 }) {
   return (
-    <main className="rf-dashboard-error">
+    <main className="rf-dashboard-error rf-role-dashboard-v7 rf-dashboard-error-v7">
+      <RoleDashboardV7Styles />
       <div className="rf-dashboard-error__icon">
         !
       </div>
@@ -2266,7 +2269,7 @@ function DashboardError({
         Dashboard unavailable
       </h1>
 
-      <p>{message}</p>
+      <p>{safeDashboardMessage(message)}</p>
 
       <button
         type="button"
@@ -2586,4 +2589,828 @@ function formatDuration(
   }
 
   return `${hours}h ${minutes}m`;
+}
+
+function safeDashboardMessage(value) {
+  return String(value || "")
+    .replace(/ElevenLabs/gi, "voice service")
+    .replace(/Telnyx/gi, "calling service")
+    .replace(/\bSIP\b/gi, "voice connection")
+    .replace(/\bWebRTC\b/gi, "browser calling");
+}
+
+function RoleDashboardV7Styles() {
+  return (
+    <style>{`
+      .rf-role-dashboard-v7{
+        --rfd-card:#fff;
+        --rfd-soft:#f6f7f8;
+        --rfd-text:#191c1d;
+        --rfd-text2:#4d4c59;
+        --rfd-muted:#777784;
+        --rfd-line:#e2e4e7;
+        --rfd-primary:#4648d4;
+        --rfd-primary-dark:#393bbb;
+        --rfd-primary-soft:#e8e9ff;
+        --rfd-violet:#6b38d4;
+        --rfd-violet-soft:#f1ebff;
+        --rfd-green:#087a51;
+        --rfd-green-soft:#e4f7ee;
+        --rfd-red:#ba1a1a;
+        --rfd-red-soft:#ffedeb;
+        --rfd-amber:#965900;
+        --rfd-amber-soft:#fff3d8;
+        --rfd-dark:#2e3132;
+        --rfd-ease:cubic-bezier(.2,.8,.2,1);
+        width:100%;
+        min-height:100%;
+        padding:24px 30px 52px;
+        color:var(--rfd-text);
+        font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+        animation:rfdPageIn .24s var(--rfd-ease);
+      }
+
+      .rf-role-dashboard-v7 *,
+      .rf-role-dashboard-v7 *::before,
+      .rf-role-dashboard-v7 *::after{
+        box-sizing:border-box;
+      }
+
+      @keyframes rfdPageIn{
+        from{opacity:0;transform:translateY(5px)}
+        to{opacity:1;transform:none}
+      }
+
+      @keyframes rfdPulse{
+        0%,100%{opacity:.42}
+        50%{opacity:1}
+      }
+
+      @keyframes rfdShimmer{
+        from{background-position:200% 0}
+        to{background-position:-200% 0}
+      }
+
+      .rf-role-dashboard-v7 .rf-dashboard-header{
+        min-height:136px;
+        display:flex;
+        align-items:flex-end;
+        justify-content:space-between;
+        gap:20px;
+        padding:18px;
+        margin-bottom:11px;
+        overflow:hidden;
+        color:#fff;
+        background:
+          radial-gradient(circle at 89% 14%,rgba(86,89,223,.25),transparent 33%),
+          radial-gradient(circle at 14% 92%,rgba(107,56,212,.15),transparent 30%),
+          #2e3132;
+        border:1px solid rgba(255,255,255,.06);
+        border-radius:14px;
+        box-shadow:0 8px 22px rgba(25,28,29,.06);
+      }
+
+      .rf-role-dashboard-v7 .rf-dashboard-header__identity{
+        min-width:0;
+        display:grid;
+        grid-template-columns:46px minmax(0,1fr);
+        align-items:center;
+        gap:11px;
+      }
+
+      .rf-role-dashboard-v7 .rf-dashboard-header__identity > div:last-child{
+        min-width:0;
+      }
+
+      .rf-role-dashboard-v7 .rf-dashboard-eyebrow{
+        margin:0 0 3px;
+        color:var(--rfd-primary);
+        font-size:5.8px;
+        font-weight:800;
+        letter-spacing:.08em;
+        text-transform:uppercase;
+      }
+
+      .rf-role-dashboard-v7 .rf-dashboard-header .rf-dashboard-eyebrow{
+        color:#c9caff;
+      }
+
+      .rf-role-dashboard-v7 .rf-dashboard-header h1{
+        margin:0;
+        overflow:hidden;
+        color:#fff;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font:600 28px/35px Geist,Inter,sans-serif;
+        letter-spacing:-.03em;
+      }
+
+      .rf-role-dashboard-v7 .rf-dashboard-subtitle{
+        margin:4px 0 0;
+        overflow:hidden;
+        color:rgba(244,246,247,.62);
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font-size:8px;
+      }
+
+      .rf-role-dashboard-v7 .rf-dashboard-header__actions{
+        display:flex;
+        align-items:center;
+        gap:7px;
+      }
+
+      .rf-role-dashboard-v7 .rf-server-status{
+        min-width:165px;
+        display:grid;
+        grid-template-columns:9px minmax(0,1fr);
+        align-items:center;
+        gap:7px;
+        padding:8px 9px;
+        color:#fff;
+        background:rgba(255,255,255,.07);
+        border:1px solid rgba(255,255,255,.09);
+        border-radius:9px;
+      }
+
+      .rf-role-dashboard-v7 .rf-status-dot{
+        width:8px;
+        height:8px;
+        background:#67d7a9;
+        border:2px solid rgba(255,255,255,.42);
+        border-radius:50%;
+        animation:rfdPulse 1.3s infinite ease-in-out;
+      }
+
+      .rf-role-dashboard-v7 .rf-server-status > div{
+        min-width:0;
+        display:grid;
+      }
+
+      .rf-role-dashboard-v7 .rf-server-status strong{
+        color:#fff;
+        font-size:6px;
+      }
+
+      .rf-role-dashboard-v7 .rf-server-status small{
+        margin-top:1px;
+        color:rgba(244,246,247,.57);
+        font-size:5px;
+      }
+
+      .rf-role-dashboard-v7 .rf-button{
+        min-height:38px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        gap:6px;
+        padding:7px 10px;
+        color:#fff;
+        background:var(--rfd-primary);
+        border:1px solid var(--rfd-primary);
+        border-radius:8px;
+        cursor:pointer;
+        text-decoration:none;
+        font-size:6.5px;
+        font-weight:750;
+        transition:.14s var(--rfd-ease);
+      }
+
+      .rf-role-dashboard-v7 .rf-button:hover:not(:disabled){
+        transform:translateY(-1px);
+        background:var(--rfd-primary-dark);
+      }
+
+      .rf-role-dashboard-v7 .rf-button:disabled{
+        opacity:.45;
+        cursor:not-allowed;
+      }
+
+      .rf-role-dashboard-v7 .rf-button--secondary{
+        color:var(--rfd-text);
+        background:#fff;
+        border-color:var(--rfd-line);
+      }
+
+      .rf-role-dashboard-v7 .rf-dashboard-header .rf-button--secondary{
+        color:#fff;
+        background:rgba(255,255,255,.08);
+        border-color:rgba(255,255,255,.12);
+      }
+
+      .rf-role-dashboard-v7 .rf-button--compact{
+        min-height:30px;
+        padding:5px 7px;
+        font-size:5.4px;
+      }
+
+      .rf-role-dashboard-v7 .rf-inline-alert{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:8px;
+        padding:9px 10px;
+        margin-bottom:10px;
+        color:#7c1d1d;
+        background:var(--rfd-red-soft);
+        border:1px solid #ffd0cc;
+        border-radius:8px;
+        font-size:6.3px;
+        line-height:10px;
+      }
+
+      .rf-role-dashboard-v7 .rf-inline-alert button{
+        min-height:28px;
+        padding:4px 7px;
+        color:#7c1d1d;
+        background:#fff;
+        border:1px solid #ffd0cc;
+        border-radius:6px;
+        cursor:pointer;
+        font-size:5.3px;
+        font-weight:750;
+      }
+
+      .rf-role-dashboard-v7 .rf-metric-grid{
+        display:grid;
+        grid-template-columns:repeat(6,minmax(0,1fr));
+        gap:8px;
+        margin-bottom:10px;
+      }
+
+      .rf-role-dashboard-v7 .rf-metric-card{
+        min-height:115px;
+        display:grid;
+        grid-template-columns:34px minmax(0,1fr);
+        align-content:end;
+        gap:8px;
+        padding:11px;
+        background:
+          radial-gradient(circle at 92% 8%,rgba(70,72,212,.045),transparent 28%),
+          #fff;
+        border:1px solid var(--rfd-line);
+        border-radius:10px;
+        box-shadow:0 1px 3px rgba(25,28,29,.025);
+        transition:.14s var(--rfd-ease);
+      }
+
+      .rf-role-dashboard-v7 .rf-metric-card:hover{
+        transform:translateY(-1px);
+        border-color:#d8d9ef;
+        box-shadow:0 8px 20px rgba(25,28,29,.045);
+      }
+
+      .rf-role-dashboard-v7 .rf-metric-card__icon{
+        width:34px;
+        height:34px;
+        display:grid;
+        place-items:center;
+        align-self:end;
+        color:var(--rfd-primary);
+        background:var(--rfd-primary-soft);
+        border-radius:8px;
+        font-size:5.4px;
+        font-weight:850;
+        letter-spacing:.03em;
+      }
+
+      .rf-role-dashboard-v7 .rf-metric-card > div:last-child{
+        min-width:0;
+        display:grid;
+        align-content:end;
+      }
+
+      .rf-role-dashboard-v7 .rf-metric-card p{
+        margin:0;
+        color:var(--rfd-muted);
+        font-size:5.4px;
+        font-weight:700;
+      }
+
+      .rf-role-dashboard-v7 .rf-metric-card strong{
+        margin-top:2px;
+        overflow:hidden;
+        color:var(--rfd-text);
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font:600 17px/22px Geist,Inter,sans-serif;
+        letter-spacing:-.02em;
+      }
+
+      .rf-role-dashboard-v7 .rf-metric-card small{
+        margin-top:1px;
+        overflow:hidden;
+        color:var(--rfd-muted);
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font-size:5px;
+      }
+
+      .rf-role-dashboard-v7 .rf-dashboard-columns{
+        display:grid;
+        grid-template-columns:minmax(0,1.45fr) minmax(290px,.55fr);
+        align-items:start;
+        gap:10px;
+        margin-bottom:10px;
+      }
+
+      .rf-role-dashboard-v7 .rf-dashboard-columns__primary,
+      .rf-role-dashboard-v7 .rf-dashboard-columns__secondary{
+        min-width:0;
+        display:grid;
+        gap:10px;
+      }
+
+      .rf-role-dashboard-v7 .rf-panel{
+        min-width:0;
+        padding:13px;
+        margin-bottom:10px;
+        background:#fff;
+        border:1px solid var(--rfd-line);
+        border-radius:11px;
+        box-shadow:0 1px 3px rgba(25,28,29,.025);
+      }
+
+      .rf-role-dashboard-v7 .rf-panel-header{
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:12px;
+        min-height:53px;
+        padding-bottom:9px;
+        margin-bottom:9px;
+        border-bottom:1px solid #eff0f1;
+      }
+
+      .rf-role-dashboard-v7 .rf-panel-header > div{
+        min-width:0;
+      }
+
+      .rf-role-dashboard-v7 .rf-panel-header h2,
+      .rf-role-dashboard-v7 .rf-panel-header h3{
+        margin:0;
+        font:600 13px/18px Geist,Inter,sans-serif;
+        letter-spacing:-.015em;
+      }
+
+      .rf-role-dashboard-v7 .rf-panel-header p{
+        max-width:680px;
+        margin:3px 0 0;
+        color:var(--rfd-muted);
+        font-size:5.8px;
+        line-height:10px;
+      }
+
+      .rf-role-dashboard-v7 .rf-text-link{
+        flex:0 0 auto;
+        color:var(--rfd-primary);
+        text-decoration:none;
+        font-size:5.8px;
+        font-weight:750;
+      }
+
+      .rf-role-dashboard-v7 .rf-table-wrap{
+        overflow-x:auto;
+        border:1px solid var(--rfd-line);
+        border-radius:8px;
+      }
+
+      .rf-role-dashboard-v7 .rf-table{
+        width:100%;
+        min-width:720px;
+        border-collapse:collapse;
+      }
+
+      .rf-role-dashboard-v7 .rf-table th{
+        height:39px;
+        padding:7px 8px;
+        color:#676873;
+        background:#f7f8f9;
+        border-bottom:1px solid var(--rfd-line);
+        text-align:left;
+        white-space:nowrap;
+        font-size:5.2px;
+        font-weight:800;
+        text-transform:uppercase;
+      }
+
+      .rf-role-dashboard-v7 .rf-table td{
+        padding:8px;
+        color:var(--rfd-text2);
+        border-bottom:1px solid #eff0f1;
+        vertical-align:middle;
+        font-size:5.7px;
+        line-height:9px;
+      }
+
+      .rf-role-dashboard-v7 .rf-table tbody tr:hover td{
+        background:#fafaff;
+      }
+
+      .rf-role-dashboard-v7 .rf-member-grid{
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:7px;
+      }
+
+      .rf-role-dashboard-v7 .rf-member-card{
+        min-width:0;
+        padding:9px;
+        background:#f7f8f9;
+        border:1px solid transparent;
+        border-radius:9px;
+      }
+
+      .rf-role-dashboard-v7 .rf-member-identity{
+        min-width:0;
+        display:grid;
+        grid-template-columns:34px minmax(0,1fr);
+        align-items:center;
+        gap:7px;
+      }
+
+      .rf-role-dashboard-v7 .rf-avatar-stack{
+        position:relative;
+        width:34px;
+        height:34px;
+      }
+
+      .rf-role-dashboard-v7 .rf-online-indicator{
+        position:absolute;
+        right:-1px;
+        bottom:-1px;
+        width:9px;
+        height:9px;
+        background:var(--rfd-green);
+        border:2px solid #fff;
+        border-radius:50%;
+      }
+
+      .rf-role-dashboard-v7 .rf-compact-list,
+      .rf-role-dashboard-v7 .rf-task-list,
+      .rf-role-dashboard-v7 .rf-lead-list,
+      .rf-role-dashboard-v7 .rf-call-list,
+      .rf-role-dashboard-v7 .rf-activity-list,
+      .rf-role-dashboard-v7 .rf-tool-card-list,
+      .rf-role-dashboard-v7 .rf-summary-list{
+        display:grid;
+        gap:5px;
+      }
+
+      .rf-role-dashboard-v7 .rf-compact-row,
+      .rf-role-dashboard-v7 .rf-task-item,
+      .rf-role-dashboard-v7 .rf-lead-item,
+      .rf-role-dashboard-v7 .rf-call-item,
+      .rf-role-dashboard-v7 .rf-activity-item,
+      .rf-role-dashboard-v7 .rf-tool-row,
+      .rf-role-dashboard-v7 .rf-summary-row{
+        min-width:0;
+        min-height:55px;
+        display:grid;
+        align-items:center;
+        gap:7px;
+        padding:8px 9px;
+        background:#f7f8f9;
+        border:1px solid transparent;
+        border-radius:8px;
+        transition:.13s var(--rfd-ease);
+      }
+
+      .rf-role-dashboard-v7 .rf-compact-row:hover,
+      .rf-role-dashboard-v7 .rf-task-item:hover,
+      .rf-role-dashboard-v7 .rf-lead-item:hover,
+      .rf-role-dashboard-v7 .rf-call-item:hover,
+      .rf-role-dashboard-v7 .rf-activity-item:hover,
+      .rf-role-dashboard-v7 .rf-tool-row:hover{
+        background:#f4f4ff;
+        border-color:#e1e1f7;
+      }
+
+      .rf-role-dashboard-v7 .rf-lead-item{
+        grid-template-columns:34px minmax(0,1fr) auto;
+      }
+
+      .rf-role-dashboard-v7 .rf-lead-item__content,
+      .rf-role-dashboard-v7 .rf-call-item__content{
+        min-width:0;
+        display:grid;
+      }
+
+      .rf-role-dashboard-v7 .rf-lead-item__content strong,
+      .rf-role-dashboard-v7 .rf-call-item__content strong,
+      .rf-role-dashboard-v7 .rf-task-item strong,
+      .rf-role-dashboard-v7 .rf-tool-row strong{
+        overflow:hidden;
+        color:var(--rfd-text);
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font-size:6px;
+      }
+
+      .rf-role-dashboard-v7 .rf-lead-item__content small,
+      .rf-role-dashboard-v7 .rf-call-item__content small,
+      .rf-role-dashboard-v7 .rf-task-item small,
+      .rf-role-dashboard-v7 .rf-tool-row small{
+        margin-top:2px;
+        overflow:hidden;
+        color:var(--rfd-muted);
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font-size:5.1px;
+      }
+
+      .rf-role-dashboard-v7 .rf-lead-item__actions{
+        display:flex;
+        gap:4px;
+      }
+
+      .rf-role-dashboard-v7 .rf-call-item{
+        grid-template-columns:34px minmax(0,1fr) auto;
+      }
+
+      .rf-role-dashboard-v7 .rf-call-icon{
+        width:34px;
+        height:34px;
+        display:grid;
+        place-items:center;
+        color:var(--rfd-primary);
+        background:#fff;
+        border-radius:8px;
+        font-size:5.4px;
+        font-weight:800;
+      }
+
+      .rf-role-dashboard-v7 .rf-call-item__meta{
+        display:grid;
+        justify-items:end;
+        gap:2px;
+        color:var(--rfd-muted);
+        font-size:5px;
+      }
+
+      .rf-role-dashboard-v7 .rf-task-item{
+        grid-template-columns:24px minmax(0,1fr) auto;
+      }
+
+      .rf-role-dashboard-v7 .rf-task-check{
+        width:21px;
+        height:21px;
+        display:grid;
+        place-items:center;
+        color:var(--rfd-primary);
+        background:var(--rfd-primary-soft);
+        border-radius:6px;
+        font-size:5px;
+        font-weight:800;
+      }
+
+      .rf-role-dashboard-v7 .rf-overdue-label{
+        width:max-content;
+        padding:4px 6px;
+        color:var(--rfd-red);
+        background:var(--rfd-red-soft);
+        border-radius:999px;
+        font-size:4.8px;
+        font-weight:750;
+      }
+
+      .rf-role-dashboard-v7 .rf-activity-item{
+        grid-template-columns:9px minmax(0,1fr) auto;
+      }
+
+      .rf-role-dashboard-v7 .rf-activity-dot{
+        width:7px;
+        height:7px;
+        background:var(--rfd-primary);
+        border-radius:50%;
+      }
+
+      .rf-role-dashboard-v7 .rf-summary-row{
+        grid-template-columns:minmax(0,1fr) auto;
+      }
+
+      .rf-role-dashboard-v7 .rf-attendance-hero{
+        min-height:120px;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:14px;
+        padding:15px;
+        margin-bottom:10px;
+        color:#fff;
+        background:
+          radial-gradient(circle at 90% 15%,rgba(83,86,222,.24),transparent 33%),
+          #2e3132;
+        border-radius:12px;
+      }
+
+      .rf-role-dashboard-v7 .rf-attendance-hero .rf-dashboard-eyebrow{
+        color:#c8caff;
+      }
+
+      .rf-role-dashboard-v7 .rf-attendance-hero h2{
+        margin:0;
+        color:#fff;
+        font:600 16px/21px Geist,Inter,sans-serif;
+      }
+
+      .rf-role-dashboard-v7 .rf-attendance-hero p:not(.rf-dashboard-eyebrow){
+        margin:4px 0 0;
+        color:rgba(244,246,247,.62);
+        font-size:6px;
+        line-height:10px;
+      }
+
+      .rf-role-dashboard-v7 .rf-empty-state{
+        min-height:150px;
+        display:grid;
+        place-items:center;
+        align-content:center;
+        gap:5px;
+        padding:20px;
+        color:var(--rfd-muted);
+        background:#f8f9fa;
+        border:1px dashed #d8dade;
+        border-radius:8px;
+        text-align:center;
+      }
+
+      .rf-role-dashboard-v7 .rf-empty-state__icon{
+        width:38px;
+        height:38px;
+        display:grid;
+        place-items:center;
+        color:var(--rfd-primary);
+        background:var(--rfd-primary-soft);
+        border-radius:9px;
+        font-size:9px;
+        font-weight:800;
+      }
+
+      .rf-role-dashboard-v7 .rf-empty-state h3{
+        margin:3px 0 0;
+        color:var(--rfd-text);
+        font:600 8px/12px Geist,Inter,sans-serif;
+      }
+
+      .rf-role-dashboard-v7 .rf-empty-state p{
+        max-width:390px;
+        margin:0;
+        font-size:5.5px;
+        line-height:9px;
+      }
+
+      .rf-role-dashboard-v7 .rf-dashboard-skeleton-header,
+      .rf-role-dashboard-v7 .rf-skeleton-card,
+      .rf-role-dashboard-v7 .rf-dashboard-skeleton-panel{
+        background:linear-gradient(90deg,#eceef0 25%,#f8f9fa 45%,#eceef0 65%);
+        background-size:220% 100%;
+        animation:rfdShimmer 1.15s linear infinite;
+      }
+
+      .rf-role-dashboard-v7 .rf-dashboard-skeleton-header{
+        height:136px;
+        margin-bottom:10px;
+        border-radius:14px;
+      }
+
+      .rf-role-dashboard-v7 .rf-skeleton-card{
+        height:115px;
+        border-radius:10px;
+      }
+
+      .rf-role-dashboard-v7 .rf-dashboard-skeleton-panel{
+        height:240px;
+        margin-bottom:10px;
+        border-radius:11px;
+      }
+
+      .rf-dashboard-error-v7{
+        min-height:100%;
+        display:grid;
+        place-items:center;
+        align-content:center;
+        max-width:none;
+        text-align:center;
+      }
+
+      .rf-dashboard-error-v7 .rf-dashboard-error__icon{
+        width:52px;
+        height:52px;
+        display:grid;
+        place-items:center;
+        margin-bottom:7px;
+        color:#fff;
+        background:#b42318;
+        border-radius:13px;
+        font-size:14px;
+        font-weight:800;
+      }
+
+      .rf-dashboard-error-v7 h1{
+        margin:0;
+        font:600 22px/29px Geist,Inter,sans-serif;
+      }
+
+      .rf-dashboard-error-v7 p{
+        max-width:480px;
+        margin:5px 0 10px;
+        color:var(--rfd-text2);
+        font-size:7px;
+        line-height:12px;
+      }
+
+      @media(max-width:1200px){
+        .rf-role-dashboard-v7 .rf-metric-grid{
+          grid-template-columns:repeat(3,minmax(0,1fr));
+        }
+      }
+
+      @media(max-width:1000px){
+        .rf-role-dashboard-v7{
+          padding:22px;
+        }
+
+        .rf-role-dashboard-v7 .rf-dashboard-columns{
+          grid-template-columns:1fr;
+        }
+
+        .rf-role-dashboard-v7 .rf-member-grid{
+          grid-template-columns:1fr 1fr;
+        }
+      }
+
+      @media(max-width:720px){
+        .rf-role-dashboard-v7 .rf-dashboard-header{
+          align-items:flex-start;
+          flex-direction:column;
+        }
+
+        .rf-role-dashboard-v7 .rf-dashboard-header__actions{
+          width:100%;
+        }
+
+        .rf-role-dashboard-v7 .rf-server-status{
+          flex:1;
+        }
+
+        .rf-role-dashboard-v7 .rf-metric-grid{
+          grid-template-columns:1fr 1fr;
+        }
+      }
+
+      @media(max-width:620px){
+        .rf-role-dashboard-v7{
+          padding:18px 12px 80px;
+        }
+
+        .rf-role-dashboard-v7 .rf-dashboard-header{
+          padding:15px;
+        }
+
+        .rf-role-dashboard-v7 .rf-dashboard-header h1{
+          font-size:23px;
+          line-height:30px;
+        }
+
+        .rf-role-dashboard-v7 .rf-dashboard-header__actions{
+          display:grid;
+          grid-template-columns:1fr;
+        }
+
+        .rf-role-dashboard-v7 .rf-server-status{
+          width:100%;
+        }
+
+        .rf-role-dashboard-v7 .rf-dashboard-header .rf-button{
+          width:100%;
+        }
+
+        .rf-role-dashboard-v7 .rf-member-grid{
+          grid-template-columns:1fr;
+        }
+      }
+
+      @media(max-width:420px){
+        .rf-role-dashboard-v7 .rf-metric-grid{
+          grid-template-columns:1fr;
+        }
+
+        .rf-role-dashboard-v7 .rf-dashboard-header__identity{
+          grid-template-columns:1fr;
+        }
+      }
+
+      @media(prefers-reduced-motion:reduce){
+        .rf-role-dashboard-v7,
+        .rf-role-dashboard-v7 *,
+        .rf-role-dashboard-v7 *::before,
+        .rf-role-dashboard-v7 *::after{
+          animation:none!important;
+          transition-duration:.01ms!important;
+          scroll-behavior:auto!important;
+        }
+      }
+    `}</style>
+  );
 }

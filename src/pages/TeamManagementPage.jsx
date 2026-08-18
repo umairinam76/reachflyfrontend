@@ -140,6 +140,18 @@ export default function TeamManagementPage() {
   const [showToolAssignmentDialog, setShowToolAssignmentDialog] =
     useState(false);
 
+  useEffect(() => {
+    if (!success) {
+      return;
+    }
+
+    notifyTeamManagement(
+      "success",
+      "Team operations updated",
+      success
+    );
+  }, [success]);
+
   const currentRole = normalizeRole(
     currentUser?.workspaceRole ||
       currentUser?.role
@@ -602,7 +614,8 @@ export default function TeamManagementPage() {
   }
 
   return (
-    <main className="rf-team-management-page">
+    <main className="rf-team-management-page rf-team-management-v7">
+      <TeamManagementV7Styles />
       <TeamManagementHeader
         refreshing={refreshing}
         onRefresh={() =>
@@ -1000,16 +1013,14 @@ function TeamManagementHeader({
     <header className="rf-team-management-header">
       <div>
         <p className="rf-management-eyebrow">
-          Workforce operations
+          Team operations
         </p>
 
         <h1>Team management</h1>
 
         <p>
-          Manage workspace members,
-          assign leads and tasks, review
-          performance and configure work
-          tools.
+          Manage workspace members, distribute leads and tasks,
+          review performance, and configure approved work resources.
         </p>
       </div>
 
@@ -3955,7 +3966,7 @@ function ManagementAlert({
     <div
       className={`rf-management-alert rf-management-alert--${type}`}
     >
-      <span>{message}</span>
+      <span>{safeTeamManagementMessage(message)}</span>
 
       <button
         type="button"
@@ -3986,7 +3997,8 @@ function AccessDenied({
   currentUser,
 }) {
   return (
-    <main className="rf-team-management-page">
+    <main className="rf-team-management-page rf-team-management-v7">
+      <TeamManagementV7Styles />
       <section className="rf-management-access-denied">
         <div>!</div>
 
@@ -4016,7 +4028,8 @@ function AccessDenied({
 
 function TeamManagementSkeleton() {
   return (
-    <main className="rf-team-management-page">
+    <main className="rf-team-management-page rf-team-management-v7">
+      <TeamManagementV7Styles />
       <div className="rf-management-skeleton-header" />
 
       <div className="rf-management-skeleton-metrics">
@@ -4193,4 +4206,640 @@ function getInitials(value) {
   return `${words[0][0]}${
     words[words.length - 1][0]
   }`.toUpperCase();
+}
+
+function safeTeamManagementMessage(value) {
+  return String(value || "")
+    .replace(/ElevenLabs/gi, "voice service")
+    .replace(/Telnyx/gi, "calling service")
+    .replace(/\bSIP\b/gi, "voice connection")
+    .replace(/\bWebRTC\b/gi, "browser calling");
+}
+
+function notifyTeamManagement(
+  type,
+  title,
+  message
+) {
+  if (
+    typeof window ===
+    "undefined"
+  ) {
+    return;
+  }
+
+  const bridge =
+    window.reachflyToast;
+
+  if (
+    bridge &&
+    typeof bridge[type] ===
+      "function"
+  ) {
+    bridge[type](
+      title,
+      message
+    );
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent(
+      "reachfly:toast",
+      {
+        detail: {
+          type,
+          title,
+          message,
+        },
+      }
+    )
+  );
+}
+
+function TeamManagementV7Styles() {
+  return (
+    <style>{`
+      .rf-team-management-v7{
+        --rftm-card:#fff;
+        --rftm-soft:#f6f7f8;
+        --rftm-text:#191c1d;
+        --rftm-text2:#4d4c59;
+        --rftm-muted:#777784;
+        --rftm-line:#e2e4e7;
+        --rftm-primary:#4648d4;
+        --rftm-primary-dark:#393bbb;
+        --rftm-primary-soft:#e8e9ff;
+        --rftm-green:#087a51;
+        --rftm-green-soft:#e4f7ee;
+        --rftm-red:#ba1a1a;
+        --rftm-red-soft:#ffedeb;
+        --rftm-amber:#965900;
+        --rftm-amber-soft:#fff3d8;
+        --rftm-dark:#2e3132;
+        --rftm-ease:cubic-bezier(.2,.8,.2,1);
+        width:100%;
+        min-height:100%;
+        padding:24px 30px 52px;
+        color:var(--rftm-text);
+        font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+        animation:rftmPageIn .24s var(--rftm-ease);
+      }
+
+      .rf-team-management-v7 *,
+      .rf-team-management-v7 *::before,
+      .rf-team-management-v7 *::after{
+        box-sizing:border-box;
+      }
+
+      @keyframes rftmPageIn{
+        from{opacity:0;transform:translateY(5px)}
+        to{opacity:1;transform:none}
+      }
+
+      @keyframes rftmPulse{
+        0%,100%{opacity:.4}
+        50%{opacity:1}
+      }
+
+      .rf-team-management-v7 .rf-team-management-header{
+        display:flex;
+        align-items:flex-end;
+        justify-content:space-between;
+        gap:18px;
+        margin-bottom:16px;
+      }
+
+      .rf-team-management-v7 .rf-team-management-header > div:first-child{
+        min-width:0;
+      }
+
+      .rf-team-management-v7 .rf-management-eyebrow{
+        margin:0 0 4px;
+        color:var(--rftm-primary);
+        font-size:8px;
+        font-weight:800;
+        letter-spacing:.08em;
+        text-transform:uppercase;
+      }
+
+      .rf-team-management-v7 .rf-team-management-header h1{
+        margin:0;
+        font:600 31px/39px Geist,Inter,sans-serif;
+        letter-spacing:-.028em;
+      }
+
+      .rf-team-management-v7 .rf-team-management-header p:not(.rf-management-eyebrow){
+        max-width:760px;
+        margin:5px 0 0;
+        color:var(--rftm-text2);
+        font-size:10px;
+        line-height:16px;
+      }
+
+      .rf-team-management-v7 .rf-team-management-header__actions{
+        display:flex;
+        flex-wrap:wrap;
+        gap:7px;
+      }
+
+      .rf-team-management-v7 .rf-management-button{
+        min-height:38px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        gap:6px;
+        padding:7px 10px;
+        color:#fff;
+        background:var(--rftm-primary);
+        border:1px solid var(--rftm-primary);
+        border-radius:8px;
+        cursor:pointer;
+        font-size:7px;
+        font-weight:750;
+        box-shadow:0 7px 16px rgba(70,72,212,.12);
+        transition:.14s var(--rftm-ease);
+      }
+
+      .rf-team-management-v7 .rf-management-button:hover:not(:disabled){
+        transform:translateY(-1px);
+        background:var(--rftm-primary-dark);
+      }
+
+      .rf-team-management-v7 .rf-management-button:disabled{
+        opacity:.45;
+        cursor:not-allowed;
+      }
+
+      .rf-team-management-v7 .rf-management-button--secondary{
+        color:var(--rftm-text);
+        background:#fff;
+        border-color:var(--rftm-line);
+        box-shadow:none;
+      }
+
+      .rf-team-management-v7 .rf-management-alert{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:10px;
+        padding:10px 11px;
+        margin-bottom:10px;
+        border:1px solid;
+        border-radius:9px;
+        font-size:7px;
+        line-height:12px;
+        animation:rftmPageIn .16s var(--rftm-ease);
+      }
+
+      .rf-team-management-v7 .rf-management-alert--error{
+        color:#7c1d1d;
+        background:var(--rftm-red-soft);
+        border-color:#ffd0cc;
+      }
+
+      .rf-team-management-v7 .rf-management-alert--success{
+        color:#086846;
+        background:var(--rftm-green-soft);
+        border-color:#caeadb;
+      }
+
+      .rf-team-management-v7 .rf-management-alert button{
+        min-height:28px;
+        padding:4px 7px;
+        color:inherit;
+        background:#fff;
+        border:1px solid currentColor;
+        border-radius:6px;
+        cursor:pointer;
+        font-size:5.4px;
+        font-weight:750;
+      }
+
+      .rf-team-management-v7 .rf-management-metric-grid{
+        display:grid;
+        grid-template-columns:repeat(4,minmax(0,1fr));
+        gap:8px;
+        margin-bottom:10px;
+      }
+
+      .rf-team-management-v7 .rf-management-metric{
+        min-height:120px;
+        display:grid;
+        align-content:end;
+        padding:13px;
+        background:
+          radial-gradient(circle at 92% 10%,rgba(70,72,212,.045),transparent 30%),
+          #fff;
+        border:1px solid var(--rftm-line);
+        border-radius:10px;
+        box-shadow:0 1px 3px rgba(25,28,29,.025);
+      }
+
+      .rf-team-management-v7 .rf-management-metric > div:first-child{
+        color:var(--rftm-primary);
+      }
+
+      .rf-team-management-v7 .rf-management-metric strong{
+        font:600 23px/29px Geist,Inter,sans-serif;
+        letter-spacing:-.025em;
+      }
+
+      .rf-team-management-v7 .rf-management-metric small,
+      .rf-team-management-v7 .rf-management-metric span{
+        color:var(--rftm-muted);
+        font-size:5.6px;
+        line-height:9px;
+      }
+
+      .rf-team-management-v7 .rf-management-navigation{
+        position:sticky;
+        z-index:20;
+        top:64px;
+        display:flex;
+        gap:4px;
+        overflow-x:auto;
+        padding:5px;
+        margin-bottom:10px;
+        background:rgba(255,255,255,.95);
+        border:1px solid var(--rftm-line);
+        border-radius:10px;
+        backdrop-filter:blur(12px);
+        scrollbar-width:none;
+      }
+
+      .rf-team-management-v7 .rf-management-navigation::-webkit-scrollbar{
+        display:none;
+      }
+
+      .rf-team-management-v7 .rf-management-navigation button{
+        min-height:35px;
+        flex:0 0 auto;
+        padding:6px 8px;
+        color:var(--rftm-text2);
+        background:transparent;
+        border:0;
+        border-radius:7px;
+        cursor:pointer;
+        font-size:6px;
+        font-weight:750;
+      }
+
+      .rf-team-management-v7 .rf-management-navigation button.active,
+      .rf-team-management-v7 .rf-management-navigation button[aria-selected="true"]{
+        color:var(--rftm-primary);
+        background:var(--rftm-primary-soft);
+      }
+
+      .rf-team-management-v7 .rf-management-panel{
+        min-width:0;
+        padding:13px;
+        margin-bottom:10px;
+        background:#fff;
+        border:1px solid var(--rftm-line);
+        border-radius:11px;
+        box-shadow:0 1px 3px rgba(25,28,29,.025);
+      }
+
+      .rf-team-management-v7 .rf-management-panel-header{
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:12px;
+        padding-bottom:9px;
+        margin-bottom:9px;
+        border-bottom:1px solid #eff0f1;
+      }
+
+      .rf-team-management-v7 .rf-management-panel-header h2,
+      .rf-team-management-v7 .rf-management-panel-header h3{
+        margin:0;
+        font:600 14px/19px Geist,Inter,sans-serif;
+      }
+
+      .rf-team-management-v7 .rf-management-panel-header p{
+        margin:3px 0 0;
+        color:var(--rftm-muted);
+        font-size:6px;
+        line-height:10px;
+      }
+
+      .rf-team-management-v7 .rf-management-filters{
+        display:grid;
+        grid-template-columns:minmax(180px,1fr) 160px 160px;
+        gap:7px;
+        margin-bottom:9px;
+      }
+
+      .rf-team-management-v7 .rf-management-search,
+      .rf-team-management-v7 input,
+      .rf-team-management-v7 select,
+      .rf-team-management-v7 textarea{
+        width:100%;
+        min-height:38px;
+        padding:8px 9px;
+        color:var(--rftm-text);
+        background:#f7f8f9;
+        border:1px solid transparent;
+        border-radius:8px;
+        outline:0;
+        font:400 7px/12px Inter,sans-serif;
+      }
+
+      .rf-team-management-v7 textarea{
+        min-height:88px;
+        resize:vertical;
+      }
+
+      .rf-team-management-v7 input:focus,
+      .rf-team-management-v7 select:focus,
+      .rf-team-management-v7 textarea:focus{
+        background:#fff;
+        border-color:rgba(70,72,212,.5);
+        box-shadow:0 0 0 3px rgba(70,72,212,.06);
+      }
+
+      .rf-team-management-v7 .rf-team-member-grid{
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:7px;
+      }
+
+      .rf-team-management-v7 .rf-team-member-card{
+        min-width:0;
+        padding:10px;
+        background:#f7f8f9;
+        border:1px solid transparent;
+        border-radius:9px;
+        transition:.13s var(--rftm-ease);
+      }
+
+      .rf-team-management-v7 .rf-team-member-card:hover{
+        background:#f4f4ff;
+        border-color:#dddefa;
+        transform:translateY(-1px);
+      }
+
+      .rf-team-management-v7 .rf-compact-member{
+        min-width:0;
+        display:grid;
+        grid-template-columns:36px minmax(0,1fr) auto;
+        align-items:center;
+        gap:7px;
+      }
+
+      .rf-team-management-v7 .rf-member-status-row{
+        display:flex;
+        flex-wrap:wrap;
+        align-items:center;
+        gap:4px;
+        margin-top:7px;
+      }
+
+      .rf-team-management-v7 .rf-management-table-wrap{
+        overflow-x:auto;
+        border:1px solid var(--rftm-line);
+        border-radius:9px;
+      }
+
+      .rf-team-management-v7 .rf-management-table{
+        width:100%;
+        min-width:850px;
+        border-collapse:collapse;
+      }
+
+      .rf-team-management-v7 .rf-management-table th{
+        height:40px;
+        padding:8px 9px;
+        color:#686973;
+        background:#f7f8f9;
+        border-bottom:1px solid var(--rftm-line);
+        text-align:left;
+        white-space:nowrap;
+        font-size:5.4px;
+        font-weight:800;
+        text-transform:uppercase;
+      }
+
+      .rf-team-management-v7 .rf-management-table td{
+        padding:9px;
+        color:var(--rftm-text2);
+        border-bottom:1px solid #eff0f1;
+        font-size:5.9px;
+        line-height:10px;
+      }
+
+      .rf-team-management-v7 .rf-management-table tbody tr:hover td{
+        background:#fafaff;
+      }
+
+      .rf-team-management-v7 .rf-task-management-grid,
+      .rf-team-management-v7 .rf-tool-overview-grid{
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:7px;
+      }
+
+      .rf-team-management-v7 .rf-managed-task-card,
+      .rf-team-management-v7 .rf-tool-overview-card{
+        min-width:0;
+        padding:10px;
+        background:#f7f8f9;
+        border:1px solid transparent;
+        border-radius:9px;
+      }
+
+      .rf-team-management-v7 .rf-team-tool-list{
+        display:grid;
+        gap:5px;
+      }
+
+      .rf-team-management-v7 .rf-team-tool-row{
+        min-height:56px;
+        display:grid;
+        grid-template-columns:minmax(0,1fr) auto;
+        align-items:center;
+        gap:8px;
+        padding:8px 9px;
+        background:#f7f8f9;
+        border-radius:8px;
+      }
+
+      .rf-team-management-v7 .rf-management-empty{
+        min-height:170px;
+        display:grid;
+        place-items:center;
+        align-content:center;
+        gap:5px;
+        padding:20px;
+        color:var(--rftm-muted);
+        background:#f8f9fa;
+        border:1px dashed #d8dade;
+        border-radius:9px;
+        text-align:center;
+      }
+
+      .rf-team-management-v7 .rf-management-modal-backdrop,
+      .rf-team-management-v7 .rf-management-drawer-backdrop{
+        position:fixed;
+        z-index:2147481000;
+        inset:0;
+        display:grid;
+        place-items:center;
+        padding:18px;
+        background:rgba(25,28,29,.58);
+        backdrop-filter:blur(8px);
+      }
+
+      .rf-team-management-v7 .rf-management-dialog,
+      .rf-team-management-v7 .rf-member-details-drawer{
+        width:min(760px,100%);
+        max-height:calc(100vh - 36px);
+        overflow:auto;
+        padding:15px;
+        background:#fff;
+        border:1px solid rgba(255,255,255,.3);
+        border-radius:13px;
+        box-shadow:0 24px 70px rgba(0,0,0,.18);
+      }
+
+      .rf-team-management-v7 .rf-member-details-drawer{
+        justify-self:end;
+        width:min(530px,100%);
+        height:100%;
+        max-height:100vh;
+        border-radius:13px 0 0 13px;
+      }
+
+      .rf-team-management-v7 .rf-dialog-form-grid,
+      .rf-team-management-v7 .rf-member-edit-form,
+      .rf-team-management-v7 .rf-drawer-metric-grid,
+      .rf-team-management-v7 .rf-member-stat-grid{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:7px;
+      }
+
+      .rf-team-management-v7 .rf-management-access-denied{
+        max-width:720px;
+        min-height:330px;
+        display:grid;
+        place-items:center;
+        align-content:center;
+        gap:7px;
+        padding:28px;
+        margin:40px auto 0;
+        background:#fff;
+        border:1px solid var(--rftm-line);
+        border-radius:14px;
+        text-align:center;
+      }
+
+      .rf-team-management-v7 .rf-management-skeleton-header,
+      .rf-team-management-v7 .rf-management-skeleton-navigation,
+      .rf-team-management-v7 .rf-management-skeleton-panel,
+      .rf-team-management-v7 .rf-management-skeleton-metrics > div{
+        background:linear-gradient(90deg,#eceef0,#f8f9fa,#eceef0);
+        background-size:220% 100%;
+        animation:rftmPulse 1.15s infinite ease-in-out;
+      }
+
+      @media(max-width:1080px){
+        .rf-team-management-v7{
+          padding:22px;
+        }
+
+        .rf-team-management-v7 .rf-team-member-grid,
+        .rf-team-management-v7 .rf-task-management-grid,
+        .rf-team-management-v7 .rf-tool-overview-grid{
+          grid-template-columns:1fr 1fr;
+        }
+      }
+
+      @media(max-width:760px){
+        .rf-team-management-v7 .rf-team-management-header{
+          align-items:flex-start;
+          flex-direction:column;
+        }
+
+        .rf-team-management-v7 .rf-team-management-header__actions{
+          width:100%;
+        }
+
+        .rf-team-management-v7 .rf-team-management-header__actions .rf-management-button{
+          flex:1;
+        }
+
+        .rf-team-management-v7 .rf-management-metric-grid{
+          grid-template-columns:1fr 1fr;
+        }
+
+        .rf-team-management-v7 .rf-management-filters{
+          grid-template-columns:1fr;
+        }
+
+        .rf-team-management-v7 .rf-dialog-form-grid,
+        .rf-team-management-v7 .rf-member-edit-form,
+        .rf-team-management-v7 .rf-drawer-metric-grid,
+        .rf-team-management-v7 .rf-member-stat-grid{
+          grid-template-columns:1fr;
+        }
+      }
+
+      @media(max-width:620px){
+        .rf-team-management-v7{
+          padding:18px 12px 80px;
+        }
+
+        .rf-team-management-v7 .rf-team-management-header h1{
+          font-size:25px;
+          line-height:32px;
+        }
+
+        .rf-team-management-v7 .rf-management-navigation{
+          top:61px;
+          margin-left:-12px;
+          margin-right:-12px;
+          border-left:0;
+          border-right:0;
+          border-radius:0;
+        }
+
+        .rf-team-management-v7 .rf-team-member-grid,
+        .rf-team-management-v7 .rf-task-management-grid,
+        .rf-team-management-v7 .rf-tool-overview-grid{
+          grid-template-columns:1fr;
+        }
+
+        .rf-team-management-v7 .rf-management-modal-backdrop,
+        .rf-team-management-v7 .rf-management-drawer-backdrop{
+          padding:0;
+        }
+
+        .rf-team-management-v7 .rf-management-dialog,
+        .rf-team-management-v7 .rf-member-details-drawer{
+          width:100%;
+          min-height:100vh;
+          max-height:100vh;
+          border-radius:0;
+        }
+      }
+
+      @media(max-width:420px){
+        .rf-team-management-v7 .rf-management-metric-grid{
+          grid-template-columns:1fr;
+        }
+      }
+
+      @media(prefers-reduced-motion:reduce){
+        .rf-team-management-v7,
+        .rf-team-management-v7 *,
+        .rf-team-management-v7 *::before,
+        .rf-team-management-v7 *::after{
+          animation:none!important;
+          transition-duration:.01ms!important;
+        }
+      }
+    `}</style>
+  );
 }

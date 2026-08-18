@@ -1345,7 +1345,8 @@ export default function TeamChat() {
   }
 
   return (
-    <main className="rf-team-chat-page">
+    <main className="rf-team-chat-page rf-team-chat-v7">
+      <TeamChatV7Styles />
       <section className="rf-team-chat-shell">
         <ChatSidebar
           profile={profile}
@@ -1407,7 +1408,7 @@ export default function TeamChat() {
 
           {error ? (
             <div className="rf-chat-alert">
-              <span>{error}</span>
+              <span>{safeTeamChatMessage(error)}</span>
 
               <button
                 type="button"
@@ -2910,7 +2911,8 @@ function UserAvatar({
 
 function TeamChatSkeleton() {
   return (
-    <main className="rf-team-chat-page">
+    <main className="rf-team-chat-page rf-team-chat-v7">
+      <TeamChatV7Styles />
       <section className="rf-team-chat-shell rf-team-chat-shell--loading">
         <aside />
         <section>
@@ -3091,4 +3093,727 @@ function getResourceInitial(type) {
   return normalized
     .slice(0, 2)
     .toUpperCase();
+}
+
+function safeTeamChatMessage(value) {
+  return String(value || "")
+    .replace(/ElevenLabs/gi, "voice service")
+    .replace(/Telnyx/gi, "calling service")
+    .replace(/\bSIP\b/gi, "voice connection")
+    .replace(/\bWebRTC\b/gi, "team call");
+}
+
+function TeamChatV7Styles() {
+  return (
+    <style>{`
+      .rf-team-chat-v7{
+        --rftc-card:#fff;
+        --rftc-soft:#f6f7f8;
+        --rftc-text:#191c1d;
+        --rftc-text2:#4d4c59;
+        --rftc-muted:#777784;
+        --rftc-line:#e2e4e7;
+        --rftc-primary:#4648d4;
+        --rftc-primary-dark:#393bbb;
+        --rftc-primary-soft:#e8e9ff;
+        --rftc-green:#087a51;
+        --rftc-green-soft:#e4f7ee;
+        --rftc-red:#ba1a1a;
+        --rftc-red-soft:#ffedeb;
+        --rftc-dark:#2e3132;
+        --rftc-ease:cubic-bezier(.2,.8,.2,1);
+        width:100%;
+        min-height:100%;
+        padding:24px 30px 52px;
+        color:var(--rftc-text);
+        font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+        animation:rftcPageIn .24s var(--rftc-ease);
+      }
+
+      .rf-team-chat-v7 *,
+      .rf-team-chat-v7 *::before,
+      .rf-team-chat-v7 *::after{
+        box-sizing:border-box;
+      }
+
+      @keyframes rftcPageIn{
+        from{opacity:0;transform:translateY(5px)}
+        to{opacity:1;transform:none}
+      }
+
+      @keyframes rftcPulse{
+        0%,100%{opacity:.4}
+        50%{opacity:1}
+      }
+
+      .rf-team-chat-v7 .rf-team-chat-shell{
+        min-height:720px;
+        display:grid;
+        grid-template-columns:245px minmax(0,1fr);
+        overflow:hidden;
+        background:#fff;
+        border:1px solid var(--rftc-line);
+        border-radius:13px;
+        box-shadow:0 1px 3px rgba(25,28,29,.025);
+      }
+
+      .rf-team-chat-v7 .rf-chat-sidebar{
+        min-width:0;
+        display:grid;
+        grid-template-rows:auto auto minmax(0,1fr);
+        background:#fafbfb;
+        border-right:1px solid var(--rftc-line);
+      }
+
+      .rf-team-chat-v7 .rf-chat-sidebar__header{
+        padding:12px 11px;
+        background:
+          radial-gradient(circle at 94% 4%,rgba(70,72,212,.06),transparent 32%),
+          #fff;
+        border-bottom:1px solid var(--rftc-line);
+      }
+
+      .rf-team-chat-v7 .rf-chat-sidebar__profile{
+        min-width:0;
+        display:grid;
+        grid-template-columns:38px minmax(0,1fr);
+        align-items:center;
+        gap:8px;
+      }
+
+      .rf-team-chat-v7 .rf-sidebar-search{
+        min-height:38px;
+        display:flex;
+        align-items:center;
+        gap:6px;
+        margin:7px;
+        padding:0 8px;
+        background:#fff;
+        border:1px solid var(--rftc-line);
+        border-radius:8px;
+      }
+
+      .rf-team-chat-v7 .rf-sidebar-search input{
+        min-width:0;
+        width:100%;
+        min-height:36px;
+        padding:0;
+        color:var(--rftc-text);
+        background:transparent;
+        border:0;
+        outline:0;
+        font-size:6.5px;
+      }
+
+      .rf-team-chat-v7 .rf-sidebar-scroll{
+        min-height:0;
+        overflow-y:auto;
+        padding:5px;
+        scrollbar-width:thin;
+        scrollbar-color:#d8dadd transparent;
+      }
+
+      .rf-team-chat-v7 .rf-sidebar-section{
+        margin-bottom:8px;
+      }
+
+      .rf-team-chat-v7 .rf-sidebar-section > header{
+        min-height:34px;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:6px;
+        padding:5px 6px;
+        color:var(--rftc-muted);
+        font-size:5.5px;
+        font-weight:800;
+        letter-spacing:.05em;
+        text-transform:uppercase;
+      }
+
+      .rf-team-chat-v7 .rf-sidebar-section button{
+        transition:.13s var(--rftc-ease);
+      }
+
+      .rf-team-chat-v7 .rf-chat-main{
+        min-width:0;
+        min-height:0;
+        display:grid;
+        grid-template-rows:auto auto minmax(0,1fr);
+        background:#fff;
+      }
+
+      .rf-team-chat-v7 .rf-chat-header{
+        min-height:68px;
+        display:grid;
+        grid-template-columns:minmax(140px,1fr) minmax(170px,.65fr) auto;
+        align-items:center;
+        gap:10px;
+        padding:9px 11px;
+        background:#fbfbfc;
+        border-bottom:1px solid var(--rftc-line);
+      }
+
+      .rf-team-chat-v7 .rf-chat-header > div:first-child{
+        min-width:0;
+      }
+
+      .rf-team-chat-v7 .rf-chat-header h2{
+        margin:0;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font:600 13px/18px Geist,Inter,sans-serif;
+        letter-spacing:-.015em;
+      }
+
+      .rf-team-chat-v7 .rf-chat-header p{
+        margin:2px 0 0;
+        overflow:hidden;
+        color:var(--rftc-muted);
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font-size:5.8px;
+      }
+
+      .rf-team-chat-v7 .rf-chat-search input{
+        width:100%;
+        min-height:36px;
+        padding:7px 8px;
+        color:var(--rftc-text);
+        background:#fff;
+        border:1px solid var(--rftc-line);
+        border-radius:8px;
+        outline:0;
+        font-size:6.3px;
+      }
+
+      .rf-team-chat-v7 .rf-chat-search input:focus{
+        border-color:rgba(70,72,212,.5);
+        box-shadow:0 0 0 3px rgba(70,72,212,.06);
+      }
+
+      .rf-team-chat-v7 .rf-chat-header__actions{
+        display:flex;
+        align-items:center;
+        justify-content:flex-end;
+        gap:5px;
+      }
+
+      .rf-team-chat-v7 .rf-chat-action-button,
+      .rf-team-chat-v7 .rf-icon-button{
+        min-height:33px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        gap:5px;
+        padding:5px 7px;
+        color:var(--rftc-text2);
+        background:#fff;
+        border:1px solid var(--rftc-line);
+        border-radius:7px;
+        cursor:pointer;
+        font-size:5.5px;
+        font-weight:750;
+      }
+
+      .rf-team-chat-v7 .rf-chat-action-button--primary{
+        color:#fff;
+        background:var(--rftc-primary);
+        border-color:var(--rftc-primary);
+      }
+
+      .rf-team-chat-v7 .rf-chat-action-button:disabled{
+        opacity:.42;
+        cursor:not-allowed;
+      }
+
+      .rf-team-chat-v7 .rf-chat-alert{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:8px;
+        padding:9px 10px;
+        margin:8px 9px 0;
+        color:#7c1d1d;
+        background:var(--rftc-red-soft);
+        border:1px solid #ffd0cc;
+        border-radius:8px;
+        font-size:6.5px;
+        line-height:10px;
+      }
+
+      .rf-team-chat-v7 .rf-chat-alert button{
+        min-height:27px;
+        padding:4px 7px;
+        color:#7c1d1d;
+        background:#fff;
+        border:1px solid #ffd0cc;
+        border-radius:6px;
+        cursor:pointer;
+        font-size:5.4px;
+        font-weight:750;
+      }
+
+      .rf-team-chat-v7 .rf-chat-content{
+        min-height:0;
+        display:grid;
+        grid-template-columns:minmax(0,1fr) auto;
+        overflow:hidden;
+      }
+
+      .rf-team-chat-v7 .rf-message-area{
+        min-width:0;
+        min-height:0;
+        display:grid;
+        grid-template-rows:minmax(0,1fr) auto auto;
+        overflow:hidden;
+      }
+
+      .rf-team-chat-v7 .rf-message-list{
+        min-height:0;
+        overflow-y:auto;
+        display:grid;
+        align-content:start;
+        gap:7px;
+        padding:12px;
+        background:
+          radial-gradient(circle at 95% 5%,rgba(70,72,212,.025),transparent 25%),
+          #fff;
+        scrollbar-width:thin;
+        scrollbar-color:#d9dade transparent;
+      }
+
+      .rf-team-chat-v7 .rf-message-block{
+        max-width:84%;
+        min-width:0;
+      }
+
+      .rf-team-chat-v7 .rf-message-block.own,
+      .rf-team-chat-v7 .rf-message-block--own{
+        justify-self:end;
+      }
+
+      .rf-team-chat-v7 .rf-message-meta{
+        display:flex;
+        align-items:center;
+        gap:5px;
+        margin-bottom:3px;
+        color:var(--rftc-muted);
+        font-size:5px;
+      }
+
+      .rf-team-chat-v7 .rf-message-content,
+      .rf-team-chat-v7 .rf-message-body{
+        padding:8px 9px;
+        color:var(--rftc-text2);
+        background:#f4f5f6;
+        border:1px solid #eceeef;
+        border-radius:9px;
+        font-size:6.5px;
+        line-height:11px;
+      }
+
+      .rf-team-chat-v7 .rf-message-actions{
+        display:flex;
+        gap:4px;
+        margin-top:4px;
+        opacity:.28;
+        transition:.13s var(--rftc-ease);
+      }
+
+      .rf-team-chat-v7 .rf-message-block:hover .rf-message-actions{
+        opacity:1;
+      }
+
+      .rf-team-chat-v7 .rf-message-actions button{
+        min-height:25px;
+        padding:4px 6px;
+        color:var(--rftc-text2);
+        background:#fff;
+        border:1px solid var(--rftc-line);
+        border-radius:6px;
+        cursor:pointer;
+        font-size:5px;
+      }
+
+      .rf-team-chat-v7 .rf-message-composer{
+        display:grid;
+        gap:6px;
+        padding:9px 10px 10px;
+        background:#fbfbfc;
+        border-top:1px solid var(--rftc-line);
+      }
+
+      .rf-team-chat-v7 .rf-message-composer__body{
+        display:grid;
+        grid-template-columns:minmax(0,1fr) auto;
+        align-items:end;
+        gap:7px;
+      }
+
+      .rf-team-chat-v7 .rf-message-composer textarea{
+        width:100%;
+        min-height:52px;
+        max-height:140px;
+        resize:vertical;
+        padding:9px 10px;
+        color:var(--rftc-text);
+        background:#fff;
+        border:1px solid var(--rftc-line);
+        border-radius:9px;
+        outline:0;
+        font:400 6.5px/11px Inter,sans-serif;
+      }
+
+      .rf-team-chat-v7 .rf-message-composer textarea:focus{
+        border-color:rgba(70,72,212,.5);
+        box-shadow:0 0 0 3px rgba(70,72,212,.06);
+      }
+
+      .rf-team-chat-v7 .rf-message-composer button[type="submit"]{
+        min-width:82px;
+        min-height:38px;
+        color:#fff;
+        background:var(--rftc-primary);
+        border:1px solid var(--rftc-primary);
+        border-radius:8px;
+        cursor:pointer;
+        font-size:5.8px;
+        font-weight:750;
+      }
+
+      .rf-team-chat-v7 .rf-composer-context{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:8px;
+        padding:7px 8px;
+        color:#5c5d7d;
+        background:var(--rftc-primary-soft);
+        border-radius:7px;
+        font-size:5.5px;
+      }
+
+      .rf-team-chat-v7 .rf-typing-indicator,
+      .rf-team-chat-v7 .rf-typing-space{
+        min-height:23px;
+        display:flex;
+        align-items:center;
+        padding:4px 10px;
+        color:var(--rftc-muted);
+        background:#fbfbfc;
+        font-size:5.3px;
+      }
+
+      .rf-team-chat-v7 .rf-typing-indicator::before{
+        content:"";
+        width:5px;
+        height:5px;
+        margin-right:5px;
+        background:var(--rftc-primary);
+        border-radius:50%;
+        animation:rftcPulse 1s infinite ease-in-out;
+      }
+
+      .rf-team-chat-v7 .rf-resource-panel{
+        width:260px;
+        min-height:0;
+        overflow-y:auto;
+        padding:10px;
+        background:#fafbfb;
+        border-left:1px solid var(--rftc-line);
+      }
+
+      .rf-team-chat-v7 .rf-resource-panel > header{
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:8px;
+        padding-bottom:8px;
+        margin-bottom:8px;
+        border-bottom:1px solid var(--rftc-line);
+      }
+
+      .rf-team-chat-v7 .rf-resource-panel h3{
+        margin:0;
+        font:600 10px/14px Geist,Inter,sans-serif;
+      }
+
+      .rf-team-chat-v7 .rf-resource-panel p{
+        margin:2px 0 0;
+        color:var(--rftc-muted);
+        font-size:5.5px;
+      }
+
+      .rf-team-chat-v7 .rf-resource-add,
+      .rf-team-chat-v7 .rf-resource-form button{
+        width:100%;
+        min-height:35px;
+        color:#fff;
+        background:var(--rftc-primary);
+        border:1px solid var(--rftc-primary);
+        border-radius:7px;
+        cursor:pointer;
+        font-size:5.7px;
+        font-weight:750;
+      }
+
+      .rf-team-chat-v7 .rf-resource-form{
+        display:grid;
+        gap:6px;
+        margin:7px 0;
+      }
+
+      .rf-team-chat-v7 .rf-resource-form input,
+      .rf-team-chat-v7 .rf-resource-form textarea{
+        width:100%;
+        min-height:36px;
+        padding:7px 8px;
+        color:var(--rftc-text);
+        background:#fff;
+        border:1px solid var(--rftc-line);
+        border-radius:7px;
+        outline:0;
+        font-size:6px;
+      }
+
+      .rf-team-chat-v7 .rf-resource-form textarea{
+        min-height:70px;
+        resize:vertical;
+      }
+
+      .rf-team-chat-v7 .rf-resource-list{
+        display:grid;
+        gap:5px;
+        margin-top:7px;
+      }
+
+      .rf-team-chat-v7 .rf-resource-card{
+        min-width:0;
+        display:grid;
+        grid-template-columns:32px minmax(0,1fr);
+        align-items:center;
+        gap:7px;
+        padding:7px;
+        color:var(--rftc-text);
+        background:#fff;
+        border:1px solid var(--rftc-line);
+        border-radius:8px;
+        text-decoration:none;
+      }
+
+      .rf-team-chat-v7 .rf-chat-empty{
+        min-height:300px;
+        display:grid;
+        place-items:center;
+        align-content:center;
+        gap:5px;
+        padding:24px;
+        color:var(--rftc-muted);
+        text-align:center;
+      }
+
+      .rf-team-chat-v7 .rf-chat-empty > div{
+        width:48px;
+        height:48px;
+        display:grid;
+        place-items:center;
+        color:#fff;
+        background:var(--rftc-primary);
+        border-radius:12px;
+        font-size:8px;
+        font-weight:800;
+      }
+
+      .rf-team-chat-v7 .rf-chat-empty h3{
+        margin:3px 0 0;
+        color:var(--rftc-text);
+        font:600 12px/17px Geist,Inter,sans-serif;
+      }
+
+      .rf-team-chat-v7 .rf-chat-empty p{
+        max-width:380px;
+        margin:0;
+        font-size:6px;
+        line-height:10px;
+      }
+
+      .rf-team-chat-v7 .rf-modal-backdrop{
+        position:fixed;
+        z-index:2147481000;
+        inset:0;
+        display:grid;
+        place-items:center;
+        padding:18px;
+        background:rgba(25,28,29,.58);
+        backdrop-filter:blur(8px);
+      }
+
+      .rf-team-chat-v7 .rf-group-dialog,
+      .rf-team-chat-v7 .rf-call-dialog{
+        width:min(620px,100%);
+        max-height:calc(100vh - 36px);
+        overflow:auto;
+        padding:15px;
+        background:#fff;
+        border:1px solid rgba(255,255,255,.3);
+        border-radius:13px;
+        box-shadow:0 24px 70px rgba(0,0,0,.18);
+      }
+
+      .rf-team-chat-v7 .rf-group-member-list{
+        display:grid;
+        gap:5px;
+        max-height:260px;
+        overflow:auto;
+        margin-top:8px;
+      }
+
+      .rf-team-chat-v7 .rf-group-member{
+        min-height:52px;
+        display:grid;
+        grid-template-columns:15px 34px minmax(0,1fr);
+        align-items:center;
+        gap:7px;
+        padding:7px;
+        background:#f7f8f9;
+        border-radius:8px;
+      }
+
+      .rf-team-chat-v7 .rf-active-call-bar{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:8px;
+        padding:8px 10px;
+        color:#fff;
+        background:var(--rftc-dark);
+        border-top:1px solid rgba(255,255,255,.06);
+      }
+
+      .rf-team-chat-v7 .rf-call-accept{
+        color:#fff;
+        background:var(--rftc-green)!important;
+        border-color:var(--rftc-green)!important;
+      }
+
+      .rf-team-chat-v7 .rf-call-decline{
+        color:#fff;
+        background:#b42318!important;
+        border-color:#b42318!important;
+      }
+
+      .rf-team-chat-v7 .rf-team-chat-shell--loading > aside,
+      .rf-team-chat-v7 .rf-team-chat-shell--loading section > header,
+      .rf-team-chat-v7 .rf-team-chat-shell--loading section > div{
+        background:linear-gradient(90deg,#eceef0,#f8f9fa,#eceef0);
+        background-size:220% 100%;
+        animation:rftcPulse 1.15s infinite ease-in-out;
+      }
+
+      @media(max-width:980px){
+        .rf-team-chat-v7{
+          padding:22px;
+        }
+
+        .rf-team-chat-v7 .rf-chat-header{
+          grid-template-columns:minmax(140px,1fr) auto;
+        }
+
+        .rf-team-chat-v7 .rf-chat-search{
+          grid-column:1/-1;
+          grid-row:2;
+        }
+      }
+
+      @media(max-width:760px){
+        .rf-team-chat-v7 .rf-team-chat-shell{
+          grid-template-columns:205px minmax(0,1fr);
+        }
+
+        .rf-team-chat-v7 .rf-resource-panel{
+          position:absolute;
+          z-index:5;
+          right:0;
+          top:0;
+          bottom:0;
+          width:min(290px,85vw);
+          box-shadow:-10px 0 28px rgba(25,28,29,.12);
+        }
+      }
+
+      @media(max-width:620px){
+        .rf-team-chat-v7{
+          padding:0 0 70px;
+        }
+
+        .rf-team-chat-v7 .rf-team-chat-shell{
+          min-height:calc(100vh - 70px);
+          grid-template-columns:1fr;
+          border-left:0;
+          border-right:0;
+          border-radius:0;
+        }
+
+        .rf-team-chat-v7 .rf-chat-sidebar{
+          max-height:250px;
+          border-right:0;
+          border-bottom:1px solid var(--rftc-line);
+        }
+
+        .rf-team-chat-v7 .rf-chat-main{
+          min-height:560px;
+        }
+
+        .rf-team-chat-v7 .rf-chat-header{
+          grid-template-columns:1fr;
+        }
+
+        .rf-team-chat-v7 .rf-chat-header__actions{
+          justify-content:flex-start;
+          overflow-x:auto;
+        }
+
+        .rf-team-chat-v7 .rf-chat-search{
+          grid-column:auto;
+          grid-row:auto;
+        }
+
+        .rf-team-chat-v7 .rf-message-block{
+          max-width:93%;
+        }
+
+        .rf-team-chat-v7 .rf-message-composer__body{
+          grid-template-columns:1fr;
+        }
+
+        .rf-team-chat-v7 .rf-message-composer button[type="submit"]{
+          width:100%;
+        }
+
+        .rf-team-chat-v7 .rf-modal-backdrop{
+          padding:0;
+        }
+
+        .rf-team-chat-v7 .rf-group-dialog,
+        .rf-team-chat-v7 .rf-call-dialog{
+          min-height:100vh;
+          max-height:100vh;
+          border-radius:0;
+        }
+      }
+
+      @media(prefers-reduced-motion:reduce){
+        .rf-team-chat-v7,
+        .rf-team-chat-v7 *,
+        .rf-team-chat-v7 *::before,
+        .rf-team-chat-v7 *::after{
+          animation:none!important;
+          transition-duration:.01ms!important;
+          scroll-behavior:auto!important;
+        }
+      }
+    `}</style>
+  );
 }
