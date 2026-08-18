@@ -77198,3 +77198,13 @@ textarea.rf7-field-control {
 }
 @media(prefers-reduced-motion:reduce){.rfm-hero-3d{opacity:.32}.rfm-audience-marquee-track{transform:none!important}.rfm-product-preview,.rfm-hero-preview-wrap{transform:none!important}}
 
+/* ReachFly V11 — isolated futuristic marketing + auth layer.
+   Safe to append at the END of web/src/styles.css.
+   V11 uses new rf11-* namespaces so old V8/V9/V10 overrides do not collide. */
+
+.rf11-marketing{background:#050712 url('/visuals/reachfly-neural-space.svg') center top/cover fixed no-repeat!important;color:#f7f8ff!important}
+.rf11-auth-page{background:#050712 url('/visuals/reachfly-auth-horizon.svg') center/cover fixed no-repeat!important;color:#f7f8ff!important}
+.rf11-marketing .rf11m-nav,.rf11-auth-page .rf11-auth-shell{backdrop-filter:blur(24px) saturate(140%)!important;-webkit-backdrop-filter:blur(24px) saturate(140%)!important}
+.rf11-marketing .rf11m-btn.primary,.rf11-auth-page .rf11-auth-submit{background:linear-gradient(135deg,#6c5cff,#8a4dff 56%,#5b84ff)!important;color:#fff!important}
+@media(max-width:760px){.rf11-marketing,.rf11-auth-page{background-attachment:scroll!important}}
+@media(prefers-reduced-motion:reduce){.rf11-marketing *,.rf11-auth-page *{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important}}

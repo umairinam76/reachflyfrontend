@@ -141,7 +141,7 @@ export default function Signup() {
     if (typeof window !== "undefined") {
       window.requestAnimationFrame(() => {
         document
-          .querySelector(".rf-signup-v7 .rfsu-step-panel")
+          .querySelector(".rf11-signup-v7 .rf11-signup-step-panel")
           ?.scrollIntoView({
             behavior: "smooth",
             block: "nearest",
@@ -231,8 +231,8 @@ export default function Signup() {
 
       <AuthLayout
         eyebrow="Create account"
-        title="Build your sales workspace around the way you work."
-        text="Create your ReachFly workspace first. Then continue directly into AI Voice Agent onboarding to configure the calling workflow you actually need."
+        title="Build the sales motion you want to run."
+        text="Create the workspace, choose how your team sells, then configure the AI Voice and outreach workflow around that motion."
         footer={
           <>
             Already have a ReachFly account?{" "}
@@ -242,7 +242,7 @@ export default function Signup() {
           </>
         }
       >
-        <section className="rf-auth-form rf-signup-v7">
+        <section className="rf11-auth-form rf11-signup-v7">
           <SignupMobileIntro step={step} />
 
           <SignupProgress
@@ -273,7 +273,7 @@ export default function Signup() {
 
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
-              className="rfsu-step-panel"
+              className="rf11-signup-step-panel"
               key={step}
               initial={reduceMotion ? false : { opacity: 0, x: 24, filter: "blur(5px)" }}
               animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
@@ -328,7 +328,7 @@ export default function Signup() {
 
 function SignupMobileIntro({ step }) {
   return (
-    <div className="rfsu-mobile-intro">
+    <div className="rf11-signup-mobile-intro">
       <span>
         <Sparkles size={13} />
         ReachFly Sales OS
@@ -370,12 +370,12 @@ function SignupProgress({
 
   return (
     <div
-      className="rfsu-progress"
+      className="rf11-signup-progress"
       aria-label={`Signup step ${step} of 3`}
     >
       {steps.map((item, index) => (
         <div
-          className="rfsu-progress-segment"
+          className="rf11-signup-progress-segment"
           key={item.number}
         >
           <button
@@ -427,8 +427,8 @@ function WorkspaceTypeStep({
 }) {
   return (
     <>
-      <header className="rf-auth-card-head rfsu-card-head">
-        <span className="rfsu-card-eyebrow">
+      <header className="rf11-auth-card-head rf11-signup-card-head">
+        <span className="rf11-signup-card-eyebrow">
           Step 1 of 3
         </span>
 
@@ -443,7 +443,7 @@ function WorkspaceTypeStep({
         </p>
       </header>
 
-      <div className="rfsu-workspace-grid">
+      <div className="rf11-signup-workspace-grid">
         {WORKSPACE_TYPES.map((item) => {
           const Icon = item.icon;
           const active = selected === item.value;
@@ -452,7 +452,7 @@ function WorkspaceTypeStep({
             <button
               type="button"
               key={item.value}
-              className={`rfsu-workspace-card ${
+              className={`rf11-signup-workspace-card ${
                 active
                   ? "active"
                   : ""
@@ -496,7 +496,7 @@ function WorkspaceTypeStep({
         })}
       </div>
 
-      <div className="rfsu-info-note">
+      <div className="rf11-signup-info-note">
         <span>
           <Zap size={15} />
         </span>
@@ -514,9 +514,9 @@ function WorkspaceTypeStep({
         </div>
       </div>
 
-      <div className="rfsu-single-action">
+      <div className="rf11-signup-single-action">
         <button
-          className="rf-auth-submit"
+          className="rf11-auth-submit"
           type="button"
           disabled={!selected}
           onClick={onContinue}
@@ -546,8 +546,8 @@ function ProfileDetailsStep({
 
   return (
     <>
-      <header className="rf-auth-card-head rfsu-card-head">
-        <span className="rfsu-card-eyebrow">
+      <header className="rf11-auth-card-head rf11-signup-card-head">
+        <span className="rf11-signup-card-eyebrow">
           Step 2 of 3
         </span>
 
@@ -561,7 +561,7 @@ function ProfileDetailsStep({
         </p>
       </header>
 
-      <div className="rfsu-selected-workspace">
+      <div className="rf11-signup-selected-workspace">
         <span>
           <WorkspaceIcon size={15} />
         </span>
@@ -586,7 +586,7 @@ function ProfileDetailsStep({
         </button>
       </div>
 
-      <div className="rfsu-details-grid">
+      <div className="rf11-signup-details-grid">
         <SignupField
           label="Your name"
           icon={UserRound}
@@ -644,7 +644,7 @@ function ProfileDetailsStep({
         />
       </div>
 
-      <div className="rfsu-privacy-note">
+      <div className="rf11-signup-privacy-note">
         <Shield size={13} />
 
         <p>
@@ -654,9 +654,9 @@ function ProfileDetailsStep({
         </p>
       </div>
 
-      <div className="rf-auth-form-actions rfsu-form-actions">
+      <div className="rf11-auth-form-actions rf11-signup-form-actions">
         <button
-          className="rf-auth-back-btn"
+          className="rf11-auth-back-btn"
           type="button"
           disabled={loading}
           onClick={onBack}
@@ -667,7 +667,7 @@ function ProfileDetailsStep({
         </button>
 
         <button
-          className="rf-auth-submit"
+          className="rf11-auth-submit"
           type="button"
           disabled={
             loading ||
@@ -701,10 +701,10 @@ function AccountSecurityStep({
     <form
       onSubmit={onSubmit}
       noValidate
-      className="rfsu-account-form"
+      className="rf11-signup-account-form"
     >
-      <header className="rf-auth-card-head rfsu-card-head">
-        <span className="rfsu-card-eyebrow">
+      <header className="rf11-auth-card-head rf11-signup-card-head">
+        <span className="rf11-signup-card-eyebrow">
           Step 3 of 3
         </span>
 
@@ -718,7 +718,7 @@ function AccountSecurityStep({
         </p>
       </header>
 
-      <div className="rfsu-account-summary">
+      <div className="rf11-signup-account-summary">
         <span>
           {isCompany ? (
             <Building2 size={15} />
@@ -747,7 +747,7 @@ function AccountSecurityStep({
         </div>
       </div>
 
-      <div className="rfsu-account-fields">
+      <div className="rf11-signup-account-fields">
         <SignupField
           label="Email address"
           icon={Mail}
@@ -781,7 +781,7 @@ function AccountSecurityStep({
           trailing={
             <button
               type="button"
-              className="rfsu-password-toggle"
+              className="rf11-signup-password-toggle"
               disabled={loading}
               onClick={onTogglePassword}
               aria-label={
@@ -803,7 +803,7 @@ function AccountSecurityStep({
         />
       </div>
 
-      <div className="rfsu-security-note">
+      <div className="rf11-signup-security-note">
         <span>
           <Lock size={14} />
         </span>
@@ -820,9 +820,9 @@ function AccountSecurityStep({
         </div>
       </div>
 
-      <div className="rf-auth-form-actions rfsu-form-actions">
+      <div className="rf11-auth-form-actions rf11-signup-form-actions">
         <button
-          className="rf-auth-back-btn"
+          className="rf11-auth-back-btn"
           type="button"
           disabled={loading}
           onClick={onBack}
@@ -833,7 +833,7 @@ function AccountSecurityStep({
         </button>
 
         <button
-          className="rf-auth-submit"
+          className="rf11-auth-submit"
           type="submit"
           disabled={
             loading ||
@@ -842,7 +842,7 @@ function AccountSecurityStep({
         >
           {loading ? (
             <>
-              <span className="rfsu-spinner" />
+              <span className="rf11-signup-spinner" />
 
               Creating workspace…
             </>
@@ -856,7 +856,7 @@ function AccountSecurityStep({
         </button>
       </div>
 
-      <p className="rfsu-submit-caption">
+      <p className="rf11-signup-submit-caption">
         By creating the workspace, you are creating a ReachFly account using
         the information above. Product configuration starts after signup.
       </p>
@@ -882,7 +882,7 @@ function SignupField({
 }) {
   return (
     <label
-      className={`rfsu-field ${
+      className={`rf11-signup-field ${
         wide
           ? "wide"
           : ""
@@ -934,7 +934,7 @@ function PasswordStrength({
           : "Strong";
 
   return (
-    <div className="rfsu-password-strength">
+    <div className="rf11-signup-password-strength">
       <div>
         {[1, 2, 3, 4].map((level) => (
           <i
@@ -961,7 +961,7 @@ function SignupAlert({
 }) {
   return (
     <div
-      className="rfsu-alert"
+      className="rf11-signup-alert"
       role="alert"
     >
       <span>
@@ -1042,27 +1042,27 @@ function safeAuthMessage(value) {
 function SignupStyles() {
   return (
     <style>{`
-      .rf-signup-v7{
-        --rfsu-text:#191c1d;
-        --rfsu-text2:#464554;
-        --rfsu-muted:#767586;
-        --rfsu-line:#e2e4e7;
-        --rfsu-soft:#f3f4f5;
-        --rfsu-primary:#4648d4;
-        --rfsu-primary-dark:#3537bb;
-        --rfsu-primary-soft:#e8e9ff;
-        --rfsu-violet:#6b38d4;
-        --rfsu-success:#087a51;
-        --rfsu-success-soft:#dff8eb;
-        --rfsu-danger:#ba1a1a;
-        --rfsu-danger-soft:#ffedeb;
-        --rfsu-ease:cubic-bezier(.2,.8,.2,1);
+      .rf11-signup-v7{
+        --rf11-signup-text:#191c1d;
+        --rf11-signup-text2:#464554;
+        --rf11-signup-muted:#767586;
+        --rf11-signup-line:#e2e4e7;
+        --rf11-signup-soft:#f3f4f5;
+        --rf11-signup-primary:#4648d4;
+        --rf11-signup-primary-dark:#3537bb;
+        --rf11-signup-primary-soft:#e8e9ff;
+        --rf11-signup-violet:#6b38d4;
+        --rf11-signup-success:#087a51;
+        --rf11-signup-success-soft:#dff8eb;
+        --rf11-signup-danger:#ba1a1a;
+        --rf11-signup-danger-soft:#ffedeb;
+        --rf11-signup-ease:cubic-bezier(.2,.8,.2,1);
         width:100%;
       }
 
-      .rf-signup-v7 *,
-      .rf-signup-v7 *::before,
-      .rf-signup-v7 *::after{
+      .rf11-signup-v7 *,
+      .rf11-signup-v7 *::before,
+      .rf11-signup-v7 *::after{
         box-sizing:border-box;
       }
 
@@ -1083,28 +1083,28 @@ function SignupStyles() {
         }
       }
 
-      .rfsu-mobile-intro{
+      .rf11-signup-mobile-intro{
         display:none;
       }
 
-      .rfsu-progress{
+      .rf11-signup-progress{
         display:flex;
         align-items:center;
         margin:0 0 20px;
       }
 
-      .rfsu-progress-segment{
+      .rf11-signup-progress-segment{
         min-width:0;
         display:flex;
         align-items:center;
         flex:1 1 0;
       }
 
-      .rfsu-progress-segment:last-child{
+      .rf11-signup-progress-segment:last-child{
         flex:0 0 auto;
       }
 
-      .rfsu-progress-segment > button{
+      .rf11-signup-progress-segment > button{
         display:flex;
         align-items:center;
         gap:6px;
@@ -1116,11 +1116,11 @@ function SignupStyles() {
         font:inherit;
       }
 
-      .rfsu-progress-segment > button:disabled{
+      .rf11-signup-progress-segment > button:disabled{
         cursor:default;
       }
 
-      .rfsu-progress-segment > button > span{
+      .rf11-signup-progress-segment > button > span{
         width:23px;
         height:23px;
         display:grid;
@@ -1131,73 +1131,73 @@ function SignupStyles() {
         border-radius:50%;
         font-size:6px;
         font-weight:800;
-        transition:.16s var(--rfsu-ease);
+        transition:.16s var(--rf11-signup-ease);
       }
 
-      .rfsu-progress-segment > button > b{
+      .rf11-signup-progress-segment > button > b{
         font-size:6px;
         font-weight:700;
         white-space:nowrap;
       }
 
-      .rfsu-progress-segment > button.active{
-        color:var(--rfsu-primary);
+      .rf11-signup-progress-segment > button.active{
+        color:var(--rf11-signup-primary);
       }
 
-      .rfsu-progress-segment > button.active > span{
+      .rf11-signup-progress-segment > button.active > span{
         color:#fff;
-        background:var(--rfsu-primary);
+        background:var(--rf11-signup-primary);
         box-shadow:0 4px 10px rgba(70,72,212,.14);
       }
 
-      .rfsu-progress-segment > button.complete{
+      .rf11-signup-progress-segment > button.complete{
         color:#5557c9;
       }
 
-      .rfsu-progress-segment > button.complete > span{
-        color:var(--rfsu-primary);
-        background:var(--rfsu-primary-soft);
+      .rf11-signup-progress-segment > button.complete > span{
+        color:var(--rf11-signup-primary);
+        background:var(--rf11-signup-primary-soft);
       }
 
-      .rfsu-progress-segment > i{
+      .rf11-signup-progress-segment > i{
         height:1px;
         flex:1 1 auto;
         margin:0 8px;
         background:#e2e4e7;
       }
 
-      .rfsu-progress-segment > i.complete{
+      .rf11-signup-progress-segment > i.complete{
         background:#bfc0fa;
       }
 
-      .rfsu-step-panel{
-        animation:rfsuStepIn 220ms var(--rfsu-ease);
+      .rf11-signup-step-panel{
+        animation:rfsuStepIn 220ms var(--rf11-signup-ease);
       }
 
-      .rfsu-card-head{
+      .rf11-signup-card-head{
         margin-bottom:15px!important;
       }
 
-      .rfsu-card-eyebrow{
+      .rf11-signup-card-eyebrow{
         display:block;
         margin-bottom:4px;
-        color:var(--rfsu-primary);
+        color:var(--rf11-signup-primary);
         font-size:6px;
         font-weight:800;
         letter-spacing:.10em;
         text-transform:uppercase;
       }
 
-      .rfsu-card-head h2{
+      .rf11-signup-card-head h2{
         font-size:25px!important;
         line-height:31px!important;
       }
 
-      .rfsu-card-head p{
+      .rf11-signup-card-head p{
         max-width:420px;
       }
 
-      .rfsu-alert{
+      .rf11-signup-alert{
         display:grid;
         grid-template-columns:25px minmax(0,1fr) 22px;
         align-items:start;
@@ -1205,38 +1205,38 @@ function SignupStyles() {
         padding:9px 10px;
         margin:0 0 13px;
         color:#7f1b1b;
-        background:var(--rfsu-danger-soft);
+        background:var(--rf11-signup-danger-soft);
         border:1px solid #ffd0cc;
         border-radius:8px;
-        animation:rfsuStepIn 170ms var(--rfsu-ease);
+        animation:rfsuStepIn 170ms var(--rf11-signup-ease);
       }
 
-      .rfsu-alert > span{
+      .rf11-signup-alert > span{
         width:25px;
         height:25px;
         display:grid;
         place-items:center;
-        color:var(--rfsu-danger);
+        color:var(--rf11-signup-danger);
         background:#fff;
         border-radius:7px;
       }
 
-      .rfsu-alert > div{
+      .rf11-signup-alert > div{
         min-width:0;
       }
 
-      .rfsu-alert strong{
+      .rf11-signup-alert strong{
         display:block;
         font-size:7px;
       }
 
-      .rfsu-alert p{
+      .rf11-signup-alert p{
         margin:1px 0 0;
         font-size:7px;
         line-height:11px;
       }
 
-      .rfsu-alert > button{
+      .rf11-signup-alert > button{
         width:22px;
         height:22px;
         display:grid;
@@ -1249,13 +1249,13 @@ function SignupStyles() {
         cursor:pointer;
       }
 
-      .rfsu-workspace-grid{
+      .rf11-signup-workspace-grid{
         display:grid;
         grid-template-columns:1fr 1fr;
         gap:9px;
       }
 
-      .rfsu-workspace-card{
+      .rf11-signup-workspace-card{
         position:relative;
         min-height:230px;
         display:grid;
@@ -1265,78 +1265,78 @@ function SignupStyles() {
         padding:15px;
         color:inherit;
         background:#fff;
-        border:1px solid var(--rfsu-line);
+        border:1px solid var(--rf11-signup-line);
         border-radius:11px;
         text-align:left;
         cursor:pointer;
         transition:
-          transform 150ms var(--rfsu-ease),
-          border-color 150ms var(--rfsu-ease),
-          box-shadow 150ms var(--rfsu-ease),
-          background 150ms var(--rfsu-ease);
+          transform 150ms var(--rf11-signup-ease),
+          border-color 150ms var(--rf11-signup-ease),
+          box-shadow 150ms var(--rf11-signup-ease),
+          background 150ms var(--rf11-signup-ease);
       }
 
-      .rfsu-workspace-card:hover{
+      .rf11-signup-workspace-card:hover{
         transform:translateY(-2px);
         border-color:#cfd0fb;
         box-shadow:0 8px 20px rgba(25,28,29,.045);
       }
 
-      .rfsu-workspace-card.active{
+      .rf11-signup-workspace-card.active{
         background:
           linear-gradient(180deg,#fcfcff,#f8f8ff);
-        border-color:var(--rfsu-primary);
+        border-color:var(--rf11-signup-primary);
         box-shadow:
-          0 0 0 1px var(--rfsu-primary),
+          0 0 0 1px var(--rf11-signup-primary),
           0 8px 20px rgba(70,72,212,.06);
       }
 
-      .rfsu-workspace-card > header{
+      .rf11-signup-workspace-card > header{
         display:flex;
         align-items:center;
         justify-content:space-between;
       }
 
-      .rfsu-workspace-card > header > span{
+      .rf11-signup-workspace-card > header > span{
         width:43px;
         height:43px;
         display:grid;
         place-items:center;
-        color:var(--rfsu-primary);
-        background:var(--rfsu-primary-soft);
+        color:var(--rf11-signup-primary);
+        background:var(--rf11-signup-primary-soft);
         border-radius:10px;
       }
 
-      .rfsu-workspace-card.active > header > span{
+      .rf11-signup-workspace-card.active > header > span{
         color:#fff;
-        background:var(--rfsu-primary);
+        background:var(--rf11-signup-primary);
       }
 
-      .rfsu-workspace-card > header > i{
+      .rf11-signup-workspace-card > header > i{
         width:24px;
         height:24px;
         display:grid;
         place-items:center;
         color:#fff;
-        background:var(--rfsu-primary);
+        background:var(--rf11-signup-primary);
         border-radius:50%;
         box-shadow:0 3px 8px rgba(70,72,212,.14);
       }
 
-      .rfsu-workspace-card > div strong{
+      .rf11-signup-workspace-card > div strong{
         display:block;
-        color:var(--rfsu-text);
+        color:var(--rf11-signup-text);
         font:600 11px/15px Geist,Inter,sans-serif;
       }
 
-      .rfsu-workspace-card > div p{
+      .rf11-signup-workspace-card > div p{
         margin:4px 0 0;
-        color:var(--rfsu-text2);
+        color:var(--rf11-signup-text2);
         font-size:7px;
         line-height:12px;
       }
 
-      .rfsu-workspace-card ul{
+      .rf11-signup-workspace-card ul{
         display:grid;
         align-content:end;
         gap:6px;
@@ -1346,7 +1346,7 @@ function SignupStyles() {
         list-style:none;
       }
 
-      .rfsu-workspace-card li{
+      .rf11-signup-workspace-card li{
         display:flex;
         align-items:center;
         gap:5px;
@@ -1354,26 +1354,26 @@ function SignupStyles() {
         font-size:6.5px;
       }
 
-      .rfsu-workspace-card li svg{
-        color:var(--rfsu-primary);
+      .rf11-signup-workspace-card li svg{
+        color:var(--rf11-signup-primary);
         flex:0 0 auto;
       }
 
-      .rfsu-info-note,
-      .rfsu-security-note{
+      .rf11-signup-info-note,
+      .rf11-signup-security-note{
         display:flex;
         align-items:flex-start;
         gap:8px;
         padding:10px;
         margin-top:11px;
-        color:var(--rfsu-violet);
+        color:var(--rf11-signup-violet);
         background:linear-gradient(135deg,#f2ecff,#faf8ff);
         border:1px solid #e5dcf8;
         border-radius:8px;
       }
 
-      .rfsu-info-note > span,
-      .rfsu-security-note > span{
+      .rf11-signup-info-note > span,
+      .rf11-signup-security-note > span{
         width:30px;
         height:30px;
         display:grid;
@@ -1384,38 +1384,38 @@ function SignupStyles() {
         border-radius:7px;
       }
 
-      .rfsu-info-note > div,
-      .rfsu-security-note > div{
+      .rf11-signup-info-note > div,
+      .rf11-signup-security-note > div{
         min-width:0;
       }
 
-      .rfsu-info-note strong,
-      .rfsu-security-note strong{
+      .rf11-signup-info-note strong,
+      .rf11-signup-security-note strong{
         display:block;
         color:#5325b8;
         font-size:7px;
       }
 
-      .rfsu-info-note p,
-      .rfsu-security-note p{
+      .rf11-signup-info-note p,
+      .rf11-signup-security-note p{
         margin:2px 0 0;
-        color:var(--rfsu-text2);
+        color:var(--rf11-signup-text2);
         font-size:6.5px;
         line-height:11px;
       }
 
-      .rfsu-single-action{
+      .rf11-signup-single-action{
         display:flex;
         justify-content:flex-end;
         margin-top:13px;
       }
 
-      .rfsu-single-action .rf-auth-submit{
+      .rf11-signup-single-action .rf11-auth-submit{
         width:auto!important;
         min-width:165px;
       }
 
-      .rfsu-selected-workspace{
+      .rf11-signup-selected-workspace{
         min-height:57px;
         display:grid;
         grid-template-columns:33px minmax(0,1fr) auto;
@@ -1423,40 +1423,40 @@ function SignupStyles() {
         gap:8px;
         padding:9px;
         margin-bottom:13px;
-        background:var(--rfsu-primary-soft);
+        background:var(--rf11-signup-primary-soft);
         border:1px solid #d8d9ff;
         border-radius:8px;
       }
 
-      .rfsu-selected-workspace > span{
+      .rf11-signup-selected-workspace > span{
         width:33px;
         height:33px;
         display:grid;
         place-items:center;
-        color:var(--rfsu-primary);
+        color:var(--rf11-signup-primary);
         background:#fff;
         border-radius:8px;
       }
 
-      .rfsu-selected-workspace > div{
+      .rf11-signup-selected-workspace > div{
         display:grid;
       }
 
-      .rfsu-selected-workspace small{
+      .rf11-signup-selected-workspace small{
         color:#7274ad;
         font-size:5.5px;
         text-transform:uppercase;
       }
 
-      .rfsu-selected-workspace strong{
+      .rf11-signup-selected-workspace strong{
         color:#3436a5;
         font-size:8px;
       }
 
-      .rfsu-selected-workspace > button{
+      .rf11-signup-selected-workspace > button{
         min-height:28px;
         padding:5px 7px;
-        color:var(--rfsu-primary);
+        color:var(--rf11-signup-primary);
         background:#fff;
         border:1px solid #d9daf5;
         border-radius:6px;
@@ -1465,35 +1465,35 @@ function SignupStyles() {
         font-weight:700;
       }
 
-      .rfsu-details-grid{
+      .rf11-signup-details-grid{
         display:grid;
         grid-template-columns:1fr 1fr;
         gap:11px;
       }
 
-      .rfsu-field{
+      .rf11-signup-field{
         min-width:0;
         display:grid;
         gap:5px;
       }
 
-      .rfsu-field.wide{
+      .rf11-signup-field.wide{
         grid-column:1/-1;
       }
 
-      .rfsu-field > span{
-        color:var(--rfsu-text);
+      .rf11-signup-field > span{
+        color:var(--rf11-signup-text);
         font-size:7px;
         font-weight:700;
       }
 
-      .rfsu-field > span em{
+      .rf11-signup-field > span em{
         margin-left:2px;
-        color:var(--rfsu-danger);
+        color:var(--rf11-signup-danger);
         font-style:normal;
       }
 
-      .rfsu-field > div{
+      .rf11-signup-field > div{
         min-height:44px;
         display:flex;
         align-items:center;
@@ -1501,82 +1501,82 @@ function SignupStyles() {
         padding:0 10px;
         color:#8a8b94;
         background:#fff;
-        border:1px solid var(--rfsu-line);
+        border:1px solid var(--rf11-signup-line);
         border-radius:8px;
         transition:
-          border-color 140ms var(--rfsu-ease),
-          box-shadow 140ms var(--rfsu-ease);
+          border-color 140ms var(--rf11-signup-ease),
+          box-shadow 140ms var(--rf11-signup-ease);
       }
 
-      .rfsu-field > div:focus-within{
+      .rf11-signup-field > div:focus-within{
         border-color:rgba(70,72,212,.55);
         box-shadow:0 0 0 3px rgba(70,72,212,.07);
       }
 
-      .rfsu-field > div > svg{
+      .rf11-signup-field > div > svg{
         flex:0 0 auto;
       }
 
-      .rfsu-field input{
+      .rf11-signup-field input{
         min-width:0;
         width:100%;
         height:42px;
         padding:0;
-        color:var(--rfsu-text);
+        color:var(--rf11-signup-text);
         background:transparent;
         border:0;
         outline:0;
         font-size:9px;
       }
 
-      .rfsu-field input::placeholder{
+      .rf11-signup-field input::placeholder{
         color:#a3a4ac;
       }
 
-      .rfsu-field input:disabled{
+      .rf11-signup-field input:disabled{
         cursor:not-allowed;
       }
 
-      .rfsu-privacy-note{
+      .rf11-signup-privacy-note{
         display:flex;
         align-items:flex-start;
         gap:7px;
         padding:9px 10px;
         margin-top:11px;
-        color:var(--rfsu-primary);
+        color:var(--rf11-signup-primary);
         background:#f7f7fc;
         border-radius:8px;
       }
 
-      .rfsu-privacy-note > svg{
+      .rf11-signup-privacy-note > svg{
         flex:0 0 auto;
         margin-top:1px;
       }
 
-      .rfsu-privacy-note p{
+      .rf11-signup-privacy-note p{
         margin:0;
-        color:var(--rfsu-text2);
+        color:var(--rf11-signup-text2);
         font-size:6.5px;
         line-height:11px;
       }
 
-      .rfsu-form-actions{
+      .rf11-signup-form-actions{
         margin-top:13px!important;
       }
 
-      .rfsu-form-actions .rf-auth-back-btn{
+      .rf11-signup-form-actions .rf11-auth-back-btn{
         min-width:90px;
       }
 
-      .rfsu-form-actions .rf-auth-submit{
+      .rf11-signup-form-actions .rf11-auth-submit{
         min-width:170px!important;
       }
 
-      .rfsu-account-form{
+      .rf11-signup-account-form{
         display:grid;
       }
 
-      .rfsu-account-summary{
+      .rf11-signup-account-summary{
         min-height:67px;
         display:grid;
         grid-template-columns:37px minmax(0,1fr);
@@ -1589,57 +1589,57 @@ function SignupStyles() {
         border-radius:9px;
       }
 
-      .rfsu-account-summary > span{
+      .rf11-signup-account-summary > span{
         width:37px;
         height:37px;
         display:grid;
         place-items:center;
-        color:var(--rfsu-primary);
+        color:var(--rf11-signup-primary);
         background:#fff;
         border-radius:9px;
         box-shadow:0 1px 3px rgba(25,28,29,.04);
       }
 
-      .rfsu-account-summary > div{
+      .rf11-signup-account-summary > div{
         min-width:0;
       }
 
-      .rfsu-account-summary small{
+      .rf11-signup-account-summary small{
         display:block;
-        color:var(--rfsu-muted);
+        color:var(--rf11-signup-muted);
         font-size:5.5px;
         text-transform:uppercase;
       }
 
-      .rfsu-account-summary strong{
+      .rf11-signup-account-summary strong{
         display:block;
         overflow:hidden;
-        color:var(--rfsu-text);
+        color:var(--rf11-signup-text);
         text-overflow:ellipsis;
         white-space:nowrap;
         font-size:8px;
       }
 
-      .rfsu-account-summary p{
+      .rf11-signup-account-summary p{
         margin:1px 0 0;
         overflow:hidden;
-        color:var(--rfsu-muted);
+        color:var(--rf11-signup-muted);
         text-overflow:ellipsis;
         white-space:nowrap;
         font-size:6px;
       }
 
-      .rfsu-account-fields{
+      .rf11-signup-account-fields{
         display:grid;
         gap:11px;
       }
 
-      .rfsu-password-toggle{
+      .rf11-signup-password-toggle{
         min-width:38px;
         height:27px;
         padding:0 7px;
-        color:var(--rfsu-primary);
-        background:var(--rfsu-primary-soft);
+        color:var(--rf11-signup-primary);
+        background:var(--rf11-signup-primary-soft);
         border:0;
         border-radius:6px;
         cursor:pointer;
@@ -1647,11 +1647,11 @@ function SignupStyles() {
         font-weight:750;
       }
 
-      .rfsu-password-toggle:disabled{
+      .rf11-signup-password-toggle:disabled{
         opacity:.45;
       }
 
-      .rfsu-password-strength{
+      .rf11-signup-password-strength{
         display:flex;
         align-items:center;
         justify-content:space-between;
@@ -1659,55 +1659,55 @@ function SignupStyles() {
         margin-top:-3px;
       }
 
-      .rfsu-password-strength > div{
+      .rf11-signup-password-strength > div{
         display:grid;
         grid-template-columns:repeat(4,1fr);
         gap:4px;
         flex:1;
       }
 
-      .rfsu-password-strength i{
+      .rf11-signup-password-strength i{
         height:4px;
         display:block;
         background:#e6e7e9;
         border-radius:999px;
       }
 
-      .rfsu-password-strength i.active{
-        background:var(--rfsu-primary);
+      .rf11-signup-password-strength i.active{
+        background:var(--rf11-signup-primary);
       }
 
-      .rfsu-password-strength > span{
+      .rf11-signup-password-strength > span{
         min-width:85px;
-        color:var(--rfsu-muted);
+        color:var(--rf11-signup-muted);
         text-align:right;
         font-size:6px;
       }
 
-      .rfsu-security-note{
-        color:var(--rfsu-primary);
-        background:var(--rfsu-primary-soft);
+      .rf11-signup-security-note{
+        color:var(--rf11-signup-primary);
+        background:var(--rf11-signup-primary-soft);
         border-color:#dedfff;
       }
 
-      .rfsu-security-note > span{
-        color:var(--rfsu-primary);
+      .rf11-signup-security-note > span{
+        color:var(--rf11-signup-primary);
       }
 
-      .rfsu-security-note strong{
+      .rf11-signup-security-note strong{
         color:#3739ac;
       }
 
-      .rfsu-submit-caption{
+      .rf11-signup-submit-caption{
         max-width:370px;
         margin:9px auto 0;
-        color:var(--rfsu-muted);
+        color:var(--rf11-signup-muted);
         text-align:center;
         font-size:5.8px;
         line-height:9px;
       }
 
-      .rfsu-spinner{
+      .rf11-signup-spinner{
         width:12px;
         height:12px;
         display:block;
@@ -1717,91 +1717,91 @@ function SignupStyles() {
         animation:rfsuSpin 700ms linear infinite;
       }
 
-      .rf-signup-v7 .rf-auth-submit:focus-visible,
-      .rfsu-workspace-card:focus-visible,
-      .rfsu-password-toggle:focus-visible,
-      .rfsu-selected-workspace > button:focus-visible,
-      .rfsu-progress button:focus-visible{
+      .rf11-signup-v7 .rf11-auth-submit:focus-visible,
+      .rf11-signup-workspace-card:focus-visible,
+      .rf11-signup-password-toggle:focus-visible,
+      .rf11-signup-selected-workspace > button:focus-visible,
+      .rf11-signup-progress button:focus-visible{
         outline:3px solid rgba(70,72,212,.16);
         outline-offset:3px;
       }
 
       @media(max-width:620px){
-        .rfsu-mobile-intro{
+        .rf11-signup-mobile-intro{
           display:block;
           margin-bottom:20px;
         }
 
-        .rfsu-mobile-intro > span{
+        .rf11-signup-mobile-intro > span{
           display:inline-flex;
           align-items:center;
           gap:5px;
-          color:var(--rfsu-primary);
+          color:var(--rf11-signup-primary);
           font-size:6px;
           font-weight:800;
           letter-spacing:.08em;
           text-transform:uppercase;
         }
 
-        .rfsu-mobile-intro h1{
+        .rf11-signup-mobile-intro h1{
           margin:7px 0 0;
           font:600 27px/33px Geist,Inter,sans-serif;
           letter-spacing:-.03em;
         }
 
-        .rfsu-mobile-intro p{
+        .rf11-signup-mobile-intro p{
           margin:4px 0 0;
-          color:var(--rfsu-text2);
+          color:var(--rf11-signup-text2);
           font-size:8px;
           line-height:13px;
         }
 
-        .rfsu-progress{
+        .rf11-signup-progress{
           margin-bottom:17px;
         }
 
-        .rfsu-progress-segment > button > b{
+        .rf11-signup-progress-segment > button > b{
           display:none;
         }
 
-        .rfsu-progress-segment > i{
+        .rf11-signup-progress-segment > i{
           margin:0 6px;
         }
 
-        .rfsu-card-head h2{
+        .rf11-signup-card-head h2{
           font-size:21px!important;
           line-height:27px!important;
         }
 
-        .rfsu-workspace-grid{
+        .rf11-signup-workspace-grid{
           grid-template-columns:1fr;
         }
 
-        .rfsu-workspace-card{
+        .rf11-signup-workspace-card{
           min-height:180px;
         }
 
-        .rfsu-details-grid{
+        .rf11-signup-details-grid{
           grid-template-columns:1fr;
         }
 
-        .rfsu-field.wide{
+        .rf11-signup-field.wide{
           grid-column:auto;
         }
       }
 
       @media(max-width:430px){
-        .rfsu-single-action .rf-auth-submit{
+        .rf11-signup-single-action .rf11-auth-submit{
           width:100%!important;
         }
 
-        .rfsu-form-actions{
+        .rf11-signup-form-actions{
           display:grid!important;
           grid-template-columns:1fr!important;
         }
 
-        .rfsu-form-actions .rf-auth-back-btn,
-        .rfsu-form-actions .rf-auth-submit{
+        .rf11-signup-form-actions .rf11-auth-back-btn,
+        .rf11-signup-form-actions .rf11-auth-submit{
           width:100%!important;
         }
       }
@@ -1809,23 +1809,23 @@ function SignupStyles() {
 
 
       /* V9 premium signup polish */
-      .rf-signup-v7 .rfsu-step-panel{will-change:transform,opacity,filter}
-      .rf-signup-v7 .rfsu-workspace-card{transition:transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .25s ease,border-color .25s ease}
-      .rf-signup-v7 .rfsu-workspace-card:hover{transform:translateY(-5px);box-shadow:0 20px 46px rgba(27,31,41,.11)}
-      .rf-signup-v7 .rf-auth-submit{position:relative;overflow:hidden;box-shadow:0 13px 32px rgba(70,72,212,.24)}
-      .rf-signup-v7 .rf-auth-submit::after{content:"";position:absolute;inset:-2px auto -2px -38%;width:32%;transform:skewX(-20deg);background:linear-gradient(90deg,transparent,rgba(255,255,255,.28),transparent);transition:left .55s ease}
-      .rf-signup-v7 .rf-auth-submit:hover::after{left:112%}
+      .rf11-signup-v7 .rf11-signup-step-panel{will-change:transform,opacity,filter}
+      .rf11-signup-v7 .rf11-signup-workspace-card{transition:transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .25s ease,border-color .25s ease}
+      .rf11-signup-v7 .rf11-signup-workspace-card:hover{transform:translateY(-5px);box-shadow:0 20px 46px rgba(27,31,41,.11)}
+      .rf11-signup-v7 .rf11-auth-submit{position:relative;overflow:hidden;box-shadow:0 13px 32px rgba(70,72,212,.24)}
+      .rf11-signup-v7 .rf11-auth-submit::after{content:"";position:absolute;inset:-2px auto -2px -38%;width:32%;transform:skewX(-20deg);background:linear-gradient(90deg,transparent,rgba(255,255,255,.28),transparent);transition:left .55s ease}
+      .rf11-signup-v7 .rf11-auth-submit:hover::after{left:112%}
 
             @media(prefers-reduced-motion:reduce){
-        .rfsu-step-panel,
-        .rfsu-alert,
-        .rfsu-spinner{
+        .rf11-signup-step-panel,
+        .rf11-signup-alert,
+        .rf11-signup-spinner{
           animation:none!important;
         }
 
-        .rf-signup-v7 *,
-        .rf-signup-v7 *::before,
-        .rf-signup-v7 *::after{
+        .rf11-signup-v7 *,
+        .rf11-signup-v7 *::before,
+        .rf11-signup-v7 *::after{
           transition-duration:.01ms!important;
           scroll-behavior:auto!important;
         }
