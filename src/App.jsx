@@ -56,10 +56,8 @@ import PipelineBuilder from "./pages/PipelineBuilder";
 import EmailSetup from "./pages/EmailSetup";
 import WhatsAppSetup from "./pages/WhatsAppSetup";
 import ReachFlyAI from "./pages/ReachFlyAI";
-import WebsiteAudits from "./pages/WebsiteAudits";
 import Analytics from "./pages/Analytics";
 import Contacts from "./pages/Contacts";
-import Companies from "./pages/Companies";
 import Inbox from "./pages/Inbox";
 import InboxDetail from "./pages/InboxDetails";
 import Territories from "./pages/Territories";
@@ -260,25 +258,7 @@ function AppRoutes() {
               path="audits"
               element={
                 <ManagerOnlyRoute>
-                  <WebsiteAudits />
-                </ManagerOnlyRoute>
-              }
-            />
-
-            <Route
-              path="website-audits"
-              element={
-                <ManagerOnlyRoute>
-                  <PreserveSearchRedirect to="/app/audits" />
-                </ManagerOnlyRoute>
-              }
-            />
-
-            <Route
-              path="ai-audits"
-              element={
-                <ManagerOnlyRoute>
-                  <PreserveSearchRedirect to="/app/audits" />
+                  <ReachFlyAI />
                 </ManagerOnlyRoute>
               }
             />
@@ -287,7 +267,10 @@ function AppRoutes() {
               path="campaigns"
               element={
                 <ManagerOnlyRoute>
-                  <CampaignList />
+                  <Navigate
+                    to="/app/campaigns/active"
+                    replace
+                  />
                 </ManagerOnlyRoute>
               }
             />
@@ -710,38 +693,6 @@ function AppRoutes() {
               }
             />
 
-            <Route
-              path="companies"
-              element={
-                <ManagerOnlyRoute>
-                  <Companies />
-                </ManagerOnlyRoute>
-              }
-            />
-
-            {/*
-             * Compatibility aliases for older account/company links. These do
-             * not create a second source of truth; they preserve any existing
-             * deep links while the CRM navigation moves to /app/companies.
-             */}
-            <Route
-              path="accounts"
-              element={
-                <ManagerOnlyRoute>
-                  <PreserveSearchRedirect to="/app/companies" />
-                </ManagerOnlyRoute>
-              }
-            />
-
-            <Route
-              path="company"
-              element={
-                <ManagerOnlyRoute>
-                  <PreserveSearchRedirect to="/app/companies" />
-                </ManagerOnlyRoute>
-              }
-            />
-
             {/*
              * Inbox
              *
@@ -1051,7 +1002,7 @@ function isCodesyncDashboardUser(user) {
  * - lead assignment pages
  * - pipelines
  * - territories
- * - campaign contacts and companies
+ * - campaign contacts
  */
 function ManagerOnlyRoute({
   children,
