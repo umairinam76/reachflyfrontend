@@ -79,8 +79,13 @@ import CreditsBillingPage from "./pages/CreditsBillingPage";
 import AIWorkforcePage from "./pages/AIWorkforcePage";
 import VoiceCommerceStorePage from "./pages/VoiceCommerceStorePage";
 import ConnectionsPage from "./pages/ConnectionsPage";
+import SalesOperations from "./pages/SalesOperations";
+import TeamPerformance from "./pages/TeamPerformance";
 
 import "./styles.css";
+
+/* Final V7 operational integration: invitation acceptance remains public;
+ * Sales Operations and Team Performance now have canonical authenticated routes. */
 
 /**
  * Routes rendered inside AuthProvider.
@@ -492,6 +497,27 @@ function AppRoutes() {
             />
 
             <Route
+              path="sales-operations"
+              element={
+                <WorkspaceManagementRoute>
+                  <SalesOperations />
+                </WorkspaceManagementRoute>
+              }
+            />
+
+            <Route
+              path="sales"
+              element={
+                <WorkspaceManagementRoute>
+                  <Navigate
+                    to="/app/sales-operations"
+                    replace
+                  />
+                </WorkspaceManagementRoute>
+              }
+            />
+
+            <Route
               path="resource-board"
               element={
                 <WorkspaceManagementRoute>
@@ -574,10 +600,16 @@ function AppRoutes() {
               path="team/performance"
               element={
                 <WorkspaceManagementRoute>
-                  <Navigate
-                    to="/app/analytics"
-                    replace
-                  />
+                  <TeamPerformance />
+                </WorkspaceManagementRoute>
+              }
+            />
+
+            <Route
+              path="team-performance"
+              element={
+                <WorkspaceManagementRoute>
+                  <TeamPerformance />
                 </WorkspaceManagementRoute>
               }
             />
