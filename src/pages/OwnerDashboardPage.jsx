@@ -7,6 +7,7 @@ import {
 
 import {
   apiRequest,
+  getRoleDashboard,
   onWorkspaceSocket,
 } from "../lib/workspace-platform-client.js";
 
@@ -56,16 +57,16 @@ export default function OwnerDashboardPage() {
         }
 
         const results = await Promise.allSettled([
-          apiRequest("/owner-dashboard/overview"),
-          apiRequest("/team-management/performance"),
-          apiRequest("/attendance/team/today"),
-          apiRequest("/calls?limit=15"),
-          apiRequest("/team-management/tasks?limit=15"),
-          apiRequest("/team-management/assignments?limit=15"),
-          apiRequest("/audit-jobs?limit=15"),
+          getRoleDashboard(),
+          apiRequest("/team/performance"),
+          apiRequest("/attendance/team"),
+          apiRequest("/telnyx/calls?limit=15"),
+          apiRequest("/team-communication/tasks?limit=15"),
+          apiRequest("/sales/assignments?limit=15"),
+          apiRequest("/audit-jobs"),
         ]);
 
-        const overviewResponse = getSettledValue(results[0], {});
+        const dashboardResponse = getSettledValue(results[0], {});
         const performanceResponse = getSettledValue(results[1], {});
         const attendanceResponse = getSettledValue(results[2], {});
         const callsResponse = getSettledValue(results[3], {});
@@ -73,15 +74,30 @@ export default function OwnerDashboardPage() {
         const assignmentsResponse = getSettledValue(results[5], {});
         const auditResponse = getSettledValue(results[6], {});
 
+        const failures = results
+          .map((result, index) => ({ result, index }))
+          .filter(({ result }) => result.status === "rejected");
+
+        if (failures.length) {
+          setError(
+            failures.length === results.length
+              ? "Workspace reporting is temporarily unavailable. Try refreshing in a moment."
+              : "Some workspace sections could not be refreshed. Available data is still shown below."
+          );
+        }
+
         setOverview(
-          overviewResponse.overview ||
-            overviewResponse.metrics ||
-            overviewResponse
+          dashboardResponse.summary ||
+            dashboardResponse.metrics ||
+            {}
         );
 
         setTeamPerformance(
-          performanceResponse.performance ||
+          performanceResponse.rows ||
+            performanceResponse.performance ||
             performanceResponse.members ||
+            dashboardResponse.teamPerformance ||
+            dashboardResponse.team ||
             []
         );
 
@@ -89,24 +105,29 @@ export default function OwnerDashboardPage() {
           attendanceResponse.attendance ||
             attendanceResponse.records ||
             attendanceResponse.members ||
+            dashboardResponse.attendance?.members ||
             []
         );
 
         setRecentCalls(
           callsResponse.calls ||
             callsResponse.records ||
+            dashboardResponse.recentCalls ||
+            dashboardResponse.calls ||
             []
         );
 
         setTasks(
           tasksResponse.tasks ||
             tasksResponse.records ||
+            dashboardResponse.tasks ||
             []
         );
 
         setAssignments(
           assignmentsResponse.assignments ||
             assignmentsResponse.records ||
+            dashboardResponse.assignments ||
             []
         );
 
@@ -325,7 +346,8 @@ export default function OwnerDashboardPage() {
   }
 
   return (
-    <main className="rf-role-dashboard">
+    <main className="rf-role-dashboard rf-owner-dashboard-v7">
+      <OwnerDashboardV7Styles />
       <OwnerHeader
         profile={profile}
         refreshing={refreshing}
@@ -418,7 +440,7 @@ function OwnerHeader({
 
         <div>
           <p className="rf-dashboard-eyebrow">
-            Workspace command center
+            Workspace operations
           </p>
 
           <h1>Owner dashboard</h1>
@@ -1046,7 +1068,7 @@ function AuditOperationsSection({
   return (
     <section className="rf-panel">
       <PanelHeader
-        title="Audit operations"
+        title="AI audit operations"
         subtitle="Monitor mini audit, competitor analysis and full audit generation jobs."
       />
 
@@ -1709,7 +1731,7 @@ function DashboardAlert({
 }) {
   return (
     <div className="rf-inline-alert">
-      <span>{message}</span>
+      <span>{safeOwnerDashboardMessage(message)}</span>
 
       <button
         type="button"
@@ -1725,7 +1747,8 @@ function OwnerAccessDenied({
   role,
 }) {
   return (
-    <main className="rf-role-dashboard">
+    <main className="rf-role-dashboard rf-owner-dashboard-v7">
+      <OwnerDashboardV7Styles />
       <section className="rf-access-denied">
         <div>!</div>
 
@@ -1747,7 +1770,8 @@ function OwnerAccessDenied({
 
 function OwnerDashboardSkeleton() {
   return (
-    <main className="rf-role-dashboard">
+    <main className="rf-role-dashboard rf-owner-dashboard-v7">
+      <OwnerDashboardV7Styles />
       <div className="rf-dashboard-skeleton-header" />
 
       <section className="rf-metric-grid">
@@ -1918,4 +1942,795 @@ function getInitials(value) {
   return `${words[0][0]}${
     words[words.length - 1][0]
   }`.toUpperCase();
+}
+
+function safeOwnerDashboardMessage(value) {
+  return String(value || "")
+    .replace(/ElevenLabs/gi, "voice service")
+    .replace(/Telnyx/gi, "calling service")
+    .replace(/\bSIP\b/gi, "voice connection")
+    .replace(/\bWebRTC\b/gi, "browser calling");
+}
+
+
+function OwnerDashboardV7Styles() {
+  return (
+    <style>{`
+      .rf-owner-dashboard-v7{
+        --rfx-card:#fff;
+        --rfx-soft:#f6f7f8;
+        --rfx-text:#191c1d;
+        --rfx-text2:#4d4c59;
+        --rfx-muted:#777784;
+        --rfx-line:#e2e4e7;
+        --rfx-primary:#4648d4;
+        --rfx-primary-dark:#393bbb;
+        --rfx-primary-soft:#e8e9ff;
+        --rfx-violet:#6b38d4;
+        --rfx-violet-soft:#f1ebff;
+        --rfx-green:#087a51;
+        --rfx-green-soft:#e4f7ee;
+        --rfx-red:#ba1a1a;
+        --rfx-red-soft:#ffedeb;
+        --rfx-amber:#965900;
+        --rfx-amber-soft:#fff3d8;
+        --rfx-dark:#2e3132;
+        --rfx-ease:cubic-bezier(.2,.8,.2,1);
+        width:100%;
+        min-height:100%;
+        padding:24px 30px 52px;
+        color:var(--rfx-text);
+        font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+        animation:rfxPageIn .24s var(--rfx-ease);
+      }
+
+      .rf-owner-dashboard-v7 *,
+      .rf-owner-dashboard-v7 *::before,
+      .rf-owner-dashboard-v7 *::after{
+        box-sizing:border-box;
+      }
+
+      @keyframes rfxPageIn{
+        from{opacity:0;transform:translateY(5px)}
+        to{opacity:1;transform:none}
+      }
+
+      @keyframes rfxPulse{
+        0%,100%{opacity:.4}
+        50%{opacity:1}
+      }
+
+      @keyframes rfxShimmer{
+        from{background-position:200% 0}
+        to{background-position:-200% 0}
+      }
+
+      .rf-owner-dashboard-v7 .rf-dashboard-header{
+        min-height:140px;
+        display:flex;
+        align-items:flex-end;
+        justify-content:space-between;
+        gap:20px;
+        padding:19px;
+        margin-bottom:11px;
+        overflow:hidden;
+        color:#fff;
+        background:
+          radial-gradient(circle at 88% 15%,rgba(86,89,223,.26),transparent 32%),
+          radial-gradient(circle at 14% 90%,rgba(107,56,212,.16),transparent 29%),
+          #2e3132;
+        border:1px solid rgba(255,255,255,.06);
+        border-radius:14px;
+        box-shadow:0 9px 24px rgba(25,28,29,.065);
+      }
+
+      .rf-owner-dashboard-v7 .rf-dashboard-header__identity{
+        min-width:0;
+        display:grid;
+        grid-template-columns:46px minmax(0,1fr);
+        align-items:center;
+        gap:11px;
+      }
+
+      .rf-owner-dashboard-v7 .rf-dashboard-header__identity > div:last-child{
+        min-width:0;
+      }
+
+      .rf-owner-dashboard-v7 .rf-dashboard-eyebrow,
+      .rf-owner-dashboard-v7 .rf-management-eyebrow{
+        margin:0 0 3px;
+        color:#c9caff;
+        font-size:5.7px;
+        font-weight:800;
+        letter-spacing:.085em;
+        text-transform:uppercase;
+      }
+
+      .rf-owner-dashboard-v7 .rf-dashboard-header h1{
+        margin:0;
+        overflow:hidden;
+        color:#fff;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font:600 28px/35px Geist,Inter,sans-serif;
+        letter-spacing:-.03em;
+      }
+
+      .rf-owner-dashboard-v7 .rf-dashboard-subtitle{
+        max-width:760px;
+        margin:4px 0 0;
+        color:rgba(244,246,247,.62);
+        font-size:7px;
+        line-height:12px;
+      }
+
+      .rf-owner-dashboard-v7 .rf-dashboard-header__actions{
+        display:flex;
+        align-items:center;
+        flex-wrap:wrap;
+        gap:7px;
+      }
+
+      .rf-owner-dashboard-v7 .rf-server-status{
+        min-width:170px;
+        display:grid;
+        grid-template-columns:9px minmax(0,1fr);
+        align-items:center;
+        gap:7px;
+        padding:8px 9px;
+        color:#fff;
+        background:rgba(255,255,255,.07);
+        border:1px solid rgba(255,255,255,.09);
+        border-radius:9px;
+      }
+
+      .rf-owner-dashboard-v7 .rf-status-dot{
+        width:8px;
+        height:8px;
+        background:#67d7a9;
+        border:2px solid rgba(255,255,255,.42);
+        border-radius:50%;
+        animation:rfxPulse 1.3s infinite ease-in-out;
+      }
+
+      .rf-owner-dashboard-v7 .rf-server-status > div{
+        display:grid;
+        min-width:0;
+      }
+
+      .rf-owner-dashboard-v7 .rf-server-status strong{
+        color:#fff;
+        font-size:5.8px;
+      }
+
+      .rf-owner-dashboard-v7 .rf-server-status small{
+        margin-top:1px;
+        color:rgba(244,246,247,.57);
+        font-size:5px;
+      }
+
+      .rf-owner-dashboard-v7 .rf-button{
+        min-height:38px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        gap:6px;
+        padding:7px 10px;
+        color:#fff;
+        background:var(--rfx-primary);
+        border:1px solid var(--rfx-primary);
+        border-radius:8px;
+        cursor:pointer;
+        text-decoration:none;
+        font-size:6.3px;
+        font-weight:750;
+        transition:.14s var(--rfx-ease);
+      }
+
+      .rf-owner-dashboard-v7 .rf-button:hover:not(:disabled){
+        transform:translateY(-1px);
+        background:var(--rfx-primary-dark);
+      }
+
+      .rf-owner-dashboard-v7 .rf-button:disabled{
+        opacity:.45;
+        cursor:not-allowed;
+      }
+
+      .rf-owner-dashboard-v7 .rf-button--secondary{
+        color:var(--rfx-text);
+        background:#fff;
+        border-color:var(--rfx-line);
+        box-shadow:none;
+      }
+
+      .rf-owner-dashboard-v7 .rf-dashboard-header .rf-button--secondary{
+        color:#fff;
+        background:rgba(255,255,255,.08);
+        border-color:rgba(255,255,255,.12);
+      }
+
+      .rf-owner-dashboard-v7 .rf-button--compact{
+        min-height:30px;
+        padding:5px 7px;
+        font-size:5.3px;
+      }
+
+      .rf-owner-dashboard-v7 .rf-inline-alert{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:8px;
+        padding:9px 10px;
+        margin-bottom:10px;
+        color:#7c1d1d;
+        background:var(--rfx-red-soft);
+        border:1px solid #ffd0cc;
+        border-radius:8px;
+        font-size:6.3px;
+        line-height:10px;
+      }
+
+      .rf-owner-dashboard-v7 .rf-inline-alert button{
+        min-height:27px;
+        padding:4px 7px;
+        color:inherit;
+        background:#fff;
+        border:1px solid currentColor;
+        border-radius:6px;
+        cursor:pointer;
+        font-size:5.2px;
+        font-weight:750;
+      }
+
+      .rf-owner-dashboard-v7 .rf-metric-grid{
+        display:grid;
+        grid-template-columns:repeat(4,minmax(0,1fr));
+        gap:8px;
+        margin-bottom:10px;
+      }
+
+      .rf-owner-dashboard-v7 .rf-metric-card{
+        min-height:116px;
+        display:grid;
+        grid-template-columns:34px minmax(0,1fr);
+        align-content:end;
+        gap:8px;
+        padding:11px;
+        background:
+          radial-gradient(circle at 92% 8%,rgba(70,72,212,.045),transparent 28%),
+          #fff;
+        border:1px solid var(--rfx-line);
+        border-radius:10px;
+        box-shadow:0 1px 3px rgba(25,28,29,.025);
+        transition:.14s var(--rfx-ease);
+      }
+
+      .rf-owner-dashboard-v7 .rf-metric-card:hover{
+        transform:translateY(-1px);
+        border-color:#d8d9ef;
+        box-shadow:0 8px 20px rgba(25,28,29,.045);
+      }
+
+      .rf-owner-dashboard-v7 .rf-metric-card__icon{
+        width:34px;
+        height:34px;
+        display:grid;
+        place-items:center;
+        align-self:end;
+        color:var(--rfx-primary);
+        background:var(--rfx-primary-soft);
+        border-radius:8px;
+        font-size:5.3px;
+        font-weight:850;
+      }
+
+      .rf-owner-dashboard-v7 .rf-metric-card > div:last-child{
+        min-width:0;
+        display:grid;
+        align-content:end;
+      }
+
+      .rf-owner-dashboard-v7 .rf-metric-card p{
+        margin:0;
+        color:var(--rfx-muted);
+        font-size:5.2px;
+        font-weight:700;
+      }
+
+      .rf-owner-dashboard-v7 .rf-metric-card strong{
+        margin-top:2px;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font:600 17px/22px Geist,Inter,sans-serif;
+        letter-spacing:-.02em;
+      }
+
+      .rf-owner-dashboard-v7 .rf-metric-card small{
+        margin-top:1px;
+        overflow:hidden;
+        color:var(--rfx-muted);
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font-size:4.9px;
+      }
+
+      .rf-owner-dashboard-v7 .rf-management-navigation{
+        position:sticky;
+        z-index:20;
+        top:64px;
+        display:flex;
+        gap:4px;
+        overflow-x:auto;
+        padding:5px;
+        margin-bottom:10px;
+        background:rgba(255,255,255,.95);
+        border:1px solid var(--rfx-line);
+        border-radius:10px;
+        backdrop-filter:blur(12px);
+        scrollbar-width:none;
+      }
+
+      .rf-owner-dashboard-v7 .rf-management-navigation::-webkit-scrollbar{display:none}
+
+      .rf-owner-dashboard-v7 .rf-management-navigation button{
+        min-height:35px;
+        flex:0 0 auto;
+        display:inline-flex;
+        align-items:center;
+        gap:5px;
+        padding:6px 8px;
+        color:var(--rfx-text2);
+        background:transparent;
+        border:0;
+        border-radius:7px;
+        cursor:pointer;
+        font-size:5.8px;
+        font-weight:750;
+      }
+
+      .rf-owner-dashboard-v7 .rf-management-navigation button.is-active,
+      .rf-owner-dashboard-v7 .rf-management-navigation button.active{
+        color:var(--rfx-primary);
+        background:var(--rfx-primary-soft);
+      }
+
+      .rf-owner-dashboard-v7 .rf-management-navigation button b{
+        min-width:18px;
+        padding:3px 5px;
+        color:inherit;
+        background:#fff;
+        border-radius:999px;
+        text-align:center;
+        font-size:4.8px;
+      }
+
+      .rf-owner-dashboard-v7 .rf-dashboard-grid{
+        display:grid;
+        grid-template-columns:minmax(0,1.45fr) minmax(290px,.55fr);
+        align-items:start;
+        gap:10px;
+      }
+
+      .rf-owner-dashboard-v7 .rf-dashboard-grid__main,
+      .rf-owner-dashboard-v7 .rf-dashboard-grid__aside{
+        min-width:0;
+        display:grid;
+        gap:10px;
+      }
+
+      .rf-owner-dashboard-v7 .rf-panel,
+      .rf-owner-dashboard-v7 .rf-summary-card{
+        min-width:0;
+        padding:13px;
+        margin-bottom:10px;
+        background:#fff;
+        border:1px solid var(--rfx-line);
+        border-radius:11px;
+        box-shadow:0 1px 3px rgba(25,28,29,.025);
+      }
+
+      .rf-owner-dashboard-v7 .rf-panel-header{
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:12px;
+        min-height:52px;
+        padding-bottom:9px;
+        margin-bottom:9px;
+        border-bottom:1px solid #eff0f1;
+      }
+
+      .rf-owner-dashboard-v7 .rf-panel-header h2,
+      .rf-owner-dashboard-v7 .rf-panel-header h3{
+        margin:0;
+        font:600 13px/18px Geist,Inter,sans-serif;
+        letter-spacing:-.015em;
+      }
+
+      .rf-owner-dashboard-v7 .rf-panel-header p{
+        margin:3px 0 0;
+        color:var(--rfx-muted);
+        font-size:5.7px;
+        line-height:9px;
+      }
+
+      .rf-owner-dashboard-v7 .rf-performance-summary-grid,
+      .rf-owner-dashboard-v7 .rf-operation-summary-list,
+      .rf-owner-dashboard-v7 .rf-member-stat-grid{
+        display:grid;
+        grid-template-columns:repeat(4,minmax(0,1fr));
+        gap:6px;
+      }
+
+      .rf-owner-dashboard-v7 .rf-performance-summary-grid > *,
+      .rf-owner-dashboard-v7 .rf-operation-summary-list > article,
+      .rf-owner-dashboard-v7 .rf-member-stat{
+        min-height:70px;
+        display:grid;
+        align-content:center;
+        padding:8px;
+        background:#f7f8f9;
+        border-radius:8px;
+      }
+
+      .rf-owner-dashboard-v7 .rf-performance-list,
+      .rf-owner-dashboard-v7 .rf-simple-list,
+      .rf-owner-dashboard-v7 .rf-call-activity-list,
+      .rf-owner-dashboard-v7 .rf-team-tool-list{
+        display:grid;
+        gap:5px;
+      }
+
+      .rf-owner-dashboard-v7 .rf-performance-row,
+      .rf-owner-dashboard-v7 .rf-simple-list-item,
+      .rf-owner-dashboard-v7 .rf-call-activity-row,
+      .rf-owner-dashboard-v7 .rf-team-tool-row{
+        min-width:0;
+        min-height:56px;
+        display:grid;
+        align-items:center;
+        gap:7px;
+        padding:8px 9px;
+        background:#f7f8f9;
+        border:1px solid transparent;
+        border-radius:8px;
+        transition:.13s var(--rfx-ease);
+      }
+
+      .rf-owner-dashboard-v7 .rf-performance-row:hover,
+      .rf-owner-dashboard-v7 .rf-simple-list-item:hover,
+      .rf-owner-dashboard-v7 .rf-call-activity-row:hover,
+      .rf-owner-dashboard-v7 .rf-team-tool-row:hover{
+        background:#f4f4ff;
+        border-color:#e1e1f7;
+      }
+
+      .rf-owner-dashboard-v7 .rf-performance-row{
+        grid-template-columns:30px minmax(0,1fr) repeat(3,64px);
+      }
+
+      .rf-owner-dashboard-v7 .rf-performance-rank,
+      .rf-owner-dashboard-v7 .rf-call-activity-icon{
+        width:30px;
+        height:30px;
+        display:grid;
+        place-items:center;
+        color:var(--rfx-primary);
+        background:#fff;
+        border-radius:7px;
+        font-size:5.3px;
+        font-weight:800;
+      }
+
+      .rf-owner-dashboard-v7 .rf-call-activity-row{
+        grid-template-columns:34px minmax(0,1fr) auto auto;
+      }
+
+      .rf-owner-dashboard-v7 .rf-call-activity-icon{
+        width:34px;
+        height:34px;
+      }
+
+      .rf-owner-dashboard-v7 .rf-call-activity-business{
+        min-width:0;
+        display:grid;
+      }
+
+      .rf-owner-dashboard-v7 .rf-call-activity-business strong{
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font-size:6px;
+      }
+
+      .rf-owner-dashboard-v7 .rf-call-activity-business small,
+      .rf-owner-dashboard-v7 .rf-call-activity-meta small{
+        margin-top:2px;
+        color:var(--rfx-muted);
+        font-size:5px;
+      }
+
+      .rf-owner-dashboard-v7 .rf-team-overview-grid,
+      .rf-owner-dashboard-v7 .rf-task-management-grid{
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:7px;
+      }
+
+      .rf-owner-dashboard-v7 .rf-team-member-card,
+      .rf-owner-dashboard-v7 .rf-managed-task-card{
+        min-width:0;
+        padding:10px;
+        background:#f7f8f9;
+        border:1px solid transparent;
+        border-radius:9px;
+      }
+
+      .rf-owner-dashboard-v7 .rf-team-member-card header,
+      .rf-owner-dashboard-v7 .rf-member-identity{
+        min-width:0;
+        display:grid;
+        grid-template-columns:36px minmax(0,1fr) auto;
+        align-items:center;
+        gap:7px;
+      }
+
+      .rf-owner-dashboard-v7 .rf-member-status-row{
+        display:flex;
+        flex-wrap:wrap;
+        gap:4px;
+        margin-top:7px;
+      }
+
+      .rf-owner-dashboard-v7 .rf-member-tool-summary,
+      .rf-owner-dashboard-v7 .rf-tool-summary{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:5px;
+        margin-top:7px;
+      }
+
+      .rf-owner-dashboard-v7 .rf-table-container{
+        overflow-x:auto;
+        border:1px solid var(--rfx-line);
+        border-radius:8px;
+      }
+
+      .rf-owner-dashboard-v7 .rf-dashboard-table{
+        width:100%;
+        min-width:850px;
+        border-collapse:collapse;
+      }
+
+      .rf-owner-dashboard-v7 .rf-dashboard-table th{
+        height:39px;
+        padding:7px 8px;
+        color:#676873;
+        background:#f7f8f9;
+        border-bottom:1px solid var(--rfx-line);
+        text-align:left;
+        white-space:nowrap;
+        font-size:5.1px;
+        font-weight:800;
+        text-transform:uppercase;
+      }
+
+      .rf-owner-dashboard-v7 .rf-dashboard-table td{
+        padding:8px;
+        color:var(--rfx-text2);
+        border-bottom:1px solid #eff0f1;
+        font-size:5.7px;
+        line-height:9px;
+      }
+
+      .rf-owner-dashboard-v7 .rf-dashboard-table tbody tr:hover td{
+        background:#fafaff;
+      }
+
+      .rf-owner-dashboard-v7 .rf-management-modal-backdrop{
+        position:fixed;
+        z-index:2147481000;
+        inset:0;
+        display:grid;
+        place-items:center;
+        padding:18px;
+        background:rgba(25,28,29,.58);
+        backdrop-filter:blur(8px);
+      }
+
+      .rf-owner-dashboard-v7 .rf-management-dialog{
+        width:min(720px,100%);
+        max-height:calc(100vh - 36px);
+        overflow:auto;
+        padding:15px;
+        background:#fff;
+        border:1px solid rgba(255,255,255,.3);
+        border-radius:13px;
+        box-shadow:0 24px 70px rgba(0,0,0,.18);
+      }
+
+      .rf-owner-dashboard-v7 .rf-management-dialog--wide{
+        width:min(900px,100%);
+      }
+
+      .rf-owner-dashboard-v7 .rf-management-dialog-form,
+      .rf-owner-dashboard-v7 .rf-dialog-form-grid{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:7px;
+      }
+
+      .rf-owner-dashboard-v7 .rf-management-field{
+        display:grid;
+        gap:4px;
+      }
+
+      .rf-owner-dashboard-v7 .rf-management-field--wide{
+        grid-column:1/-1;
+      }
+
+      .rf-owner-dashboard-v7 input,
+      .rf-owner-dashboard-v7 select,
+      .rf-owner-dashboard-v7 textarea{
+        width:100%;
+        min-height:38px;
+        padding:8px 9px;
+        color:var(--rfx-text);
+        background:#f7f8f9;
+        border:1px solid transparent;
+        border-radius:8px;
+        outline:0;
+        font:400 6.5px/11px Inter,sans-serif;
+      }
+
+      .rf-owner-dashboard-v7 textarea{
+        min-height:86px;
+        resize:vertical;
+      }
+
+      .rf-owner-dashboard-v7 input:focus,
+      .rf-owner-dashboard-v7 select:focus,
+      .rf-owner-dashboard-v7 textarea:focus{
+        background:#fff;
+        border-color:rgba(70,72,212,.5);
+        box-shadow:0 0 0 3px rgba(70,72,212,.06);
+      }
+
+      .rf-owner-dashboard-v7 .rf-management-dialog-footer{
+        display:flex;
+        justify-content:flex-end;
+        gap:7px;
+        grid-column:1/-1;
+        padding-top:9px;
+        border-top:1px solid #eff0f1;
+      }
+
+      .rf-owner-dashboard-v7 .rf-lead-selection-list{
+        display:grid;
+        gap:5px;
+        max-height:300px;
+        overflow:auto;
+      }
+
+      .rf-owner-dashboard-v7 .rf-lead-selection-item{
+        min-height:50px;
+        display:grid;
+        grid-template-columns:15px minmax(0,1fr);
+        align-items:center;
+        gap:7px;
+        padding:7px;
+        background:#f7f8f9;
+        border-radius:8px;
+      }
+
+      .rf-owner-dashboard-v7 .rf-empty-state,
+      .rf-owner-dashboard-v7 .rf-access-denied{
+        min-height:170px;
+        display:grid;
+        place-items:center;
+        align-content:center;
+        gap:5px;
+        padding:22px;
+        color:var(--rfx-muted);
+        background:#fff;
+        border:1px dashed #d8dade;
+        border-radius:10px;
+        text-align:center;
+      }
+
+      .rf-owner-dashboard-v7 .rf-access-denied{
+        min-height:330px;
+        max-width:720px;
+        margin:40px auto 0;
+        border-style:solid;
+      }
+
+      .rf-owner-dashboard-v7 .rf-access-denied h1,
+      .rf-owner-dashboard-v7 .rf-empty-state h3{
+        margin:3px 0 0;
+        color:var(--rfx-text);
+        font:600 12px/17px Geist,Inter,sans-serif;
+      }
+
+      .rf-owner-dashboard-v7 .rf-access-denied p,
+      .rf-owner-dashboard-v7 .rf-empty-state p{
+        max-width:440px;
+        margin:0;
+        font-size:5.8px;
+        line-height:10px;
+      }
+
+      .rf-owner-dashboard-v7 .rf-dashboard-skeleton-header,
+      .rf-owner-dashboard-v7 .rf-skeleton-card,
+      .rf-owner-dashboard-v7 .rf-dashboard-skeleton-panel{
+        background:linear-gradient(90deg,#eceef0 25%,#f8f9fa 45%,#eceef0 65%);
+        background-size:220% 100%;
+        animation:rfxShimmer 1.15s linear infinite;
+      }
+
+      .rf-owner-dashboard-v7 .rf-dashboard-skeleton-header{height:140px;margin-bottom:10px;border-radius:14px}
+      .rf-owner-dashboard-v7 .rf-skeleton-card{height:116px;border-radius:10px}
+      .rf-owner-dashboard-v7 .rf-dashboard-skeleton-panel{height:245px;margin-bottom:10px;border-radius:11px}
+
+      @media(max-width:1120px){
+        .rf-owner-dashboard-v7{padding:22px}
+        .rf-owner-dashboard-v7 .rf-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+        .rf-owner-dashboard-v7 .rf-dashboard-grid{grid-template-columns:1fr}
+        .rf-owner-dashboard-v7 .rf-team-overview-grid,
+        .rf-owner-dashboard-v7 .rf-task-management-grid{grid-template-columns:1fr 1fr}
+      }
+
+      @media(max-width:760px){
+        .rf-owner-dashboard-v7 .rf-dashboard-header{align-items:flex-start;flex-direction:column}
+        .rf-owner-dashboard-v7 .rf-dashboard-header__actions{width:100%}
+        .rf-owner-dashboard-v7 .rf-server-status{flex:1}
+        .rf-owner-dashboard-v7 .rf-performance-summary-grid,
+        .rf-owner-dashboard-v7 .rf-operation-summary-list,
+        .rf-owner-dashboard-v7 .rf-member-stat-grid{grid-template-columns:1fr 1fr}
+        .rf-owner-dashboard-v7 .rf-performance-row{grid-template-columns:30px minmax(0,1fr) auto}
+        .rf-owner-dashboard-v7 .rf-performance-row__metric:nth-last-child(-n+2){display:none}
+      }
+
+      @media(max-width:620px){
+        .rf-owner-dashboard-v7{padding:18px 12px 80px}
+        .rf-owner-dashboard-v7 .rf-dashboard-header{padding:15px}
+        .rf-owner-dashboard-v7 .rf-dashboard-header h1{font-size:23px;line-height:30px}
+        .rf-owner-dashboard-v7 .rf-dashboard-header__actions{display:grid;grid-template-columns:1fr}
+        .rf-owner-dashboard-v7 .rf-server-status,
+        .rf-owner-dashboard-v7 .rf-dashboard-header .rf-button{width:100%}
+        .rf-owner-dashboard-v7 .rf-management-navigation{top:61px;margin-left:-12px;margin-right:-12px;border-left:0;border-right:0;border-radius:0}
+        .rf-owner-dashboard-v7 .rf-team-overview-grid,
+        .rf-owner-dashboard-v7 .rf-task-management-grid,
+        .rf-owner-dashboard-v7 .rf-dialog-form-grid,
+        .rf-owner-dashboard-v7 .rf-management-dialog-form{grid-template-columns:1fr}
+        .rf-owner-dashboard-v7 .rf-management-field--wide{grid-column:auto}
+        .rf-owner-dashboard-v7 .rf-call-activity-row{grid-template-columns:34px minmax(0,1fr)}
+        .rf-owner-dashboard-v7 .rf-call-activity-row > *:nth-child(n+3){grid-column:2}
+        .rf-owner-dashboard-v7 .rf-management-modal-backdrop{padding:0}
+        .rf-owner-dashboard-v7 .rf-management-dialog,
+        .rf-owner-dashboard-v7 .rf-management-dialog--wide{width:100%;min-height:100vh;max-height:100vh;border-radius:0}
+      }
+
+      @media(max-width:430px){
+        .rf-owner-dashboard-v7 .rf-metric-grid,
+        .rf-owner-dashboard-v7 .rf-performance-summary-grid,
+        .rf-owner-dashboard-v7 .rf-operation-summary-list,
+        .rf-owner-dashboard-v7 .rf-member-stat-grid{grid-template-columns:1fr}
+        .rf-owner-dashboard-v7 .rf-dashboard-header__identity{grid-template-columns:1fr}
+      }
+
+      @media(prefers-reduced-motion:reduce){
+        .rf-owner-dashboard-v7,
+        .rf-owner-dashboard-v7 *,
+        .rf-owner-dashboard-v7 *::before,
+        .rf-owner-dashboard-v7 *::after{
+          animation:none!important;
+          transition-duration:.01ms!important;
+          scroll-behavior:auto!important;
+        }
+      }
+    `}</style>
+  );
 }

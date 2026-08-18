@@ -172,6 +172,18 @@ export default function ProfilePage() {
   const [success, setSuccess] =
     useState("");
 
+  useEffect(() => {
+    if (!success) {
+      return;
+    }
+
+    notifyProfile(
+      "success",
+      "Profile updated",
+      success
+    );
+  }, [success]);
+
   const [
     activeSection,
     setActiveSection,
@@ -564,7 +576,8 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="rf-profile-page">
+    <main className="rf-profile-page rf-profile-page-v7">
+      <ProfilePageV7Styles />
       <ProfileHeader
         profile={profile}
         roleLabel={roleLabel}
@@ -1643,7 +1656,7 @@ function ProfileAlert({
     <div
       className={`rf-profile-alert rf-profile-alert--${type}`}
     >
-      <span>{message}</span>
+      <span>{safeProfileMessage(message)}</span>
 
       <button
         type="button"
@@ -1657,7 +1670,8 @@ function ProfileAlert({
 
 function ProfileSkeleton() {
   return (
-    <main className="rf-profile-page">
+    <main className="rf-profile-page rf-profile-page-v7">
+      <ProfilePageV7Styles />
       <div className="rf-profile-skeleton-header" />
 
       <section className="rf-profile-skeleton-layout">
@@ -1785,4 +1799,708 @@ function formatLabel(value) {
         word.slice(1)
     )
     .join(" ");
+}
+
+function safeProfileMessage(value) {
+  return String(value || "")
+    .replace(/ElevenLabs/gi, "voice service")
+    .replace(/Telnyx/gi, "calling service")
+    .replace(/\bSIP\b/gi, "voice connection")
+    .replace(/\bWebRTC\b/gi, "browser calling");
+}
+
+function notifyProfile(type, title, message) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const bridge = window.reachflyToast;
+
+  if (bridge && typeof bridge[type] === "function") {
+    bridge[type](title, message);
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent("reachfly:toast", {
+      detail: {
+        type,
+        title,
+        message,
+      },
+    })
+  );
+}
+
+function ProfilePageV7Styles() {
+  return (
+    <style>{`
+      .rf-profile-page-v7{
+        --rfp-card:#fff;
+        --rfp-soft:#f6f7f8;
+        --rfp-text:#191c1d;
+        --rfp-text2:#4d4c59;
+        --rfp-muted:#777784;
+        --rfp-line:#e2e4e7;
+        --rfp-primary:#4648d4;
+        --rfp-primary-dark:#393bbb;
+        --rfp-primary-soft:#e8e9ff;
+        --rfp-green:#087a51;
+        --rfp-green-soft:#e4f7ee;
+        --rfp-red:#ba1a1a;
+        --rfp-red-soft:#ffedeb;
+        --rfp-amber:#965900;
+        --rfp-amber-soft:#fff3d8;
+        --rfp-dark:#2e3132;
+        --rfp-ease:cubic-bezier(.2,.8,.2,1);
+        width:100%;
+        min-height:100%;
+        padding:24px 30px 52px;
+        color:var(--rfp-text);
+        font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+        animation:rfpPageIn .24s var(--rfp-ease);
+      }
+
+      .rf-profile-page-v7 *,
+      .rf-profile-page-v7 *::before,
+      .rf-profile-page-v7 *::after{
+        box-sizing:border-box;
+      }
+
+      @keyframes rfpPageIn{
+        from{opacity:0;transform:translateY(5px)}
+        to{opacity:1;transform:none}
+      }
+
+      @keyframes rfpShimmer{
+        from{background-position:200% 0}
+        to{background-position:-200% 0}
+      }
+
+      .rf-profile-page-v7 .rf-profile-header{
+        min-height:138px;
+        display:flex;
+        align-items:flex-end;
+        justify-content:space-between;
+        gap:18px;
+        padding:19px;
+        margin-bottom:11px;
+        overflow:hidden;
+        color:#fff;
+        background:
+          radial-gradient(circle at 88% 15%,rgba(86,89,223,.25),transparent 32%),
+          radial-gradient(circle at 14% 90%,rgba(107,56,212,.16),transparent 29%),
+          #2e3132;
+        border:1px solid rgba(255,255,255,.06);
+        border-radius:14px;
+        box-shadow:0 9px 24px rgba(25,28,29,.065);
+      }
+
+      .rf-profile-page-v7 .rf-profile-header__identity{
+        min-width:0;
+        display:grid;
+        grid-template-columns:46px minmax(0,1fr);
+        align-items:center;
+        gap:11px;
+      }
+
+      .rf-profile-page-v7 .rf-profile-eyebrow{
+        margin:0 0 3px;
+        color:#c9caff;
+        font-size:5.8px;
+        font-weight:800;
+        letter-spacing:.08em;
+        text-transform:uppercase;
+      }
+
+      .rf-profile-page-v7 .rf-profile-header h1{
+        margin:0;
+        color:#fff;
+        font:600 28px/35px Geist,Inter,sans-serif;
+        letter-spacing:-.03em;
+      }
+
+      .rf-profile-page-v7 .rf-profile-header p:not(.rf-profile-eyebrow){
+        max-width:720px;
+        margin:4px 0 0;
+        color:rgba(244,246,247,.62);
+        font-size:7px;
+        line-height:12px;
+      }
+
+      .rf-profile-page-v7 .rf-profile-layout{
+        display:grid;
+        grid-template-columns:255px minmax(0,1fr);
+        align-items:start;
+        gap:11px;
+      }
+
+      .rf-profile-page-v7 .rf-profile-sidebar{
+        position:sticky;
+        top:76px;
+        min-width:0;
+        display:grid;
+        gap:9px;
+      }
+
+      .rf-profile-page-v7 .rf-profile-identity-card{
+        display:grid;
+        justify-items:center;
+        gap:7px;
+        padding:15px;
+        background:#fff;
+        border:1px solid var(--rfp-line);
+        border-radius:11px;
+        text-align:center;
+        box-shadow:0 1px 3px rgba(25,28,29,.025);
+      }
+
+      .rf-profile-page-v7 .rf-profile-avatar-wrap{
+        position:relative;
+        width:84px;
+        height:84px;
+        margin-bottom:2px;
+      }
+
+      .rf-profile-page-v7 .rf-profile-avatar{
+        width:84px!important;
+        height:84px!important;
+        display:grid;
+        place-items:center;
+        overflow:hidden;
+        color:#fff;
+        background:linear-gradient(135deg,#5658df,#4648d4 60%,#6b38d4);
+        border:4px solid #fff;
+        border-radius:22px!important;
+        box-shadow:0 10px 25px rgba(70,72,212,.14);
+        font:700 20px/1 Geist,Inter,sans-serif;
+      }
+
+      .rf-profile-page-v7 .rf-profile-avatar img{
+        width:100%;
+        height:100%;
+        object-fit:cover;
+      }
+
+      .rf-profile-page-v7 .rf-profile-avatar-actions{
+        display:flex;
+        flex-wrap:wrap;
+        justify-content:center;
+        gap:5px;
+      }
+
+      .rf-profile-page-v7 .rf-profile-avatar-actions button,
+      .rf-profile-page-v7 .rf-profile-button{
+        min-height:36px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        gap:5px;
+        padding:6px 9px;
+        color:#fff;
+        background:var(--rfp-primary);
+        border:1px solid var(--rfp-primary);
+        border-radius:8px;
+        cursor:pointer;
+        font-size:5.8px;
+        font-weight:750;
+        transition:.14s var(--rfp-ease);
+      }
+
+      .rf-profile-page-v7 .rf-profile-avatar-actions button:hover:not(:disabled),
+      .rf-profile-page-v7 .rf-profile-button:hover:not(:disabled){
+        transform:translateY(-1px);
+        background:var(--rfp-primary-dark);
+      }
+
+      .rf-profile-page-v7 .rf-profile-avatar-actions button:disabled,
+      .rf-profile-page-v7 .rf-profile-button:disabled{
+        opacity:.45;
+        cursor:not-allowed;
+      }
+
+      .rf-profile-page-v7 .rf-profile-navigation{
+        display:grid;
+        gap:4px;
+        padding:5px;
+        background:#fff;
+        border:1px solid var(--rfp-line);
+        border-radius:10px;
+      }
+
+      .rf-profile-page-v7 .rf-profile-navigation button{
+        min-height:38px;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:7px;
+        padding:7px 9px;
+        color:var(--rfp-text2);
+        background:transparent;
+        border:0;
+        border-radius:7px;
+        cursor:pointer;
+        text-align:left;
+        font-size:6.2px;
+        font-weight:750;
+      }
+
+      .rf-profile-page-v7 .rf-profile-navigation button.is-active,
+      .rf-profile-page-v7 .rf-profile-navigation button.active{
+        color:var(--rfp-primary);
+        background:var(--rfp-primary-soft);
+      }
+
+      .rf-profile-page-v7 .rf-profile-content{
+        min-width:0;
+        display:grid;
+        gap:10px;
+      }
+
+      .rf-profile-page-v7 .rf-profile-panel{
+        min-width:0;
+        padding:14px;
+        background:#fff;
+        border:1px solid var(--rfp-line);
+        border-radius:11px;
+        box-shadow:0 1px 3px rgba(25,28,29,.025);
+      }
+
+      .rf-profile-page-v7 .rf-profile-panel-header{
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:12px;
+        min-height:52px;
+        padding-bottom:9px;
+        margin-bottom:9px;
+        border-bottom:1px solid #eff0f1;
+      }
+
+      .rf-profile-page-v7 .rf-profile-panel-header h2,
+      .rf-profile-page-v7 .rf-profile-panel-header h3{
+        margin:0;
+        font:600 14px/19px Geist,Inter,sans-serif;
+        letter-spacing:-.015em;
+      }
+
+      .rf-profile-page-v7 .rf-profile-panel-header p{
+        margin:3px 0 0;
+        color:var(--rfp-muted);
+        font-size:5.8px;
+        line-height:10px;
+      }
+
+      .rf-profile-page-v7 .rf-profile-alert{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:8px;
+        padding:9px 10px;
+        margin-bottom:9px;
+        border:1px solid;
+        border-radius:8px;
+        font-size:6.3px;
+        line-height:10px;
+      }
+
+      .rf-profile-page-v7 .rf-profile-alert--success{
+        color:#086846;
+        background:var(--rfp-green-soft);
+        border-color:#caeadb;
+      }
+
+      .rf-profile-page-v7 .rf-profile-alert--error{
+        color:#7c1d1d;
+        background:var(--rfp-red-soft);
+        border-color:#ffd0cc;
+      }
+
+      .rf-profile-page-v7 .rf-profile-alert button{
+        min-height:27px;
+        padding:4px 7px;
+        color:inherit;
+        background:#fff;
+        border:1px solid currentColor;
+        border-radius:6px;
+        cursor:pointer;
+        font-size:5.2px;
+        font-weight:750;
+      }
+
+      .rf-profile-page-v7 .rf-profile-form,
+      .rf-profile-page-v7 .rf-security-form{
+        display:grid;
+        gap:9px;
+      }
+
+      .rf-profile-page-v7 .rf-profile-form-grid{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:8px;
+      }
+
+      .rf-profile-page-v7 .rf-profile-field{
+        min-width:0;
+        display:grid;
+        gap:4px;
+      }
+
+      .rf-profile-page-v7 .rf-profile-field--wide{
+        grid-column:1/-1;
+      }
+
+      .rf-profile-page-v7 .rf-profile-field > span{
+        color:var(--rfp-muted);
+        font-size:5.5px;
+        font-weight:750;
+        letter-spacing:.025em;
+        text-transform:uppercase;
+      }
+
+      .rf-profile-page-v7 input,
+      .rf-profile-page-v7 select,
+      .rf-profile-page-v7 textarea{
+        width:100%;
+        min-height:39px;
+        padding:8px 9px;
+        color:var(--rfp-text);
+        background:#f7f8f9;
+        border:1px solid transparent;
+        border-radius:8px;
+        outline:0;
+        font:400 6.5px/11px Inter,sans-serif;
+      }
+
+      .rf-profile-page-v7 textarea{
+        min-height:96px;
+        resize:vertical;
+      }
+
+      .rf-profile-page-v7 input:focus,
+      .rf-profile-page-v7 select:focus,
+      .rf-profile-page-v7 textarea:focus{
+        background:#fff;
+        border-color:rgba(70,72,212,.5);
+        box-shadow:0 0 0 3px rgba(70,72,212,.06);
+      }
+
+      .rf-profile-page-v7 .rf-profile-form-footer{
+        display:flex;
+        justify-content:flex-end;
+        gap:7px;
+        padding-top:9px;
+        border-top:1px solid #eff0f1;
+      }
+
+      .rf-profile-page-v7 .rf-availability-options{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:7px;
+      }
+
+      .rf-profile-page-v7 .rf-availability-option{
+        min-height:84px;
+        display:grid;
+        grid-template-columns:15px 10px minmax(0,1fr);
+        align-items:center;
+        gap:7px;
+        padding:9px;
+        background:#f7f8f9;
+        border:1px solid transparent;
+        border-radius:9px;
+        cursor:pointer;
+      }
+
+      .rf-profile-page-v7 .rf-availability-option.is-selected{
+        background:var(--rfp-primary-soft);
+        border-color:#d7d8ff;
+      }
+
+      .rf-profile-page-v7 .rf-availability-option input{
+        width:15px;
+        height:15px;
+        min-height:0;
+        padding:0;
+        margin:0;
+        accent-color:var(--rfp-primary);
+      }
+
+      .rf-profile-page-v7 .rf-availability-option__dot{
+        width:9px;
+        height:9px;
+        background:#a1a2a8;
+        border:2px solid #fff;
+        border-radius:50%;
+      }
+
+      .rf-profile-page-v7 .rf-availability-option--available .rf-availability-option__dot{background:var(--rfp-green)}
+      .rf-profile-page-v7 .rf-availability-option--busy .rf-availability-option__dot{background:var(--rfp-red)}
+      .rf-profile-page-v7 .rf-availability-option--away .rf-availability-option__dot{background:var(--rfp-amber)}
+
+      .rf-profile-page-v7 .rf-availability-option strong{
+        font-size:6.4px;
+      }
+
+      .rf-profile-page-v7 .rf-availability-option p{
+        margin:2px 0 0;
+        color:var(--rfp-muted);
+        font-size:5.3px;
+        line-height:9px;
+      }
+
+      .rf-profile-page-v7 .rf-notification-list{
+        display:grid;
+        gap:5px;
+      }
+
+      .rf-profile-page-v7 .rf-notification-option{
+        min-height:62px;
+        display:grid;
+        grid-template-columns:minmax(0,1fr) 1px 38px;
+        align-items:center;
+        gap:9px;
+        padding:9px;
+        background:#f7f8f9;
+        border-radius:8px;
+        cursor:pointer;
+      }
+
+      .rf-profile-page-v7 .rf-notification-option > div{
+        min-width:0;
+        display:grid;
+      }
+
+      .rf-profile-page-v7 .rf-notification-option strong{
+        font-size:6.2px;
+      }
+
+      .rf-profile-page-v7 .rf-notification-option p{
+        margin:2px 0 0;
+        color:var(--rfp-muted);
+        font-size:5.2px;
+        line-height:9px;
+      }
+
+      .rf-profile-page-v7 .rf-notification-option input{
+        position:absolute;
+        opacity:0;
+        pointer-events:none;
+      }
+
+      .rf-profile-page-v7 .rf-toggle-switch{
+        position:relative;
+        width:36px;
+        height:21px;
+        display:block;
+        background:#d6d8dc;
+        border-radius:999px;
+        transition:.14s var(--rfp-ease);
+      }
+
+      .rf-profile-page-v7 .rf-toggle-switch i{
+        position:absolute;
+        top:3px;
+        left:3px;
+        width:15px;
+        height:15px;
+        background:#fff;
+        border-radius:50%;
+        box-shadow:0 1px 4px rgba(25,28,29,.16);
+        transition:.14s var(--rfp-ease);
+      }
+
+      .rf-profile-page-v7 .rf-notification-option input:checked + .rf-toggle-switch{
+        background:var(--rfp-primary);
+      }
+
+      .rf-profile-page-v7 .rf-notification-option input:checked + .rf-toggle-switch i{
+        transform:translateX(15px);
+      }
+
+      .rf-profile-page-v7 .rf-password-requirements{
+        display:grid;
+        gap:4px;
+        padding:9px;
+        margin:0;
+        background:#f7f8f9;
+        border-radius:8px;
+        list-style:none;
+      }
+
+      .rf-profile-page-v7 .rf-password-requirements li{
+        display:flex;
+        align-items:center;
+        gap:5px;
+        color:var(--rfp-muted);
+        font-size:5.4px;
+      }
+
+      .rf-profile-page-v7 .rf-password-requirements li.is-valid{
+        color:var(--rfp-green);
+      }
+
+      .rf-profile-page-v7 .rf-password-strength{
+        display:grid;
+        gap:4px;
+        margin-top:4px;
+      }
+
+      .rf-profile-page-v7 .rf-password-strength > div{
+        display:grid;
+        grid-template-columns:repeat(5,1fr);
+        gap:3px;
+      }
+
+      .rf-profile-page-v7 .rf-password-strength span{
+        height:4px;
+        background:#e4e5e8;
+        border-radius:999px;
+      }
+
+      .rf-profile-page-v7 .rf-password-strength span.is-active{
+        background:var(--rfp-primary);
+      }
+
+      .rf-profile-page-v7 .rf-password-strength small{
+        color:var(--rfp-muted);
+        font-size:5px;
+      }
+
+      .rf-profile-page-v7 .rf-profile-availability-badge{
+        display:inline-flex;
+        align-items:center;
+        width:max-content;
+        min-height:24px;
+        padding:4px 7px;
+        color:var(--rfp-text2);
+        background:#f1f2f3;
+        border-radius:999px;
+        font-size:5.2px;
+        font-weight:750;
+      }
+
+      .rf-profile-page-v7 .rf-profile-availability-badge--available{
+        color:var(--rfp-green);
+        background:var(--rfp-green-soft);
+      }
+
+      .rf-profile-page-v7 .rf-profile-availability-badge--busy{
+        color:var(--rfp-red);
+        background:var(--rfp-red-soft);
+      }
+
+      .rf-profile-page-v7 .rf-profile-availability-badge--away{
+        color:var(--rfp-amber);
+        background:var(--rfp-amber-soft);
+      }
+
+      .rf-profile-page-v7 .rf-profile-skeleton-header,
+      .rf-profile-page-v7 .rf-profile-skeleton-layout > aside,
+      .rf-profile-page-v7 .rf-profile-skeleton-layout > div{
+        background:linear-gradient(90deg,#eceef0 25%,#f8f9fa 45%,#eceef0 65%);
+        background-size:220% 100%;
+        border-radius:11px;
+        animation:rfpShimmer 1.15s linear infinite;
+      }
+
+      .rf-profile-page-v7 .rf-profile-skeleton-header{
+        height:138px;
+        margin-bottom:11px;
+        border-radius:14px;
+      }
+
+      .rf-profile-page-v7 .rf-profile-skeleton-layout{
+        display:grid;
+        grid-template-columns:255px minmax(0,1fr);
+        gap:11px;
+      }
+
+      .rf-profile-page-v7 .rf-profile-skeleton-layout > aside,
+      .rf-profile-page-v7 .rf-profile-skeleton-layout > div{
+        min-height:520px;
+      }
+
+      @media(max-width:900px){
+        .rf-profile-page-v7{
+          padding:22px;
+        }
+
+        .rf-profile-page-v7 .rf-profile-layout,
+        .rf-profile-page-v7 .rf-profile-skeleton-layout{
+          grid-template-columns:210px minmax(0,1fr);
+        }
+      }
+
+      @media(max-width:720px){
+        .rf-profile-page-v7 .rf-profile-header{
+          align-items:flex-start;
+          flex-direction:column;
+        }
+
+        .rf-profile-page-v7 .rf-profile-layout,
+        .rf-profile-page-v7 .rf-profile-skeleton-layout{
+          grid-template-columns:1fr;
+        }
+
+        .rf-profile-page-v7 .rf-profile-sidebar{
+          position:static;
+        }
+
+        .rf-profile-page-v7 .rf-profile-navigation{
+          display:flex;
+          overflow-x:auto;
+          scrollbar-width:none;
+        }
+
+        .rf-profile-page-v7 .rf-profile-navigation button{
+          flex:0 0 auto;
+        }
+      }
+
+      @media(max-width:620px){
+        .rf-profile-page-v7{
+          padding:18px 12px 80px;
+        }
+
+        .rf-profile-page-v7 .rf-profile-header{
+          padding:15px;
+        }
+
+        .rf-profile-page-v7 .rf-profile-header h1{
+          font-size:23px;
+          line-height:30px;
+        }
+
+        .rf-profile-page-v7 .rf-profile-form-grid,
+        .rf-profile-page-v7 .rf-availability-options{
+          grid-template-columns:1fr;
+        }
+
+        .rf-profile-page-v7 .rf-profile-field--wide{
+          grid-column:auto;
+        }
+
+        .rf-profile-page-v7 .rf-profile-form-footer{
+          display:grid;
+          grid-template-columns:1fr;
+        }
+
+        .rf-profile-page-v7 .rf-profile-form-footer .rf-profile-button{
+          width:100%;
+        }
+      }
+
+      @media(prefers-reduced-motion:reduce){
+        .rf-profile-page-v7,
+        .rf-profile-page-v7 *,
+        .rf-profile-page-v7 *::before,
+        .rf-profile-page-v7 *::after{
+          animation:none!important;
+          transition-duration:.01ms!important;
+          scroll-behavior:auto!important;
+        }
+      }
+    `}</style>
+  );
 }
