@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ArrowRight,
   Bot,
@@ -38,6 +39,7 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const { login, googleAuth } = useAuth();
+  const reduceMotion = useReducedMotion();
 
   const [form, setForm] = useState({
     email: "",
@@ -205,33 +207,40 @@ export default function Login() {
             </p>
           </div>
 
-          {error ? (
-            <div
-              className="rfl-auth-alert"
-              role="alert"
-            >
-              <span>
-                <X size={14} />
-              </span>
+          <AnimatePresence initial={false}>
+            {error ? (
+              <motion.div
+                className="rfl-auth-alert"
+                role="alert"
+                key="login-alert"
+                initial={reduceMotion ? false : { opacity: 0, y: -8, height: 0 }}
+                animate={{ opacity: 1, y: 0, height: "auto" }}
+                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -6, height: 0 }}
+                transition={{ duration: reduceMotion ? 0 : 0.22 }}
+              >
+                <span>
+                  <X size={14} />
+                </span>
 
-              <div>
-                <strong>
-                  Sign-in needs attention
-                </strong>
+                <div>
+                  <strong>
+                    Sign-in needs attention
+                  </strong>
 
-                <p>
-                  {error}
-                </p>
+                  <p>
+                    {error}
+                  </p>
 
-                {googleSignupRequired ? (
-                  <Link to="/signup">
-                    Create a workspace
-                    <ArrowRight size={12} />
-                  </Link>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
+                  {googleSignupRequired ? (
+                    <Link to="/signup">
+                      Create a workspace
+                      <ArrowRight size={12} />
+                    </Link>
+                  ) : null}
+                </div>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
 
           <div className="rfl-google-zone">
             <GoogleAuthButton
@@ -423,6 +432,8 @@ function AuthField({
 }
 
 function LoginHeroEnhancement() {
+  const reduceMotion = useReducedMotion();
+
   return (
     <div
       className="rfl-hero-enhancement"
@@ -431,7 +442,12 @@ function LoginHeroEnhancement() {
       <div className="rfl-hero-orbit orbit-one" />
       <div className="rfl-hero-orbit orbit-two" />
 
-      <section className="rfl-product-window">
+      <motion.section
+        className="rfl-product-window"
+        initial={reduceMotion ? false : { opacity: 0, y: 22, rotateY: -4 }}
+        animate={{ opacity: 1, y: 0, rotateY: 0 }}
+        transition={{ duration: reduceMotion ? 0 : 0.6, delay: 0.18 }}
+      >
         <header>
           <div>
             <span className="rfl-window-dot" />
@@ -501,7 +517,7 @@ function LoginHeroEnhancement() {
             </div>
           </main>
         </div>
-      </section>
+      </motion.section>
 
       <div className="rfl-value-stack">
         {VALUE_POINTS.map((item) => {
@@ -1595,7 +1611,18 @@ function LoginStyles() {
         }
       }
 
-      @media(prefers-reduced-motion:reduce){
+
+
+      /* V9 premium login polish */
+      .rf-auth-form-v7 .rf-auth-input>div{transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease;background:rgba(255,255,255,.92)}
+      .rf-auth-form-v7 .rf-auth-input>div:focus-within{transform:translateY(-1px);box-shadow:0 0 0 4px rgba(70,72,212,.08),0 11px 24px rgba(25,28,38,.06)}
+      .rf-auth-form-v7 .rf-auth-submit{position:relative;overflow:hidden;box-shadow:0 14px 34px rgba(70,72,212,.24)}
+      .rf-auth-form-v7 .rf-auth-submit::after{content:"";position:absolute;inset:-2px auto -2px -40%;width:34%;transform:skewX(-20deg);background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);transition:left .55s ease}
+      .rf-auth-form-v7 .rf-auth-submit:hover::after{left:112%}
+      .rfl-product-window{transform-style:preserve-3d;box-shadow:0 32px 70px rgba(0,0,0,.3),0 0 0 1px rgba(255,255,255,.06)}
+      .rfl-value-stack article{transition:transform .22s cubic-bezier(.2,.8,.2,1),background .22s ease}.rfl-value-stack article:hover{transform:translateX(6px);background:rgba(255,255,255,.08)}
+
+            @media(prefers-reduced-motion:reduce){
         .rf-auth-page,
         .rf-auth-card,
         .rfl-auth-alert,

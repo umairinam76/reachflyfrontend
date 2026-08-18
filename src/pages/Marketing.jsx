@@ -1,6 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion, useScroll, useSpring, useTransform } from "framer-motion";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useGSAP } from "@gsap/react";
+import Lenis from "lenis";
+import "lenis/dist/lenis.css";
 import BrandLogo from "../components/BrandLogo";
 import {
   ArrowRight,
@@ -26,6 +31,8 @@ import {
   X,
   Zap,
 } from "../components/icons";
+
+gsap.registerPlugin(ScrollTrigger, useGSAP);
 
 /*
  * Add only customers that have approved public logo/name usage.
@@ -263,6 +270,153 @@ const FAQ = [
 
 export default function Marketing() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const rootRef = useRef(null);
+  const reduceMotion = useReducedMotion();
+  const { scrollYProgress } = useScroll();
+  const progressScale = useSpring(scrollYProgress, { stiffness: 110, damping: 24, mass: 0.25 });
+  const atmosphereY = useTransform(scrollYProgress, [0, 1], ["0%", "15%"]);
+
+  useEffect(() => {
+    if (reduceMotion || typeof window === "undefined") return undefined;
+
+    const lenis = new Lenis({
+      autoRaf: false,
+      duration: 1.08,
+      smoothWheel: true,
+      anchors: { offset: -82 },
+    });
+
+    lenis.on("scroll", ScrollTrigger.update);
+
+    const update = (time) => {
+      lenis.raf(time * 1000);
+    };
+
+    gsap.ticker.add(update);
+    gsap.ticker.lagSmoothing(0);
+
+    return () => {
+      gsap.ticker.remove(update);
+      lenis.destroy();
+    };
+  }, [reduceMotion]);
+
+  useGSAP(
+    () => {
+      if (reduceMotion) return undefined;
+
+      const mm = gsap.matchMedia();
+
+      mm.add("(min-width: 901px)", () => {
+        const heroTimeline = gsap.timeline({ defaults: { ease: "power3.out" } });
+
+        heroTimeline
+          .from(".rfm-hero-copy > *", {
+            opacity: 0,
+            y: 26,
+            duration: 0.78,
+            stagger: 0.075,
+          })
+          .from(
+            ".rfm-hero-preview-wrap",
+            {
+              opacity: 0,
+              y: 54,
+              rotateX: 8,
+              rotateY: -7,
+              scale: 0.965,
+              transformOrigin: "50% 50%",
+              duration: 1.08,
+            },
+            "-=0.7"
+          );
+
+        gsap.to(".rfm-product-preview", {
+          yPercent: -5,
+          rotateX: 1.5,
+          ease: "none",
+          scrollTrigger: {
+            trigger: ".rfm-hero",
+            start: "top top",
+            end: "bottom top",
+            scrub: 0.8,
+          },
+        });
+
+        gsap.to(".rfm-hero-glow-one", {
+          xPercent: 35,
+          yPercent: 30,
+          ease: "none",
+          scrollTrigger: { trigger: ".rfm-hero", start: "top top", end: "bottom top", scrub: 1.2 },
+        });
+
+        gsap.to(".rfm-hero-glow-two", {
+          xPercent: -26,
+          yPercent: -20,
+          ease: "none",
+          scrollTrigger: { trigger: ".rfm-hero", start: "top top", end: "bottom top", scrub: 1.2 },
+        });
+
+        gsap.utils.toArray(".rfm-journey > article").forEach((card, index) => {
+          gsap.fromTo(
+            card,
+            { opacity: 0.7, scale: 0.975 },
+            {
+              opacity: 1,
+              scale: 1,
+              ease: "none",
+              scrollTrigger: {
+                trigger: card,
+                start: "top 72%",
+                end: "top 28%",
+                scrub: 0.6,
+              },
+            }
+          );
+
+          const visual = card.querySelector(".rfm-journey-visual");
+          if (visual) {
+            gsap.fromTo(
+              visual,
+              { y: 34, rotateY: index % 2 ? -2 : 2 },
+              {
+                y: -24,
+                rotateY: 0,
+                ease: "none",
+                scrollTrigger: {
+                  trigger: card,
+                  start: "top bottom",
+                  end: "bottom top",
+                  scrub: 1,
+                },
+              }
+            );
+          }
+        });
+      });
+
+      gsap.utils
+        .toArray(
+          ".rfm-section-head, .rfm-problem-grid, .rfm-stack-compare, .rfm-usecase-grid, .rfm-voice-copy, .rfm-voice-demo-wrap, .rfm-agent-grid, .rfm-trust-grid, .rfm-pricing-grid, .rfm-faq-list, .rfm-final"
+        )
+        .forEach((element) => {
+          gsap.from(element, {
+            opacity: 0,
+            y: 34,
+            duration: 0.9,
+            ease: "power3.out",
+            scrollTrigger: {
+              trigger: element,
+              start: "top 86%",
+              once: true,
+            },
+          });
+        });
+
+      return () => mm.revert();
+    },
+    { scope: rootRef, dependencies: [reduceMotion], revertOnUpdate: true }
+  );
 
   useEffect(() => {
     if (!mobileOpen) return undefined;
@@ -296,7 +450,14 @@ export default function Marketing() {
     <>
       <MarketingStyles />
 
-      <main className="rf-marketing-v8">
+      <main className="rf-marketing-v8" ref={rootRef}>
+        <motion.div className="rfm-scroll-progress" style={{ scaleX: progressScale }} aria-hidden="true" />
+        <motion.div className="rfm-atmosphere" style={{ y: atmosphereY }} aria-hidden="true">
+          <span className="rfm-atmosphere-grid" />
+          <span className="rfm-atmosphere-orb rfm-atmosphere-orb-a" />
+          <span className="rfm-atmosphere-orb rfm-atmosphere-orb-b" />
+          <span className="rfm-atmosphere-noise" />
+        </motion.div>
         <header className="rfm-nav">
           <Link className="rfm-brand" to="/" aria-label="ReachFly home">
             <span>
@@ -457,6 +618,11 @@ export default function Marketing() {
             <ProductPreview />
             <span className="rfm-preview-caption">Illustrative ReachFly workspace preview</span>
           </div>
+
+          <a className="rfm-scroll-cue" href="#why" aria-label="Scroll to discover ReachFly">
+            <span>Scroll to discover</span>
+            <i><ArrowRight size={13} /></i>
+          </a>
         </section>
 
         <section className="rfm-trusted-section" aria-label="ReachFly trust and audience">
@@ -617,6 +783,7 @@ export default function Marketing() {
                 <motion.article
                   key={step.number}
                   className={index % 2 ? "reverse" : ""}
+                  style={{ "--rfm-story-index": index }}
                   initial={{ opacity: 0, y: 18 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, amount: 0.18 }}
@@ -1478,7 +1645,61 @@ function MarketingStyles() {
         .rfm-filter-row{display:grid}.rfm-context-visual{padding:14px}.rfm-score-ring{width:105px;height:105px}.rfm-faq-list summary{font-size:11px}
       }
 
-      @media(prefers-reduced-motion:reduce){
+
+
+      /* ------------------------------------------------------------------ */
+      /* V9 immersive motion layer — Austin Werner-inspired storytelling     */
+      /* ------------------------------------------------------------------ */
+      .rf-marketing-v8{
+        position:relative;
+        isolation:isolate;
+        background:#0b0d12;
+      }
+      .rfm-scroll-progress{
+        position:fixed;z-index:400;top:0;right:0;left:0;height:2px;
+        transform-origin:0 50%;pointer-events:none;
+        background:linear-gradient(90deg,#7a7cff,#9d6cff 55%,#55d7ff);
+        box-shadow:0 0 18px rgba(122,124,255,.45);
+      }
+      .rfm-atmosphere{
+        position:fixed;z-index:0;inset:-18vh -10vw;overflow:hidden;pointer-events:none;
+        background:
+          radial-gradient(circle at 12% 18%,rgba(90,93,255,.14),transparent 28%),
+          radial-gradient(circle at 84% 28%,rgba(118,63,211,.12),transparent 30%),
+          radial-gradient(circle at 52% 88%,rgba(34,184,238,.08),transparent 31%),
+          linear-gradient(180deg,#0b0d12 0%,#10131a 46%,#0a0c10 100%);
+      }
+      .rfm-atmosphere-grid{position:absolute;inset:0;opacity:.28;background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:64px 64px;mask-image:radial-gradient(circle at 50% 35%,#000 0 40%,transparent 78%)}
+      .rfm-atmosphere-orb{position:absolute;width:44vw;aspect-ratio:1;border-radius:50%;filter:blur(72px);opacity:.28}
+      .rfm-atmosphere-orb-a{top:2%;left:-14%;background:#4e55ff}
+      .rfm-atmosphere-orb-b{right:-17%;top:42%;background:#7f47d9}
+      .rfm-atmosphere-noise{position:absolute;inset:0;opacity:.045;mix-blend-mode:screen;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.8'/%3E%3C/svg%3E")}
+      .rfm-nav{background:rgba(11,13,18,.74);border-color:rgba(255,255,255,.075);box-shadow:0 10px 40px rgba(0,0,0,.12);backdrop-filter:blur(22px) saturate(145%)}
+      .rfm-nav .rfm-brand strong{color:#fff}.rfm-nav .rfm-brand small{color:#a8aaff}.rfm-desktop-nav a{color:rgba(245,247,255,.62)}.rfm-desktop-nav a:hover{color:#fff}.rfm-nav .rfm-btn.secondary{color:#f7f8fb;background:rgba(255,255,255,.055);border-color:rgba(255,255,255,.12)}.rfm-menu-btn{color:#fff;background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.12)}
+      .rfm-hero{min-height:calc(100svh - 72px);padding-top:68px;padding-bottom:94px;background:transparent;border-bottom:1px solid rgba(255,255,255,.07)}
+      .rfm-hero::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 70% 42%,rgba(83,86,230,.13),transparent 32%),linear-gradient(180deg,rgba(11,13,18,.16),rgba(11,13,18,.76));pointer-events:none}
+      .rfm-hero-grid{opacity:.42;background-size:54px 54px;transform:perspective(700px) rotateX(62deg) scale(1.35);transform-origin:center 78%;mask-image:linear-gradient(transparent 0,#000 24%,transparent 86%)}
+      .rfm-hero-glow{filter:blur(34px)}
+      .rfm-hero-copy h1{font-size:clamp(56px,6vw,92px);line-height:.92;letter-spacing:-.065em;text-wrap:balance}
+      .rfm-hero-copy h1 em{background:linear-gradient(90deg,#b8b9ff 0%,#d8c4ff 55%,#91dcff 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+      .rfm-hero-copy>p{font-size:16px;line-height:27px;color:rgba(241,244,252,.68)}
+      .rfm-product-preview{transform:perspective(1200px) rotateY(-4deg) rotateX(2deg);box-shadow:0 44px 120px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.06)}
+      .rfm-scroll-cue{position:absolute;z-index:3;left:max(32px,calc((100vw - 1380px)/2));bottom:24px;display:inline-flex;align-items:center;gap:11px;color:rgba(255,255,255,.56);text-decoration:none;font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}.rfm-scroll-cue i{width:30px;height:30px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.14);border-radius:50%;transform:rotate(90deg);animation:rfmScrollCue 1.8s ease-in-out infinite}.rfm-scroll-cue:hover{color:#fff}
+      @keyframes rfmScrollCue{0%,100%{transform:rotate(90deg) translateX(0)}50%{transform:rotate(90deg) translateX(4px)}}
+      .rfm-trusted-section{position:relative;z-index:2;margin-top:28px;background:rgba(255,255,255,.97);box-shadow:0 26px 90px rgba(0,0,0,.25)}
+      .rfm-problem-section,.rfm-journey-section,.rfm-agents-section,.rfm-pricing-section,.rfm-faq-section{position:relative;z-index:2;margin-block:28px;padding-inline:34px;border:1px solid rgba(255,255,255,.075);border-radius:28px;background:rgba(248,249,251,.965);box-shadow:0 32px 100px rgba(0,0,0,.26);backdrop-filter:blur(18px)}
+      .rfm-stack-section,.rfm-voice-chapter,.rfm-trust-section,.rfm-usecase-section{position:relative;z-index:2;border-block:1px solid rgba(255,255,255,.07)}
+      .rfm-journey{gap:40px;padding-bottom:20px}
+      .rfm-journey>article{position:sticky;top:calc(92px + (var(--rfm-story-index) * 6px));min-height:520px;padding:34px;border-color:rgba(28,31,38,.1);border-radius:24px;box-shadow:0 30px 70px rgba(19,22,29,.13);transform-origin:50% 0}
+      .rfm-journey-visual{min-height:330px;overflow:hidden;box-shadow:inset 0 1px 0 rgba(255,255,255,.75)}
+      .rfm-usecase-grid>article,.rfm-agent-grid>article,.rfm-trust-grid>article,.rfm-pricing-grid>article{transition:transform .35s cubic-bezier(.2,.8,.2,1),box-shadow .35s cubic-bezier(.2,.8,.2,1),border-color .35s ease}.rfm-usecase-grid>article:hover,.rfm-agent-grid>article:hover,.rfm-trust-grid>article:hover,.rfm-pricing-grid>article:hover{transform:translateY(-8px);box-shadow:0 28px 66px rgba(26,30,38,.13);border-color:rgba(87,89,223,.28)}
+      .rfm-final{position:relative;z-index:2;overflow:hidden;background:linear-gradient(135deg,#222634 0%,#14171d 46%,#1f1630 100%);box-shadow:0 40px 120px rgba(0,0,0,.42)}
+      .rfm-final::after{content:"";position:absolute;right:-120px;bottom:-180px;width:520px;height:520px;border-radius:50%;background:radial-gradient(circle,rgba(95,98,245,.28),transparent 68%);pointer-events:none}
+      .rfm-footer{position:relative;z-index:2;color:rgba(255,255,255,.7);border-color:rgba(255,255,255,.1)}
+      .rfm-footer strong{color:#fff}
+      @media(max-width:900px){.rfm-journey>article{position:relative;top:auto;min-height:0}.rfm-hero{min-height:auto}.rfm-scroll-cue{display:none}.rfm-problem-section,.rfm-journey-section,.rfm-agents-section,.rfm-pricing-section,.rfm-faq-section{padding-inline:18px;border-radius:20px}}
+
+            @media(prefers-reduced-motion:reduce){
         .rf-marketing-v8 *,
         .rf-marketing-v8 *::before,
         .rf-marketing-v8 *::after{animation:none!important;transition-duration:.01ms!important;scroll-behavior:auto!important}

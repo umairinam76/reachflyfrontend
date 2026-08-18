@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ArrowLeft,
   ArrowRight,
@@ -60,6 +61,7 @@ const WORKSPACE_TYPES = [
 export default function Signup() {
   const navigate = useNavigate();
   const { signup } = useAuth();
+  const reduceMotion = useReducedMotion();
 
   const [step, setStep] = useState(1);
   const [form, setForm] = useState(INITIAL_FORM);
@@ -252,17 +254,32 @@ export default function Signup() {
             }}
           />
 
-          {error ? (
-            <SignupAlert
-              text={error}
-              onClose={() => setError("")}
-            />
-          ) : null}
+          <AnimatePresence initial={false}>
+            {error ? (
+              <motion.div
+                key="signup-alert"
+                initial={reduceMotion ? false : { opacity: 0, y: -8, height: 0 }}
+                animate={{ opacity: 1, y: 0, height: "auto" }}
+                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -6, height: 0 }}
+                transition={{ duration: reduceMotion ? 0 : 0.22 }}
+              >
+                <SignupAlert
+                  text={error}
+                  onClose={() => setError("")}
+                />
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
 
-          <div
-            className="rfsu-step-panel"
-            key={step}
-          >
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              className="rfsu-step-panel"
+              key={step}
+              initial={reduceMotion ? false : { opacity: 0, x: 24, filter: "blur(5px)" }}
+              animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: -20, filter: "blur(4px)" }}
+              transition={{ duration: reduceMotion ? 0 : 0.28, ease: [0.2, 0.8, 0.2, 1] }}
+            >
             {step === 1 ? (
               <WorkspaceTypeStep
                 selected={form.accountType}
@@ -301,7 +318,8 @@ export default function Signup() {
                 onSubmit={submit}
               />
             ) : null}
-          </div>
+            </motion.div>
+          </AnimatePresence>
         </section>
       </AuthLayout>
     </>
@@ -1788,7 +1806,17 @@ function SignupStyles() {
         }
       }
 
-      @media(prefers-reduced-motion:reduce){
+
+
+      /* V9 premium signup polish */
+      .rf-signup-v7 .rfsu-step-panel{will-change:transform,opacity,filter}
+      .rf-signup-v7 .rfsu-workspace-card{transition:transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .25s ease,border-color .25s ease}
+      .rf-signup-v7 .rfsu-workspace-card:hover{transform:translateY(-5px);box-shadow:0 20px 46px rgba(27,31,41,.11)}
+      .rf-signup-v7 .rf-auth-submit{position:relative;overflow:hidden;box-shadow:0 13px 32px rgba(70,72,212,.24)}
+      .rf-signup-v7 .rf-auth-submit::after{content:"";position:absolute;inset:-2px auto -2px -38%;width:32%;transform:skewX(-20deg);background:linear-gradient(90deg,transparent,rgba(255,255,255,.28),transparent);transition:left .55s ease}
+      .rf-signup-v7 .rf-auth-submit:hover::after{left:112%}
+
+            @media(prefers-reduced-motion:reduce){
         .rfsu-step-panel,
         .rfsu-alert,
         .rfsu-spinner{

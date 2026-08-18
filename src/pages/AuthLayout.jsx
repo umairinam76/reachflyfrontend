@@ -1,5 +1,6 @@
 import { Children } from "react";
 import { Link } from "react-router-dom";
+import { motion, useReducedMotion } from "framer-motion";
 import BrandLogo from "../components/BrandLogo";
 import {
   CheckCircle2,
@@ -29,6 +30,7 @@ export default function AuthLayout({
   children,
   footer,
 }) {
+  const reduceMotion = useReducedMotion();
   const childArray = Children.toArray(children);
   const primaryContent = childArray[0] || null;
   const shellEnhancements = childArray.slice(1);
@@ -37,9 +39,29 @@ export default function AuthLayout({
     <>
       <AuthLayoutStyles />
 
-      <main className="rf-auth-page">
-        <section className="rf-auth-shell">
-          <aside className="rf-auth-hero">
+      <motion.main
+        className="rf-auth-page"
+        initial={reduceMotion ? false : { opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: reduceMotion ? 0 : 0.35 }}
+      >
+        <span className="rf-auth-ambient rf-auth-ambient-a" aria-hidden="true" />
+        <span className="rf-auth-ambient rf-auth-ambient-b" aria-hidden="true" />
+        <span className="rf-auth-grid-bg" aria-hidden="true" />
+
+        <motion.section
+          className="rf-auth-shell"
+          initial={reduceMotion ? false : { opacity: 0, y: 18, scale: 0.992 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: reduceMotion ? 0 : 0.55, ease: [0.2, 0.8, 0.2, 1] }}
+        >
+          <motion.aside
+            className="rf-auth-hero"
+            initial={reduceMotion ? false : { opacity: 0, x: -18 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: reduceMotion ? 0 : 0.55, delay: 0.08 }}
+          >
+            <span className="rf-auth-hero-orbit" aria-hidden="true"><i /><i /><i /></span>
             <div className="rf-auth-hero-top">
               <Link
                 className="rf-auth-brand"
@@ -121,25 +143,34 @@ export default function AuthLayout({
                 Built for focused outbound teams
               </span>
             </footer>
-          </aside>
+          </motion.aside>
 
           {shellEnhancements.length
             ? shellEnhancements
             : null}
 
-          <section className="rf-auth-panel">
-            <div className="rf-auth-card">
+          <motion.section
+            className="rf-auth-panel"
+            initial={reduceMotion ? false : { opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: reduceMotion ? 0 : 0.5, delay: 0.12 }}
+          >
+            <motion.div
+              className="rf-auth-card"
+              whileHover={reduceMotion ? undefined : { y: -2 }}
+              transition={{ type: "spring", stiffness: 280, damping: 26 }}
+            >
               {primaryContent}
-            </div>
+            </motion.div>
 
             {footer ? (
               <div className="rf-auth-footer">
                 {footer}
               </div>
             ) : null}
-          </section>
-        </section>
-      </main>
+          </motion.section>
+        </motion.section>
+      </motion.main>
     </>
   );
 }
@@ -1066,7 +1097,27 @@ function AuthLayoutStyles() {
         }
       }
 
-      @media(prefers-reduced-motion:reduce){
+
+
+      /* Premium auth experience */
+      .rf-auth-page{position:relative;isolation:isolate;background:#0b0d12!important;overflow:hidden!important}
+      .rf-auth-grid-bg{position:fixed;z-index:-4;inset:0;opacity:.35;background-image:linear-gradient(rgba(255,255,255,.028) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.028) 1px,transparent 1px);background-size:56px 56px;mask-image:radial-gradient(circle at 50% 45%,#000 0 35%,transparent 80%);pointer-events:none}
+      .rf-auth-ambient{position:fixed;z-index:-3;width:48vw;aspect-ratio:1;border-radius:50%;filter:blur(90px);pointer-events:none;opacity:.38;animation:rfaAmbient 12s ease-in-out infinite alternate}
+      .rf-auth-ambient-a{left:-18vw;top:-20vh;background:#4f55ff}
+      .rf-auth-ambient-b{right:-18vw;bottom:-24vh;background:#7843d6;animation-delay:-4s}
+      @keyframes rfaAmbient{from{transform:translate3d(-2%,0,0) scale(.94)}to{transform:translate3d(5%,4%,0) scale(1.08)}}
+      .rf-auth-shell{position:relative;z-index:2;overflow:hidden;border:1px solid rgba(255,255,255,.11)!important;box-shadow:0 44px 120px rgba(0,0,0,.48),inset 0 1px 0 rgba(255,255,255,.08)!important;background:rgba(17,19,25,.84)!important;backdrop-filter:blur(26px) saturate(135%)}
+      .rf-auth-hero{position:relative;overflow:hidden;background:linear-gradient(145deg,rgba(42,45,56,.98),rgba(22,24,31,.98) 62%,rgba(26,19,40,.98))!important}
+      .rf-auth-hero::after{content:"";position:absolute;inset:auto -35% -45% 15%;height:70%;background:radial-gradient(circle,rgba(91,94,240,.28),transparent 64%);pointer-events:none}
+      .rf-auth-hero-orbit{position:absolute;right:-90px;top:44%;width:260px;height:260px;border:1px solid rgba(168,170,255,.14);border-radius:50%;opacity:.8;pointer-events:none;animation:rfaOrbitSpin 18s linear infinite}.rf-auth-hero-orbit::before,.rf-auth-hero-orbit::after{content:"";position:absolute;inset:34px;border:1px solid rgba(255,255,255,.08);border-radius:50%}.rf-auth-hero-orbit::after{inset:76px}.rf-auth-hero-orbit i{position:absolute;width:8px;height:8px;border-radius:50%;background:#a7a9ff;box-shadow:0 0 20px rgba(167,169,255,.8)}.rf-auth-hero-orbit i:nth-child(1){top:20px;left:74px}.rf-auth-hero-orbit i:nth-child(2){right:22px;bottom:82px}.rf-auth-hero-orbit i:nth-child(3){left:48px;bottom:18px;background:#78d7ff}
+      @keyframes rfaOrbitSpin{to{transform:rotate(360deg)}}
+      .rf-auth-brand,.rf-auth-copy,.rf-auth-proof,.rf-auth-hero-footer{position:relative;z-index:2}
+      .rf-auth-panel{background:linear-gradient(180deg,rgba(250,251,253,.985),rgba(246,247,250,.98))!important}
+      .rf-auth-card{border:1px solid rgba(31,34,43,.08)!important;box-shadow:0 24px 65px rgba(16,18,24,.11)!important;background:rgba(255,255,255,.94)!important;backdrop-filter:blur(16px)}
+      .rf-auth-secure-pill{box-shadow:inset 0 1px 0 rgba(255,255,255,.14)}
+      @media(max-width:760px){.rf-auth-page{background:linear-gradient(180deg,#0c0e13 0 17%,#f6f7fa 17% 100%)!important}.rf-auth-shell{border-radius:20px!important}.rf-auth-hero-orbit{display:none}}
+
+            @media(prefers-reduced-motion:reduce){
         .rf-auth-page,
         .rf-auth-hero,
         .rf-auth-card,
