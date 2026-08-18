@@ -1,4 +1,14 @@
 User-agent: *
 Allow: /
+Allow: /blog/
+
+# Authenticated/private workspace surfaces should not be indexed.
 Disallow: /app/
-Sitemap: https://reachfly.ai/sitemap.xml
+Disallow: /login
+Disallow: /signup
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /accept-invite
+Disallow: /invite/accept
+
+Sitemap: https://www.reachflyai.com/sitemap.xml

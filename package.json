@@ -7,8 +7,10 @@
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "clean": "node -e \"import('node:fs').then(({ rmSync }) => { rmSync('dist', { recursive: true, force: true }); rmSync('node_modules/.vite', { recursive: true, force: true }); })\"",
-    "rebuild": "npm run clean && npm run build"
+    "clean": "node -e \"import('node:fs').then(({ rmSync }) => { rmSync('../../dist/web', { recursive: true, force: true }); rmSync('dist', { recursive: true, force: true }); rmSync('node_modules/.vite', { recursive: true, force: true }); })\"",
+    "rebuild": "npm run clean && npm run build",
+    "seo:prerender": "node -e \"process.env.REACHFLY_WEB_DIST='../../dist/web'; import('./scripts/prerender-blog.mjs')\"",
+    "postbuild": "npm run seo:prerender"
   },
   "dependencies": {
     "@dicebear/core": "^10.6.0",

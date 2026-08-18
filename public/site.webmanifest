@@ -1,10 +1,21 @@
 {
-  "name": "ReachFly.Ai",
+  "name": "ReachFly.Ai Sales Workspace",
   "short_name": "ReachFly",
-  "description": "AI marketing, lead scraping and auto-reach CRM.",
+  "description": "Lead discovery, AI audits, AI Voice, follow-up, meetings, CRM context, and team workflows in one connected sales workspace.",
+  "id": "/",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#fbfbff",
   "theme_color": "#7b42ff",
-  "icons": [{ "src": "/favicon.svg", "sizes": "64x64", "type": "image/svg+xml" }]
+  "lang": "en",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
 }
