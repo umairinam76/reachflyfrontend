@@ -251,7 +251,7 @@
       if (event.type === "error") {
         const streamError = new Error(
           event.error ||
-            "Could not retrieve Google Places leads."
+            "Could not retrieve matching business leads."
         );
 
         streamError.code =
@@ -565,7 +565,7 @@
       shortfall: requestedLimit,
       percent: 2,
       message:
-        "Connecting to Google Places…",
+        "Finding matching businesses…",
       leads: [],
       startedAt: Date.now(),
     };
@@ -1125,7 +1125,7 @@
         shortfall: requestedLimit,
         percent: 2,
         message:
-          "Connecting to Google Places…",
+          "Finding matching businesses…",
         leads: [],
         startedAt: Date.now(),
         search: {
@@ -1188,15 +1188,15 @@
             ),
           error:
             e?.message ||
-            "Could not retrieve Google Places leads.",
+            "Could not retrieve matching business leads.",
           message:
             e?.message ||
-            "Could not retrieve Google Places leads.",
+            "Could not retrieve matching business leads.",
         }));
 
         setError(
           e?.message ||
-            "Could not retrieve Google Places leads."
+            "Could not retrieve matching business leads."
         );
       } finally {
         if (
@@ -1579,7 +1579,8 @@
     ];
 
     return (
-      <div className="builder-page">
+      <div className="builder-page rf-builder-call-audit-v7">
+        <BuilderCallAuditV7Styles />
         <div className="page-top">
           <div>
             <span className="eyebrow">Campaign builder</span>
@@ -1617,7 +1618,7 @@
             </motion.div>
           </AnimatePresence>
 
-          {error ? <p className="form-error">{error}</p> : null}
+          {error ? <p className="form-error">{safeBuilderCallAuditMessage(error)}</p> : null}
 
           <div className="builder-actions">
             <button
@@ -1653,7 +1654,7 @@
         </div>
 
         <p className="builder-promise">
-          <Check /> Direct Google Places API · Official business websites
+          <Check /> Verified business discovery · Official business websites
         </p>
       </div>
     );
@@ -2553,6 +2554,11 @@
           body: { outcome, notes, status: "completed" },
         });
         setCall(updated);
+        notifyBuilderCallAudit(
+          "success",
+          "Call outcome saved",
+          "The call result and notes were saved to the lead."
+        );
       } catch (e) {
         setError(e.message);
       }
@@ -2584,7 +2590,7 @@
               </button>
             </div>
 
-            {error ? <div className="live-results-error">{error}</div> : null}
+            {error ? <div className="live-results-error">{safeBuilderCallAuditMessage(error)}</div> : null}
 
             <section className="call-mini-audit-embedded call-mini-audit-expanded">
               <header>
@@ -2920,6 +2926,14 @@
           ...current,
           [kind]: report,
         }));
+
+        notifyBuilderCallAudit(
+          "success",
+          "Audit started",
+          kind === "competitor"
+            ? "Competitor research is now running."
+            : "The full website audit is now running."
+        );
       } catch (requestError) {
         setError(
           requestError?.message ||
@@ -3065,7 +3079,7 @@
               <small>
                 {activeKind === "mini"
                   ? "Created automatically from public website and directory evidence."
-                  : "Generated on demand with Claude and live public research."}
+                  : "Generated on demand with live public research."}
               </small>
             </div>
 
@@ -3087,7 +3101,7 @@
 
           {error ? (
             <div className="audit-inline-error">
-              {error}
+              {safeBuilderCallAuditMessage(error)}
             </div>
           ) : null}
 
@@ -3102,7 +3116,7 @@
                 <span>!</span>
                 <h3>Report generation stopped</h3>
                 <p>
-                  {activeReport.error ||
+                  {safeBuilderCallAuditMessage(activeReport.error) ||
                     "The report could not be generated."}
                 </p>
                 <button
@@ -3827,3 +3841,605 @@
 
     return Math.max(1, Math.min(MAX_RADIUS_KM, number));
   }
+
+function safeBuilderCallAuditMessage(value) {
+  return String(value || "")
+    .replace(/ElevenLabs/gi, "voice service")
+    .replace(/Telnyx/gi, "calling service")
+    .replace(/Vonage/gi, "calling service")
+    .replace(/Google Places/gi, "business discovery")
+    .replace(/Claude/gi, "AI research")
+    .replace(/\bSIP\b/gi, "voice connection")
+    .replace(/\bWebRTC\b/gi, "browser calling");
+}
+
+function notifyBuilderCallAudit(type, title, message) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const bridge = window.reachflyToast;
+  if (bridge && typeof bridge[type] === "function") {
+    bridge[type](title, message);
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent("reachfly:toast", {
+      detail: { type, title, message },
+    })
+  );
+}
+
+function BuilderCallAuditV7Styles() {
+  return (
+    <style>{`
+      .rf-builder-call-audit-v7{
+        --rfbca-text:#191c1d;
+        --rfbca-text2:#4d4c59;
+        --rfbca-muted:#777784;
+        --rfbca-line:#e2e4e7;
+        --rfbca-primary:#4648d4;
+        --rfbca-primary-dark:#393bbb;
+        --rfbca-primary-soft:#e8e9ff;
+        --rfbca-violet:#6b38d4;
+        --rfbca-violet-soft:#f1ebff;
+        --rfbca-green:#087a51;
+        --rfbca-green-soft:#e4f7ee;
+        --rfbca-red:#ba1a1a;
+        --rfbca-red-soft:#ffedeb;
+        --rfbca-dark:#2e3132;
+        --rfbca-ease:cubic-bezier(.2,.8,.2,1);
+        width:100%;
+        min-height:100%;
+        padding:24px 30px 52px;
+        color:var(--rfbca-text);
+        font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      }
+
+      .rf-builder-call-audit-v7 *,
+      .rf-builder-call-audit-v7 *::before,
+      .rf-builder-call-audit-v7 *::after{box-sizing:border-box}
+
+      .rf-builder-call-audit-v7 .page-top{
+        min-height:150px;
+        display:flex;
+        align-items:flex-end;
+        justify-content:space-between;
+        gap:18px;
+        padding:19px;
+        margin-bottom:10px;
+        color:#fff;
+        background:
+          radial-gradient(circle at 88% 15%,rgba(86,89,223,.26),transparent 32%),
+          radial-gradient(circle at 15% 90%,rgba(107,56,212,.16),transparent 29%),
+          #2e3132;
+        border-radius:14px;
+      }
+
+      .rf-builder-call-audit-v7 .page-top .eyebrow{
+        color:#c9caff;
+        font-size:6px;
+        font-weight:800;
+        letter-spacing:.08em;
+        text-transform:uppercase;
+      }
+
+      .rf-builder-call-audit-v7 .page-top h1{
+        margin:4px 0 0;
+        color:#fff;
+        font:600 30px/38px Geist,Inter,sans-serif;
+        letter-spacing:-.03em;
+      }
+
+      .rf-builder-call-audit-v7 .builder-subtitle{
+        max-width:760px;
+        margin:5px 0 0;
+        color:rgba(244,246,247,.62);
+        font-size:8px;
+        line-height:13px;
+      }
+
+      .rf-builder-call-audit-v7 .step-count{
+        min-width:64px;
+        min-height:64px;
+        display:grid;
+        place-items:center;
+        align-content:center;
+        color:#fff;
+        background:rgba(255,255,255,.08);
+        border:1px solid rgba(255,255,255,.1);
+        border-radius:12px;
+        font:600 19px/22px Geist,Inter,sans-serif;
+      }
+
+      .rf-builder-call-audit-v7 .step-count small{font-size:6px;color:rgba(255,255,255,.55)}
+
+      .rf-builder-call-audit-v7 .step-line{
+        display:grid;
+        grid-template-columns:repeat(4,1fr);
+        gap:5px;
+        margin-bottom:10px;
+      }
+
+      .rf-builder-call-audit-v7 .step-line i{
+        height:5px;
+        background:#e7e8eb;
+        border-radius:999px;
+      }
+
+      .rf-builder-call-audit-v7 .step-line i.active{
+        background:linear-gradient(90deg,#5658df,#4648d4,#6b38d4);
+      }
+
+      .rf-builder-call-audit-v7 .builder-card{
+        min-width:0;
+        padding:15px;
+        background:#fff;
+        border:1px solid var(--rfbca-line);
+        border-radius:12px;
+        box-shadow:0 1px 3px rgba(25,28,29,.025);
+      }
+
+      .rf-builder-call-audit-v7 .builder-step{
+        display:grid;
+        gap:10px;
+      }
+
+      .rf-builder-call-audit-v7 .builder-step > .eyebrow{
+        color:var(--rfbca-primary);
+        font-size:5.8px;
+        font-weight:800;
+        letter-spacing:.07em;
+        text-transform:uppercase;
+      }
+
+      .rf-builder-call-audit-v7 .builder-step h2{
+        margin:0;
+        font:600 17px/23px Geist,Inter,sans-serif;
+        letter-spacing:-.018em;
+      }
+
+      .rf-builder-call-audit-v7 .builder-step > p{
+        margin:0;
+        color:var(--rfbca-muted);
+        font-size:6.2px;
+        line-height:10px;
+      }
+
+      .rf-builder-call-audit-v7 .builder-workspace-summary,
+      .rf-builder-call-audit-v7 .sentence-card,
+      .rf-builder-call-audit-v7 .builder-review-grid > div,
+      .rf-builder-call-audit-v7 .launch-settings > label,
+      .rf-builder-call-audit-v7 .range-label{
+        padding:10px;
+        background:#f7f8f9;
+        border:1px solid transparent;
+        border-radius:9px;
+      }
+
+      .rf-builder-call-audit-v7 .launch-settings,
+      .rf-builder-call-audit-v7 .builder-review-grid{
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:7px;
+      }
+
+      .rf-builder-call-audit-v7 label{
+        display:grid;
+        gap:4px;
+      }
+
+      .rf-builder-call-audit-v7 label > span,
+      .rf-builder-call-audit-v7 .field-label{
+        color:var(--rfbca-muted);
+        font-size:5.5px;
+        font-weight:750;
+        text-transform:uppercase;
+      }
+
+      .rf-builder-call-audit-v7 input,
+      .rf-builder-call-audit-v7 select,
+      .rf-builder-call-audit-v7 textarea{
+        width:100%;
+        min-height:39px;
+        padding:8px 9px;
+        color:var(--rfbca-text);
+        background:#f7f8f9;
+        border:1px solid transparent;
+        border-radius:8px;
+        outline:0;
+        font:400 6.5px/11px Inter,sans-serif;
+      }
+
+      .rf-builder-call-audit-v7 textarea{min-height:90px;resize:vertical}
+      .rf-builder-call-audit-v7 input:focus,
+      .rf-builder-call-audit-v7 select:focus,
+      .rf-builder-call-audit-v7 textarea:focus{
+        background:#fff;
+        border-color:rgba(70,72,212,.5);
+        box-shadow:0 0 0 3px rgba(70,72,212,.06);
+      }
+
+      .rf-builder-call-audit-v7 .suggestions,
+      .rf-builder-call-audit-v7 .radius-quick-options{
+        display:flex;
+        flex-wrap:wrap;
+        gap:5px;
+      }
+
+      .rf-builder-call-audit-v7 .suggestions button,
+      .rf-builder-call-audit-v7 .radius-quick-options button{
+        min-height:29px;
+        padding:5px 7px;
+        color:#56577a;
+        background:var(--rfbca-primary-soft);
+        border:1px solid #dddfff;
+        border-radius:999px;
+        cursor:pointer;
+        font-size:5.3px;
+        font-weight:700;
+      }
+
+      .rf-builder-call-audit-v7 .radius-quick-options button.active{
+        color:#fff;
+        background:var(--rfbca-primary);
+        border-color:var(--rfbca-primary);
+      }
+
+      .rf-builder-call-audit-v7 .builder-actions{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:7px;
+        padding-top:11px;
+        margin-top:11px;
+        border-top:1px solid #eff0f1;
+      }
+
+      .rf-builder-call-audit-v7 .btn,
+      .audit-drawer-backdrop .btn{
+        min-height:38px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        gap:6px;
+        padding:7px 10px;
+        color:var(--rfbca-text,#191c1d);
+        background:#fff;
+        border:1px solid var(--rfbca-line,#e2e4e7);
+        border-radius:8px;
+        cursor:pointer;
+        font-size:6px;
+        font-weight:750;
+        transition:.14s var(--rfbca-ease,cubic-bezier(.2,.8,.2,1));
+      }
+
+      .rf-builder-call-audit-v7 .btn.primary,
+      .audit-drawer-backdrop .btn.primary{
+        color:#fff;
+        background:var(--rfbca-primary,#4648d4);
+        border-color:var(--rfbca-primary,#4648d4);
+      }
+
+      .rf-builder-call-audit-v7 .btn:hover:not(:disabled),
+      .audit-drawer-backdrop .btn:hover:not(:disabled){transform:translateY(-1px)}
+      .rf-builder-call-audit-v7 .btn:disabled,
+      .audit-drawer-backdrop .btn:disabled{opacity:.43;cursor:not-allowed}
+
+      .rf-builder-call-audit-v7 .form-error,
+      .live-results-error,
+      .audit-inline-error{
+        padding:9px 10px;
+        margin-top:8px;
+        color:#7c1d1d;
+        background:#ffedeb;
+        border:1px solid #ffd0cc;
+        border-radius:8px;
+        font-size:6.2px;
+        line-height:10px;
+      }
+
+      .rf-builder-call-audit-v7 .builder-promise{
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        gap:6px;
+        margin:10px 0 0;
+        color:var(--rfbca-muted);
+        font-size:5.4px;
+      }
+
+      .audit-drawer-backdrop{
+        position:fixed;
+        z-index:2147481100;
+        inset:0;
+        display:grid;
+        justify-items:end;
+        padding:0;
+        background:rgba(25,28,29,.58);
+        backdrop-filter:blur(8px);
+      }
+
+      .lead-audit-drawer,
+      .call-drawer{
+        width:min(760px,92vw);
+        height:100vh;
+        display:grid;
+        grid-template-rows:auto auto auto minmax(0,1fr) auto;
+        overflow:hidden;
+        color:#191c1d;
+        background:#fff;
+        border-left:1px solid #e2e4e7;
+        box-shadow:-18px 0 55px rgba(25,28,29,.16);
+      }
+
+      .call-drawer{width:min(700px,92vw);grid-template-rows:auto auto minmax(0,1fr)}
+
+      .audit-drawer-header,
+      .call-drawer-header{
+        min-height:82px;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:12px;
+        padding:13px 15px;
+        color:#fff;
+        background:
+          radial-gradient(circle at 90% 10%,rgba(86,89,223,.24),transparent 32%),
+          #2e3132;
+        border-bottom:1px solid rgba(255,255,255,.06);
+      }
+
+      .audit-drawer-header .eyebrow,
+      .call-drawer-header .eyebrow{color:#c9caff;font-size:5.5px;font-weight:800;text-transform:uppercase}
+      .audit-drawer-header h2,
+      .call-drawer-header h2{margin:2px 0 0;color:#fff;font:600 16px/21px Geist,Inter,sans-serif}
+      .audit-drawer-header p,
+      .call-drawer-header p{margin:2px 0 0;color:rgba(244,246,247,.6);font-size:5.5px}
+
+      .audit-close-button,
+      .audit-close{
+        width:34px;
+        height:34px;
+        display:grid;
+        place-items:center;
+        color:#fff;
+        background:rgba(255,255,255,.08);
+        border:1px solid rgba(255,255,255,.12);
+        border-radius:8px;
+        cursor:pointer;
+        font-size:14px;
+      }
+
+      .audit-kind-tabs{
+        display:flex;
+        gap:4px;
+        overflow-x:auto;
+        padding:6px 10px;
+        background:#fafbfb;
+        border-bottom:1px solid #e2e4e7;
+      }
+
+      .audit-kind-tabs button{
+        min-height:33px;
+        display:inline-flex;
+        align-items:center;
+        gap:5px;
+        padding:5px 8px;
+        color:#4d4c59;
+        background:transparent;
+        border:0;
+        border-radius:7px;
+        cursor:pointer;
+        font-size:5.6px;
+        font-weight:750;
+      }
+
+      .audit-kind-tabs button.active{color:#4648d4;background:#e8e9ff}
+
+      .audit-action-bar{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:10px;
+        padding:9px 11px;
+        background:#fff;
+        border-bottom:1px solid #e2e4e7;
+      }
+
+      .audit-status{
+        display:inline-flex;
+        width:max-content;
+        padding:4px 6px;
+        color:#57587a;
+        background:#e8e9ff;
+        border-radius:999px;
+        font-size:5px;
+        font-weight:800;
+      }
+
+      .audit-report-scroll{
+        min-height:0;
+        overflow-y:auto;
+        padding:13px;
+        background:#f8f9fa;
+      }
+
+      .mini-audit-sheet,
+      .expanded-audit-sheet{
+        display:grid;
+        gap:10px;
+        padding:14px;
+        background:#fff;
+        border:1px solid #e2e4e7;
+        border-radius:11px;
+        box-shadow:0 1px 3px rgba(25,28,29,.025);
+      }
+
+      .mini-audit-confidential{
+        padding:7px 8px;
+        color:#825400;
+        background:#fff3d8;
+        border-radius:7px;
+        text-align:center;
+        font-size:5px;
+        font-weight:800;
+      }
+
+      .mini-audit-brandline{color:#4648d4;font-size:5.5px;font-weight:800;letter-spacing:.06em}
+      .mini-audit-title h1,
+      .audit-report-heading h1{margin:0;font:600 20px/27px Geist,Inter,sans-serif;letter-spacing:-.025em}
+      .mini-audit-title p,
+      .audit-report-heading p{margin:4px 0 0;color:#777784;font-size:6px;line-height:10px}
+
+      .audit-section-title{
+        padding:7px 0 5px;
+        border-bottom:1px solid #eff0f1;
+        color:#4648d4;
+        font-size:5.5px;
+        font-weight:800;
+        text-transform:uppercase;
+      }
+
+      .mini-audit-snapshot,
+      .call-audit-snapshot-grid,
+      .audit-highlight-grid{
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:6px;
+      }
+
+      .mini-audit-snapshot > div,
+      .call-audit-snapshot-grid > div,
+      .audit-highlight-grid > div{
+        min-width:0;
+        min-height:60px;
+        display:grid;
+        align-content:center;
+        padding:8px;
+        background:#f7f8f9;
+        border-radius:8px;
+      }
+
+      .mini-audit-snapshot span,
+      .call-audit-snapshot-grid small,
+      .audit-highlight-grid span{color:#777784;font-size:4.8px}
+      .mini-audit-snapshot b,
+      .call-audit-snapshot-grid b,
+      .audit-highlight-grid b{margin-top:2px;overflow:hidden;text-overflow:ellipsis;font-size:5.7px}
+
+      .mini-audit-issues,
+      .call-audit-issues-list,
+      .audit-finding-list,
+      .full-audit-findings,
+      .competitor-report-grid,
+      .audit-roadmap{display:grid;gap:6px}
+
+      .mini-audit-issue,
+      .call-audit-issue,
+      .audit-finding-list > article,
+      .full-audit-findings > article,
+      .competitor-report-grid > article,
+      .audit-roadmap > article{
+        min-width:0;
+        padding:9px;
+        background:#f7f8f9;
+        border:1px solid transparent;
+        border-radius:8px;
+      }
+
+      .call-status-panel{
+        display:grid;
+        grid-template-columns:10px minmax(0,1fr) auto;
+        align-items:center;
+        gap:8px;
+        padding:10px 12px;
+        background:#fafbfb;
+        border-bottom:1px solid #e2e4e7;
+      }
+
+      .call-status-dot{width:9px;height:9px;background:#087a51;border-radius:50%}
+      .call-status-panel > div{min-width:0;display:grid}
+      .call-status-panel small{color:#777784;font-size:4.8px}
+      .call-status-panel strong{font-size:6.2px}
+      .call-status-panel span{margin-top:2px;color:#777784;font-size:5.2px}
+
+      .call-mini-audit-embedded,
+      .call-script-card,
+      .call-outcome-card{
+        margin:10px 12px 0;
+        padding:11px;
+        background:#fff;
+        border:1px solid #e2e4e7;
+        border-radius:9px;
+      }
+
+      .audit-report-loader,
+      .audit-failed-state{
+        min-height:360px;
+        display:grid;
+        place-items:center;
+        align-content:center;
+        gap:7px;
+        padding:24px;
+        text-align:center;
+        background:#fff;
+        border:1px dashed #d9dbdf;
+        border-radius:10px;
+      }
+
+      .audit-loader-orbit{
+        width:52px;
+        height:52px;
+        border:2px solid #e8e9ff;
+        border-top-color:#4648d4;
+        border-radius:50%;
+      }
+
+      .audit-drawer-footer{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:7px;
+        padding:9px 11px;
+        background:#fff;
+        border-top:1px solid #e2e4e7;
+      }
+
+      @media(max-width:900px){
+        .rf-builder-call-audit-v7{padding:22px}
+        .rf-builder-call-audit-v7 .launch-settings,
+        .rf-builder-call-audit-v7 .builder-review-grid{grid-template-columns:1fr 1fr}
+      }
+
+      @media(max-width:620px){
+        .rf-builder-call-audit-v7{padding:18px 12px 80px}
+        .rf-builder-call-audit-v7 .page-top{padding:15px;align-items:flex-start;flex-direction:column}
+        .rf-builder-call-audit-v7 .page-top h1{font-size:24px;line-height:31px}
+        .rf-builder-call-audit-v7 .launch-settings,
+        .rf-builder-call-audit-v7 .builder-review-grid,
+        .mini-audit-snapshot,
+        .call-audit-snapshot-grid,
+        .audit-highlight-grid{grid-template-columns:1fr}
+        .rf-builder-call-audit-v7 .builder-actions{align-items:stretch;flex-direction:column-reverse}
+        .rf-builder-call-audit-v7 .builder-actions .btn{width:100%}
+        .lead-audit-drawer,
+        .call-drawer{width:100vw}
+        .audit-action-bar,
+        .audit-drawer-footer{align-items:stretch;flex-direction:column}
+        .audit-action-bar .btn,
+        .audit-drawer-footer button{width:100%}
+        .call-status-panel{grid-template-columns:10px minmax(0,1fr)}
+        .call-status-panel .call-now-button{grid-column:1/-1;width:100%}
+      }
+
+      @media(prefers-reduced-motion:reduce){
+        .rf-builder-call-audit-v7,
+        .rf-builder-call-audit-v7 *,
+        .audit-drawer-backdrop,
+        .audit-drawer-backdrop *{animation:none!important;transition-duration:.01ms!important}
+      }
+    `}</style>
+  );
+}
