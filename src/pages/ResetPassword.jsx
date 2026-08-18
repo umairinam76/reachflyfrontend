@@ -1,66 +1,1163 @@
-import { useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Lock } from "../components/icons";
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import {
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
+  Clock3,
+  KeyRound,
+  Lock,
+  Mail,
+  Shield,
+  Sparkles,
+  X,
+} from "../components/icons";
 import { api } from "../api";
 import AuthLayout from "./AuthLayout";
 
-export default function ResetPassword() {
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const token = searchParams.get("token") || "";
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
+const GENERIC_SUCCESS_MESSAGE =
+  "If a ReachFly account exists for that email, password reset instructions have been sent.";
+
+export default function ForgotPassword() {
+  const [email, setEmail] = useState("");
+  const [submittedEmail, setSubmittedEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
+  const normalizedEmail = useMemo(
+    () => String(email || "").trim().toLowerCase(),
+    [email]
+  );
+
+  const emailValid = useMemo(
+    () => isValidEmail(normalizedEmail),
+    [normalizedEmail]
+  );
+
+  const completed = Boolean(message);
+
+  function updateEmail(value) {
+    if (loading) return;
+
+    setEmail(value);
+    setError("");
+  }
+
+  function startOver() {
+    if (loading) return;
+
+    setEmail(submittedEmail || "");
+    setSubmittedEmail("");
+    setMessage("");
+    setError("");
+  }
 
   async function submit(event) {
     event.preventDefault();
-    if (!token) {
-      setError("This reset link is incomplete. Request a new password reset email.");
+
+    if (loading) return;
+
+    if (!normalizedEmail) {
+      setError("Enter the email address you use to sign in.");
       return;
     }
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
+
+    if (!emailValid) {
+      setError("Enter a valid email address.");
       return;
     }
-    if (password !== confirm) {
-      setError("Passwords do not match.");
-      return;
-    }
+
     try {
       setLoading(true);
       setError("");
-      await api.resetPassword({ token, password });
-      navigate("/login?reset=success", { replace: true });
+
+      const response = await api.forgotPassword({
+        email: normalizedEmail,
+      });
+
+      setSubmittedEmail(normalizedEmail);
+
+      /*
+       * Preserve the backend response when it is safe and useful, while keeping
+       * a non-enumerating fallback for password-recovery UX.
+       */
+      setMessage(
+        safeRecoveryMessage(response?.message) ||
+          GENERIC_SUCCESS_MESSAGE
+      );
     } catch (requestError) {
-      setError(requestError?.message || "The password could not be reset.");
+      setError(
+        safeAuthMessage(
+          requestError?.message ||
+            "Password recovery could not be started. Please try again."
+        )
+      );
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <AuthLayout
-      eyebrow="Secure reset"
-      title="Choose a new password."
-      text="This secure reset link can be used once and expires after 30 minutes."
-      footer={<Link to="/forgot-password">Request a new reset link</Link>}
-    >
-      <form className="rf-auth-form" onSubmit={submit} noValidate>
-        <div className="rf-auth-card-head"><h2>New password</h2></div>
-        {error ? <p className="rf-auth-error" role="alert">{error}</p> : null}
-        <label className="rf-auth-input">
-          <span>New password</span>
-          <div><Lock size={17} /><input type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} disabled={loading} /></div>
-        </label>
-        <label className="rf-auth-input">
-          <span>Confirm new password</span>
-          <div><Lock size={17} /><input type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} disabled={loading} /></div>
-        </label>
-        <button className="rf-auth-submit" type="submit" disabled={loading || !token}>
-          {loading ? "Updating password…" : "Update password"}
+    <>
+      <ForgotPasswordStyles />
+
+      <AuthLayout
+        eyebrow="Account recovery"
+        title="Get back into your ReachFly workspace securely."
+        text="Enter the email you use for ReachFly. If an account exists, we'll send a secure, time-limited password reset link."
+        footer={
+          <>
+            Remembered your password?{" "}
+            <Link to="/login">
+              Back to sign in
+            </Link>
+          </>
+        }
+      >
+        <section className="rf-auth-form rf-forgot-v7">
+          <ForgotMobileIntro completed={completed} />
+
+          {!completed ? (
+            <form
+              className="rff-recovery-form"
+              onSubmit={submit}
+              noValidate
+            >
+              <header className="rf-auth-card-head rff-card-head">
+                <span className="rff-card-eyebrow">
+                  Password recovery
+                </span>
+
+                <h2>
+                  Reset your password
+                </h2>
+
+                <p>
+                  We'll send recovery instructions to your account email. For
+                  security, this screen never reveals whether an email is
+                  registered.
+                </p>
+              </header>
+
+              {error ? (
+                <RecoveryAlert
+                  tone="error"
+                  title="Recovery needs attention"
+                  text={error}
+                  onClose={() => setError("")}
+                />
+              ) : null}
+
+              <div className="rff-recovery-visual">
+                <div className="rff-key-orbit">
+                  <span>
+                    <KeyRound size={21} />
+                  </span>
+
+                  <i className="one" />
+                  <i className="two" />
+                  <i className="three" />
+                </div>
+
+                <div>
+                  <strong>
+                    Secure account recovery
+                  </strong>
+
+                  <p>
+                    The reset link is generated by ReachFly's existing account
+                    recovery service and is intended only for the account owner.
+                  </p>
+                </div>
+              </div>
+
+              <label className="rff-field">
+                <span>
+                  Email address
+                </span>
+
+                <div>
+                  <Mail size={15} />
+
+                  <input
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(event) =>
+                      updateEmail(event.target.value)
+                    }
+                    placeholder="you@company.com"
+                    disabled={loading}
+                    required
+                    autoFocus
+                  />
+
+                  {emailValid ? (
+                    <i
+                      className="rff-valid-email"
+                      aria-label="Email format looks valid"
+                    >
+                      <CheckCircle2 size={14} />
+                    </i>
+                  ) : null}
+                </div>
+              </label>
+
+              <div className="rff-security-note">
+                <Shield size={13} />
+
+                <p>
+                  ReachFly does not expose account existence, passwords, or
+                  recovery tokens on this screen.
+                </p>
+              </div>
+
+              <button
+                className="rf-auth-submit rff-submit"
+                type="submit"
+                disabled={loading || !normalizedEmail}
+              >
+                {loading ? (
+                  <>
+                    <span className="rff-spinner" />
+
+                    Sending recovery instructions…
+                  </>
+                ) : (
+                  <>
+                    Send reset link
+
+                    <ArrowRight size={15} />
+                  </>
+                )}
+              </button>
+
+              <Link
+                className="rff-back-link"
+                to="/login"
+              >
+                <ArrowLeft size={13} />
+
+                Back to sign in
+              </Link>
+            </form>
+          ) : (
+            <RecoverySent
+              email={submittedEmail}
+              message={message}
+              onStartOver={startOver}
+            />
+          )}
+        </section>
+      </AuthLayout>
+    </>
+  );
+}
+
+function ForgotMobileIntro({
+  completed,
+}) {
+  return (
+    <div className="rff-mobile-intro">
+      <span>
+        <Sparkles size={13} />
+
+        ReachFly account recovery
+      </span>
+
+      <h1>
+        {completed
+          ? "Check your inbox."
+          : "Reset your password."}
+      </h1>
+
+      <p>
+        {completed
+          ? "Follow the secure recovery link if it arrives."
+          : "Enter your account email to start recovery."}
+      </p>
+    </div>
+  );
+}
+
+function RecoverySent({
+  email,
+  message,
+  onStartOver,
+}) {
+  return (
+    <div className="rff-success-state">
+      <div className="rff-success-icon">
+        <span>
+          <CheckCircle2 size={25} />
+        </span>
+
+        <i />
+      </div>
+
+      <span className="rff-card-eyebrow">
+        Recovery requested
+      </span>
+
+      <h2>
+        Check your inbox
+      </h2>
+
+      <p className="rff-success-message">
+        {message}
+      </p>
+
+      {email ? (
+        <div className="rff-email-chip">
+          <Mail size={13} />
+
+          <span>
+            {maskEmail(email)}
+          </span>
+        </div>
+      ) : null}
+
+      <section className="rff-next-steps">
+        <header>
+          <Clock3 size={14} />
+
+          <strong>
+            What to do next
+          </strong>
+        </header>
+
+        <ol>
+          <li>
+            <span>
+              1
+            </span>
+
+            <div>
+              <strong>
+                Check your inbox
+              </strong>
+
+              <p>
+                Look for the ReachFly password recovery message sent to the
+                email above.
+              </p>
+            </div>
+          </li>
+
+          <li>
+            <span>
+              2
+            </span>
+
+            <div>
+              <strong>
+                Open the secure link
+              </strong>
+
+              <p>
+                Use the time-limited recovery link from the email to choose a
+                new password.
+              </p>
+            </div>
+          </li>
+
+          <li>
+            <span>
+              3
+            </span>
+
+            <div>
+              <strong>
+                Sign in again
+              </strong>
+
+              <p>
+                Return to ReachFly and sign in with your new password.
+              </p>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <div className="rff-success-actions">
+        <Link
+          className="rf-auth-submit rff-login-link"
+          to="/login"
+        >
+          Return to sign in
+
+          <ArrowRight size={15} />
+        </Link>
+
+        <button
+          type="button"
+          className="rff-secondary-action"
+          onClick={onStartOver}
+        >
+          Use a different email
         </button>
-      </form>
-    </AuthLayout>
+      </div>
+
+      <div className="rff-help-note">
+        <Lock size={12} />
+
+        <p>
+          Didn't receive an email? Check spam or junk folders first. You can
+          also try again with another address you may have used for ReachFly.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function RecoveryAlert({
+  tone,
+  title,
+  text,
+  onClose,
+}) {
+  return (
+    <div
+      className={`rff-alert ${tone}`}
+      role={
+        tone === "error"
+          ? "alert"
+          : "status"
+      }
+    >
+      <span>
+        <X size={13} />
+      </span>
+
+      <div>
+        <strong>
+          {title}
+        </strong>
+
+        <p>
+          {text}
+        </p>
+      </div>
+
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Dismiss recovery message"
+      >
+        <X size={10} />
+      </button>
+    </div>
+  );
+}
+
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+    String(value || "").trim()
+  );
+}
+
+function maskEmail(value) {
+  const email = String(value || "").trim();
+  const [local, domain] = email.split("@");
+
+  if (!local || !domain) {
+    return email;
+  }
+
+  if (local.length <= 2) {
+    return `${local[0] || ""}***@${domain}`;
+  }
+
+  return `${local.slice(0, 2)}${"•".repeat(
+    Math.min(6, Math.max(3, local.length - 2))
+  )}@${domain}`;
+}
+
+function safeRecoveryMessage(value) {
+  const text = String(value || "").trim();
+
+  if (!text) {
+    return "";
+  }
+
+  /*
+   * Avoid surfacing backend copy that would disclose whether the email exists.
+   * Generic delivery/status copy remains safe to display.
+   */
+  if (
+    /\b(no account|not found|does not exist|unknown user|unknown email|registered)\b/i.test(
+      text
+    )
+  ) {
+    return GENERIC_SUCCESS_MESSAGE;
+  }
+
+  return safeAuthMessage(text);
+}
+
+function safeAuthMessage(value) {
+  return String(value || "")
+    .replace(/ElevenLabs/gi, "voice service")
+    .replace(/Telnyx/gi, "calling service")
+    .replace(/\bSIP\b/gi, "voice connection")
+    .replace(/Supabase/gi, "authentication service");
+}
+
+function ForgotPasswordStyles() {
+  return (
+    <style>{`
+      .rf-forgot-v7{
+        --rff-text:#191c1d;
+        --rff-text2:#464554;
+        --rff-muted:#767586;
+        --rff-line:#e2e4e7;
+        --rff-soft:#f3f4f5;
+        --rff-primary:#4648d4;
+        --rff-primary-dark:#3537bb;
+        --rff-primary-soft:#e8e9ff;
+        --rff-violet:#6b38d4;
+        --rff-violet-soft:#f0eaff;
+        --rff-success:#087a51;
+        --rff-success-soft:#dff8eb;
+        --rff-danger:#ba1a1a;
+        --rff-danger-soft:#ffedeb;
+        --rff-ease:cubic-bezier(.2,.8,.2,1);
+        width:100%;
+      }
+
+      .rf-forgot-v7 *,
+      .rf-forgot-v7 *::before,
+      .rf-forgot-v7 *::after{
+        box-sizing:border-box;
+      }
+
+      @keyframes rffIn{
+        from{
+          opacity:0;
+          transform:translate3d(0,7px,0);
+        }
+        to{
+          opacity:1;
+          transform:none;
+        }
+      }
+
+      @keyframes rffSpin{
+        to{
+          transform:rotate(360deg);
+        }
+      }
+
+      @keyframes rffPulse{
+        0%,100%{
+          transform:scale(.95);
+          opacity:.35;
+        }
+        50%{
+          transform:scale(1.05);
+          opacity:.55;
+        }
+      }
+
+      .rff-mobile-intro{
+        display:none;
+      }
+
+      .rff-recovery-form,
+      .rff-success-state{
+        animation:rffIn 220ms var(--rff-ease);
+      }
+
+      .rff-card-head{
+        margin-bottom:16px!important;
+      }
+
+      .rff-card-eyebrow{
+        display:block;
+        margin-bottom:5px;
+        color:var(--rff-primary);
+        font-size:6px;
+        font-weight:800;
+        letter-spacing:.11em;
+        text-transform:uppercase;
+      }
+
+      .rff-card-head h2,
+      .rff-success-state h2{
+        margin:0;
+        color:var(--rff-text);
+        font:600 26px/33px Geist,Inter,sans-serif;
+        letter-spacing:-.025em;
+      }
+
+      .rff-card-head p{
+        max-width:410px;
+        margin:5px 0 0;
+        color:var(--rff-text2);
+        font-size:8px;
+        line-height:13px;
+      }
+
+      .rff-alert{
+        display:grid;
+        grid-template-columns:25px minmax(0,1fr) 22px;
+        align-items:start;
+        gap:7px;
+        padding:9px 10px;
+        margin:0 0 13px;
+        border:1px solid;
+        border-radius:8px;
+        animation:rffIn 170ms var(--rff-ease);
+      }
+
+      .rff-alert.error{
+        color:#7f1b1b;
+        background:var(--rff-danger-soft);
+        border-color:#ffd0cc;
+      }
+
+      .rff-alert > span{
+        width:25px;
+        height:25px;
+        display:grid;
+        place-items:center;
+        background:#fff;
+        border-radius:7px;
+      }
+
+      .rff-alert > div{
+        min-width:0;
+      }
+
+      .rff-alert strong{
+        display:block;
+        font-size:7px;
+      }
+
+      .rff-alert p{
+        margin:1px 0 0;
+        font-size:7px;
+        line-height:11px;
+      }
+
+      .rff-alert > button{
+        width:22px;
+        height:22px;
+        display:grid;
+        place-items:center;
+        padding:0;
+        color:currentColor;
+        background:transparent;
+        border:0;
+        border-radius:5px;
+        cursor:pointer;
+        opacity:.65;
+      }
+
+      .rff-recovery-visual{
+        min-height:104px;
+        display:grid;
+        grid-template-columns:74px minmax(0,1fr);
+        align-items:center;
+        gap:12px;
+        padding:12px;
+        margin-bottom:14px;
+        overflow:hidden;
+        background:
+          radial-gradient(circle at 8% 50%,rgba(70,72,212,.10),transparent 30%),
+          linear-gradient(135deg,#f8f8fc,#f3f4f7);
+        border:1px solid #eceef1;
+        border-radius:10px;
+      }
+
+      .rff-key-orbit{
+        position:relative;
+        width:68px;
+        height:68px;
+        display:grid;
+        place-items:center;
+      }
+
+      .rff-key-orbit::before,
+      .rff-key-orbit::after{
+        content:"";
+        position:absolute;
+        border:1px solid rgba(70,72,212,.14);
+        border-radius:50%;
+      }
+
+      .rff-key-orbit::before{
+        inset:0;
+      }
+
+      .rff-key-orbit::after{
+        inset:9px;
+      }
+
+      .rff-key-orbit > span{
+        position:relative;
+        z-index:2;
+        width:40px;
+        height:40px;
+        display:grid;
+        place-items:center;
+        color:#fff;
+        background:linear-gradient(135deg,#5557df,#4648d4);
+        border-radius:11px;
+        box-shadow:0 7px 16px rgba(70,72,212,.18);
+      }
+
+      .rff-key-orbit > i{
+        position:absolute;
+        z-index:1;
+        width:5px;
+        height:5px;
+        background:#7779df;
+        border-radius:50%;
+      }
+
+      .rff-key-orbit > i.one{
+        left:4px;
+        top:30px;
+      }
+
+      .rff-key-orbit > i.two{
+        right:8px;
+        top:9px;
+      }
+
+      .rff-key-orbit > i.three{
+        right:2px;
+        bottom:16px;
+      }
+
+      .rff-recovery-visual > div:last-child{
+        min-width:0;
+      }
+
+      .rff-recovery-visual strong{
+        display:block;
+        color:var(--rff-text);
+        font-size:8px;
+      }
+
+      .rff-recovery-visual p{
+        margin:3px 0 0;
+        color:var(--rff-muted);
+        font-size:6.8px;
+        line-height:11px;
+      }
+
+      .rff-field{
+        display:grid;
+        gap:6px;
+      }
+
+      .rff-field > span{
+        color:var(--rff-text);
+        font-size:7px;
+        font-weight:700;
+      }
+
+      .rff-field > div{
+        min-height:46px;
+        display:flex;
+        align-items:center;
+        gap:8px;
+        padding:0 10px;
+        color:#898a93;
+        background:#fff;
+        border:1px solid var(--rff-line);
+        border-radius:8px;
+        transition:
+          border-color 140ms var(--rff-ease),
+          box-shadow 140ms var(--rff-ease);
+      }
+
+      .rff-field > div:focus-within{
+        border-color:rgba(70,72,212,.55);
+        box-shadow:0 0 0 3px rgba(70,72,212,.07);
+      }
+
+      .rff-field > div > svg{
+        flex:0 0 auto;
+      }
+
+      .rff-field input{
+        min-width:0;
+        width:100%;
+        height:44px;
+        padding:0;
+        color:var(--rff-text);
+        background:transparent;
+        border:0;
+        outline:0;
+        font-size:9px;
+      }
+
+      .rff-field input::placeholder{
+        color:#a3a4ac;
+      }
+
+      .rff-valid-email{
+        width:25px;
+        height:25px;
+        display:grid;
+        place-items:center;
+        flex:0 0 25px;
+        color:var(--rff-success);
+        background:var(--rff-success-soft);
+        border-radius:7px;
+        font-style:normal;
+      }
+
+      .rff-security-note{
+        display:flex;
+        align-items:flex-start;
+        gap:7px;
+        padding:9px 10px;
+        margin:10px 0 13px;
+        color:var(--rff-primary);
+        background:var(--rff-primary-soft);
+        border-radius:8px;
+      }
+
+      .rff-security-note > svg{
+        flex:0 0 auto;
+        margin-top:1px;
+      }
+
+      .rff-security-note p{
+        margin:0;
+        color:var(--rff-text2);
+        font-size:6.5px;
+        line-height:11px;
+      }
+
+      .rff-submit{
+        min-height:45px!important;
+      }
+
+      .rff-spinner{
+        width:12px;
+        height:12px;
+        display:block;
+        border:2px solid currentColor;
+        border-right-color:transparent;
+        border-radius:50%;
+        animation:rffSpin .7s linear infinite;
+      }
+
+      .rff-back-link{
+        width:max-content;
+        display:inline-flex;
+        align-items:center;
+        gap:5px;
+        margin:11px auto 0;
+        color:var(--rff-muted)!important;
+        text-decoration:none;
+        font-size:6.5px;
+        font-weight:650;
+      }
+
+      .rff-back-link:hover{
+        color:var(--rff-primary)!important;
+      }
+
+      .rff-success-state{
+        display:grid;
+        justify-items:center;
+        text-align:center;
+      }
+
+      .rff-success-icon{
+        position:relative;
+        width:76px;
+        height:76px;
+        display:grid;
+        place-items:center;
+        margin-bottom:12px;
+      }
+
+      .rff-success-icon > span{
+        position:relative;
+        z-index:2;
+        width:52px;
+        height:52px;
+        display:grid;
+        place-items:center;
+        color:var(--rff-success);
+        background:var(--rff-success-soft);
+        border:1px solid #c3ecd8;
+        border-radius:15px;
+      }
+
+      .rff-success-icon > i{
+        position:absolute;
+        inset:5px;
+        background:rgba(8,122,81,.06);
+        border-radius:50%;
+        animation:rffPulse 2.2s ease-in-out infinite;
+      }
+
+      .rff-success-state > .rff-card-eyebrow{
+        margin-bottom:4px;
+      }
+
+      .rff-success-message{
+        max-width:390px;
+        margin:6px 0 0;
+        color:var(--rff-text2);
+        font-size:8px;
+        line-height:13px;
+      }
+
+      .rff-email-chip{
+        min-height:33px;
+        display:inline-flex;
+        align-items:center;
+        gap:6px;
+        max-width:100%;
+        padding:6px 9px;
+        margin-top:11px;
+        color:#3436a6;
+        background:var(--rff-primary-soft);
+        border:1px solid #dadbff;
+        border-radius:999px;
+        font-size:7px;
+        font-weight:700;
+      }
+
+      .rff-email-chip span{
+        max-width:280px;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+      }
+
+      .rff-next-steps{
+        width:100%;
+        margin-top:16px;
+        overflow:hidden;
+        background:#fff;
+        border:1px solid var(--rff-line);
+        border-radius:10px;
+        text-align:left;
+      }
+
+      .rff-next-steps > header{
+        min-height:42px;
+        display:flex;
+        align-items:center;
+        gap:6px;
+        padding:9px 11px;
+        color:var(--rff-primary);
+        background:#f8f8fb;
+        border-bottom:1px solid var(--rff-line);
+      }
+
+      .rff-next-steps > header strong{
+        color:var(--rff-text);
+        font-size:7px;
+      }
+
+      .rff-next-steps ol{
+        display:grid;
+        gap:0;
+        padding:0;
+        margin:0;
+        list-style:none;
+      }
+
+      .rff-next-steps li{
+        min-height:64px;
+        display:grid;
+        grid-template-columns:26px minmax(0,1fr);
+        align-items:start;
+        gap:8px;
+        padding:10px 11px;
+      }
+
+      .rff-next-steps li + li{
+        border-top:1px solid #f0f1f2;
+      }
+
+      .rff-next-steps li > span{
+        width:24px;
+        height:24px;
+        display:grid;
+        place-items:center;
+        color:var(--rff-primary);
+        background:var(--rff-primary-soft);
+        border-radius:7px;
+        font-size:6px;
+        font-weight:800;
+      }
+
+      .rff-next-steps li > div{
+        min-width:0;
+      }
+
+      .rff-next-steps li strong{
+        display:block;
+        color:var(--rff-text);
+        font-size:7px;
+      }
+
+      .rff-next-steps li p{
+        margin:2px 0 0;
+        color:var(--rff-muted);
+        font-size:6.3px;
+        line-height:10px;
+      }
+
+      .rff-success-actions{
+        width:100%;
+        display:grid;
+        gap:7px;
+        margin-top:14px;
+      }
+
+      .rff-login-link{
+        text-decoration:none;
+      }
+
+      .rff-secondary-action{
+        min-height:39px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        padding:7px 10px;
+        color:var(--rff-text2);
+        background:#fff;
+        border:1px solid var(--rff-line);
+        border-radius:8px;
+        cursor:pointer;
+        font-size:7px;
+        font-weight:700;
+        transition:.14s var(--rff-ease);
+      }
+
+      .rff-secondary-action:hover{
+        color:var(--rff-primary);
+        background:var(--rff-primary-soft);
+        border-color:#d8d9ff;
+      }
+
+      .rff-help-note{
+        width:100%;
+        display:flex;
+        align-items:flex-start;
+        gap:7px;
+        padding:9px 10px;
+        margin-top:11px;
+        color:var(--rff-violet);
+        background:var(--rff-violet-soft);
+        border-radius:8px;
+        text-align:left;
+      }
+
+      .rff-help-note > svg{
+        flex:0 0 auto;
+        margin-top:1px;
+      }
+
+      .rff-help-note p{
+        margin:0;
+        color:var(--rff-text2);
+        font-size:6.3px;
+        line-height:10px;
+      }
+
+      .rff-submit:focus-visible,
+      .rff-back-link:focus-visible,
+      .rff-secondary-action:focus-visible,
+      .rff-alert > button:focus-visible{
+        outline:3px solid rgba(70,72,212,.16);
+        outline-offset:3px;
+      }
+
+      @media(max-width:620px){
+        .rff-mobile-intro{
+          display:block;
+          margin-bottom:20px;
+        }
+
+        .rff-mobile-intro > span{
+          display:inline-flex;
+          align-items:center;
+          gap:5px;
+          color:var(--rff-primary);
+          font-size:6px;
+          font-weight:800;
+          letter-spacing:.08em;
+          text-transform:uppercase;
+        }
+
+        .rff-mobile-intro h1{
+          margin:7px 0 0;
+          font:600 27px/33px Geist,Inter,sans-serif;
+          letter-spacing:-.03em;
+        }
+
+        .rff-mobile-intro p{
+          margin:4px 0 0;
+          color:var(--rff-text2);
+          font-size:8px;
+          line-height:13px;
+        }
+
+        .rff-card-head h2,
+        .rff-success-state h2{
+          font-size:21px;
+          line-height:27px;
+        }
+
+        .rff-recovery-visual{
+          grid-template-columns:58px minmax(0,1fr);
+        }
+
+        .rff-key-orbit{
+          width:54px;
+          height:54px;
+        }
+
+        .rff-key-orbit > span{
+          width:34px;
+          height:34px;
+        }
+      }
+
+      @media(max-width:400px){
+        .rff-recovery-visual{
+          grid-template-columns:1fr;
+          justify-items:center;
+          text-align:center;
+        }
+
+        .rff-security-note{
+          text-align:left;
+        }
+      }
+
+      @media(prefers-reduced-motion:reduce){
+        .rff-recovery-form,
+        .rff-success-state,
+        .rff-alert,
+        .rff-spinner,
+        .rff-success-icon > i{
+          animation:none!important;
+        }
+
+        .rf-forgot-v7 *,
+        .rf-forgot-v7 *::before,
+        .rf-forgot-v7 *::after{
+          transition-duration:.01ms!important;
+          scroll-behavior:auto!important;
+        }
+      }
+    `}</style>
   );
 }
