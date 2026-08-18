@@ -161,8 +161,6 @@ export default function Login() {
 
   return (
     <>
-      <LoginStyles />
-      <LoginV12ClarityStyles />
 
       <AuthLayout
         eyebrow="Welcome back"

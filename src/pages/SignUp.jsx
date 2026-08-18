@@ -227,8 +227,6 @@ export default function Signup() {
 
   return (
     <>
-      <SignupStyles />
-      <SignupV12ClarityStyles />
 
       <AuthLayout
         eyebrow="Create account"

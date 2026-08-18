@@ -101,7 +101,6 @@ export default function ResetPassword() {
   if (complete) {
     return (
       <>
-        <ResetPasswordStyles />
 
         <AuthLayout
           eyebrow="Password updated"
@@ -175,7 +174,6 @@ export default function ResetPassword() {
 
   return (
     <>
-      <ResetPasswordStyles />
 
       <AuthLayout
         eyebrow="Secure recovery"
