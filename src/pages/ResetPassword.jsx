@@ -1,13 +1,12 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
+  Check,
   CheckCircle2,
-  Clock3,
   KeyRound,
   Lock,
-  Mail,
   Shield,
   Sparkles,
   X,
@@ -15,42 +14,42 @@ import {
 import { api } from "../api";
 import AuthLayout from "./AuthLayout";
 
-const GENERIC_SUCCESS_MESSAGE =
-  "If a ReachFly account exists for that email, password reset instructions have been sent.";
+export default function ResetPassword() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-export default function ForgotPassword() {
-  const [email, setEmail] = useState("");
-  const [submittedEmail, setSubmittedEmail] = useState("");
+  const token = String(searchParams.get("token") || "").trim();
+
+  const [form, setForm] = useState({
+    password: "",
+    confirmPassword: "",
+  });
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [complete, setComplete] = useState(false);
   const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
 
-  const normalizedEmail = useMemo(
-    () => String(email || "").trim().toLowerCase(),
-    [email]
+  const strength = useMemo(
+    () => getPasswordStrength(form.password),
+    [form.password]
   );
 
-  const emailValid = useMemo(
-    () => isValidEmail(normalizedEmail),
-    [normalizedEmail]
-  );
+  const valid =
+    Boolean(token) &&
+    form.password.length >= 8 &&
+    form.password === form.confirmPassword;
 
-  const completed = Boolean(message);
-
-  function updateEmail(value) {
+  function set(key, value) {
     if (loading) return;
 
-    setEmail(value);
     setError("");
-  }
 
-  function startOver() {
-    if (loading) return;
-
-    setEmail(submittedEmail || "");
-    setSubmittedEmail("");
-    setMessage("");
-    setError("");
+    setForm((current) => ({
+      ...current,
+      [key]: value,
+    }));
   }
 
   async function submit(event) {
@@ -58,13 +57,18 @@ export default function ForgotPassword() {
 
     if (loading) return;
 
-    if (!normalizedEmail) {
-      setError("Enter the email address you use to sign in.");
+    if (!token) {
+      setError("This password reset link is missing its secure token.");
       return;
     }
 
-    if (!emailValid) {
-      setError("Enter a valid email address.");
+    if (form.password.length < 8) {
+      setError("Your new password must contain at least 8 characters.");
+      return;
+    }
+
+    if (form.password !== form.confirmPassword) {
+      setError("The password confirmation does not match.");
       return;
     }
 
@@ -72,25 +76,21 @@ export default function ForgotPassword() {
       setLoading(true);
       setError("");
 
-      const response = await api.forgotPassword({
-        email: normalizedEmail,
+      await api.resetPassword({
+        token,
+        password: form.password,
       });
 
-      setSubmittedEmail(normalizedEmail);
-
-      /*
-       * Preserve the backend response when it is safe and useful, while keeping
-       * a non-enumerating fallback for password-recovery UX.
-       */
-      setMessage(
-        safeRecoveryMessage(response?.message) ||
-          GENERIC_SUCCESS_MESSAGE
-      );
+      setComplete(true);
+      setForm({
+        password: "",
+        confirmPassword: "",
+      });
     } catch (requestError) {
       setError(
         safeAuthMessage(
           requestError?.message ||
-            "Password recovery could not be started. Please try again."
+            "Your password could not be reset. The link may have expired."
         )
       );
     } finally {
@@ -98,403 +98,393 @@ export default function ForgotPassword() {
     }
   }
 
+  if (complete) {
+    return (
+      <>
+        <ResetPasswordStyles />
+
+        <AuthLayout
+          eyebrow="Password updated"
+          title="Your ReachFly account is secure again."
+          text="Your password has been changed. You can now return to sign in and continue your workspace."
+          footer={
+            <>
+              Need another recovery link?{" "}
+              <Link to="/forgot-password">
+                Start password recovery
+              </Link>
+            </>
+          }
+        >
+          <section className="rf-auth-form rf-reset-v7">
+            <div className="rfr-success">
+              <div className="rfr-success-mark">
+                <span>
+                  <CheckCircle2 size={27} />
+                </span>
+                <i />
+              </div>
+
+              <span className="rfr-eyebrow">
+                Password changed
+              </span>
+
+              <h2>
+                You're ready to sign in
+              </h2>
+
+              <p>
+                The reset request has been completed. Use your new password the
+                next time you access ReachFly.
+              </p>
+
+              <div className="rfr-security-card">
+                <Shield size={15} />
+
+                <div>
+                  <strong>
+                    Security update complete
+                  </strong>
+
+                  <small>
+                    Your previous password should no longer be used for this
+                    account.
+                  </small>
+                </div>
+              </div>
+
+              <button
+                className="rf-auth-submit"
+                type="button"
+                onClick={() =>
+                  navigate("/login", {
+                    replace: true,
+                  })
+                }
+              >
+                Continue to sign in
+
+                <ArrowRight size={15} />
+              </button>
+            </div>
+          </section>
+        </AuthLayout>
+      </>
+    );
+  }
+
   return (
     <>
-      <ForgotPasswordStyles />
+      <ResetPasswordStyles />
 
       <AuthLayout
-        eyebrow="Account recovery"
-        title="Get back into your ReachFly workspace securely."
-        text="Enter the email you use for ReachFly. If an account exists, we'll send a secure, time-limited password reset link."
+        eyebrow="Secure recovery"
+        title="Choose a new password for your ReachFly account."
+        text="Use a strong password that you do not reuse elsewhere. The secure recovery token from your email is required to complete this change."
         footer={
           <>
-            Remembered your password?{" "}
-            <Link to="/login">
-              Back to sign in
+            Need a new recovery link?{" "}
+            <Link to="/forgot-password">
+              Request another
             </Link>
           </>
         }
       >
-        <section className="rf-auth-form rf-forgot-v7">
-          <ForgotMobileIntro completed={completed} />
+        <section className="rf-auth-form rf-reset-v7">
+          <div className="rfr-mobile-intro">
+            <span>
+              <Sparkles size={13} />
+              ReachFly account recovery
+            </span>
 
-          {!completed ? (
-            <form
-              className="rff-recovery-form"
-              onSubmit={submit}
-              noValidate
-            >
-              <header className="rf-auth-card-head rff-card-head">
-                <span className="rff-card-eyebrow">
-                  Password recovery
+            <h1>
+              Create a new password.
+            </h1>
+
+            <p>
+              Secure your account and return to your workspace.
+            </p>
+          </div>
+
+          <form onSubmit={submit} noValidate>
+            <header className="rf-auth-card-head rfr-card-head">
+              <span className="rfr-eyebrow">
+                Final recovery step
+              </span>
+
+              <h2>
+                Set a new password
+              </h2>
+
+              <p>
+                Your password must contain at least 8 characters. A longer,
+                unique passphrase is recommended.
+              </p>
+            </header>
+
+            {!token ? (
+              <div className="rfr-alert" role="alert">
+                <span>
+                  <X size={13} />
                 </span>
-
-                <h2>
-                  Reset your password
-                </h2>
-
-                <p>
-                  We'll send recovery instructions to your account email. For
-                  security, this screen never reveals whether an email is
-                  registered.
-                </p>
-              </header>
-
-              {error ? (
-                <RecoveryAlert
-                  tone="error"
-                  title="Recovery needs attention"
-                  text={error}
-                  onClose={() => setError("")}
-                />
-              ) : null}
-
-              <div className="rff-recovery-visual">
-                <div className="rff-key-orbit">
-                  <span>
-                    <KeyRound size={21} />
-                  </span>
-
-                  <i className="one" />
-                  <i className="two" />
-                  <i className="three" />
-                </div>
 
                 <div>
                   <strong>
-                    Secure account recovery
+                    Reset link is incomplete
                   </strong>
 
                   <p>
-                    The reset link is generated by ReachFly's existing account
-                    recovery service and is intended only for the account owner.
+                    This page needs the secure token from your password reset
+                    email.
                   </p>
+
+                  <Link to="/forgot-password">
+                    Request a new reset link
+                    <ArrowRight size={11} />
+                  </Link>
                 </div>
               </div>
+            ) : null}
 
-              <label className="rff-field">
+            {error ? (
+              <div className="rfr-alert" role="alert">
                 <span>
-                  Email address
+                  <X size={13} />
                 </span>
 
                 <div>
-                  <Mail size={15} />
+                  <strong>
+                    Password reset needs attention
+                  </strong>
 
-                  <input
-                    type="email"
-                    inputMode="email"
-                    autoComplete="email"
-                    value={email}
-                    onChange={(event) =>
-                      updateEmail(event.target.value)
-                    }
-                    placeholder="you@company.com"
-                    disabled={loading}
-                    required
-                    autoFocus
-                  />
-
-                  {emailValid ? (
-                    <i
-                      className="rff-valid-email"
-                      aria-label="Email format looks valid"
-                    >
-                      <CheckCircle2 size={14} />
-                    </i>
-                  ) : null}
+                  <p>
+                    {error}
+                  </p>
                 </div>
-              </label>
 
-              <div className="rff-security-note">
-                <Shield size={13} />
+                <button
+                  type="button"
+                  onClick={() => setError("")}
+                  aria-label="Dismiss password reset error"
+                >
+                  <X size={10} />
+                </button>
+              </div>
+            ) : null}
 
-                <p>
-                  ReachFly does not expose account existence, passwords, or
-                  recovery tokens on this screen.
-                </p>
+            <div className="rfr-reset-visual">
+              <div>
+                <span>
+                  <KeyRound size={21} />
+                </span>
+
+                <i />
               </div>
 
-              <button
-                className="rf-auth-submit rff-submit"
-                type="submit"
-                disabled={loading || !normalizedEmail}
-              >
-                {loading ? (
-                  <>
-                    <span className="rff-spinner" />
+              <section>
+                <strong>
+                  Secure password replacement
+                </strong>
 
-                    Sending recovery instructions…
-                  </>
-                ) : (
-                  <>
-                    Send reset link
+                <p>
+                  ReachFly sends only the recovery token required for this
+                  reset. Your password is never displayed after submission.
+                </p>
+              </section>
+            </div>
 
-                    <ArrowRight size={15} />
-                  </>
-                )}
-              </button>
-
-              <Link
-                className="rff-back-link"
-                to="/login"
-              >
-                <ArrowLeft size={13} />
-
-                Back to sign in
-              </Link>
-            </form>
-          ) : (
-            <RecoverySent
-              email={submittedEmail}
-              message={message}
-              onStartOver={startOver}
+            <PasswordField
+              label="New password"
+              value={form.password}
+              show={showPassword}
+              disabled={loading || !token}
+              onChange={(value) => set("password", value)}
+              onToggle={() => setShowPassword((current) => !current)}
             />
-          )}
+
+            <PasswordStrength
+              password={form.password}
+              strength={strength}
+            />
+
+            <PasswordField
+              label="Confirm new password"
+              value={form.confirmPassword}
+              show={showConfirmation}
+              disabled={loading || !token}
+              onChange={(value) => set("confirmPassword", value)}
+              onToggle={() => setShowConfirmation((current) => !current)}
+              confirmation
+              matches={
+                Boolean(form.confirmPassword) &&
+                form.password === form.confirmPassword
+              }
+            />
+
+            <div className="rfr-password-rules">
+              <Rule
+                met={form.password.length >= 8}
+                text="At least 8 characters"
+              />
+              <Rule
+                met={/[A-Z]/.test(form.password) && /[a-z]/.test(form.password)}
+                text="Upper and lowercase letters"
+              />
+              <Rule
+                met={/\d/.test(form.password)}
+                text="At least one number"
+              />
+              <Rule
+                met={
+                  Boolean(form.confirmPassword) &&
+                  form.password === form.confirmPassword
+                }
+                text="Passwords match"
+              />
+            </div>
+
+            <div className="rfr-security-note">
+              <Shield size={13} />
+
+              <p>
+                If you did not request this password reset, do not submit this
+                form. Request a fresh recovery link only from ReachFly's own
+                sign-in flow.
+              </p>
+            </div>
+
+            <button
+              className="rf-auth-submit rfr-submit"
+              type="submit"
+              disabled={loading || !valid}
+            >
+              {loading ? (
+                <>
+                  <span className="rfr-spinner" />
+                  Updating password…
+                </>
+              ) : (
+                <>
+                  Update password
+                  <ArrowRight size={15} />
+                </>
+              )}
+            </button>
+
+            <Link className="rfr-back" to="/login">
+              <ArrowLeft size={12} />
+              Back to sign in
+            </Link>
+          </form>
         </section>
       </AuthLayout>
     </>
   );
 }
 
-function ForgotMobileIntro({
-  completed,
+function PasswordField({
+  label,
+  value,
+  show,
+  disabled,
+  onChange,
+  onToggle,
+  confirmation = false,
+  matches = false,
 }) {
   return (
-    <div className="rff-mobile-intro">
+    <label className="rfr-field">
       <span>
-        <Sparkles size={13} />
-
-        ReachFly account recovery
-      </span>
-
-      <h1>
-        {completed
-          ? "Check your inbox."
-          : "Reset your password."}
-      </h1>
-
-      <p>
-        {completed
-          ? "Follow the secure recovery link if it arrives."
-          : "Enter your account email to start recovery."}
-      </p>
-    </div>
-  );
-}
-
-function RecoverySent({
-  email,
-  message,
-  onStartOver,
-}) {
-  return (
-    <div className="rff-success-state">
-      <div className="rff-success-icon">
-        <span>
-          <CheckCircle2 size={25} />
-        </span>
-
-        <i />
-      </div>
-
-      <span className="rff-card-eyebrow">
-        Recovery requested
-      </span>
-
-      <h2>
-        Check your inbox
-      </h2>
-
-      <p className="rff-success-message">
-        {message}
-      </p>
-
-      {email ? (
-        <div className="rff-email-chip">
-          <Mail size={13} />
-
-          <span>
-            {maskEmail(email)}
-          </span>
-        </div>
-      ) : null}
-
-      <section className="rff-next-steps">
-        <header>
-          <Clock3 size={14} />
-
-          <strong>
-            What to do next
-          </strong>
-        </header>
-
-        <ol>
-          <li>
-            <span>
-              1
-            </span>
-
-            <div>
-              <strong>
-                Check your inbox
-              </strong>
-
-              <p>
-                Look for the ReachFly password recovery message sent to the
-                email above.
-              </p>
-            </div>
-          </li>
-
-          <li>
-            <span>
-              2
-            </span>
-
-            <div>
-              <strong>
-                Open the secure link
-              </strong>
-
-              <p>
-                Use the time-limited recovery link from the email to choose a
-                new password.
-              </p>
-            </div>
-          </li>
-
-          <li>
-            <span>
-              3
-            </span>
-
-            <div>
-              <strong>
-                Sign in again
-              </strong>
-
-              <p>
-                Return to ReachFly and sign in with your new password.
-              </p>
-            </div>
-          </li>
-        </ol>
-      </section>
-
-      <div className="rff-success-actions">
-        <Link
-          className="rf-auth-submit rff-login-link"
-          to="/login"
-        >
-          Return to sign in
-
-          <ArrowRight size={15} />
-        </Link>
-
-        <button
-          type="button"
-          className="rff-secondary-action"
-          onClick={onStartOver}
-        >
-          Use a different email
-        </button>
-      </div>
-
-      <div className="rff-help-note">
-        <Lock size={12} />
-
-        <p>
-          Didn't receive an email? Check spam or junk folders first. You can
-          also try again with another address you may have used for ReachFly.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function RecoveryAlert({
-  tone,
-  title,
-  text,
-  onClose,
-}) {
-  return (
-    <div
-      className={`rff-alert ${tone}`}
-      role={
-        tone === "error"
-          ? "alert"
-          : "status"
-      }
-    >
-      <span>
-        <X size={13} />
+        {label}
       </span>
 
       <div>
-        <strong>
-          {title}
-        </strong>
+        <Lock size={15} />
 
-        <p>
-          {text}
-        </p>
+        <input
+          type={show ? "text" : "password"}
+          autoComplete="new-password"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={confirmation ? "Repeat your new password" : "Create a new password"}
+          disabled={disabled}
+          minLength={8}
+          required
+        />
+
+        {confirmation && matches ? (
+          <i className="rfr-match">
+            <CheckCircle2 size={13} />
+          </i>
+        ) : null}
+
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={onToggle}
+          aria-label={show ? "Hide password" : "Show password"}
+        >
+          {show ? "Hide" : "Show"}
+        </button>
+      </div>
+    </label>
+  );
+}
+
+function PasswordStrength({
+  password,
+  strength,
+}) {
+  const labels = ["", "Basic", "Fair", "Good", "Strong"];
+
+  return (
+    <div className="rfr-strength">
+      <div>
+        {[1, 2, 3, 4].map((level) => (
+          <i
+            key={level}
+            className={level <= strength ? "active" : ""}
+          />
+        ))}
       </div>
 
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label="Dismiss recovery message"
-      >
-        <X size={10} />
-      </button>
+      <span>
+        {password ? labels[strength] : "Password strength"}
+      </span>
     </div>
   );
 }
 
-function isValidEmail(value) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-    String(value || "").trim()
+function Rule({
+  met,
+  text,
+}) {
+  return (
+    <span className={met ? "met" : ""}>
+      <i>
+        {met ? (
+          <Check size={10} />
+        ) : null}
+      </i>
+
+      {text}
+    </span>
   );
 }
 
-function maskEmail(value) {
-  const email = String(value || "").trim();
-  const [local, domain] = email.split("@");
+function getPasswordStrength(value) {
+  const password = String(value || "");
 
-  if (!local || !domain) {
-    return email;
-  }
+  if (!password) return 0;
 
-  if (local.length <= 2) {
-    return `${local[0] || ""}***@${domain}`;
-  }
+  let score = 0;
 
-  return `${local.slice(0, 2)}${"•".repeat(
-    Math.min(6, Math.max(3, local.length - 2))
-  )}@${domain}`;
-}
+  if (password.length >= 8) score += 1;
+  if (password.length >= 12) score += 1;
+  if (/[A-Z]/.test(password) && /[a-z]/.test(password)) score += 1;
+  if (/\d/.test(password) && /[^A-Za-z0-9]/.test(password)) score += 1;
 
-function safeRecoveryMessage(value) {
-  const text = String(value || "").trim();
-
-  if (!text) {
-    return "";
-  }
-
-  /*
-   * Avoid surfacing backend copy that would disclose whether the email exists.
-   * Generic delivery/status copy remains safe to display.
-   */
-  if (
-    /\b(no account|not found|does not exist|unknown user|unknown email|registered)\b/i.test(
-      text
-    )
-  ) {
-    return GENERIC_SUCCESS_MESSAGE;
-  }
-
-  return safeAuthMessage(text);
+  return Math.min(4, score);
 }
 
 function safeAuthMessage(value) {
@@ -505,120 +495,97 @@ function safeAuthMessage(value) {
     .replace(/Supabase/gi, "authentication service");
 }
 
-function ForgotPasswordStyles() {
+function ResetPasswordStyles() {
   return (
     <style>{`
-      .rf-forgot-v7{
-        --rff-text:#191c1d;
-        --rff-text2:#464554;
-        --rff-muted:#767586;
-        --rff-line:#e2e4e7;
-        --rff-soft:#f3f4f5;
-        --rff-primary:#4648d4;
-        --rff-primary-dark:#3537bb;
-        --rff-primary-soft:#e8e9ff;
-        --rff-violet:#6b38d4;
-        --rff-violet-soft:#f0eaff;
-        --rff-success:#087a51;
-        --rff-success-soft:#dff8eb;
-        --rff-danger:#ba1a1a;
-        --rff-danger-soft:#ffedeb;
-        --rff-ease:cubic-bezier(.2,.8,.2,1);
+      .rf-reset-v7{
+        --rfr-text:#191c1d;
+        --rfr-text2:#464554;
+        --rfr-muted:#767586;
+        --rfr-line:#e2e4e7;
+        --rfr-soft:#f3f4f5;
+        --rfr-primary:#4648d4;
+        --rfr-psoft:#e8e9ff;
+        --rfr-green:#087a51;
+        --rfr-gsoft:#dff8eb;
+        --rfr-red:#ba1a1a;
+        --rfr-rsoft:#ffedeb;
+        --rfr-ease:cubic-bezier(.2,.8,.2,1);
         width:100%;
       }
 
-      .rf-forgot-v7 *,
-      .rf-forgot-v7 *::before,
-      .rf-forgot-v7 *::after{
+      .rf-reset-v7 *,
+      .rf-reset-v7 *::before,
+      .rf-reset-v7 *::after{
         box-sizing:border-box;
       }
 
-      @keyframes rffIn{
-        from{
-          opacity:0;
-          transform:translate3d(0,7px,0);
-        }
-        to{
-          opacity:1;
-          transform:none;
-        }
+      @keyframes rfrIn{
+        from{opacity:0;transform:translateY(7px)}
+        to{opacity:1;transform:none}
       }
 
-      @keyframes rffSpin{
-        to{
-          transform:rotate(360deg);
-        }
+      @keyframes rfrSpin{
+        to{transform:rotate(360deg)}
       }
 
-      @keyframes rffPulse{
-        0%,100%{
-          transform:scale(.95);
-          opacity:.35;
-        }
-        50%{
-          transform:scale(1.05);
-          opacity:.55;
-        }
+      @keyframes rfrPulse{
+        0%,100%{transform:scale(.95);opacity:.35}
+        50%{transform:scale(1.04);opacity:.55}
       }
 
-      .rff-mobile-intro{
+      .rf-reset-v7 > form,
+      .rfr-success{
+        animation:rfrIn .22s var(--rfr-ease);
+      }
+
+      .rfr-mobile-intro{
         display:none;
       }
 
-      .rff-recovery-form,
-      .rff-success-state{
-        animation:rffIn 220ms var(--rff-ease);
-      }
-
-      .rff-card-head{
-        margin-bottom:16px!important;
-      }
-
-      .rff-card-eyebrow{
+      .rfr-eyebrow{
         display:block;
         margin-bottom:5px;
-        color:var(--rff-primary);
+        color:var(--rfr-primary);
         font-size:6px;
         font-weight:800;
-        letter-spacing:.11em;
+        letter-spacing:.1em;
         text-transform:uppercase;
       }
 
-      .rff-card-head h2,
-      .rff-success-state h2{
+      .rfr-card-head{
+        margin-bottom:14px!important;
+      }
+
+      .rfr-card-head h2,
+      .rfr-success h2{
         margin:0;
-        color:var(--rff-text);
+        color:var(--rfr-text);
         font:600 26px/33px Geist,Inter,sans-serif;
         letter-spacing:-.025em;
       }
 
-      .rff-card-head p{
-        max-width:410px;
+      .rfr-card-head p{
         margin:5px 0 0;
-        color:var(--rff-text2);
+        color:var(--rfr-text2);
         font-size:8px;
         line-height:13px;
       }
 
-      .rff-alert{
+      .rfr-alert{
         display:grid;
-        grid-template-columns:25px minmax(0,1fr) 22px;
+        grid-template-columns:25px minmax(0,1fr) auto;
         align-items:start;
         gap:7px;
         padding:9px 10px;
-        margin:0 0 13px;
-        border:1px solid;
-        border-radius:8px;
-        animation:rffIn 170ms var(--rff-ease);
-      }
-
-      .rff-alert.error{
+        margin-bottom:12px;
         color:#7f1b1b;
-        background:var(--rff-danger-soft);
-        border-color:#ffd0cc;
+        background:var(--rfr-rsoft);
+        border:1px solid #ffd0cc;
+        border-radius:8px;
       }
 
-      .rff-alert > span{
+      .rfr-alert > span{
         width:25px;
         height:25px;
         display:grid;
@@ -627,22 +594,33 @@ function ForgotPasswordStyles() {
         border-radius:7px;
       }
 
-      .rff-alert > div{
+      .rfr-alert > div{
         min-width:0;
       }
 
-      .rff-alert strong{
+      .rfr-alert strong{
         display:block;
         font-size:7px;
       }
 
-      .rff-alert p{
+      .rfr-alert p{
         margin:1px 0 0;
         font-size:7px;
         line-height:11px;
       }
 
-      .rff-alert > button{
+      .rfr-alert a{
+        display:inline-flex;
+        align-items:center;
+        gap:4px;
+        margin-top:5px;
+        color:#7131bc;
+        text-decoration:none;
+        font-size:6px;
+        font-weight:700;
+      }
+
+      .rfr-alert > button{
         width:22px;
         height:22px;
         display:grid;
@@ -651,56 +629,37 @@ function ForgotPasswordStyles() {
         color:currentColor;
         background:transparent;
         border:0;
-        border-radius:5px;
         cursor:pointer;
-        opacity:.65;
       }
 
-      .rff-recovery-visual{
-        min-height:104px;
+      .rfr-reset-visual{
+        min-height:93px;
         display:grid;
-        grid-template-columns:74px minmax(0,1fr);
+        grid-template-columns:62px minmax(0,1fr);
         align-items:center;
         gap:12px;
-        padding:12px;
-        margin-bottom:14px;
-        overflow:hidden;
+        padding:11px;
+        margin-bottom:13px;
         background:
-          radial-gradient(circle at 8% 50%,rgba(70,72,212,.10),transparent 30%),
+          radial-gradient(circle at 8% 50%,rgba(70,72,212,.11),transparent 30%),
           linear-gradient(135deg,#f8f8fc,#f3f4f7);
         border:1px solid #eceef1;
         border-radius:10px;
       }
 
-      .rff-key-orbit{
+      .rfr-reset-visual > div{
         position:relative;
-        width:68px;
-        height:68px;
+        width:58px;
+        height:58px;
         display:grid;
         place-items:center;
       }
 
-      .rff-key-orbit::before,
-      .rff-key-orbit::after{
-        content:"";
-        position:absolute;
-        border:1px solid rgba(70,72,212,.14);
-        border-radius:50%;
-      }
-
-      .rff-key-orbit::before{
-        inset:0;
-      }
-
-      .rff-key-orbit::after{
-        inset:9px;
-      }
-
-      .rff-key-orbit > span{
+      .rfr-reset-visual > div > span{
         position:relative;
         z-index:2;
-        width:40px;
-        height:40px;
+        width:41px;
+        height:41px;
         display:grid;
         place-items:center;
         color:#fff;
@@ -709,453 +668,328 @@ function ForgotPasswordStyles() {
         box-shadow:0 7px 16px rgba(70,72,212,.18);
       }
 
-      .rff-key-orbit > i{
+      .rfr-reset-visual > div > i{
         position:absolute;
-        z-index:1;
-        width:5px;
-        height:5px;
-        background:#7779df;
+        inset:0;
+        border:1px solid rgba(70,72,212,.15);
         border-radius:50%;
       }
 
-      .rff-key-orbit > i.one{
-        left:4px;
-        top:30px;
-      }
-
-      .rff-key-orbit > i.two{
-        right:8px;
-        top:9px;
-      }
-
-      .rff-key-orbit > i.three{
-        right:2px;
-        bottom:16px;
-      }
-
-      .rff-recovery-visual > div:last-child{
-        min-width:0;
-      }
-
-      .rff-recovery-visual strong{
+      .rfr-reset-visual section strong{
         display:block;
-        color:var(--rff-text);
         font-size:8px;
       }
 
-      .rff-recovery-visual p{
+      .rfr-reset-visual section p{
         margin:3px 0 0;
-        color:var(--rff-muted);
-        font-size:6.8px;
+        color:var(--rfr-muted);
+        font-size:6.7px;
         line-height:11px;
       }
 
-      .rff-field{
+      .rfr-field{
         display:grid;
-        gap:6px;
+        gap:5px;
+        margin-bottom:10px;
       }
 
-      .rff-field > span{
-        color:var(--rff-text);
+      .rfr-field > span{
         font-size:7px;
         font-weight:700;
       }
 
-      .rff-field > div{
-        min-height:46px;
+      .rfr-field > div{
+        min-height:45px;
         display:flex;
         align-items:center;
         gap:8px;
-        padding:0 10px;
-        color:#898a93;
+        padding:0 9px;
+        color:#8b8c95;
         background:#fff;
-        border:1px solid var(--rff-line);
+        border:1px solid var(--rfr-line);
         border-radius:8px;
-        transition:
-          border-color 140ms var(--rff-ease),
-          box-shadow 140ms var(--rff-ease);
       }
 
-      .rff-field > div:focus-within{
+      .rfr-field > div:focus-within{
         border-color:rgba(70,72,212,.55);
         box-shadow:0 0 0 3px rgba(70,72,212,.07);
       }
 
-      .rff-field > div > svg{
-        flex:0 0 auto;
-      }
-
-      .rff-field input{
+      .rfr-field input{
         min-width:0;
         width:100%;
-        height:44px;
+        height:43px;
         padding:0;
-        color:var(--rff-text);
+        color:var(--rfr-text);
         background:transparent;
         border:0;
         outline:0;
         font-size:9px;
       }
 
-      .rff-field input::placeholder{
-        color:#a3a4ac;
+      .rfr-field button{
+        min-width:38px;
+        height:27px;
+        padding:0 7px;
+        color:var(--rfr-primary);
+        background:var(--rfr-psoft);
+        border:0;
+        border-radius:6px;
+        cursor:pointer;
+        font-size:6px;
+        font-weight:750;
       }
 
-      .rff-valid-email{
+      .rfr-field button:disabled{
+        opacity:.45;
+      }
+
+      .rfr-match{
         width:25px;
         height:25px;
         display:grid;
         place-items:center;
-        flex:0 0 25px;
-        color:var(--rff-success);
-        background:var(--rff-success-soft);
+        color:var(--rfr-green);
+        background:var(--rfr-gsoft);
         border-radius:7px;
         font-style:normal;
       }
 
-      .rff-security-note{
+      .rfr-strength{
         display:flex;
-        align-items:flex-start;
-        gap:7px;
-        padding:9px 10px;
-        margin:10px 0 13px;
-        color:var(--rff-primary);
-        background:var(--rff-primary-soft);
+        align-items:center;
+        gap:8px;
+        margin:-4px 0 10px;
+      }
+
+      .rfr-strength > div{
+        display:grid;
+        grid-template-columns:repeat(4,1fr);
+        gap:4px;
+        flex:1;
+      }
+
+      .rfr-strength i{
+        height:4px;
+        background:#e6e7e9;
+        border-radius:999px;
+      }
+
+      .rfr-strength i.active{
+        background:var(--rfr-primary);
+      }
+
+      .rfr-strength span{
+        min-width:85px;
+        color:var(--rfr-muted);
+        text-align:right;
+        font-size:6px;
+      }
+
+      .rfr-password-rules{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:5px 9px;
+        padding:10px;
+        margin:3px 0 10px;
+        background:#f8f8fa;
         border-radius:8px;
       }
 
-      .rff-security-note > svg{
-        flex:0 0 auto;
-        margin-top:1px;
+      .rfr-password-rules > span{
+        display:flex;
+        align-items:center;
+        gap:5px;
+        color:#8a8b94;
+        font-size:6px;
       }
 
-      .rff-security-note p{
+      .rfr-password-rules > span > i{
+        width:15px;
+        height:15px;
+        display:grid;
+        place-items:center;
+        flex:0 0 15px;
+        background:#e5e7e9;
+        border-radius:50%;
+      }
+
+      .rfr-password-rules > span.met{
+        color:#446359;
+      }
+
+      .rfr-password-rules > span.met > i{
+        color:#fff;
+        background:var(--rfr-green);
+      }
+
+      .rfr-security-note{
+        display:flex;
+        gap:7px;
+        padding:9px 10px;
+        margin-bottom:12px;
+        color:var(--rfr-primary);
+        background:var(--rfr-psoft);
+        border-radius:8px;
+      }
+
+      .rfr-security-note p{
         margin:0;
-        color:var(--rff-text2);
+        color:var(--rfr-text2);
         font-size:6.5px;
         line-height:11px;
       }
 
-      .rff-submit{
+      .rfr-submit{
         min-height:45px!important;
       }
 
-      .rff-spinner{
+      .rfr-spinner{
         width:12px;
         height:12px;
-        display:block;
         border:2px solid currentColor;
         border-right-color:transparent;
         border-radius:50%;
-        animation:rffSpin .7s linear infinite;
+        animation:rfrSpin .7s linear infinite;
       }
 
-      .rff-back-link{
+      .rfr-back{
         width:max-content;
-        display:inline-flex;
+        display:flex;
         align-items:center;
         gap:5px;
         margin:11px auto 0;
-        color:var(--rff-muted)!important;
+        color:var(--rfr-muted)!important;
         text-decoration:none;
         font-size:6.5px;
         font-weight:650;
       }
 
-      .rff-back-link:hover{
-        color:var(--rff-primary)!important;
-      }
-
-      .rff-success-state{
+      .rfr-success{
         display:grid;
         justify-items:center;
         text-align:center;
       }
 
-      .rff-success-icon{
+      .rfr-success-mark{
         position:relative;
-        width:76px;
-        height:76px;
+        width:80px;
+        height:80px;
         display:grid;
         place-items:center;
         margin-bottom:12px;
       }
 
-      .rff-success-icon > span{
+      .rfr-success-mark > span{
         position:relative;
         z-index:2;
-        width:52px;
-        height:52px;
+        width:54px;
+        height:54px;
         display:grid;
         place-items:center;
-        color:var(--rff-success);
-        background:var(--rff-success-soft);
-        border:1px solid #c3ecd8;
+        color:var(--rfr-green);
+        background:var(--rfr-gsoft);
         border-radius:15px;
       }
 
-      .rff-success-icon > i{
+      .rfr-success-mark > i{
         position:absolute;
         inset:5px;
         background:rgba(8,122,81,.06);
         border-radius:50%;
-        animation:rffPulse 2.2s ease-in-out infinite;
+        animation:rfrPulse 2s ease-in-out infinite;
       }
 
-      .rff-success-state > .rff-card-eyebrow{
-        margin-bottom:4px;
-      }
-
-      .rff-success-message{
+      .rfr-success > p{
         max-width:390px;
-        margin:6px 0 0;
-        color:var(--rff-text2);
+        margin:6px 0 14px;
+        color:var(--rfr-text2);
         font-size:8px;
         line-height:13px;
       }
 
-      .rff-email-chip{
-        min-height:33px;
-        display:inline-flex;
-        align-items:center;
-        gap:6px;
-        max-width:100%;
-        padding:6px 9px;
-        margin-top:11px;
-        color:#3436a6;
-        background:var(--rff-primary-soft);
-        border:1px solid #dadbff;
-        border-radius:999px;
-        font-size:7px;
-        font-weight:700;
-      }
-
-      .rff-email-chip span{
-        max-width:280px;
-        overflow:hidden;
-        text-overflow:ellipsis;
-        white-space:nowrap;
-      }
-
-      .rff-next-steps{
-        width:100%;
-        margin-top:16px;
-        overflow:hidden;
-        background:#fff;
-        border:1px solid var(--rff-line);
-        border-radius:10px;
-        text-align:left;
-      }
-
-      .rff-next-steps > header{
-        min-height:42px;
-        display:flex;
-        align-items:center;
-        gap:6px;
-        padding:9px 11px;
-        color:var(--rff-primary);
-        background:#f8f8fb;
-        border-bottom:1px solid var(--rff-line);
-      }
-
-      .rff-next-steps > header strong{
-        color:var(--rff-text);
-        font-size:7px;
-      }
-
-      .rff-next-steps ol{
-        display:grid;
-        gap:0;
-        padding:0;
-        margin:0;
-        list-style:none;
-      }
-
-      .rff-next-steps li{
-        min-height:64px;
-        display:grid;
-        grid-template-columns:26px minmax(0,1fr);
-        align-items:start;
-        gap:8px;
-        padding:10px 11px;
-      }
-
-      .rff-next-steps li + li{
-        border-top:1px solid #f0f1f2;
-      }
-
-      .rff-next-steps li > span{
-        width:24px;
-        height:24px;
-        display:grid;
-        place-items:center;
-        color:var(--rff-primary);
-        background:var(--rff-primary-soft);
-        border-radius:7px;
-        font-size:6px;
-        font-weight:800;
-      }
-
-      .rff-next-steps li > div{
-        min-width:0;
-      }
-
-      .rff-next-steps li strong{
-        display:block;
-        color:var(--rff-text);
-        font-size:7px;
-      }
-
-      .rff-next-steps li p{
-        margin:2px 0 0;
-        color:var(--rff-muted);
-        font-size:6.3px;
-        line-height:10px;
-      }
-
-      .rff-success-actions{
-        width:100%;
-        display:grid;
-        gap:7px;
-        margin-top:14px;
-      }
-
-      .rff-login-link{
-        text-decoration:none;
-      }
-
-      .rff-secondary-action{
-        min-height:39px;
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        padding:7px 10px;
-        color:var(--rff-text2);
-        background:#fff;
-        border:1px solid var(--rff-line);
-        border-radius:8px;
-        cursor:pointer;
-        font-size:7px;
-        font-weight:700;
-        transition:.14s var(--rff-ease);
-      }
-
-      .rff-secondary-action:hover{
-        color:var(--rff-primary);
-        background:var(--rff-primary-soft);
-        border-color:#d8d9ff;
-      }
-
-      .rff-help-note{
+      .rfr-security-card{
         width:100%;
         display:flex;
         align-items:flex-start;
-        gap:7px;
-        padding:9px 10px;
-        margin-top:11px;
-        color:var(--rff-violet);
-        background:var(--rff-violet-soft);
+        gap:8px;
+        padding:10px;
+        margin-bottom:13px;
+        color:var(--rfr-green);
+        background:var(--rfr-gsoft);
         border-radius:8px;
         text-align:left;
       }
 
-      .rff-help-note > svg{
-        flex:0 0 auto;
-        margin-top:1px;
+      .rfr-security-card > div{
+        display:grid;
       }
 
-      .rff-help-note p{
-        margin:0;
-        color:var(--rff-text2);
-        font-size:6.3px;
+      .rfr-security-card strong{
+        color:#075b3d;
+        font-size:7px;
+      }
+
+      .rfr-security-card small{
+        color:#3f6b5d;
+        font-size:6px;
         line-height:10px;
       }
 
-      .rff-submit:focus-visible,
-      .rff-back-link:focus-visible,
-      .rff-secondary-action:focus-visible,
-      .rff-alert > button:focus-visible{
-        outline:3px solid rgba(70,72,212,.16);
-        outline-offset:3px;
-      }
-
       @media(max-width:620px){
-        .rff-mobile-intro{
+        .rfr-mobile-intro{
           display:block;
           margin-bottom:20px;
         }
 
-        .rff-mobile-intro > span{
+        .rfr-mobile-intro > span{
           display:inline-flex;
           align-items:center;
           gap:5px;
-          color:var(--rff-primary);
+          color:var(--rfr-primary);
           font-size:6px;
           font-weight:800;
           letter-spacing:.08em;
           text-transform:uppercase;
         }
 
-        .rff-mobile-intro h1{
+        .rfr-mobile-intro h1{
           margin:7px 0 0;
           font:600 27px/33px Geist,Inter,sans-serif;
           letter-spacing:-.03em;
         }
 
-        .rff-mobile-intro p{
+        .rfr-mobile-intro p{
           margin:4px 0 0;
-          color:var(--rff-text2);
+          color:var(--rfr-text2);
           font-size:8px;
-          line-height:13px;
         }
 
-        .rff-card-head h2,
-        .rff-success-state h2{
+        .rfr-card-head h2,
+        .rfr-success h2{
           font-size:21px;
           line-height:27px;
-        }
-
-        .rff-recovery-visual{
-          grid-template-columns:58px minmax(0,1fr);
-        }
-
-        .rff-key-orbit{
-          width:54px;
-          height:54px;
-        }
-
-        .rff-key-orbit > span{
-          width:34px;
-          height:34px;
         }
       }
 
       @media(max-width:400px){
-        .rff-recovery-visual{
+        .rfr-password-rules{
           grid-template-columns:1fr;
-          justify-items:center;
-          text-align:center;
-        }
-
-        .rff-security-note{
-          text-align:left;
         }
       }
 
       @media(prefers-reduced-motion:reduce){
-        .rff-recovery-form,
-        .rff-success-state,
-        .rff-alert,
-        .rff-spinner,
-        .rff-success-icon > i{
+        .rf-reset-v7 > form,
+        .rfr-success,
+        .rfr-spinner,
+        .rfr-success-mark > i{
           animation:none!important;
         }
 
-        .rf-forgot-v7 *,
-        .rf-forgot-v7 *::before,
-        .rf-forgot-v7 *::after{
+        .rf-reset-v7 *,
+        .rf-reset-v7 *::before,
+        .rf-reset-v7 *::after{
           transition-duration:.01ms!important;
-          scroll-behavior:auto!important;
         }
       }
     `}</style>
