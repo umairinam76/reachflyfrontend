@@ -183,9 +183,9 @@ export default function AuditStudioPanel() {
         }
       );
 
-      setMessage(
-        `${activeDefinition.label} saved as version ${result?.template?.version ?? "new"}. New audits will use this format immediately.`
-      );
+      const successMessage = `${activeDefinition.label} saved as version ${result?.template?.version ?? "new"}. New audits will use this format immediately.`;
+      setMessage(successMessage);
+      notifyAuditStudio("success", "Audit format saved", successMessage);
 
       await load({ silent: true });
     } catch (requestError) {
@@ -267,9 +267,9 @@ export default function AuditStudioPanel() {
         }
       );
 
-      setMessage(
-        `${activeDefinition.label} reference PDF uploaded as version ${result?.template?.version ?? "current"}. It will guide layout/style only; each new report remains dynamic to its lead.`
-      );
+      const successMessage = `${activeDefinition.label} reference PDF uploaded as version ${result?.template?.version ?? "current"}. It will guide layout/style only; each new report remains dynamic to its lead.`;
+      setMessage(successMessage);
+      notifyAuditStudio("success", "Reference PDF updated", successMessage);
 
       await load({ silent: true });
     } catch (requestError) {
@@ -331,9 +331,9 @@ export default function AuditStudioPanel() {
         }
       );
 
-      setMessage(
-        `Version ${version} was restored as new active version ${result?.template?.version ?? "current"}.`
-      );
+      const successMessage = `Version ${version} was restored as new active version ${result?.template?.version ?? "current"}.`;
+      setMessage(successMessage);
+      notifyAuditStudio("success", "Audit version restored", successMessage);
       await load({ silent: true });
     } catch (requestError) {
       setError(
@@ -347,26 +347,28 @@ export default function AuditStudioPanel() {
 
   if (loading) {
     return (
-      <section className="rf-panel">
+      <section className="rf-panel rf-audit-studio-v7">
+        <AuditStudioV7Styles />
         <p>Loading Audit Studio…</p>
       </section>
     );
   }
 
   return (
-    <section className="rf-panel">
+    <section className="rf-panel rf-audit-studio-v7">
+      <AuditStudioV7Styles />
       <div className="rf-panel-header">
         <div>
           <p className="rf-dashboard-eyebrow">
-            Manager audit controls
+            AI audit studio
           </p>
           <h2>Audit Studio</h2>
           <p>
-            Every lead has the same three audit levels on its own track: Mini Audit (default), Competitor Analysis, and Full Audit. Website and GMB are separate evidence tracks and their scores/findings are never blended. PDFs are optional layout/style references only and never block caller work.
+            Every lead has the same three audit levels on its own track: Mini Audit (default), Competitor Analysis, and Full Audit. Website and Business Profile are separate evidence tracks and their scores/findings are never blended. PDFs are optional layout/style references only and never block caller work.
           </p>
         </div>
 
-        <div style={qualityBadgeStyle}>
+        <div className="rfas-quality-badge" style={qualityBadgeStyle}>
           <span
             style={{
               fontSize: 11,
@@ -393,7 +395,7 @@ export default function AuditStudioPanel() {
         </div>
       ) : null}
 
-      <div style={reportCardGridStyle}>
+      <div className="rfas-report-grid" style={reportCardGridStyle}>
         {REPORTS.map((item) => {
           const template =
             studio?.templates?.[
@@ -406,6 +408,7 @@ export default function AuditStudioPanel() {
             <button
               key={item.kind}
               type="button"
+              className={`rfas-report-card ${selected ? "active" : ""}`}
               onClick={() =>
                 setActiveKind(item.kind)
               }
@@ -444,15 +447,15 @@ export default function AuditStudioPanel() {
         })}
       </div>
 
-      <div style={trackPolicyStyle}>
+      <div className="rfas-track-policy" style={trackPolicyStyle}>
         <div><strong>Website track</strong><span>Mini Audit → Competitor Analysis → Full Audit</span></div>
-        <div><strong>GMB track</strong><span>Mini Audit → Competitor Analysis → Full Audit</span></div>
+        <div><strong>Business Profile track</strong><span>Mini Audit → Competitor Analysis → Full Audit</span></div>
         <small>Mini Audit is the default pre-call gate. Competitor Analysis is client-facing. Full Audit is internal-only.</small>
       </div>
 
-      <div style={studioGridStyle}>
-        <div style={editorStyle}>
-          <div style={editorHeaderStyle}>
+      <div className="rfas-studio-grid" style={studioGridStyle}>
+        <div className="rfas-editor" style={editorStyle}>
+          <div className="rfas-editor-header" style={editorHeaderStyle}>
             <div>
               <span style={eyebrowStyle}>
                 {activeDefinition.eyebrow}
@@ -470,7 +473,7 @@ export default function AuditStudioPanel() {
             </span>
           </div>
 
-          <div style={formGridStyle}>
+          <div className="rfas-form-grid" style={formGridStyle}>
             <Field label="Display name">
               <input
                 value={draft.name || ""}
@@ -523,7 +526,7 @@ export default function AuditStudioPanel() {
             />
           </Field>
 
-          <Field label="Workspace Claude style guidance">
+          <Field label="Workspace AI style guidance">
             <textarea
               rows={5}
               value={systemPrompt}
@@ -537,7 +540,7 @@ export default function AuditStudioPanel() {
             />
           </Field>
 
-          <div style={guardrailStyle}>
+          <div className="rfas-guardrail" style={guardrailStyle}>
             <strong>
               Fixed ReachFly safeguards stay active
             </strong>
@@ -568,7 +571,7 @@ export default function AuditStudioPanel() {
           </div>
         </div>
 
-        <aside style={referencePanelStyle}>
+        <aside className="rfas-reference" style={referencePanelStyle}>
           <span style={eyebrowStyle}>
             Reference report
           </span>
@@ -584,7 +587,7 @@ export default function AuditStudioPanel() {
           </p>
 
           {activeTemplate?.examplePdf ? (
-            <div style={fileCardStyle}>
+            <div className="rfas-file-card" style={fileCardStyle}>
               <div style={pdfIconStyle}>
                 PDF
               </div>
@@ -618,7 +621,7 @@ export default function AuditStudioPanel() {
               </div>
             </div>
           ) : (
-            <div style={emptyReferenceStyle}>
+            <div className="rfas-empty-reference" style={emptyReferenceStyle}>
               No example PDF uploaded for this report type yet.
             </div>
           )}
@@ -669,8 +672,8 @@ export default function AuditStudioPanel() {
             ) : null}
           </div>
 
-          <div style={versionHistoryStyle}>
-            <div style={versionTitleStyle}>
+          <div className="rfas-version-history" style={versionHistoryStyle}>
+            <div className="rfas-version-title" style={versionTitleStyle}>
               <strong>Version history</strong>
               <span style={mutedStyle}>
                 Last {Math.min(
@@ -690,6 +693,7 @@ export default function AuditStudioPanel() {
                 {versions.map((item) => (
                   <div
                     key={item.id}
+                    className="rfas-history-row"
                     style={historyRowStyle}
                   >
                     <div>
@@ -1062,3 +1066,499 @@ const mutedStyle = {
   fontSize: 11,
   opacity: 0.6,
 };
+
+
+function notifyAuditStudio(
+  type,
+  title,
+  message
+) {
+  if (
+    typeof window ===
+    "undefined"
+  ) {
+    return;
+  }
+
+  const bridge =
+    window.reachflyToast;
+
+  if (
+    bridge &&
+    typeof bridge[
+      type
+    ] ===
+      "function"
+  ) {
+    bridge[type](
+      title,
+      message
+    );
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent(
+      "reachfly:toast",
+      {
+        detail: {
+          type,
+          title,
+          message,
+        },
+      }
+    )
+  );
+}
+
+function AuditStudioV7Styles() {
+  return (
+    <style>{`
+      .rf-audit-studio-v7{
+        --rfas-card:#fff;
+        --rfas-text:#191c1d;
+        --rfas-text2:#4d4c59;
+        --rfas-muted:#777784;
+        --rfas-line:#e2e4e7;
+        --rfas-primary:#4648d4;
+        --rfas-primary-dark:#393bbb;
+        --rfas-primary-soft:#e8e9ff;
+        --rfas-violet:#6b38d4;
+        --rfas-violet-soft:#f1ebff;
+        --rfas-green:#087a51;
+        --rfas-green-soft:#e4f7ee;
+        --rfas-red:#ba1a1a;
+        --rfas-red-soft:#ffedeb;
+        --rfas-dark:#2e3132;
+        --rfas-ease:cubic-bezier(.2,.8,.2,1);
+        width:100%;
+        padding:18px;
+        color:var(--rfas-text);
+        background:
+          radial-gradient(circle at 96% 3%,rgba(107,56,212,.05),transparent 24%),
+          #fff;
+        border:1px solid var(--rfas-line);
+        border-radius:14px;
+        box-shadow:0 1px 3px rgba(25,28,29,.025);
+        font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      }
+
+      .rf-audit-studio-v7 *,
+      .rf-audit-studio-v7 *::before,
+      .rf-audit-studio-v7 *::after{
+        box-sizing:border-box;
+      }
+
+      .rf-audit-studio-v7 .rf-panel-header{
+        min-height:92px;
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:18px;
+        padding-bottom:15px;
+        margin-bottom:15px;
+        border-bottom:1px solid var(--rfas-line);
+      }
+
+      .rf-audit-studio-v7 .rf-dashboard-eyebrow{
+        margin:0 0 4px;
+        color:var(--rfas-primary);
+        font-size:8px;
+        font-weight:800;
+        letter-spacing:.09em;
+        text-transform:uppercase;
+      }
+
+      .rf-audit-studio-v7 .rf-panel-header h2{
+        margin:0;
+        font:600 24px/31px Geist,Inter,sans-serif;
+        letter-spacing:-.025em;
+      }
+
+      .rf-audit-studio-v7 .rf-panel-header p{
+        max-width:850px;
+        margin:5px 0 0;
+        color:var(--rfas-text2);
+        font-size:9px;
+        line-height:15px;
+      }
+
+      .rf-audit-studio-v7 .rfas-quality-badge{
+        min-width:180px!important;
+        padding:10px 12px!important;
+        background:linear-gradient(135deg,#f2efff,#fff)!important;
+        border:1px solid #dfd8f6!important;
+        border-radius:10px!important;
+      }
+
+      .rf-audit-studio-v7 .rfas-quality-badge span{
+        color:var(--rfas-violet);
+        font-size:5.5px!important;
+        text-transform:uppercase;
+      }
+
+      .rf-audit-studio-v7 .rfas-quality-badge strong{
+        font-size:7px;
+      }
+
+      .rf-audit-studio-v7 .rf-inline-alert,
+      .rf-audit-studio-v7 .success-banner{
+        padding:10px 11px;
+        margin:0 0 11px;
+        border:1px solid;
+        border-radius:9px;
+        font-size:7px;
+        line-height:12px;
+      }
+
+      .rf-audit-studio-v7 .rf-inline-alert{
+        color:#7c1d1d;
+        background:var(--rfas-red-soft);
+        border-color:#ffd0cc;
+      }
+
+      .rf-audit-studio-v7 .success-banner{
+        color:#086846;
+        background:var(--rfas-green-soft);
+        border-color:#caeadb;
+      }
+
+      .rf-audit-studio-v7 .rfas-report-grid{
+        grid-template-columns:repeat(3,minmax(0,1fr))!important;
+        gap:8px!important;
+        margin-bottom:11px!important;
+      }
+
+      .rf-audit-studio-v7 .rfas-report-card{
+        min-height:150px;
+        align-content:start;
+        padding:13px!important;
+        color:var(--rfas-text)!important;
+        background:#fff!important;
+        border:1px solid var(--rfas-line)!important;
+        border-radius:10px!important;
+        cursor:pointer;
+        transition:.15s var(--rfas-ease);
+      }
+
+      .rf-audit-studio-v7 .rfas-report-card:hover{
+        transform:translateY(-2px);
+        border-color:#d6d6f1!important;
+        box-shadow:0 8px 20px rgba(25,28,29,.05);
+      }
+
+      .rf-audit-studio-v7 .rfas-report-card.active{
+        background:linear-gradient(135deg,#f5f5ff,#fff)!important;
+        border-color:#bfc1ff!important;
+        box-shadow:0 0 0 2px rgba(70,72,212,.07)!important;
+      }
+
+      .rf-audit-studio-v7 .rfas-report-card > span:first-child{
+        color:var(--rfas-primary);
+        font-size:5.5px!important;
+        opacity:1!important;
+      }
+
+      .rf-audit-studio-v7 .rfas-report-card > strong{
+        margin-top:8px;
+        font:600 11px/15px Geist,Inter,sans-serif!important;
+      }
+
+      .rf-audit-studio-v7 .rfas-report-card > span:nth-of-type(2){
+        min-height:0!important;
+        color:var(--rfas-text2);
+        font-size:6.5px!important;
+        line-height:11px!important;
+        opacity:1!important;
+      }
+
+      .rf-audit-studio-v7 .rfas-report-card > span:last-child{
+        margin-top:auto;
+        color:var(--rfas-muted);
+        font-size:5.5px!important;
+        opacity:1!important;
+      }
+
+      .rf-audit-studio-v7 .rfas-track-policy{
+        gap:6px!important;
+        margin:0 0 12px!important;
+        padding:10px 12px!important;
+        background:#f7f7fc!important;
+        border:1px solid #e3e3f3!important;
+        border-radius:9px!important;
+      }
+
+      .rf-audit-studio-v7 .rfas-track-policy > div{
+        display:grid;
+        grid-template-columns:130px minmax(0,1fr);
+        align-items:center;
+        gap:8px;
+        min-height:27px;
+      }
+
+      .rf-audit-studio-v7 .rfas-track-policy strong{
+        color:var(--rfas-primary);
+        font-size:6px;
+      }
+
+      .rf-audit-studio-v7 .rfas-track-policy span,
+      .rf-audit-studio-v7 .rfas-track-policy small{
+        color:var(--rfas-text2);
+        font-size:6px;
+        line-height:10px;
+      }
+
+      .rf-audit-studio-v7 .rfas-studio-grid{
+        grid-template-columns:minmax(0,1.55fr) minmax(285px,.72fr)!important;
+        gap:11px!important;
+      }
+
+      .rf-audit-studio-v7 .rfas-editor,
+      .rf-audit-studio-v7 .rfas-reference{
+        padding:14px!important;
+        background:#fff;
+        border:1px solid var(--rfas-line)!important;
+        border-radius:11px!important;
+      }
+
+      .rf-audit-studio-v7 .rfas-editor-header{
+        margin-bottom:12px!important;
+        padding-bottom:10px;
+        border-bottom:1px solid #eff0f1;
+      }
+
+      .rf-audit-studio-v7 .rfas-editor-header span:first-child,
+      .rf-audit-studio-v7 .rfas-reference > span:first-child{
+        color:var(--rfas-primary);
+        font-size:5.5px!important;
+        opacity:1!important;
+      }
+
+      .rf-audit-studio-v7 .rfas-editor-header h3,
+      .rf-audit-studio-v7 .rfas-reference h3{
+        font:600 14px/19px Geist,Inter,sans-serif;
+      }
+
+      .rf-audit-studio-v7 .rfas-editor-header > span:last-child{
+        padding:5px 7px!important;
+        color:var(--rfas-primary);
+        background:var(--rfas-primary-soft)!important;
+        border-radius:999px!important;
+        font-size:5.5px!important;
+      }
+
+      .rf-audit-studio-v7 .rfas-form-grid{
+        grid-template-columns:minmax(0,1.35fr) minmax(180px,.65fr)!important;
+        gap:8px!important;
+      }
+
+      .rf-audit-studio-v7 label{
+        display:grid;
+        gap:4px!important;
+        margin-bottom:9px;
+      }
+
+      .rf-audit-studio-v7 label > span{
+        color:var(--rfas-muted);
+        font-size:5.8px!important;
+        font-weight:750!important;
+        letter-spacing:.03em;
+        text-transform:uppercase;
+      }
+
+      .rf-audit-studio-v7 input,
+      .rf-audit-studio-v7 textarea{
+        width:100%;
+        min-height:39px;
+        padding:8px 9px;
+        color:var(--rfas-text);
+        background:#f7f8f9;
+        border:1px solid transparent;
+        border-radius:8px;
+        outline:0;
+        font:400 7px/12px Inter,sans-serif;
+        transition:.13s var(--rfas-ease);
+      }
+
+      .rf-audit-studio-v7 textarea{
+        resize:vertical!important;
+      }
+
+      .rf-audit-studio-v7 input:focus,
+      .rf-audit-studio-v7 textarea:focus{
+        background:#fff;
+        border-color:rgba(70,72,212,.5);
+        box-shadow:0 0 0 3px rgba(70,72,212,.06);
+      }
+
+      .rf-audit-studio-v7 .rfas-form-grid label:last-child > div{
+        min-height:39px!important;
+        padding:8px 9px!important;
+        color:var(--rfas-text2);
+        background:#f7f8f9;
+        border:1px solid var(--rfas-line)!important;
+        border-radius:8px!important;
+        font-size:6.3px!important;
+        line-height:10px;
+      }
+
+      .rf-audit-studio-v7 .rfas-guardrail{
+        gap:3px!important;
+        padding:10px 11px!important;
+        margin-bottom:10px!important;
+        color:#4c465a;
+        background:var(--rfas-violet-soft)!important;
+        border:1px solid #e3daf8;
+        border-radius:9px!important;
+        font-size:6.3px!important;
+        line-height:11px!important;
+      }
+
+      .rf-audit-studio-v7 .rf-button{
+        min-height:38px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        padding:7px 10px;
+        border:1px solid transparent;
+        border-radius:8px;
+        cursor:pointer;
+        font:700 6.5px/1 Inter,sans-serif;
+        transition:.14s var(--rfas-ease);
+      }
+
+      .rf-audit-studio-v7 .rf-button:hover:not(:disabled){
+        transform:translateY(-1px);
+      }
+
+      .rf-audit-studio-v7 .rf-button:disabled{
+        opacity:.45;
+        cursor:not-allowed;
+      }
+
+      .rf-audit-studio-v7 .rf-button--primary{
+        color:#fff;
+        background:var(--rfas-primary);
+        border-color:var(--rfas-primary);
+      }
+
+      .rf-audit-studio-v7 .rf-button--secondary{
+        color:var(--rfas-text);
+        background:#fff;
+        border-color:var(--rfas-line);
+      }
+
+      .rf-audit-studio-v7 .rfas-reference{
+        position:sticky;
+        top:78px;
+      }
+
+      .rf-audit-studio-v7 .rfas-reference > p{
+        color:var(--rfas-text2)!important;
+        font-size:6.5px!important;
+        line-height:11px!important;
+        opacity:1!important;
+      }
+
+      .rf-audit-studio-v7 .rfas-file-card{
+        grid-template-columns:37px minmax(0,1fr)!important;
+        padding:9px!important;
+        background:#f7f8f9;
+        border:1px solid var(--rfas-line)!important;
+        border-radius:8px!important;
+      }
+
+      .rf-audit-studio-v7 .rfas-file-card > div:first-child{
+        width:37px!important;
+        height:37px!important;
+        color:var(--rfas-primary);
+        background:var(--rfas-primary-soft)!important;
+        border-radius:8px!important;
+        font-size:5.5px!important;
+      }
+
+      .rf-audit-studio-v7 .rfas-empty-reference{
+        padding:11px!important;
+        color:var(--rfas-muted);
+        background:#f8f9fa;
+        border:1px dashed #d9dbdf!important;
+        border-radius:8px!important;
+        font-size:6.2px!important;
+        line-height:10px!important;
+        opacity:1!important;
+      }
+
+      .rf-audit-studio-v7 .rfas-version-history{
+        gap:7px!important;
+        margin-top:4px!important;
+        padding-top:11px!important;
+      }
+
+      .rf-audit-studio-v7 .rfas-version-title strong{
+        font-size:7px;
+      }
+
+      .rf-audit-studio-v7 .rfas-history-row{
+        min-height:48px;
+        padding:8px!important;
+        background:#f7f8f9!important;
+        border:1px solid transparent;
+        border-radius:8px!important;
+      }
+
+      .rf-audit-studio-v7 .rfas-history-row strong{
+        font-size:6.5px;
+      }
+
+      @media(max-width:980px){
+        .rf-audit-studio-v7 .rfas-studio-grid{
+          grid-template-columns:1fr!important;
+        }
+
+        .rf-audit-studio-v7 .rfas-reference{
+          position:static;
+        }
+      }
+
+      @media(max-width:720px){
+        .rf-audit-studio-v7{
+          padding:14px;
+        }
+
+        .rf-audit-studio-v7 .rf-panel-header{
+          flex-direction:column;
+        }
+
+        .rf-audit-studio-v7 .rfas-quality-badge{
+          width:100%;
+        }
+
+        .rf-audit-studio-v7 .rfas-report-grid{
+          grid-template-columns:1fr!important;
+        }
+
+        .rf-audit-studio-v7 .rfas-form-grid{
+          grid-template-columns:1fr!important;
+        }
+
+        .rf-audit-studio-v7 .rfas-track-policy > div{
+          grid-template-columns:1fr;
+          gap:2px;
+        }
+
+        .rf-audit-studio-v7 .rf-button{
+          width:100%;
+        }
+      }
+
+      @media(prefers-reduced-motion:reduce){
+        .rf-audit-studio-v7 *,
+        .rf-audit-studio-v7 *::before,
+        .rf-audit-studio-v7 *::after{
+          transition-duration:.01ms!important;
+          animation:none!important;
+        }
+      }
+    `}</style>
+  );
+}

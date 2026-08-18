@@ -90,7 +90,8 @@ export default function MiniAuditPanel({
 
   if (!canGenerate) {
     return (
-      <section className="rf-mini-audit-panel">
+      <section className="rf-mini-audit-panel rf-mini-audit-v7">
+        <MiniAuditV7Styles />
         <AuditPanelHeader
           report={report}
           status="unavailable"
@@ -100,7 +101,7 @@ export default function MiniAuditPanel({
         <AuditEmptyState
           icon="WEB"
           title="Lead evidence required"
-          description="Website campaigns require a public website. GMB campaigns can generate the Mini Audit from the business/profile identity even when no website is available."
+          description="Website campaigns require a public website. Business Profile campaigns can generate the Mini Audit from the verified business/profile identity even when no website is available."
         />
       </section>
     );
@@ -108,7 +109,8 @@ export default function MiniAuditPanel({
 
   if (auditPending) {
     return (
-      <section className="rf-mini-audit-panel">
+      <section className="rf-mini-audit-panel rf-mini-audit-v7">
+        <MiniAuditV7Styles />
         <AuditPanelHeader
           report={report}
           status="processing"
@@ -146,7 +148,8 @@ export default function MiniAuditPanel({
 
   if (auditFailed) {
     return (
-      <section className="rf-mini-audit-panel">
+      <section className="rf-mini-audit-panel rf-mini-audit-v7">
+        <MiniAuditV7Styles />
         <AuditPanelHeader
           report={report}
           status="failed"
@@ -191,7 +194,8 @@ export default function MiniAuditPanel({
 
   if (!auditReady) {
     return (
-      <section className="rf-mini-audit-panel">
+      <section className="rf-mini-audit-panel rf-mini-audit-v7">
+        <MiniAuditV7Styles />
         <AuditPanelHeader
           report={report}
           status="not_started"
@@ -232,7 +236,8 @@ export default function MiniAuditPanel({
   }
 
   return (
-    <section className="rf-mini-audit-panel">
+    <section className="rf-mini-audit-panel rf-mini-audit-v7">
+        <MiniAuditV7Styles />
       <AuditPanelHeader
         report={report}
         status="completed"
@@ -302,7 +307,7 @@ function AuditPanelHeader({
   status,
   campaignType = "website",
 }) {
-  const trackLabel = campaignType === "gmb" ? "GMB" : "Website";
+  const trackLabel = campaignType === "gmb" ? "Business Profile" : "Website";
   return (
     <header className="rf-mini-audit-panel__header">
       <div>
@@ -313,7 +318,7 @@ function AuditPanelHeader({
         <h2>{trackLabel} Mini Audit</h2>
 
         <p>
-          Verified {campaignType === "gmb" ? "Google Business Profile / local" : "website"} findings only. Website and GMB scores are never blended.
+          Verified {campaignType === "gmb" ? "Google Business Profile / local" : "website"} findings only. Website and Business Profile scores are never blended.
         </p>
       </div>
 
@@ -1613,4 +1618,657 @@ function getInitials(value) {
   return `${words[0][0]}${
     words[words.length - 1][0]
   }`.toUpperCase();
+}
+
+function MiniAuditV7Styles() {
+  return (
+    <style>{`
+      .rf-mini-audit-v7{
+        --rfma-card:#fff;
+        --rfma-text:#191c1d;
+        --rfma-text2:#4d4c59;
+        --rfma-muted:#777784;
+        --rfma-line:#e2e4e7;
+        --rfma-primary:#4648d4;
+        --rfma-primary-dark:#393bbb;
+        --rfma-primary-soft:#e8e9ff;
+        --rfma-violet:#6b38d4;
+        --rfma-violet-soft:#f1ebff;
+        --rfma-green:#087a51;
+        --rfma-green-soft:#e4f7ee;
+        --rfma-red:#ba1a1a;
+        --rfma-red-soft:#ffedeb;
+        --rfma-amber:#9a5b00;
+        --rfma-amber-soft:#fff3d8;
+        --rfma-dark:#2e3132;
+        --rfma-ease:cubic-bezier(.2,.8,.2,1);
+        display:grid;
+        gap:10px;
+        width:100%;
+        color:var(--rfma-text);
+        font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      }
+
+      .rf-mini-audit-v7 *,
+      .rf-mini-audit-v7 *::before,
+      .rf-mini-audit-v7 *::after{
+        box-sizing:border-box;
+      }
+
+      @keyframes rfmaSpin{
+        to{transform:rotate(360deg)}
+      }
+
+      @keyframes rfmaPulse{
+        0%,100%{opacity:.45}
+        50%{opacity:1}
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-panel__header{
+        min-height:84px;
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:14px;
+        padding:13px 14px;
+        background:
+          radial-gradient(circle at 92% 8%,rgba(70,72,212,.08),transparent 31%),
+          #fff;
+        border:1px solid #dedffa;
+        border-radius:11px;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-panel__header > div:first-child{
+        min-width:0;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-eyebrow{
+        margin:0 0 3px;
+        color:var(--rfma-primary);
+        font-size:5.8px;
+        font-weight:800;
+        letter-spacing:.08em;
+        text-transform:uppercase;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-panel__header h2{
+        margin:0;
+        font:600 17px/23px Geist,Inter,sans-serif;
+        letter-spacing:-.02em;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-panel__header p:not(.rf-mini-audit-eyebrow){
+        max-width:670px;
+        margin:4px 0 0;
+        color:var(--rfma-text2);
+        font-size:6.5px;
+        line-height:11px;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-status{
+        min-width:118px;
+        display:grid;
+        grid-template-columns:7px minmax(0,1fr);
+        align-items:center;
+        gap:7px;
+        padding:7px 8px;
+        border:1px solid var(--rfma-line);
+        border-radius:8px;
+        background:#f7f8f9;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-status > span{
+        width:7px;
+        height:7px;
+        background:#9b9ca4;
+        border-radius:50%;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-status > div{
+        display:grid;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-status strong{
+        font-size:6px;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-status small{
+        margin-top:1px;
+        color:var(--rfma-muted);
+        font-size:5px;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-status--completed{
+        color:var(--rfma-green);
+        background:var(--rfma-green-soft);
+        border-color:#caeadb;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-status--completed > span{
+        background:var(--rfma-green);
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-status--processing{
+        color:var(--rfma-primary);
+        background:var(--rfma-primary-soft);
+        border-color:#d8d9ff;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-status--processing > span{
+        background:var(--rfma-primary);
+        animation:rfmaPulse 1s infinite ease-in-out;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-status--failed{
+        color:#8a1d1d;
+        background:var(--rfma-red-soft);
+        border-color:#ffd0cc;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-status--failed > span{
+        background:var(--rfma-red);
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-banner{
+        min-height:94px;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:12px;
+        padding:14px;
+        overflow:hidden;
+        color:#fff;
+        background:
+          radial-gradient(circle at 90% 15%,rgba(87,90,226,.24),transparent 35%),
+          #2e3132;
+        border-radius:11px;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-banner__brand{
+        display:grid;
+        grid-template-columns:39px minmax(0,1fr);
+        align-items:center;
+        gap:9px;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-banner__brand > span{
+        width:39px;
+        height:39px;
+        display:grid;
+        place-items:center;
+        color:#fff;
+        background:var(--rfma-primary);
+        border-radius:9px;
+        font-size:8px;
+        font-weight:800;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-banner__brand > div,
+      .rf-mini-audit-v7 .rf-mini-audit-banner__date{
+        display:grid;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-banner small{
+        color:rgba(244,246,247,.52);
+        font-size:5px;
+        letter-spacing:.05em;
+        text-transform:uppercase;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-banner strong{
+        margin-top:2px;
+        color:#fff;
+        font-size:7px;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-banner__date{
+        min-width:115px;
+        text-align:right;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-section{
+        padding:13px 14px;
+        background:#fff;
+        border:1px solid var(--rfma-line);
+        border-radius:11px;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-section__header{
+        display:grid;
+        grid-template-columns:31px minmax(0,1fr) auto;
+        align-items:center;
+        gap:8px;
+        padding-bottom:10px;
+        margin-bottom:10px;
+        border-bottom:1px solid #eff0f1;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-section__header > span:first-child{
+        width:31px;
+        height:31px;
+        display:grid;
+        place-items:center;
+        color:var(--rfma-primary);
+        background:var(--rfma-primary-soft);
+        border-radius:8px;
+        font-size:5.5px;
+        font-weight:800;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-section__header h3{
+        margin:0;
+        font:600 10px/14px Geist,Inter,sans-serif;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-section__header p{
+        margin:2px 0 0;
+        color:var(--rfma-muted);
+        font-size:5.7px;
+        line-height:9px;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-section__header > span:last-child{
+        color:var(--rfma-muted);
+        font-size:5.5px;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-snapshot{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        overflow:hidden;
+        background:#f7f8f9;
+        border:1px solid #edefef;
+        border-radius:9px;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-snapshot-row{
+        min-width:0;
+        min-height:59px;
+        display:grid;
+        align-content:center;
+        gap:2px;
+        padding:9px 10px;
+        border-bottom:1px solid #eaebed;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-snapshot-row:nth-child(odd){
+        border-right:1px solid #eaebed;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-snapshot-row--wide{
+        grid-column:1/-1;
+        border-right:0!important;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-snapshot-row small{
+        color:var(--rfma-muted);
+        font-size:5.2px;
+        font-weight:700;
+        text-transform:uppercase;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-snapshot-row strong,
+      .rf-mini-audit-v7 .rf-mini-audit-snapshot-row a{
+        min-width:0;
+        overflow:hidden;
+        color:var(--rfma-text);
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font-size:6.5px;
+        text-decoration:none;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-issues{
+        display:grid;
+        gap:6px;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-issue{
+        overflow:hidden;
+        background:#f7f8f9;
+        border:1px solid #eceeef;
+        border-radius:9px;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-issue.is-expanded{
+        background:#fff;
+        border-color:#d8d9f7;
+        box-shadow:0 4px 13px rgba(25,28,29,.04);
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-issue__summary{
+        min-height:64px;
+        display:grid;
+        grid-template-columns:31px minmax(0,1fr) auto 20px;
+        align-items:center;
+        gap:8px;
+        width:100%;
+        padding:8px 9px;
+        color:inherit;
+        background:transparent;
+        border:0;
+        text-align:left;
+        cursor:pointer;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-issue__number{
+        width:31px;
+        height:31px;
+        display:grid;
+        place-items:center;
+        color:var(--rfma-primary);
+        background:#fff;
+        border:1px solid #e0e1f6;
+        border-radius:8px;
+        font-size:5.5px;
+        font-weight:800;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-issue__summary > div{
+        min-width:0;
+        display:grid;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-issue__summary small{
+        color:var(--rfma-muted);
+        font-size:5px;
+        text-transform:uppercase;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-issue__summary strong{
+        margin-top:2px;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        font-size:7px;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-severity{
+        min-width:48px;
+        padding:4px 6px;
+        border-radius:999px;
+        text-align:center;
+        font-size:5.2px;
+        font-weight:800;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-severity--high{
+        color:#8a1c1c;
+        background:var(--rfma-red-soft);
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-severity--medium{
+        color:var(--rfma-amber);
+        background:var(--rfma-amber-soft);
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-severity--low{
+        color:var(--rfma-green);
+        background:var(--rfma-green-soft);
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-issue__content{
+        display:grid;
+        gap:8px;
+        padding:0 10px 10px 49px;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-issue__content small{
+        color:var(--rfma-primary);
+        font-size:5.2px;
+        font-weight:800;
+        text-transform:uppercase;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-issue__content p{
+        margin:3px 0 0;
+        color:var(--rfma-text2);
+        font-size:6.5px;
+        line-height:11px;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-evidence{
+        padding:8px;
+        background:var(--rfma-violet-soft);
+        border-radius:7px;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-source-footer{
+        display:grid;
+        grid-template-columns:auto 1fr auto;
+        align-items:center;
+        gap:10px;
+        padding:10px 12px;
+        color:#e9eaeb;
+        background:#2e3132;
+        border-radius:9px;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-source-footer strong{
+        color:#fff;
+        font-size:5.5px;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-source-footer p{
+        margin:0;
+        color:rgba(241,243,244,.58);
+        font-size:5.3px;
+        line-height:9px;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-source-footer span{
+        color:#c8c9ff;
+        font-size:5.5px;
+        white-space:nowrap;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-downloads,
+      .rf-mini-audit-v7 .rf-mini-audit-actions{
+        display:grid;
+        grid-template-columns:repeat(3,1fr);
+        gap:7px;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-download-button,
+      .rf-mini-audit-v7 .rf-mini-audit-action{
+        min-height:68px;
+        display:grid;
+        grid-template-columns:34px minmax(0,1fr);
+        align-items:center;
+        gap:8px;
+        padding:8px;
+        color:var(--rfma-text);
+        background:#fff;
+        border:1px solid var(--rfma-line);
+        border-radius:9px;
+        text-align:left;
+        text-decoration:none;
+        cursor:pointer;
+        transition:.14s var(--rfma-ease);
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-download-button:hover:not(:disabled),
+      .rf-mini-audit-v7 .rf-mini-audit-action:hover:not(:disabled){
+        transform:translateY(-1px);
+        border-color:#d6d7f4;
+        box-shadow:0 6px 16px rgba(25,28,29,.04);
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-download-button > span,
+      .rf-mini-audit-v7 .rf-mini-audit-action > span{
+        width:34px;
+        height:34px;
+        display:grid;
+        place-items:center;
+        color:var(--rfma-primary);
+        background:var(--rfma-primary-soft);
+        border-radius:8px;
+        font-size:5.8px;
+        font-weight:850;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-download-button > div,
+      .rf-mini-audit-v7 .rf-mini-audit-action > div{
+        min-width:0;
+        display:grid;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-download-button strong,
+      .rf-mini-audit-v7 .rf-mini-audit-action strong{
+        font-size:6.5px;
+        line-height:10px;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-download-button small,
+      .rf-mini-audit-v7 .rf-mini-audit-action small{
+        margin-top:2px;
+        color:var(--rfma-muted);
+        font-size:5.3px;
+        line-height:9px;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-download-button--primary,
+      .rf-mini-audit-v7 .rf-mini-audit-action--primary{
+        color:#fff;
+        background:var(--rfma-primary);
+        border-color:var(--rfma-primary);
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-download-button--primary > span,
+      .rf-mini-audit-v7 .rf-mini-audit-action--primary > span{
+        color:#fff;
+        background:rgba(255,255,255,.14);
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-download-button--primary small,
+      .rf-mini-audit-v7 .rf-mini-audit-action--primary small{
+        color:rgba(255,255,255,.67);
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-download-button--disabled{
+        opacity:.46;
+        cursor:not-allowed;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-progress,
+      .rf-mini-audit-v7 .rf-mini-audit-empty{
+        min-height:230px;
+        display:grid;
+        place-items:center;
+        align-content:center;
+        gap:10px;
+        padding:24px;
+        text-align:center;
+        background:#fff;
+        border:1px solid var(--rfma-line);
+        border-radius:11px;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-progress__spinner{
+        width:43px;
+        height:43px;
+        border:3px solid #e4e5ff;
+        border-top-color:var(--rfma-primary);
+        border-radius:50%;
+        animation:rfmaSpin .8s linear infinite;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-progress__content{
+        max-width:520px;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-progress__content h3,
+      .rf-mini-audit-v7 .rf-mini-audit-empty h3{
+        margin:0;
+        font:600 13px/18px Geist,Inter,sans-serif;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-progress__content p,
+      .rf-mini-audit-v7 .rf-mini-audit-empty p{
+        margin:4px 0 0;
+        color:var(--rfma-muted);
+        font-size:6.5px;
+        line-height:11px;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-progress__steps{
+        display:grid;
+        gap:5px;
+        width:min(520px,100%);
+        margin-top:7px;
+      }
+
+      .rf-mini-audit-v7 .rf-mini-audit-progress__steps > div{
+        min-height:43px;
+        display:grid;
+        grid-template-columns:24px minmax(0,1fr);
+        align-items:center;
+        gap:7px;
+        padding:7px;
+        background:#f7f8f9;
+        border-radius:8px;
+        text-align:left;
+      }
+
+      @media(max-width:720px){
+        .rf-mini-audit-v7 .rf-mini-audit-panel__header,
+        .rf-mini-audit-v7 .rf-mini-audit-banner{
+          align-items:flex-start;
+          flex-direction:column;
+        }
+
+        .rf-mini-audit-v7 .rf-mini-audit-status{
+          width:100%;
+        }
+
+        .rf-mini-audit-v7 .rf-mini-audit-banner__date{
+          text-align:left;
+        }
+
+        .rf-mini-audit-v7 .rf-mini-audit-snapshot{
+          grid-template-columns:1fr;
+        }
+
+        .rf-mini-audit-v7 .rf-mini-audit-snapshot-row,
+        .rf-mini-audit-v7 .rf-mini-audit-snapshot-row:nth-child(odd){
+          grid-column:auto;
+          border-right:0;
+        }
+
+        .rf-mini-audit-v7 .rf-mini-audit-source-footer{
+          grid-template-columns:1fr;
+        }
+
+        .rf-mini-audit-v7 .rf-mini-audit-downloads,
+        .rf-mini-audit-v7 .rf-mini-audit-actions{
+          grid-template-columns:1fr;
+        }
+
+        .rf-mini-audit-v7 .rf-mini-audit-issue__summary{
+          grid-template-columns:31px minmax(0,1fr) auto;
+        }
+
+        .rf-mini-audit-v7 .rf-mini-audit-issue__summary > b{
+          display:none;
+        }
+
+        .rf-mini-audit-v7 .rf-mini-audit-issue__content{
+          padding-left:10px;
+        }
+      }
+
+      @media(prefers-reduced-motion:reduce){
+        .rf-mini-audit-v7 .rf-mini-audit-progress__spinner,
+        .rf-mini-audit-v7 .rf-mini-audit-status--processing > span{
+          animation:none!important;
+        }
+
+        .rf-mini-audit-v7 *,
+        .rf-mini-audit-v7 *::before,
+        .rf-mini-audit-v7 *::after{
+          transition-duration:.01ms!important;
+          animation-duration:.01ms!important;
+        }
+      }
+    `}</style>
+  );
 }
