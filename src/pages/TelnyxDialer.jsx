@@ -1400,7 +1400,7 @@ export default function TelnyxDialer({
             if (mountedRef.current) {
               setError("");
               setMessage(
-                "Telnyx session refreshed."
+                "Calling session refreshed."
               );
             }
 
@@ -1439,7 +1439,7 @@ export default function TelnyxDialer({
         (async () => {
           setError("");
           setMessage(
-            "Connecting to Telnyx…"
+            "Connecting to calling service…"
           );
           setStatus("connecting");
 
@@ -1683,7 +1683,7 @@ export default function TelnyxDialer({
           if (mountedRef.current) {
             setStatus("ready");
             setMessage(
-              "Telnyx dialer is ready."
+              "Business dialer is ready."
             );
           }
 
@@ -1703,7 +1703,7 @@ export default function TelnyxDialer({
 
           setError(
             requestError?.message ||
-              "Could not connect to the Telnyx dialer."
+              "Could not connect to the Business dialer."
           );
         }
 
@@ -1844,7 +1844,7 @@ export default function TelnyxDialer({
 
         if (!createdCall?.id) {
           throw new Error(
-            "The server did not return a Telnyx call ID."
+            "The server did not return a call identifier."
           );
         }
 
@@ -1958,7 +1958,7 @@ export default function TelnyxDialer({
 
         if (!telnyxCall) {
           throw new Error(
-            "Telnyx could not create the browser call."
+            "The calling service could not create the browser call."
           );
         }
 
@@ -2405,7 +2405,8 @@ export default function TelnyxDialer({
     "";
 
   return (
-    <section className="cardish rf-telnyx-dialer">
+    <section className="cardish rf-telnyx-dialer rf-business-dialer-v7">
+      <TelnyxDialerV7Styles />
       <audio
         id="reachfly-telnyx-remote-audio"
         ref={remoteAudioRef}
@@ -2416,7 +2417,7 @@ export default function TelnyxDialer({
       <div className="section-title-row">
         <div>
           <span className="eyebrow">
-            Telnyx dialer
+            Business dialer
           </span>
 
           <h3>
@@ -2479,13 +2480,13 @@ export default function TelnyxDialer({
 
       {error ? (
         <p className="error-banner">
-          {error}
+          {safeCustomerMessage(error)}
         </p>
       ) : null}
 
       {message ? (
         <p className="success-banner">
-          {message}
+          {safeCustomerMessage(message)}
         </p>
       ) : null}
 
@@ -2639,7 +2640,7 @@ export default function TelnyxDialer({
                   digit
                 )
               }
-              aria-label={`Send DTMF ${digit}`}
+              aria-label={`Send keypad digit ${digit}`}
               style={{
                 minHeight: 48,
                 fontSize: 18,
@@ -2953,7 +2954,7 @@ function buildAutomaticCallNote({
   sipCode,
 }) {
   const parts = [
-    `Telnyx outcome: ${formatLabel(
+    `Business call outcome: ${formatLabel(
       outcome
     )}`,
 
@@ -2964,7 +2965,7 @@ function buildAutomaticCallNote({
 
   if (sipCode) {
     parts.push(
-      `SIP: ${sipCode}`
+      `Network code: ${sipCode}`
     );
   }
 
@@ -3101,4 +3102,325 @@ function delay(milliseconds) {
       )
     );
   });
+}
+
+function safeCustomerMessage(value) {
+  return String(value || "")
+    .replace(/ElevenLabs/gi, "voice service")
+    .replace(/Telnyx/gi, "calling service")
+    .replace(/\bWebRTC\b/gi, "browser calling")
+    .replace(/\bSIP\b/gi, "network")
+    .replace(/https:\/\/unpkg\.com/gi, "the browser calling library host")
+    .replace(/credentials/gi, "connection settings");
+}
+
+function TelnyxDialerV7Styles() {
+  return (
+    <style>{`
+      .rf-business-dialer-v7{
+        --rfbd-text:#191c1d;
+        --rfbd-text2:#4d4c59;
+        --rfbd-muted:#777784;
+        --rfbd-line:#e2e4e7;
+        --rfbd-primary:#4648d4;
+        --rfbd-primary-dark:#383aba;
+        --rfbd-primary-soft:#e8e9ff;
+        --rfbd-green:#087a51;
+        --rfbd-green-soft:#e4f7ee;
+        --rfbd-red:#ba1a1a;
+        --rfbd-red-soft:#ffedeb;
+        --rfbd-amber:#9a5b00;
+        --rfbd-amber-soft:#fff3d8;
+        --rfbd-ease:cubic-bezier(.2,.8,.2,1);
+        position:relative;
+        overflow:hidden;
+        display:grid;
+        gap:10px;
+        width:100%;
+        margin:0!important;
+        padding:14px!important;
+        color:var(--rfbd-text);
+        background:
+          radial-gradient(circle at 94% 5%,rgba(70,72,212,.08),transparent 30%),
+          #fff;
+        border:1px solid #dddffa!important;
+        border-radius:12px!important;
+        box-shadow:0 1px 3px rgba(25,28,29,.025)!important;
+      }
+
+      .rf-business-dialer-v7 *,
+      .rf-business-dialer-v7 *::before,
+      .rf-business-dialer-v7 *::after{
+        box-sizing:border-box;
+      }
+
+      @keyframes rfbdIn{
+        from{opacity:0;transform:translateY(-4px)}
+        to{opacity:1;transform:none}
+      }
+
+      .rf-business-dialer-v7 > audio{
+        display:none;
+      }
+
+      .rf-business-dialer-v7 .section-title-row{
+        min-height:90px;
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:14px;
+        padding:1px 0 4px;
+      }
+
+      .rf-business-dialer-v7 .section-title-row > div{
+        min-width:0;
+      }
+
+      .rf-business-dialer-v7 .eyebrow{
+        display:block;
+        margin:0 0 4px;
+        color:var(--rfbd-primary);
+        font-size:7px;
+        font-weight:800;
+        letter-spacing:.08em;
+        text-transform:uppercase;
+      }
+
+      .rf-business-dialer-v7 h3{
+        margin:0;
+        font:600 22px/28px Geist,Inter,sans-serif;
+        letter-spacing:-.02em;
+      }
+
+      .rf-business-dialer-v7 .section-title-row p{
+        margin:4px 0 0;
+        color:var(--rfbd-text2);
+        font-size:6.5px;
+        line-height:11px;
+      }
+
+      .rf-business-dialer-v7 .text-xs,
+      .rf-business-dialer-v7 .text-muted{
+        color:var(--rfbd-muted)!important;
+      }
+
+      .rf-business-dialer-v7 .badge{
+        min-height:26px;
+        display:inline-flex;
+        align-items:center;
+        padding:5px 8px;
+        border:1px solid transparent;
+        border-radius:999px;
+        font-size:5.8px;
+        font-weight:800;
+      }
+
+      .rf-business-dialer-v7 .badge-green{
+        color:var(--rfbd-green);
+        background:var(--rfbd-green-soft);
+        border-color:#c9ead9;
+      }
+
+      .rf-business-dialer-v7 .badge-amber{
+        color:var(--rfbd-amber);
+        background:var(--rfbd-amber-soft);
+        border-color:#f2dfb8;
+      }
+
+      .rf-business-dialer-v7 .badge-red{
+        color:#8a1c1c;
+        background:var(--rfbd-red-soft);
+        border-color:#ffd0cc;
+      }
+
+      .rf-business-dialer-v7 .badge-gray{
+        color:#646570;
+        background:#f0f1f2;
+        border-color:#e2e4e6;
+      }
+
+      .rf-business-dialer-v7 .error-banner,
+      .rf-business-dialer-v7 .success-banner{
+        padding:10px 11px;
+        margin:0;
+        border:1px solid;
+        border-radius:8px;
+        font-size:6.5px;
+        line-height:11px;
+        animation:rfbdIn .16s var(--rfbd-ease);
+      }
+
+      .rf-business-dialer-v7 .error-banner{
+        color:#7c1d1d;
+        background:var(--rfbd-red-soft);
+        border-color:#ffd0cc;
+      }
+
+      .rf-business-dialer-v7 .success-banner{
+        color:#086846;
+        background:var(--rfbd-green-soft);
+        border-color:#caeadb;
+      }
+
+      .rf-business-dialer-v7 .rf-telnyx-result{
+        min-height:46px;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:8px;
+        padding:8px 10px;
+        color:var(--rfbd-text2);
+        background:#f6f7f8;
+        border:1px solid #eceeef;
+        border-radius:8px;
+        font-size:6px;
+      }
+
+      .rf-business-dialer-v7 .rf-telnyx-result b{
+        color:var(--rfbd-primary);
+        font-size:7px;
+      }
+
+      .rf-business-dialer-v7 .rf-assignment-option{
+        min-height:52px;
+        display:flex;
+        align-items:flex-start;
+        gap:8px;
+        padding:9px 10px;
+        color:var(--rfbd-text2);
+        background:#f8f9fa;
+        border:1px solid var(--rfbd-line);
+        border-radius:8px;
+        font-size:6.2px;
+        line-height:10px;
+      }
+
+      .rf-business-dialer-v7 .rf-assignment-option input{
+        width:15px;
+        height:15px;
+        flex:0 0 15px;
+        margin:0;
+        accent-color:var(--rfbd-primary);
+      }
+
+      .rf-business-dialer-v7 .flex{
+        display:flex;
+      }
+
+      .rf-business-dialer-v7 .flex-gap{
+        gap:7px;
+      }
+
+      .rf-business-dialer-v7 .flex-wrap{
+        flex-wrap:wrap;
+      }
+
+      .rf-business-dialer-v7 .mt16{
+        margin-top:2px!important;
+      }
+
+      .rf-business-dialer-v7 .btn{
+        min-height:40px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        padding:7px 12px;
+        border:1px solid transparent;
+        border-radius:8px;
+        cursor:pointer;
+        font:700 7px/1 Inter,sans-serif;
+        transition:.14s var(--rfbd-ease);
+      }
+
+      .rf-business-dialer-v7 .btn:hover:not(:disabled){
+        transform:translateY(-1px);
+      }
+
+      .rf-business-dialer-v7 .btn:disabled{
+        opacity:.42;
+        cursor:not-allowed;
+      }
+
+      .rf-business-dialer-v7 .btn.primary{
+        color:#fff;
+        background:var(--rfbd-primary);
+        border-color:var(--rfbd-primary);
+        box-shadow:0 7px 16px rgba(70,72,212,.14);
+      }
+
+      .rf-business-dialer-v7 .btn.primary:hover:not(:disabled){
+        background:var(--rfbd-primary-dark);
+      }
+
+      .rf-business-dialer-v7 .btn.light{
+        color:var(--rfbd-text);
+        background:#fff;
+        border-color:var(--rfbd-line);
+      }
+
+      .rf-business-dialer-v7 .btn.danger{
+        color:#fff;
+        background:#b42318;
+        border-color:#b42318;
+      }
+
+      .rf-business-dialer-v7 div[aria-label="Call dial pad"]{
+        max-width:320px!important;
+        gap:7px!important;
+        margin-top:2px!important;
+        padding:10px;
+        background:#f6f7f8;
+        border:1px solid var(--rfbd-line);
+        border-radius:10px;
+      }
+
+      .rf-business-dialer-v7 div[aria-label="Call dial pad"] .btn{
+        min-height:52px!important;
+        font-size:15px!important;
+        background:#fff;
+        box-shadow:0 1px 2px rgba(25,28,29,.03);
+      }
+
+      @media(max-width:620px){
+        .rf-business-dialer-v7{
+          padding:12px!important;
+        }
+
+        .rf-business-dialer-v7 .section-title-row{
+          min-height:0;
+          align-items:flex-start;
+          flex-direction:column;
+        }
+
+        .rf-business-dialer-v7 h3{
+          font-size:19px;
+          line-height:25px;
+        }
+
+        .rf-business-dialer-v7 .flex{
+          display:grid;
+          grid-template-columns:1fr;
+        }
+
+        .rf-business-dialer-v7 .btn{
+          width:100%;
+        }
+
+        .rf-business-dialer-v7 div[aria-label="Call dial pad"]{
+          grid-template-columns:repeat(3,1fr)!important;
+          max-width:none!important;
+        }
+      }
+
+      @media(prefers-reduced-motion:reduce){
+        .rf-business-dialer-v7,
+        .rf-business-dialer-v7 *,
+        .rf-business-dialer-v7 *::before,
+        .rf-business-dialer-v7 *::after{
+          animation:none!important;
+          transition-duration:.01ms!important;
+        }
+      }
+    `}</style>
+  );
 }
