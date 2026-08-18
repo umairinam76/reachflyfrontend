@@ -883,7 +883,7 @@ function Hero() {
         >
           <span className="rf14-kicker">
             <Sparkles size={14} />
-            AI sales workspace · from market to meeting
+            Our New V4 Voice Agents are better then Humans
           </span>
 
           <h1>
