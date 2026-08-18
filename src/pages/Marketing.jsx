@@ -851,7 +851,7 @@ function Reveal({ children, className = "", delay = 0 }) {
 function Hero() {
   const [services, setServices] = useState([]);
   const { displayed, done } = useTypewriter(
-    "turn the right businesses\ninto real conversations.",
+    "Our AI Agents turn the right businesses\ninto real conversations for YOU",
     38,
     500
   );
