@@ -173,6 +173,7 @@ export class ApiRequestError extends Error {
       details = null,
       response = null,
       cause = null,
+      retryAfterMs = 0,
     } = {}
   ) {
     super(message);
@@ -184,6 +185,11 @@ export class ApiRequestError extends Error {
     this.details = details;
     this.response = response;
     this.cause = cause;
+    this.retryAfterMs =
+      Math.max(
+        0,
+        Number(retryAfterMs) || 0
+      );
   }
 }
 
@@ -1258,6 +1264,8 @@ export function isRetryableApiError(
 
 /**
  * Retries an API operation using incremental delays.
+ * When the server supplies Retry-After, that delay is honored (capped at
+ * 30 seconds) so client retries do not immediately add more rate-limit load.
  */
 export async function retryApiRequest(
   operation,
@@ -1289,9 +1297,21 @@ export async function retryApiRequest(
         throw error;
       }
 
+      const retryDelay =
+        Math.max(
+          delayMs *
+            (attempt + 1),
+          Math.min(
+            Number(
+              error?.retryAfterMs ||
+                0
+            ) || 0,
+            30_000
+          )
+        );
+
       await wait(
-        delayMs *
-          (attempt + 1)
+        retryDelay
       );
     }
   }
@@ -1512,6 +1532,13 @@ async function createApiError(
       response.status
     );
 
+  const retryAfterMs =
+    getRetryAfterMs(
+      response.headers.get(
+        "retry-after"
+      )
+    );
+
   return new ApiRequestError(
     message,
     {
@@ -1525,7 +1552,48 @@ async function createApiError(
         payload?.errors ||
         null,
       response: payload,
+      retryAfterMs,
     }
+  );
+}
+
+function getRetryAfterMs(value) {
+  const raw =
+    String(
+      value || ""
+    ).trim();
+
+  if (!raw) {
+    return 0;
+  }
+
+  const seconds =
+    Number(raw);
+
+  if (
+    Number.isFinite(seconds) &&
+    seconds >= 0
+  ) {
+    return Math.round(
+      seconds * 1000
+    );
+  }
+
+  const date =
+    new Date(raw);
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return 0;
+  }
+
+  return Math.max(
+    0,
+    date.getTime() -
+      Date.now()
   );
 }
 
@@ -1625,7 +1693,7 @@ function getStatusMessage(
     422:
       "Some submitted information is invalid.",
     429:
-      "Too many requests were made. Try again shortly.",
+      "ReachFly is receiving several requests at once. Wait a moment and try again.",
     500:
       "The server could not complete the request.",
     502:

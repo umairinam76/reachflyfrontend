@@ -172,122 +172,532 @@ async function parseResponse(response) {
 /* Main request function                                                      */
 /* ========================================================================== */
 
-export async function request(path, options = {}) {
+const inflightReadRequests =
+  new Map();
+
+const RATE_LIMIT_RETRY_CAP_MS =
+  30_000;
+
+function getRetryAfterMs(
+  value
+) {
+  const raw =
+    String(
+      value || ""
+    ).trim();
+
+  if (!raw) {
+    return 0;
+  }
+
+  const seconds =
+    Number(raw);
+
+  if (
+    Number.isFinite(
+      seconds
+    ) &&
+    seconds >= 0
+  ) {
+    return Math.round(
+      seconds * 1000
+    );
+  }
+
+  const date =
+    new Date(raw);
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return 0;
+  }
+
+  return Math.max(
+    0,
+    date.getTime() -
+      Date.now()
+  );
+}
+
+function wait(
+  milliseconds,
+  signal
+) {
+  const delay =
+    Math.max(
+      0,
+      Number(
+        milliseconds
+      ) || 0
+    );
+
+  if (!delay) {
+    return Promise.resolve();
+  }
+
+  return new Promise(
+    (
+      resolve,
+      reject
+    ) => {
+      const timer =
+        globalThis.setTimeout(
+          () => {
+            cleanup();
+            resolve();
+          },
+          delay
+        );
+
+      const onAbort =
+        () => {
+          cleanup();
+
+          const error =
+            new Error(
+              "The request was cancelled."
+            );
+
+          error.name =
+            "AbortError";
+
+          error.code =
+            "REQUEST_ABORTED";
+
+          reject(error);
+        };
+
+      function cleanup() {
+        globalThis.clearTimeout(
+          timer
+        );
+
+        signal?.removeEventListener?.(
+          "abort",
+          onAbort
+        );
+      }
+
+      if (
+        signal?.aborted
+      ) {
+        onAbort();
+        return;
+      }
+
+      signal?.addEventListener?.(
+        "abort",
+        onAbort,
+        {
+          once: true,
+        }
+      );
+    }
+  );
+}
+
+function dispatchUnauthorized() {
+  if (
+    typeof window ===
+    "undefined"
+  ) {
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent(
+      "reachfly:unauthorized"
+    )
+  );
+}
+
+function createRequestKey({
+  method,
+  url,
+  auth,
+  token,
+}) {
+  return [
+    method,
+    url,
+    auth
+      ? token || "anonymous"
+      : "public",
+  ].join("::");
+}
+
+async function performRequest(
+  path,
+  options,
+  {
+    method,
+    token,
+  }
+) {
   const {
     timeoutMs = 45_000,
     auth = true,
     headers: customHeaders = {},
     signal: externalSignal,
+    retryOnRateLimit = true,
+    maxRateLimitRetries = 1,
+    dedupe: _dedupe,
     ...fetchOptions
   } = options;
 
-  const token = getToken();
-  const requestBody = fetchOptions.body;
+  const requestBody =
+    fetchOptions.body;
 
   const isFormData =
-    typeof FormData !== "undefined" &&
-    requestBody instanceof FormData;
+    typeof FormData !==
+      "undefined" &&
+    requestBody instanceof
+      FormData;
 
-  const controller = new AbortController();
+  const retryableMethod =
+    method === "GET" ||
+    method === "HEAD";
 
-  const timeoutId = globalThis.setTimeout(() => {
-    controller.abort();
-  }, timeoutMs);
+  const allowedRetries =
+    retryOnRateLimit &&
+    retryableMethod
+      ? Math.max(
+          0,
+          Number(
+            maxRateLimitRetries
+          ) || 0
+        )
+      : 0;
 
-  let removeAbortListener = null;
+  let attempt =
+    0;
 
-  if (externalSignal) {
-    const abortRequest = () => controller.abort();
+  while (true) {
+    const controller =
+      new AbortController();
 
-    if (externalSignal.aborted) {
-      controller.abort();
-    } else {
-      externalSignal.addEventListener(
-        "abort",
-        abortRequest,
-        {
-          once: true,
-        }
+    let timedOut =
+      false;
+
+    const timeoutId =
+      globalThis.setTimeout(
+        () => {
+          timedOut =
+            true;
+
+          controller.abort();
+        },
+        Math.max(
+          1_000,
+          Number(
+            timeoutMs
+          ) ||
+            45_000
+        )
       );
 
-      removeAbortListener = () => {
-        externalSignal.removeEventListener(
-          "abort",
-          abortRequest
-        );
-      };
-    }
-  }
+    let removeAbortListener =
+      null;
 
-  try {
-    const response = await fetch(buildUrl(path), {
-      ...fetchOptions,
-
-      signal: controller.signal,
-
-      headers: {
-        Accept: "application/json",
-
-        ...(!isFormData && requestBody !== undefined
-          ? {
-              "Content-Type": "application/json",
-            }
-          : {}),
-
-        ...(auth && token
-          ? {
-              Authorization: `Bearer ${token}`,
-            }
-          : {}),
-
-        ...customHeaders,
-      },
-    });
-
-    const body = await parseResponse(response);
-
-    if (!response.ok) {
-      const error = new Error(
-        body?.error ||
-          body?.message ||
-          `Request failed (${response.status})`
-      );
-
-      error.status = response.status;
-      error.code = body?.code;
-      error.fields = body?.fields;
-      error.details = body?.details;
-      error.payload = body;
+    if (
+      externalSignal
+    ) {
+      const abortRequest =
+        () =>
+          controller.abort();
 
       if (
-        response.status === 401 &&
-        typeof window !== "undefined"
+        externalSignal.aborted
       ) {
-        window.dispatchEvent(
-          new CustomEvent("reachfly:unauthorized")
+        controller.abort();
+      } else {
+        externalSignal.addEventListener(
+          "abort",
+          abortRequest,
+          {
+            once: true,
+          }
         );
+
+        removeAbortListener =
+          () => {
+            externalSignal.removeEventListener(
+              "abort",
+              abortRequest
+            );
+          };
+      }
+    }
+
+    try {
+      const response =
+        await fetch(
+          buildUrl(path),
+          {
+            ...fetchOptions,
+            method,
+            signal:
+              controller.signal,
+            headers: {
+              Accept:
+                "application/json",
+
+              ...(
+                !isFormData &&
+                requestBody !==
+                  undefined
+                  ? {
+                      "Content-Type":
+                        "application/json",
+                    }
+                  : {}
+              ),
+
+              ...(
+                auth &&
+                token
+                  ? {
+                      Authorization:
+                        `Bearer ${token}`,
+                    }
+                  : {}
+              ),
+
+              ...customHeaders,
+            },
+          }
+        );
+
+      const body =
+        await parseResponse(
+          response
+        );
+
+      if (
+        !response.ok
+      ) {
+        const retryAfterMs =
+          Math.min(
+            RATE_LIMIT_RETRY_CAP_MS,
+            getRetryAfterMs(
+              response.headers.get(
+                "retry-after"
+              )
+            )
+          );
+
+        const error =
+          new Error(
+            body?.error ||
+              body?.message ||
+              (
+                response.status ===
+                429
+                  ? "ReachFly is receiving several requests at once. Wait a moment and try again."
+                  : `Request failed (${response.status})`
+              )
+          );
+
+        error.status =
+          response.status;
+
+        error.code =
+          body?.code;
+
+        error.fields =
+          body?.fields;
+
+        error.details =
+          body?.details;
+
+        error.payload =
+          body;
+
+        error.retryAfterMs =
+          retryAfterMs;
+
+        if (
+          response.status ===
+          401
+        ) {
+          dispatchUnauthorized();
+        }
+
+        const shouldRetry =
+          response.status ===
+            429 &&
+          attempt <
+            allowedRetries &&
+          !externalSignal?.aborted;
+
+        if (
+          shouldRetry
+        ) {
+          const fallbackDelay =
+            Math.min(
+              RATE_LIMIT_RETRY_CAP_MS,
+              900 *
+                (
+                  attempt +
+                  1
+                )
+            );
+
+          attempt +=
+            1;
+
+          await wait(
+            Math.max(
+              retryAfterMs,
+              fallbackDelay
+            ),
+            externalSignal
+          );
+
+          continue;
+        }
+
+        throw error;
+      }
+
+      return body;
+    } catch (
+      error
+    ) {
+      if (
+        error?.name ===
+        "AbortError"
+      ) {
+        if (
+          externalSignal?.aborted &&
+          !timedOut
+        ) {
+          const abortedError =
+            new Error(
+              "The request was cancelled."
+            );
+
+          abortedError.code =
+            "REQUEST_ABORTED";
+
+          throw abortedError;
+        }
+
+        const timeoutError =
+          new Error(
+            "The request took too long. Please try again."
+          );
+
+        timeoutError.code =
+          "REQUEST_TIMEOUT";
+
+        throw timeoutError;
       }
 
       throw error;
-    }
-
-    return body;
-  } catch (error) {
-    if (error?.name === "AbortError") {
-      const timeoutError = new Error(
-        "The request took too long. Please try again."
+    } finally {
+      globalThis.clearTimeout(
+        timeoutId
       );
 
-      timeoutError.code = "REQUEST_TIMEOUT";
-
-      throw timeoutError;
+      removeAbortListener?.();
     }
-
-    throw error;
-  } finally {
-    globalThis.clearTimeout(timeoutId);
-    removeAbortListener?.();
   }
+}
+
+export function request(
+  path,
+  options = {}
+) {
+  const method =
+    String(
+      options.method ||
+        "GET"
+    ).toUpperCase();
+
+  const token =
+    getToken();
+
+  const auth =
+    options.auth !==
+    false;
+
+  const canDedupe =
+    options.dedupe !==
+      false &&
+    (
+      method ===
+        "GET" ||
+      method ===
+        "HEAD"
+    ) &&
+    !options.signal;
+
+  if (
+    !canDedupe
+  ) {
+    return performRequest(
+      path,
+      options,
+      {
+        method,
+        token,
+      }
+    );
+  }
+
+  const key =
+    createRequestKey({
+      method,
+      url:
+        buildUrl(path),
+      auth,
+      token,
+    });
+
+  const existing =
+    inflightReadRequests.get(
+      key
+    );
+
+  if (
+    existing
+  ) {
+    return existing;
+  }
+
+  const pending =
+    performRequest(
+      path,
+      options,
+      {
+        method,
+        token,
+      }
+    ).finally(
+      () => {
+        if (
+          inflightReadRequests.get(
+            key
+          ) ===
+          pending
+        ) {
+          inflightReadRequests.delete(
+            key
+          );
+        }
+      }
+    );
+
+  inflightReadRequests.set(
+    key,
+    pending
+  );
+
+  return pending;
 }
 
 /* ========================================================================== */

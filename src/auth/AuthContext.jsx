@@ -17,28 +17,80 @@ const AuthContext =
 const USER_KEY =
   "reachflyUser";
 
-/*
- * React StrictMode mounts effects twice in development.
- * Reuse the same /auth/me request during the duplicate mount.
- */
-let sessionInitializationPromise =
-  null;
+const SESSION_VALIDATION_TTL_MS =
+  30_000;
 
-let sessionInitializationResetTimer =
-  null;
+const SESSION_RATE_LIMIT_BACKOFF_MS =
+  15_000;
 
-function readStoredUser() {
+let sessionValidationState = {
+  token:
+    "",
+  promise:
+    null,
+  response:
+    null,
+  validatedAt:
+    0,
+  error:
+    null,
+  backoffUntil:
+    0,
+};
+
+let refreshUserState = {
+  token:
+    "",
+  promise:
+    null,
+};
+
+function getLocalToken() {
+  return (
+    localStorage.getItem(
+      "reachflyToken"
+    ) ||
+    localStorage.getItem(
+      "token"
+    ) ||
+    ""
+  );
+}
+
+function getSessionToken() {
+  return (
+    sessionStorage.getItem(
+      "reachflyToken"
+    ) ||
+    sessionStorage.getItem(
+      "token"
+    ) ||
+    ""
+  );
+}
+
+function isPersistentSession() {
+  return Boolean(
+    getLocalToken()
+  );
+}
+
+function readJsonStorage(
+  storage
+) {
   try {
     const stored =
-      localStorage.getItem(
+      storage.getItem(
         USER_KEY
       );
 
     return stored
-      ? JSON.parse(stored)
+      ? JSON.parse(
+          stored
+        )
       : null;
   } catch {
-    localStorage.removeItem(
+    storage.removeItem(
       USER_KEY
     );
 
@@ -46,23 +98,98 @@ function readStoredUser() {
   }
 }
 
-function saveStoredUser(user) {
+function readStoredUser() {
+  const localUser =
+    readJsonStorage(
+      localStorage
+    );
+
+  const sessionUser =
+    readJsonStorage(
+      sessionStorage
+    );
+
+  if (
+    getLocalToken()
+  ) {
+    return (
+      localUser ||
+      sessionUser ||
+      null
+    );
+  }
+
+  if (
+    getSessionToken()
+  ) {
+    return (
+      sessionUser ||
+      localUser ||
+      null
+    );
+  }
+
+  return (
+    localUser ||
+    sessionUser ||
+    null
+  );
+}
+
+function saveStoredUser(
+  user,
+  {
+    persistent =
+      isPersistentSession(),
+  } = {}
+) {
+  localStorage.removeItem(
+    USER_KEY
+  );
+
+  sessionStorage.removeItem(
+    USER_KEY
+  );
+
   if (!user) {
-    localStorage.removeItem(
-      USER_KEY
-    );
-
-    sessionStorage.removeItem(
-      USER_KEY
-    );
-
     return;
   }
 
-  localStorage.setItem(
+  const storage =
+    persistent
+      ? localStorage
+      : sessionStorage;
+
+  storage.setItem(
     USER_KEY,
-    JSON.stringify(user)
+    JSON.stringify(
+      user
+    )
   );
+}
+
+function resetValidationState() {
+  sessionValidationState = {
+    token:
+      "",
+    promise:
+      null,
+    response:
+      null,
+    validatedAt:
+      0,
+    error:
+      null,
+    backoffUntil:
+      0,
+  };
+
+  refreshUserState = {
+    token:
+      "",
+    promise:
+      null,
+  };
 }
 
 function clearStoredSession() {
@@ -75,75 +202,239 @@ function clearStoredSession() {
   sessionStorage.removeItem(
     USER_KEY
   );
+
+  resetValidationState();
 }
 
 function normalizeRole(value) {
-  const role = String(
-    value || ""
-  )
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "_")
-    .replace(/-/g, "_");
+  const role =
+    String(
+      value ||
+        ""
+    )
+      .trim()
+      .toLowerCase()
+      .replace(
+        /\s+/g,
+        "_"
+      )
+      .replace(
+        /-/g,
+        "_"
+      );
 
-  if (role.includes("owner")) {
+  if (
+    role.includes(
+      "owner"
+    )
+  ) {
     return "owner";
   }
 
-  if (role.includes("admin")) {
+  if (
+    role.includes(
+      "admin"
+    )
+  ) {
     return "admin";
   }
 
-  if (role.includes("manager")) {
+  if (
+    role.includes(
+      "manager"
+    )
+  ) {
     return "manager";
   }
 
   if (
-    role === "caller" ||
-    role.includes("cold_caller") ||
+    role ===
+      "caller" ||
+    role.includes(
+      "cold_caller"
+    ) ||
     role.includes(
       "sales_representative"
     ) ||
-    role.includes("sales_rep") ||
-    role.includes("telemarketer")
+    role.includes(
+      "sales_rep"
+    ) ||
+    role.includes(
+      "telemarketer"
+    )
   ) {
     return "caller";
   }
 
-  return role || "caller";
+  return (
+    role ||
+    "caller"
+  );
 }
 
-function getSessionInitialization() {
-  if (!sessionInitializationPromise) {
-    sessionInitializationPromise =
-      api.me();
+function getValidationBackoff(
+  error
+) {
+  const status =
+    Number(
+      error?.status ||
+        0
+    );
 
-    sessionInitializationPromise.finally(
-      () => {
-        if (
-          sessionInitializationResetTimer
-        ) {
-          window.clearTimeout(
-            sessionInitializationResetTimer
-          );
-        }
-
-        sessionInitializationResetTimer =
-          window.setTimeout(
-            () => {
-              sessionInitializationPromise =
-                null;
-
-              sessionInitializationResetTimer =
-                null;
-            },
-            1500
-          );
-      }
+  if (
+    status ===
+    429
+  ) {
+    return Math.min(
+      30_000,
+      Math.max(
+        SESSION_RATE_LIMIT_BACKOFF_MS,
+        Number(
+          error?.retryAfterMs ||
+            0
+        ) ||
+          0
+      )
     );
   }
 
-  return sessionInitializationPromise;
+  if (
+    status >= 500 ||
+    !status
+  ) {
+    return 3_000;
+  }
+
+  return 0;
+}
+
+function getSessionValidation(
+  token,
+  {
+    force =
+      false,
+  } = {}
+) {
+  const now =
+    Date.now();
+
+  if (
+    sessionValidationState.token ===
+      token &&
+    sessionValidationState.promise
+  ) {
+    return sessionValidationState.promise;
+  }
+
+  if (
+    !force &&
+    sessionValidationState.token ===
+      token &&
+    sessionValidationState.response &&
+    now -
+      sessionValidationState.validatedAt <
+      SESSION_VALIDATION_TTL_MS
+  ) {
+    return Promise.resolve(
+      sessionValidationState.response
+    );
+  }
+
+  if (
+    sessionValidationState.token ===
+      token &&
+    sessionValidationState.error &&
+    now <
+      sessionValidationState.backoffUntil
+  ) {
+    return Promise.reject(
+      sessionValidationState.error
+    );
+  }
+
+  const promise =
+    api.me()
+      .then(
+        (
+          response
+        ) => {
+          sessionValidationState = {
+            token,
+            promise:
+              null,
+            response,
+            validatedAt:
+              Date.now(),
+            error:
+              null,
+            backoffUntil:
+              0,
+          };
+
+          return response;
+        }
+      )
+      .catch(
+        (
+          error
+        ) => {
+          sessionValidationState = {
+            token,
+            promise:
+              null,
+            response:
+              null,
+            validatedAt:
+              0,
+            error,
+            backoffUntil:
+              Date.now() +
+              getValidationBackoff(
+                error
+              ),
+          };
+
+          throw error;
+        }
+      );
+
+  sessionValidationState = {
+    token,
+    promise,
+    response:
+      null,
+    validatedAt:
+      0,
+    error:
+      null,
+    backoffUntil:
+      0,
+  };
+
+  return promise;
+}
+
+function extractUser(
+  response
+) {
+  const freshUser =
+    response?.user ||
+    response;
+
+  if (
+    !freshUser ||
+    typeof freshUser !==
+      "object" ||
+    Array.isArray(
+      freshUser
+    )
+  ) {
+    throw new Error(
+      "Invalid user response."
+    );
+  }
+
+  return freshUser;
 }
 
 export function AuthProvider({
@@ -175,7 +466,8 @@ export function AuthProvider({
       (
         payload,
         {
-          persistent = true,
+          persistent =
+            true,
         } = {}
       ) => {
         if (
@@ -195,8 +487,28 @@ export function AuthProvider({
         );
 
         saveStoredUser(
-          payload.user
+          payload.user,
+          {
+            persistent,
+          }
         );
+
+        sessionValidationState = {
+          token:
+            payload.token,
+          promise:
+            null,
+          response: {
+            user:
+              payload.user,
+          },
+          validatedAt:
+            Date.now(),
+          error:
+            null,
+          backoffUntil:
+            0,
+        };
 
         setTokenState(
           payload.token
@@ -212,26 +524,34 @@ export function AuthProvider({
     );
 
   const logout =
-    useCallback(() => {
-      clearStoredSession();
+    useCallback(
+      () => {
+        clearStoredSession();
 
-      sessionInitializationPromise =
-        null;
+        setTokenState(
+          ""
+        );
 
-      setTokenState("");
-      setUserState(null);
-    }, []);
+        setUserState(
+          null
+        );
+      },
+      []
+    );
 
   const login =
     useCallback(
       async (
         data,
         {
-          rememberMe = true,
+          rememberMe =
+            true,
         } = {}
       ) => {
         const payload =
-          await api.login(data);
+          await api.login(
+            data
+          );
 
         saveSession(
           payload,
@@ -253,11 +573,14 @@ export function AuthProvider({
       async (
         data,
         {
-          rememberMe = true,
+          rememberMe =
+            true,
         } = {}
       ) => {
         const payload =
-          await api.signup(data);
+          await api.signup(
+            data
+          );
 
         saveSession(
           payload,
@@ -279,11 +602,14 @@ export function AuthProvider({
       async (
         data,
         {
-          rememberMe = true,
+          rememberMe =
+            true,
         } = {}
       ) => {
         const payload =
-          await api.googleAuth(data);
+          await api.googleAuth(
+            data
+          );
 
         saveSession(
           payload,
@@ -295,7 +621,9 @@ export function AuthProvider({
 
         return payload;
       },
-      [saveSession]
+      [
+        saveSession,
+      ]
     );
 
   const acceptInvite =
@@ -303,7 +631,8 @@ export function AuthProvider({
       async (
         data,
         {
-          rememberMe = true,
+          rememberMe =
+            true,
         } = {}
       ) => {
         const payload =
@@ -344,8 +673,34 @@ export function AuthProvider({
                 : nextUserOrUpdater;
 
             saveStoredUser(
-              nextUser
+              nextUser,
+              {
+                persistent:
+                  isPersistentSession(),
+              }
             );
+
+            if (
+              nextUser &&
+              api.getToken()
+            ) {
+              sessionValidationState = {
+                token:
+                  api.getToken(),
+                promise:
+                  null,
+                response: {
+                  user:
+                    nextUser,
+                },
+                validatedAt:
+                  Date.now(),
+                error:
+                  null,
+                backoffUntil:
+                  0,
+              };
+            }
 
             return nextUser;
           }
@@ -360,289 +715,399 @@ export function AuthProvider({
         const currentToken =
           api.getToken();
 
-        if (!currentToken) {
+        if (
+          !currentToken
+        ) {
           logout();
-
           return null;
         }
 
-        try {
-          const response =
-            await api.me();
-
-          const freshUser =
-            response?.user ||
-            response;
-
-          if (
-            !freshUser ||
-            typeof freshUser !==
-              "object"
-          ) {
-            throw new Error(
-              "Invalid user response."
-            );
-          }
-
-          saveStoredUser(
-            freshUser
-          );
-
-          setTokenState(
-            currentToken
-          );
-
-          setUserState(
-            freshUser
-          );
-
-          return freshUser;
-        } catch (error) {
-          if (
-            error?.status ===
-              401 ||
-            error?.status ===
-              403
-          ) {
-            logout();
-          }
-
-          throw error;
+        if (
+          refreshUserState.token ===
+            currentToken &&
+          refreshUserState.promise
+        ) {
+          return refreshUserState.promise;
         }
+
+        const request =
+          getSessionValidation(
+            currentToken,
+            {
+              force:
+                true,
+            }
+          )
+            .then(
+              (
+                response
+              ) => {
+                const freshUser =
+                  extractUser(
+                    response
+                  );
+
+                saveStoredUser(
+                  freshUser,
+                  {
+                    persistent:
+                      isPersistentSession(),
+                  }
+                );
+
+                setTokenState(
+                  currentToken
+                );
+
+                setUserState(
+                  freshUser
+                );
+
+                return freshUser;
+              }
+            )
+            .catch(
+              (
+                error
+              ) => {
+                if (
+                  error?.status ===
+                    401 ||
+                  error?.status ===
+                    403
+                ) {
+                  logout();
+                }
+
+                throw error;
+              }
+            )
+            .finally(
+              () => {
+                if (
+                  refreshUserState.promise ===
+                  request
+                ) {
+                  refreshUserState = {
+                    token:
+                      "",
+                    promise:
+                      null,
+                  };
+                }
+              }
+            );
+
+        refreshUserState = {
+          token:
+            currentToken,
+          promise:
+            request,
+        };
+
+        return request;
       },
       [
         logout,
       ]
     );
 
-  useEffect(() => {
-    let active = true;
+  useEffect(
+    () => {
+      let active =
+        true;
 
-    async function initialiseSession() {
-      const storedToken =
-        api.getToken();
-
-      if (!storedToken) {
-        if (active) {
-          setTokenState("");
-          setUserState(null);
-          setInitializing(false);
-        }
-
-        return;
-      }
-
-      try {
-        const response =
-          await getSessionInitialization();
-
-        const freshUser =
-          response?.user ||
-          response;
+      async function initialiseSession() {
+        const storedToken =
+          api.getToken();
 
         if (
-          !freshUser ||
-          typeof freshUser !==
-            "object"
+          !storedToken
         ) {
-          throw new Error(
-            "Invalid user response."
+          if (
+            active
+          ) {
+            setTokenState(
+              ""
+            );
+
+            setUserState(
+              null
+            );
+
+            setInitializing(
+              false
+            );
+          }
+
+          return;
+        }
+
+        try {
+          const response =
+            await getSessionValidation(
+              storedToken
+            );
+
+          const freshUser =
+            extractUser(
+              response
+            );
+
+          if (
+            !active
+          ) {
+            return;
+          }
+
+          saveStoredUser(
+            freshUser,
+            {
+              persistent:
+                isPersistentSession(),
+            }
           );
-        }
 
-        if (!active) {
-          return;
-        }
-
-        saveStoredUser(
-          freshUser
-        );
-
-        setTokenState(
-          storedToken
-        );
-
-        setUserState(
-          freshUser
-        );
-      } catch (error) {
-        if (!active) {
-          return;
-        }
-
-        if (
-          error?.status ===
-            401 ||
-          error?.status ===
-            403
-        ) {
-          clearStoredSession();
-
-          setTokenState("");
-          setUserState(null);
-        } else {
           setTokenState(
             storedToken
           );
 
           setUserState(
-            readStoredUser()
+            freshUser
           );
-        }
-      } finally {
-        if (active) {
-          setInitializing(
-            false
-          );
+        } catch (
+          error
+        ) {
+          if (
+            !active
+          ) {
+            return;
+          }
+
+          if (
+            error?.status ===
+              401 ||
+            error?.status ===
+              403
+          ) {
+            clearStoredSession();
+
+            setTokenState(
+              ""
+            );
+
+            setUserState(
+              null
+            );
+          } else {
+            const cachedUser =
+              readStoredUser();
+
+            setTokenState(
+              storedToken
+            );
+
+            setUserState(
+              cachedUser
+            );
+          }
+        } finally {
+          if (
+            active
+          ) {
+            setInitializing(
+              false
+            );
+          }
         }
       }
-    }
 
-    void initialiseSession();
+      void initialiseSession();
 
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    const handleUnauthorized =
-      () => {
-        logout();
+      return () => {
+        active =
+          false;
       };
+    },
+    []
+  );
 
-    window.addEventListener(
-      "reachfly:unauthorized",
-      handleUnauthorized
-    );
+  useEffect(
+    () => {
+      const handleUnauthorized =
+        () => {
+          logout();
+        };
 
-    return () => {
-      window.removeEventListener(
+      window.addEventListener(
         "reachfly:unauthorized",
         handleUnauthorized
       );
-    };
-  }, [
-    logout,
-  ]);
 
-  useEffect(() => {
-    const handleStorage =
-      (event) => {
-        const relevantKeys = [
-          "reachflyToken",
-          "token",
-          USER_KEY,
-        ];
-
-        if (
-          !relevantKeys.includes(
-            event.key
-          )
-        ) {
-          return;
-        }
-
-        const nextToken =
-          api.getToken();
-
-        const nextUser =
-          readStoredUser();
-
-        setTokenState(
-          nextToken
-        );
-
-        setUserState(
-          nextUser
+      return () => {
+        window.removeEventListener(
+          "reachfly:unauthorized",
+          handleUnauthorized
         );
       };
+    },
+    [
+      logout,
+    ]
+  );
 
-    window.addEventListener(
-      "storage",
-      handleStorage
-    );
+  useEffect(
+    () => {
+      const handleStorage =
+        (
+          event
+        ) => {
+          const relevantKeys = [
+            "reachflyToken",
+            "token",
+            USER_KEY,
+          ];
 
-    return () => {
-      window.removeEventListener(
+          if (
+            event.key &&
+            !relevantKeys.includes(
+              event.key
+            )
+          ) {
+            return;
+          }
+
+          const nextToken =
+            api.getToken();
+
+          const nextUser =
+            readStoredUser();
+
+          if (
+            nextToken !==
+            token
+          ) {
+            resetValidationState();
+          }
+
+          setTokenState(
+            nextToken
+          );
+
+          setUserState(
+            nextUser
+          );
+        };
+
+      window.addEventListener(
         "storage",
         handleStorage
       );
-    };
-  }, []);
 
-  const value = useMemo(
-    () => {
-      const role =
-        normalizeRole(
-          user?.workspaceRole ||
-            user?.role ||
-            "caller"
+      return () => {
+        window.removeEventListener(
+          "storage",
+          handleStorage
         );
+      };
+    },
+    [
+      token,
+    ]
+  );
 
-      const accountType =
-        user?.accountType ||
-        user?.workspaceType ||
-        user?.workspace
-          ?.accountType ||
-        (
-          user?.workspaceId ||
-          user?.companyId
-            ? "company"
-            : "individual"
-        );
+  const value =
+    useMemo(
+      () => {
+        const role =
+          normalizeRole(
+            user?.workspaceRole ||
+              user?.role ||
+              "caller"
+          );
 
-      return {
-        token,
-        user,
-
-        initializing,
-        isLoading:
-          initializing,
-
-        isAuthenticated:
-          Boolean(
-            token &&
-            user
-          ),
-
-        workspaceId:
-          user?.workspaceId ||
-          user?.workspace?.id ||
-          "",
-
-        accountType,
-
-        companyName:
-          user?.companyName ||
-          user?.workspaceName ||
+        const accountType =
+          user?.accountType ||
+          user?.workspaceType ||
           user?.workspace
-            ?.companyName ||
-          "",
+            ?.accountType ||
+          (
+            user?.workspaceId ||
+            user?.companyId
+              ? "company"
+              : "individual"
+          );
 
-        workspaceName:
-          user?.workspaceName ||
-          user?.companyName ||
-          user?.workspace?.name ||
-          "",
+        return {
+          token,
+          user,
 
-        workspaceRole:
+          initializing,
+          isLoading:
+            initializing,
+
+          isAuthenticated:
+            Boolean(
+              token &&
+                user
+            ),
+
+          workspaceId:
+            user?.workspaceId ||
+            user?.workspace?.id ||
+            "",
+
+          accountType,
+
+          companyName:
+            user?.companyName ||
+            user?.workspaceName ||
+            user?.workspace
+              ?.companyName ||
+            "",
+
+          workspaceName:
+            user?.workspaceName ||
+            user?.companyName ||
+            user?.workspace
+              ?.name ||
+            "",
+
+          workspaceRole:
+            role,
+
           role,
 
-        role,
+          isOwner:
+            role ===
+            "owner",
 
-        isOwner:
-          role === "owner",
+          isAdmin:
+            role ===
+            "admin",
 
-        isAdmin:
-          role === "admin",
+          isManager:
+            role ===
+            "manager",
 
-        isManager:
-          role === "manager",
+          isCaller:
+            role ===
+            "caller",
 
-        isCaller:
-          role === "caller",
-
+          login,
+          signup,
+          googleAuth,
+          acceptInvite,
+          logout,
+          refreshUser,
+          updateUser,
+          saveSession,
+        };
+      },
+      [
+        token,
+        user,
+        initializing,
         login,
         signup,
         googleAuth,
@@ -651,22 +1116,8 @@ export function AuthProvider({
         refreshUser,
         updateUser,
         saveSession,
-      };
-    },
-    [
-      token,
-      user,
-      initializing,
-      login,
-      signup,
-      googleAuth,
-      acceptInvite,
-      logout,
-      refreshUser,
-      updateUser,
-      saveSession,
-    ]
-  );
+      ]
+    );
 
   return (
     <AuthContext.Provider
@@ -683,7 +1134,9 @@ export function useAuth() {
       AuthContext
     );
 
-  if (!value) {
+  if (
+    !value
+  ) {
     throw new Error(
       "useAuth must be used inside AuthProvider."
     );

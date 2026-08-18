@@ -869,7 +869,7 @@ export default function TeamCommunication({
     const intervalId =
       window.setInterval(
         refreshWhenVisible,
-        30_000
+        90_000
       );
 
     window.addEventListener(
@@ -1606,6 +1606,12 @@ export default function TeamCommunication({
       setShowGroupDialog(false);
       setGroupForm(EMPTY_GROUP);
       setMode("chat");
+
+      notifyTeamCommunication(
+        "success",
+        "Group created",
+        `${channel.name || groupForm.name.trim()} is ready for team communication.`
+      );
     } catch (requestError) {
       setError(
         requestError?.message ||
@@ -1668,6 +1674,12 @@ export default function TeamCommunication({
 
       setTaskForm(EMPTY_TASK);
       setMode("tasks");
+
+      notifyTeamCommunication(
+        "success",
+        "Work assignment created",
+        `${task.title || taskForm.title || "Task"} was added to the team board.`
+      );
     } catch (requestError) {
       setError(
         requestError?.message ||
@@ -2601,7 +2613,8 @@ export default function TeamCommunication({
   }
 
   return (
-    <section className="team-comms-shell">
+    <section className="team-comms-shell rf-team-comms-v7">
+      <TeamCommunicationV7Styles />
       <header className="team-comms-header">
         <div>
           <span>
@@ -2653,7 +2666,7 @@ export default function TeamCommunication({
 
       {error ? (
         <div className="team-comms-error">
-          <span>{error}</span>
+          <span>{safeTeamMessage(error)}</span>
 
           <button
             type="button"
@@ -2668,7 +2681,7 @@ export default function TeamCommunication({
 
       {callError ? (
         <div className="team-comms-error">
-          <span>{callError}</span>
+          <span>{safeTeamMessage(callError)}</span>
 
           <button
             type="button"
@@ -5069,5 +5082,1189 @@ function upsertById(
           ...record,
         }
       : item
+  );
+}
+
+function safeTeamMessage(value) {
+  return String(value || "")
+    .replace(/ElevenLabs/gi, "voice service")
+    .replace(/Telnyx/gi, "calling service")
+    .replace(/\bSIP\b/gi, "voice connection")
+    .replace(/\bWebRTC\b/gi, "team call");
+}
+
+function notifyTeamCommunication(
+  type,
+  title,
+  message
+) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const bridge =
+    window.reachflyToast;
+
+  if (
+    bridge &&
+    typeof bridge[type] === "function"
+  ) {
+    bridge[type](title, message);
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent(
+      "reachfly:toast",
+      {
+        detail: {
+          type,
+          title,
+          message,
+        },
+      }
+    )
+  );
+}
+
+function TeamCommunicationV7Styles() {
+  return (
+    <style>{`
+      .rf-team-comms-v7{
+        --rftc-card:#fff;
+        --rftc-soft:#f6f7f8;
+        --rftc-text:#191c1d;
+        --rftc-text2:#4d4c59;
+        --rftc-muted:#777784;
+        --rftc-line:#e2e4e7;
+        --rftc-primary:#4648d4;
+        --rftc-primary-dark:#393bbb;
+        --rftc-primary-soft:#e8e9ff;
+        --rftc-violet:#6b38d4;
+        --rftc-violet-soft:#f1ebff;
+        --rftc-green:#087a51;
+        --rftc-green-soft:#e4f7ee;
+        --rftc-red:#ba1a1a;
+        --rftc-red-soft:#ffedeb;
+        --rftc-amber:#965900;
+        --rftc-amber-soft:#fff3d8;
+        --rftc-dark:#2e3132;
+        --rftc-ease:cubic-bezier(.2,.8,.2,1);
+        width:100%;
+        overflow:hidden;
+        color:var(--rftc-text);
+        background:#fff;
+        border:1px solid var(--rftc-line);
+        border-radius:13px;
+        box-shadow:0 1px 3px rgba(25,28,29,.025);
+        font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      }
+
+      .rf-team-comms-v7 *,
+      .rf-team-comms-v7 *::before,
+      .rf-team-comms-v7 *::after{
+        box-sizing:border-box;
+      }
+
+      @keyframes rftcIn{
+        from{opacity:0;transform:translateY(4px)}
+        to{opacity:1;transform:none}
+      }
+
+      @keyframes rftcPulse{
+        0%,100%{opacity:.4}
+        50%{opacity:1}
+      }
+
+      .rf-team-comms-v7 .team-comms-header{
+        min-height:104px;
+        display:flex;
+        align-items:flex-end;
+        justify-content:space-between;
+        gap:18px;
+        padding:15px 16px;
+        background:
+          radial-gradient(circle at 92% 4%,rgba(70,72,212,.06),transparent 30%),
+          #fbfbfc;
+        border-bottom:1px solid var(--rftc-line);
+      }
+
+      .rf-team-comms-v7 .team-comms-header > div:first-child{
+        min-width:0;
+      }
+
+      .rf-team-comms-v7 .team-comms-header > div:first-child > span{
+        display:block;
+        margin-bottom:4px;
+        color:var(--rftc-primary);
+        font-size:6px;
+        font-weight:800;
+        letter-spacing:.08em;
+        text-transform:uppercase;
+      }
+
+      .rf-team-comms-v7 .team-comms-header h2{
+        margin:0;
+        font:600 18px/24px Geist,Inter,sans-serif;
+        letter-spacing:-.02em;
+      }
+
+      .rf-team-comms-v7 .team-comms-header p{
+        max-width:720px;
+        margin:4px 0 0;
+        color:var(--rftc-text2);
+        font-size:7px;
+        line-height:12px;
+      }
+
+      .rf-team-comms-v7 .team-comms-switch{
+        display:flex;
+        gap:4px;
+        padding:4px;
+        background:#f0f1f2;
+        border-radius:9px;
+      }
+
+      .rf-team-comms-v7 .team-comms-switch button{
+        min-height:34px;
+        display:flex;
+        align-items:center;
+        gap:6px;
+        padding:6px 8px;
+        color:var(--rftc-text2);
+        background:transparent;
+        border:0;
+        border-radius:7px;
+        cursor:pointer;
+        font-size:6px;
+        font-weight:750;
+        white-space:nowrap;
+        transition:.13s var(--rftc-ease);
+      }
+
+      .rf-team-comms-v7 .team-comms-switch button.active{
+        color:var(--rftc-primary);
+        background:#fff;
+        box-shadow:0 1px 3px rgba(25,28,29,.07);
+      }
+
+      .rf-team-comms-v7 .team-comms-switch button b{
+        min-width:21px;
+        padding:3px 5px;
+        color:inherit;
+        background:var(--rftc-primary-soft);
+        border-radius:999px;
+        text-align:center;
+        font-size:5px;
+      }
+
+      .rf-team-comms-v7 .team-comms-error{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:8px;
+        padding:9px 11px;
+        margin:9px 10px 0;
+        color:#7c1d1d;
+        background:var(--rftc-red-soft);
+        border:1px solid #ffd0cc;
+        border-radius:8px;
+        font-size:6.5px;
+        line-height:10px;
+        animation:rftcIn .16s var(--rftc-ease);
+      }
+
+      .rf-team-comms-v7 .team-comms-error button{
+        min-height:27px;
+        padding:4px 7px;
+        color:#7c1d1d;
+        background:#fff;
+        border:1px solid #ffd0cc;
+        border-radius:6px;
+        cursor:pointer;
+        font-size:5.5px;
+        font-weight:750;
+      }
+
+      .rf-team-comms-v7 .team-chat-layout{
+        min-height:670px;
+        display:grid;
+        grid-template-columns:235px minmax(0,1fr) 235px;
+        background:#fff;
+      }
+
+      .rf-team-comms-v7 .team-channel-list{
+        min-width:0;
+        display:grid;
+        grid-template-rows:auto auto minmax(0,1fr) auto minmax(0,1fr);
+        background:#fafbfb;
+        border-right:1px solid var(--rftc-line);
+      }
+
+      .rf-team-comms-v7 .team-channel-title,
+      .rf-team-comms-v7 .team-direct-title{
+        min-height:54px;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:8px;
+        padding:9px 10px;
+        border-bottom:1px solid #edefef;
+      }
+
+      .rf-team-comms-v7 .team-channel-title > div,
+      .rf-team-comms-v7 .team-direct-title > div{
+        min-width:0;
+        display:grid;
+      }
+
+      .rf-team-comms-v7 .team-channel-title b,
+      .rf-team-comms-v7 .team-direct-title b{
+        font-size:6.5px;
+      }
+
+      .rf-team-comms-v7 .team-channel-title small,
+      .rf-team-comms-v7 .team-direct-title small{
+        margin-top:1px;
+        color:var(--rftc-muted);
+        font-size:5.2px;
+      }
+
+      .rf-team-comms-v7 .team-channel-title button,
+      .rf-team-comms-v7 .team-direct-title button{
+        min-height:29px;
+        padding:5px 7px;
+        color:var(--rftc-primary);
+        background:var(--rftc-primary-soft);
+        border:0;
+        border-radius:7px;
+        cursor:pointer;
+        font-size:5.5px;
+        font-weight:750;
+      }
+
+      .rf-team-comms-v7 .team-comms-search{
+        min-height:37px;
+        display:flex;
+        align-items:center;
+        gap:6px;
+        margin:7px;
+        padding:0 8px;
+        background:#fff;
+        border:1px solid var(--rftc-line);
+        border-radius:8px;
+      }
+
+      .rf-team-comms-v7 .team-comms-search input{
+        min-width:0;
+        width:100%;
+        height:35px;
+        padding:0;
+        color:var(--rftc-text);
+        background:transparent;
+        border:0;
+        outline:0;
+        font-size:6.5px;
+      }
+
+      .rf-team-comms-v7 .team-channel-scroll,
+      .rf-team-comms-v7 .team-member-scroll{
+        min-height:0;
+        overflow-y:auto;
+        display:grid;
+        align-content:start;
+        gap:3px;
+        padding:5px;
+        scrollbar-width:thin;
+        scrollbar-color:#d8dadd transparent;
+      }
+
+      .rf-team-comms-v7 .team-person-row,
+      .rf-team-comms-v7 .direct-person{
+        min-height:56px;
+        display:grid;
+        grid-template-columns:34px minmax(0,1fr) auto;
+        align-items:center;
+        gap:7px;
+        width:100%;
+        padding:7px;
+        color:var(--rftc-text);
+        background:transparent;
+        border:1px solid transparent;
+        border-radius:8px;
+        text-align:left;
+        cursor:pointer;
+        transition:.13s var(--rftc-ease);
+      }
+
+      .rf-team-comms-v7 .team-person-row:hover,
+      .rf-team-comms-v7 .direct-person:hover{
+        background:#f1f2f3;
+      }
+
+      .rf-team-comms-v7 .team-person-row.active,
+      .rf-team-comms-v7 .direct-person.active{
+        background:var(--rftc-primary-soft);
+        border-color:#dadbff;
+      }
+
+      .rf-team-comms-v7 .team-channel-avatar,
+      .rf-team-comms-v7 .team-message-avatar-slot{
+        width:34px;
+        height:34px;
+        display:grid;
+        place-items:center;
+        overflow:hidden;
+        color:#fff;
+        background:var(--rftc-primary);
+        border-radius:9px;
+        font-size:6.5px;
+        font-weight:800;
+      }
+
+      .rf-team-comms-v7 .team-channel-avatar img,
+      .rf-team-comms-v7 .team-message-avatar-slot img{
+        width:100%;
+        height:100%;
+        object-fit:cover;
+      }
+
+      .rf-team-comms-v7 .team-person-row > div,
+      .rf-team-comms-v7 .direct-person > div{
+        min-width:0;
+        display:grid;
+      }
+
+      .rf-team-comms-v7 .team-person-row b,
+      .rf-team-comms-v7 .direct-person b{
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font-size:6.2px;
+      }
+
+      .rf-team-comms-v7 .team-channel-subtitle,
+      .rf-team-comms-v7 .team-person-row small,
+      .rf-team-comms-v7 .direct-person small{
+        margin-top:1px;
+        overflow:hidden;
+        color:var(--rftc-muted);
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font-size:5.2px;
+      }
+
+      .rf-team-comms-v7 .team-presence-dot{
+        width:7px;
+        height:7px;
+        background:#a2a3aa;
+        border:2px solid #fff;
+        border-radius:50%;
+      }
+
+      .rf-team-comms-v7 .team-presence-dot.online,
+      .rf-team-comms-v7 .team-presence-dot.available{
+        background:var(--rftc-green);
+      }
+
+      .rf-team-comms-v7 .team-message-panel{
+        min-width:0;
+        display:grid;
+        grid-template-rows:auto minmax(0,1fr) auto auto;
+        background:#fff;
+      }
+
+      .rf-team-comms-v7 .team-message-panel > header,
+      .rf-team-comms-v7 .team-message-panel > .team-message-header-main{
+        min-height:61px;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:10px;
+        padding:9px 11px;
+        background:#fbfbfc;
+        border-bottom:1px solid var(--rftc-line);
+      }
+
+      .rf-team-comms-v7 .team-message-header-main{
+        min-width:0;
+      }
+
+      .rf-team-comms-v7 .team-message-header-main > div{
+        min-width:0;
+        display:grid;
+      }
+
+      .rf-team-comms-v7 .team-message-header-main b{
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font-size:7px;
+      }
+
+      .rf-team-comms-v7 .team-message-header-main small{
+        margin-top:1px;
+        color:var(--rftc-muted);
+        font-size:5.4px;
+      }
+
+      .rf-team-comms-v7 .team-header-call-actions,
+      .rf-team-comms-v7 .team-person-actions{
+        display:flex;
+        align-items:center;
+        gap:5px;
+      }
+
+      .rf-team-comms-v7 .team-header-call-actions button,
+      .rf-team-comms-v7 .team-person-actions button{
+        min-height:31px;
+        padding:5px 7px;
+        color:var(--rftc-text2);
+        background:#fff;
+        border:1px solid var(--rftc-line);
+        border-radius:7px;
+        cursor:pointer;
+        font-size:5.5px;
+        font-weight:700;
+      }
+
+      .rf-team-comms-v7 .team-message-stream{
+        min-height:0;
+        overflow-y:auto;
+        display:grid;
+        align-content:start;
+        gap:8px;
+        padding:12px;
+        background:
+          radial-gradient(circle at 95% 5%,rgba(70,72,212,.03),transparent 26%),
+          #fff;
+        scrollbar-width:thin;
+        scrollbar-color:#d9dade transparent;
+      }
+
+      .rf-team-comms-v7 .team-message-payload{
+        position:relative;
+        display:grid;
+        grid-template-columns:34px minmax(0,1fr);
+        align-items:start;
+        gap:8px;
+        max-width:85%;
+      }
+
+      .rf-team-comms-v7 .team-message-payload.mine,
+      .rf-team-comms-v7 .team-message-payload.self{
+        justify-self:end;
+        grid-template-columns:minmax(0,1fr) 34px;
+      }
+
+      .rf-team-comms-v7 .team-message-payload.mine .team-message-avatar-slot,
+      .rf-team-comms-v7 .team-message-payload.self .team-message-avatar-slot{
+        grid-column:2;
+      }
+
+      .rf-team-comms-v7 .team-message-payload.mine .team-message-content,
+      .rf-team-comms-v7 .team-message-payload.self .team-message-content{
+        grid-column:1;
+        grid-row:1;
+        color:#fff;
+        background:var(--rftc-primary);
+        border-color:var(--rftc-primary);
+      }
+
+      .rf-team-comms-v7 .team-message-content{
+        min-width:0;
+        padding:8px 9px;
+        color:var(--rftc-text2);
+        background:#f4f5f6;
+        border:1px solid #eceeef;
+        border-radius:9px;
+      }
+
+      .rf-team-comms-v7 .team-message-meta{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:8px;
+        margin-bottom:3px;
+      }
+
+      .rf-team-comms-v7 .team-message-meta b{
+        color:var(--rftc-text);
+        font-size:5.8px;
+      }
+
+      .rf-team-comms-v7 .team-message-payload.mine .team-message-meta b,
+      .rf-team-comms-v7 .team-message-payload.self .team-message-meta b{
+        color:#fff;
+      }
+
+      .rf-team-comms-v7 .team-compact-time,
+      .rf-team-comms-v7 .team-message-receipt{
+        color:var(--rftc-muted);
+        font-size:5px;
+      }
+
+      .rf-team-comms-v7 .team-message-payload.mine .team-compact-time,
+      .rf-team-comms-v7 .team-message-payload.self .team-compact-time,
+      .rf-team-comms-v7 .team-message-payload.mine .team-message-receipt,
+      .rf-team-comms-v7 .team-message-payload.self .team-message-receipt{
+        color:rgba(255,255,255,.62);
+      }
+
+      .rf-team-comms-v7 .team-message-body-row{
+        display:grid;
+        gap:5px;
+      }
+
+      .rf-team-comms-v7 .team-message-body-row p{
+        margin:0;
+        white-space:pre-wrap;
+        overflow-wrap:anywhere;
+        font-size:6.6px;
+        line-height:11px;
+      }
+
+      .rf-team-comms-v7 .team-message-hover-actions{
+        display:flex;
+        gap:4px;
+        margin-top:5px;
+        opacity:.25;
+        transition:.13s var(--rftc-ease);
+      }
+
+      .rf-team-comms-v7 .team-message-payload:hover .team-message-hover-actions{
+        opacity:1;
+      }
+
+      .rf-team-comms-v7 .team-message-hover-actions button{
+        min-height:25px;
+        padding:4px 6px;
+        color:inherit;
+        background:rgba(255,255,255,.72);
+        border:1px solid rgba(120,121,128,.15);
+        border-radius:6px;
+        cursor:pointer;
+        font-size:5px;
+      }
+
+      .rf-team-comms-v7 .team-attachment-list{
+        display:grid;
+        gap:5px;
+        margin-top:5px;
+      }
+
+      .rf-team-comms-v7 .team-file-attachment,
+      .rf-team-comms-v7 .team-image-attachment,
+      .rf-team-comms-v7 .team-voice-message,
+      .rf-team-comms-v7 .team-shared-lead{
+        min-width:0;
+        padding:7px;
+        color:var(--rftc-text2);
+        background:#fff;
+        border:1px solid var(--rftc-line);
+        border-radius:7px;
+      }
+
+      .rf-team-comms-v7 .team-image-attachment img{
+        display:block;
+        max-width:100%;
+        max-height:240px;
+        object-fit:cover;
+        border-radius:6px;
+      }
+
+      .rf-team-comms-v7 .team-voice-message audio{
+        width:100%;
+        height:32px;
+      }
+
+      .rf-team-comms-v7 .team-shared-lead{
+        display:grid;
+        gap:2px;
+      }
+
+      .rf-team-comms-v7 .team-shared-lead b{
+        color:var(--rftc-text);
+        font-size:6px;
+      }
+
+      .rf-team-comms-v7 .team-shared-lead small{
+        color:var(--rftc-muted);
+        font-size:5.2px;
+      }
+
+      .rf-team-comms-v7 .team-typing{
+        min-height:24px;
+        display:flex;
+        align-items:center;
+        gap:5px;
+        padding:4px 11px;
+        color:var(--rftc-muted);
+        background:#fbfbfc;
+        font-size:5.4px;
+      }
+
+      .rf-team-comms-v7 .team-typing::before{
+        content:"";
+        width:5px;
+        height:5px;
+        background:var(--rftc-primary);
+        border-radius:50%;
+        animation:rftcPulse 1s infinite ease-in-out;
+      }
+
+      .rf-team-comms-v7 .team-message-tools{
+        display:grid;
+        gap:6px;
+        padding:9px 10px;
+        background:#fbfbfc;
+        border-top:1px solid var(--rftc-line);
+      }
+
+      .rf-team-comms-v7 .team-message-tools textarea,
+      .rf-team-comms-v7 .team-message-tools input{
+        width:100%;
+        min-height:39px;
+        padding:9px 10px;
+        color:var(--rftc-text);
+        background:#fff;
+        border:1px solid var(--rftc-line);
+        border-radius:8px;
+        outline:0;
+        font:400 6.5px/11px Inter,sans-serif;
+      }
+
+      .rf-team-comms-v7 .team-message-tools textarea{
+        min-height:58px;
+        resize:vertical;
+      }
+
+      .rf-team-comms-v7 .team-message-tools textarea:focus,
+      .rf-team-comms-v7 .team-message-tools input:focus{
+        border-color:rgba(70,72,212,.5);
+        box-shadow:0 0 0 3px rgba(70,72,212,.06);
+      }
+
+      .rf-team-comms-v7 .team-message-tools button{
+        min-height:34px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        gap:5px;
+        padding:6px 8px;
+        color:var(--rftc-text2);
+        background:#fff;
+        border:1px solid var(--rftc-line);
+        border-radius:7px;
+        cursor:pointer;
+        font-size:5.6px;
+        font-weight:700;
+        transition:.13s var(--rftc-ease);
+      }
+
+      .rf-team-comms-v7 .team-message-tools button.primary,
+      .rf-team-comms-v7 .team-message-tools button[type="submit"]{
+        color:#fff;
+        background:var(--rftc-primary);
+        border-color:var(--rftc-primary);
+      }
+
+      .rf-team-comms-v7 .team-message-tools button:hover:not(:disabled){
+        transform:translateY(-1px);
+      }
+
+      .rf-team-comms-v7 .team-message-tools button:disabled{
+        opacity:.43;
+        cursor:not-allowed;
+      }
+
+      .rf-team-comms-v7 .team-voice-recorder{
+        display:flex;
+        align-items:center;
+        gap:7px;
+        padding:7px 8px;
+        color:#7f1d1d;
+        background:var(--rftc-red-soft);
+        border:1px solid #ffd0cc;
+        border-radius:8px;
+      }
+
+      .rf-team-comms-v7 .team-voice-live-dot{
+        width:7px;
+        height:7px;
+        background:var(--rftc-red);
+        border-radius:50%;
+        animation:rftcPulse 1s infinite ease-in-out;
+      }
+
+      .rf-team-comms-v7 .team-voice-recorder span{
+        font-size:5.8px;
+      }
+
+      .rf-team-comms-v7 .team-task-layout{
+        min-height:670px;
+        display:grid;
+        grid-template-columns:minmax(0,1fr) 310px;
+        align-items:start;
+        gap:10px;
+        padding:10px;
+        background:#f8f9fa;
+      }
+
+      .rf-team-comms-v7 .task-board,
+      .rf-team-comms-v7 .task-editor{
+        min-width:0;
+        padding:12px;
+        background:#fff;
+        border:1px solid var(--rftc-line);
+        border-radius:10px;
+      }
+
+      .rf-team-comms-v7 .task-board-head{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:10px;
+        padding-bottom:9px;
+        margin-bottom:9px;
+        border-bottom:1px solid #eff0f1;
+      }
+
+      .rf-team-comms-v7 .task-board-head h3,
+      .rf-team-comms-v7 .task-editor h3{
+        margin:0;
+        font:600 11px/15px Geist,Inter,sans-serif;
+      }
+
+      .rf-team-comms-v7 .task-board-head small{
+        color:var(--rftc-muted);
+        font-size:5.4px;
+      }
+
+      .rf-team-comms-v7 .work-task{
+        min-height:82px;
+        display:grid;
+        grid-template-columns:minmax(0,1fr) auto;
+        gap:8px;
+        padding:9px;
+        background:#f7f8f9;
+        border:1px solid transparent;
+        border-radius:9px;
+      }
+
+      .rf-team-comms-v7 .work-task + .work-task{
+        margin-top:5px;
+      }
+
+      .rf-team-comms-v7 .task-main{
+        min-width:0;
+        display:grid;
+      }
+
+      .rf-team-comms-v7 .task-main b{
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font-size:6.5px;
+      }
+
+      .rf-team-comms-v7 .task-main p{
+        margin:3px 0 0;
+        color:var(--rftc-text2);
+        font-size:5.8px;
+        line-height:9px;
+      }
+
+      .rf-team-comms-v7 .task-lead{
+        margin-top:5px;
+        color:var(--rftc-primary);
+        font-size:5.3px;
+        font-weight:700;
+      }
+
+      .rf-team-comms-v7 .task-priority{
+        width:max-content;
+        margin-top:5px;
+        padding:4px 6px;
+        color:var(--rftc-text2);
+        background:#fff;
+        border:1px solid var(--rftc-line);
+        border-radius:999px;
+        font-size:5px;
+        font-weight:750;
+      }
+
+      .rf-team-comms-v7 .task-priority.high,
+      .rf-team-comms-v7 .task-priority.urgent{
+        color:#8a1d1d;
+        background:var(--rftc-red-soft);
+        border-color:#ffd0cc;
+      }
+
+      .rf-team-comms-v7 .task-actions{
+        display:grid;
+        align-content:start;
+        gap:4px;
+      }
+
+      .rf-team-comms-v7 .task-actions button{
+        min-height:28px;
+        padding:4px 6px;
+        color:var(--rftc-text2);
+        background:#fff;
+        border:1px solid var(--rftc-line);
+        border-radius:6px;
+        cursor:pointer;
+        font-size:5px;
+        font-weight:700;
+      }
+
+      .rf-team-comms-v7 .task-form-row{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:7px;
+      }
+
+      .rf-team-comms-v7 .task-editor label{
+        display:grid;
+        gap:4px;
+        margin-bottom:7px;
+      }
+
+      .rf-team-comms-v7 .task-editor label > span{
+        color:var(--rftc-muted);
+        font-size:5.4px;
+        font-weight:750;
+        text-transform:uppercase;
+      }
+
+      .rf-team-comms-v7 .task-editor input,
+      .rf-team-comms-v7 .task-editor select,
+      .rf-team-comms-v7 .task-editor textarea{
+        width:100%;
+        min-height:37px;
+        padding:8px 9px;
+        color:var(--rftc-text);
+        background:#f7f8f9;
+        border:1px solid transparent;
+        border-radius:8px;
+        outline:0;
+        font:400 6.3px/10px Inter,sans-serif;
+      }
+
+      .rf-team-comms-v7 .task-editor textarea{
+        min-height:82px;
+        resize:vertical;
+      }
+
+      .rf-team-comms-v7 .task-editor input:focus,
+      .rf-team-comms-v7 .task-editor select:focus,
+      .rf-team-comms-v7 .task-editor textarea:focus{
+        background:#fff;
+        border-color:rgba(70,72,212,.5);
+        box-shadow:0 0 0 3px rgba(70,72,212,.06);
+      }
+
+      .rf-team-comms-v7 .create-task-button{
+        width:100%;
+        min-height:38px;
+        color:#fff;
+        background:var(--rftc-primary);
+        border:1px solid var(--rftc-primary);
+        border-radius:8px;
+        cursor:pointer;
+        font-size:6px;
+        font-weight:750;
+      }
+
+      .rf-team-comms-v7 .team-empty,
+      .rf-team-comms-v7 .team-message-loading{
+        min-height:160px;
+        display:grid;
+        place-items:center;
+        align-content:center;
+        padding:20px;
+        color:var(--rftc-muted);
+        text-align:center;
+        font-size:6px;
+      }
+
+      .rf-team-comms-v7 .team-message-loading{
+        animation:rftcPulse 1s infinite ease-in-out;
+      }
+
+      .rf-team-comms-v7 .team-dialog-backdrop,
+      .rf-team-comms-v7 .team-call-overlay,
+      .rf-team-comms-v7 .team-incoming-call{
+        position:fixed;
+        z-index:2147482000;
+        inset:0;
+        display:grid;
+        place-items:center;
+        padding:18px;
+        background:rgba(25,28,29,.58);
+        backdrop-filter:blur(8px);
+      }
+
+      .rf-team-comms-v7 .team-dialog{
+        width:min(620px,100%);
+        max-height:calc(100vh - 36px);
+        overflow:auto;
+        padding:15px;
+        background:#fff;
+        border:1px solid rgba(255,255,255,.3);
+        border-radius:13px;
+        box-shadow:0 24px 70px rgba(0,0,0,.18);
+      }
+
+      .rf-team-comms-v7 .team-dialog h3{
+        margin:0;
+        font:600 15px/20px Geist,Inter,sans-serif;
+      }
+
+      .rf-team-comms-v7 .team-dialog label{
+        display:grid;
+        gap:4px;
+        margin-top:8px;
+      }
+
+      .rf-team-comms-v7 .team-dialog input,
+      .rf-team-comms-v7 .team-dialog textarea{
+        width:100%;
+        min-height:38px;
+        padding:8px 9px;
+        color:var(--rftc-text);
+        background:#f7f8f9;
+        border:1px solid transparent;
+        border-radius:8px;
+        outline:0;
+        font-size:6.5px;
+      }
+
+      .rf-team-comms-v7 .team-dialog textarea{
+        min-height:84px;
+        resize:vertical;
+      }
+
+      .rf-team-comms-v7 .team-group-member-list{
+        display:grid;
+        gap:5px;
+        max-height:260px;
+        overflow:auto;
+        margin-top:8px;
+      }
+
+      .rf-team-comms-v7 .team-group-member{
+        min-height:52px;
+        display:grid;
+        grid-template-columns:15px 34px minmax(0,1fr);
+        align-items:center;
+        gap:7px;
+        padding:7px;
+        background:#f7f8f9;
+        border-radius:8px;
+      }
+
+      .rf-team-comms-v7 .team-group-member input{
+        width:15px;
+        height:15px;
+        min-height:0;
+        padding:0;
+        margin:0;
+        accent-color:var(--rftc-primary);
+      }
+
+      .rf-team-comms-v7 .team-call-stage{
+        width:min(860px,100%);
+        min-height:520px;
+        display:grid;
+        grid-template-rows:minmax(0,1fr) auto;
+        overflow:hidden;
+        color:#fff;
+        background:#191c1d;
+        border:1px solid rgba(255,255,255,.1);
+        border-radius:14px;
+        box-shadow:0 26px 80px rgba(0,0,0,.3);
+      }
+
+      .rf-team-comms-v7 .team-call-remote-video{
+        width:100%;
+        height:100%;
+        min-height:430px;
+        object-fit:cover;
+        background:#111;
+      }
+
+      .rf-team-comms-v7 .team-call-local-video{
+        position:absolute;
+        right:18px;
+        bottom:88px;
+        width:160px;
+        height:110px;
+        object-fit:cover;
+        background:#222;
+        border:2px solid rgba(255,255,255,.25);
+        border-radius:10px;
+        box-shadow:0 8px 24px rgba(0,0,0,.25);
+      }
+
+      .rf-team-comms-v7 .team-call-fallback{
+        min-height:430px;
+        display:grid;
+        place-items:center;
+        align-content:center;
+        gap:6px;
+        padding:28px;
+        color:rgba(255,255,255,.72);
+        text-align:center;
+      }
+
+      .rf-team-comms-v7 .team-call-stage button,
+      .rf-team-comms-v7 .team-incoming-call button{
+        min-height:38px;
+        padding:7px 10px;
+        color:#fff;
+        background:rgba(255,255,255,.1);
+        border:1px solid rgba(255,255,255,.13);
+        border-radius:8px;
+        cursor:pointer;
+        font-size:6px;
+        font-weight:750;
+      }
+
+      .rf-team-comms-v7 .team-call-stage button.end,
+      .rf-team-comms-v7 .team-incoming-call button.reject{
+        background:#b42318;
+        border-color:#b42318;
+      }
+
+      .rf-team-comms-v7 .team-incoming-call{
+        align-content:center;
+      }
+
+      .rf-team-comms-v7 .team-incoming-call > div{
+        width:min(420px,100%);
+        display:grid;
+        gap:8px;
+        padding:20px;
+        color:var(--rftc-text);
+        background:#fff;
+        border-radius:13px;
+        box-shadow:0 24px 70px rgba(0,0,0,.2);
+        text-align:center;
+      }
+
+      .rf-team-comms-v7 .team-incoming-call h3{
+        margin:0;
+        font:600 16px/21px Geist,Inter,sans-serif;
+      }
+
+      .rf-team-comms-v7 .team-incoming-call p{
+        margin:0;
+        color:var(--rftc-muted);
+        font-size:6.5px;
+      }
+
+      .rf-team-comms-v7 .team-incoming-call .accept{
+        background:var(--rftc-green);
+        border-color:var(--rftc-green);
+      }
+
+      @media(max-width:1180px){
+        .rf-team-comms-v7 .team-chat-layout{
+          grid-template-columns:210px minmax(0,1fr);
+        }
+
+        .rf-team-comms-v7 .team-chat-layout > aside:last-child{
+          display:none;
+        }
+      }
+
+      @media(max-width:900px){
+        .rf-team-comms-v7 .team-comms-header{
+          align-items:flex-start;
+          flex-direction:column;
+        }
+
+        .rf-team-comms-v7 .team-comms-switch{
+          width:100%;
+        }
+
+        .rf-team-comms-v7 .team-comms-switch button{
+          flex:1;
+          justify-content:center;
+        }
+
+        .rf-team-comms-v7 .team-task-layout{
+          grid-template-columns:1fr;
+        }
+      }
+
+      @media(max-width:720px){
+        .rf-team-comms-v7{
+          border-left:0;
+          border-right:0;
+          border-radius:0;
+        }
+
+        .rf-team-comms-v7 .team-chat-layout{
+          min-height:640px;
+          grid-template-columns:1fr;
+        }
+
+        .rf-team-comms-v7 .team-channel-list{
+          max-height:260px;
+          border-right:0;
+          border-bottom:1px solid var(--rftc-line);
+        }
+
+        .rf-team-comms-v7 .team-message-panel{
+          min-height:560px;
+        }
+
+        .rf-team-comms-v7 .team-message-payload{
+          max-width:93%;
+        }
+
+        .rf-team-comms-v7 .task-form-row{
+          grid-template-columns:1fr;
+        }
+
+        .rf-team-comms-v7 .team-call-local-video{
+          width:112px;
+          height:82px;
+          right:10px;
+          bottom:76px;
+        }
+
+        .rf-team-comms-v7 .team-call-stage{
+          min-height:100vh;
+          border-radius:0;
+        }
+
+        .rf-team-comms-v7 .team-dialog-backdrop,
+        .rf-team-comms-v7 .team-call-overlay,
+        .rf-team-comms-v7 .team-incoming-call{
+          padding:0;
+        }
+
+        .rf-team-comms-v7 .team-dialog{
+          min-height:100vh;
+          max-height:100vh;
+          border-radius:0;
+        }
+      }
+
+      @media(prefers-reduced-motion:reduce){
+        .rf-team-comms-v7,
+        .rf-team-comms-v7 *,
+        .rf-team-comms-v7 *::before,
+        .rf-team-comms-v7 *::after{
+          animation:none!important;
+          transition-duration:.01ms!important;
+          scroll-behavior:auto!important;
+        }
+      }
+    `}</style>
   );
 }
