@@ -13,8 +13,8 @@ export default function BrandLogo({
   const safeSize = Math.max(20, Number(size) || 42);
 
   const classes = [
-    "rf-brand",
-    imageFailed ? "rf-brand--fallback" : "",
+    "rf-logo-v8",
+    imageFailed ? "rf-logo-v8--fallback" : "",
     className,
   ]
     .filter(Boolean)
@@ -24,26 +24,26 @@ export default function BrandLogo({
     <span
       className={classes}
       style={{
-        "--rf-brand-logo-size": `${safeSize}px`,
+        "--rf-logo-size": `${safeSize}px`,
       }}
-      title={title || undefined}
+      title={title || "ReachFlyAI"}
     >
       <BrandLogoStyles />
 
-      <span className="rf-brand__icon">
+      <span className="rf-logo-v8__mark">
         {!imageFailed ? (
           <img
             src={logoImage}
-            alt={alt}
+            alt=""
+            aria-hidden="true"
             draggable="false"
             decoding="async"
             onError={() => setImageFailed(true)}
           />
         ) : (
           <span
-            className="rf-brand__fallback"
-            role="img"
-            aria-label={alt}
+            className="rf-logo-v8__fallback"
+            aria-hidden="true"
           >
             R
           </span>
@@ -51,12 +51,15 @@ export default function BrandLogo({
       </span>
 
       {showName ? (
-        <span className="rf-brand__name" aria-label="ReachFlyAI">
-          <span className="rf-brand__reachfly">
+        <span
+          className="rf-logo-v8__wordmark"
+          aria-label={alt}
+        >
+          <span className="rf-logo-v8__reachfly">
             ReachFly
           </span>
 
-          <span className="rf-brand__ai">
+          <span className="rf-logo-v8__ai">
             AI
           </span>
         </span>
@@ -68,107 +71,148 @@ export default function BrandLogo({
 function BrandLogoStyles() {
   return (
     <style>{`
-      .rf-brand{
-        --rfbl-size:var(--rf-brand-logo-size,42px);
+      /*
+       * ReachFlyAI BrandLogo
+       * Fully isolated namespace to avoid collisions
+       * with old .brand / .rf-brand styles.
+       */
 
-        display:inline-flex;
-        align-items:center;
-        gap:calc(var(--rfbl-size) * .22);
+      .rf-logo-v8 {
+        --rf-logo-size: 42px;
 
-        width:max-content;
-        max-width:100%;
-        flex:0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        justify-content: flex-start;
 
-        color:inherit;
-        text-decoration:none;
+        gap: calc(var(--rf-logo-size) * 0.19);
 
-        box-sizing:border-box;
-        isolation:isolate;
+        width: max-content;
+        max-width: 100%;
+
+        flex: 0 0 auto;
+
+        color: currentColor;
+        text-decoration: none;
+
+        vertical-align: middle;
+
+        box-sizing: border-box;
       }
 
-      /* ==========================================================
-         LOGO IMAGE
-         ========================================================== */
-
-      .rf-brand__icon{
-        width:var(--rfbl-size);
-        height:var(--rfbl-size);
-        flex:0 0 var(--rfbl-size);
-
-        display:grid;
-        place-items:center;
-
-        position:relative;
-        overflow:hidden;
-
-        border-radius:calc(var(--rfbl-size) * .23);
-
-        box-sizing:border-box;
-      }
-
-      .rf-brand__icon img{
-        width:100%;
-        height:100%;
-
-        display:block;
-        object-fit:contain;
-
-        user-select:none;
-        -webkit-user-drag:none;
-
-        transform:translateZ(0);
+      .rf-logo-v8,
+      .rf-logo-v8 * {
+        box-sizing: border-box;
       }
 
 
       /* ==========================================================
-         REACHFLY AI WORDMARK
+         LOGO MARK
          ========================================================== */
 
-      .rf-brand__name{
-        display:inline-flex;
-        align-items:baseline;
-        gap:calc(var(--rfbl-size) * .09);
+      .rf-logo-v8__mark {
+        position: relative;
 
-        min-width:0;
+        width: var(--rf-logo-size);
+        height: var(--rf-logo-size);
 
-        white-space:nowrap;
+        min-width: var(--rf-logo-size);
+        min-height: var(--rf-logo-size);
+
+        flex: 0 0 var(--rf-logo-size);
+
+        display: grid;
+        place-items: center;
+
+        overflow: hidden;
+
+        border-radius:
+          calc(var(--rf-logo-size) * 0.23);
+
+        background: transparent;
+
+        line-height: 0;
+      }
+
+      .rf-logo-v8__mark img {
+        width: 100%;
+        height: 100%;
+
+        display: block;
+
+        object-fit: contain;
+        object-position: center;
+
+        user-select: none;
+        pointer-events: none;
+
+        -webkit-user-drag: none;
+
+        transform: translateZ(0);
+      }
+
+
+      /* ==========================================================
+         WORDMARK
+         ========================================================== */
+
+      .rf-logo-v8__wordmark {
+        display: inline-flex;
+        align-items: baseline;
+
+        gap: calc(var(--rf-logo-size) * 0.045);
+
+        min-width: 0;
+
+        white-space: nowrap;
 
         font-family:
           Inter,
           "Plus Jakarta Sans",
+          "Segoe UI",
           system-ui,
           -apple-system,
           BlinkMacSystemFont,
-          "Segoe UI",
           sans-serif;
 
-        line-height:1;
-        letter-spacing:-.045em;
+        line-height: 1;
       }
 
-      .rf-brand__reachfly{
-        color:currentColor;
+      .rf-logo-v8__reachfly {
+        display: inline-block;
 
-        font-size:calc(var(--rfbl-size) * .48);
-        font-weight:700;
+        color: currentColor;
 
-        line-height:1;
+        font-size:
+          calc(var(--rf-logo-size) * 0.46);
+
+        font-weight: 700;
+
+        line-height: 1;
+
+        letter-spacing: -0.045em;
       }
 
-      /*
-       * AI is deliberately smaller than ReachFly.
-       */
-      .rf-brand__ai{
-        position:relative;
-        top:-.02em;
+      .rf-logo-v8__ai {
+        display: inline-block;
 
-        color:#7868ff;
+        position: relative;
 
-        font-size:calc(var(--rfbl-size) * .25);
-        font-weight:800;
+        /*
+         * Slightly higher and considerably smaller
+         * than ReachFly.
+         */
+        top: -0.12em;
 
-        line-height:1;
-        letter-spacing:-.025em;
+        color: #7165ff;
+
+        font-size:
+          calc(var(--rf-logo-size) * 0.21);
+
+        font-weight: 800;
+
+        line-height: 1;
+
+        letter-spacing: -0.025em;
       }
 
 
@@ -176,61 +220,74 @@ function BrandLogoStyles() {
          FALLBACK
          ========================================================== */
 
-      .rf-brand__fallback{
-        width:100%;
-        height:100%;
+      .rf-logo-v8__fallback {
+        width: 100%;
+        height: 100%;
 
-        display:grid;
-        place-items:center;
+        display: grid;
+        place-items: center;
 
-        border-radius:inherit;
+        border-radius: inherit;
 
-        color:#fff;
+        color: #ffffff;
 
         background:
           linear-gradient(
             135deg,
-            #7c63ff 0%,
-            #5f63ff 42%,
-            #d94eff 72%,
-            #ff6bad 100%
+            #7567ff 0%,
+            #655cff 38%,
+            #c755ff 70%,
+            #ff5ca8 100%
           );
 
         box-shadow:
-          0 8px 24px rgba(101,88,255,.28);
+          0 8px 26px rgba(101, 88, 255, 0.28);
 
-        font:
-          800
-          calc(var(--rfbl-size) * .42)/1
+        font-family:
           Inter,
+          system-ui,
           sans-serif;
+
+        font-size:
+          calc(var(--rf-logo-size) * 0.42);
+
+        font-weight: 800;
+
+        line-height: 1;
       }
 
 
       /* ==========================================================
-         DARK BACKGROUND SUPPORT
+         AUTH DARK THEME
          ========================================================== */
 
-      .rf-auth-page .rf-brand,
-      .rf11-auth-page .rf-brand,
-      .rf15-auth-page .rf-brand,
-      .rf14-marketing .rf-brand{
-        color:#ffffff;
+      .rf15-auth-page .rf-logo-v8,
+      .rf11-auth-page .rf-logo-v8,
+      .rf-auth-page .rf-logo-v8 {
+        color: #ffffff;
       }
 
-      .rf-auth-page .rf-brand__ai,
-      .rf11-auth-page .rf-brand__ai,
-      .rf15-auth-page .rf-brand__ai{
-        color:#9e92ff;
+      .rf15-auth-page .rf-logo-v8__ai,
+      .rf11-auth-page .rf-logo-v8__ai,
+      .rf-auth-page .rf-logo-v8__ai {
+        color: #9c91ff;
       }
 
 
       /* ==========================================================
-         LIGHT BACKGROUND SUPPORT
+         MARKETING LIGHT HERO
          ========================================================== */
 
-      header .rf-brand{
-        color:#101114;
+      .rf14-marketing .rf-logo-v8,
+      .rf14-hero .rf-logo-v8,
+      header .rf-logo-v8 {
+        color: #111312;
+      }
+
+      .rf14-marketing .rf-logo-v8__ai,
+      .rf14-hero .rf-logo-v8__ai,
+      header .rf-logo-v8__ai {
+        color: #5e5cf0;
       }
 
 
@@ -238,17 +295,19 @@ function BrandLogoStyles() {
          RESPONSIVE
          ========================================================== */
 
-      @media(max-width:640px){
-        .rf-brand{
-          gap:8px;
+      @media (max-width: 640px) {
+        .rf-logo-v8 {
+          gap: calc(var(--rf-logo-size) * 0.16);
         }
 
-        .rf-brand__reachfly{
-          font-size:calc(var(--rfbl-size) * .45);
+        .rf-logo-v8__reachfly {
+          font-size:
+            calc(var(--rf-logo-size) * 0.44);
         }
 
-        .rf-brand__ai{
-          font-size:calc(var(--rfbl-size) * .23);
+        .rf-logo-v8__ai {
+          font-size:
+            calc(var(--rf-logo-size) * 0.20);
         }
       }
 
@@ -257,11 +316,11 @@ function BrandLogoStyles() {
          ACCESSIBILITY
          ========================================================== */
 
-      @media(prefers-reduced-motion:reduce){
-        .rf-brand,
-        .rf-brand *{
-          transition:none!important;
-          animation:none!important;
+      @media (prefers-reduced-motion: reduce) {
+        .rf-logo-v8,
+        .rf-logo-v8 * {
+          animation: none !important;
+          transition: none !important;
         }
       }
     `}</style>
