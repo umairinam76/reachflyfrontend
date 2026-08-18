@@ -275,8 +275,8 @@ export default function ProfileSettingsPage() {
           apiRequest("/profile/me"),
           apiRequest("/profile/preferences"),
           apiRequest("/profile/sessions"),
-        apiRequest("/dialers"),
-apiRequest("/senders"),
+          apiRequest("/team-management/dialers"),
+          apiRequest("/team-management/senders"),
         ]);
 
         const profileResponse = getSettledValue(results[0], {});
@@ -517,6 +517,7 @@ apiRequest("/senders"),
       }));
 
       setSuccess("Your profile information was updated.");
+      notify("success", "Profile updated", "Your personal information is now up to date.");
     } catch (requestError) {
       setError(
         requestError?.message ||
@@ -566,6 +567,7 @@ apiRequest("/senders"),
       applyTheme(workForm.theme);
 
       setSuccess("Your work preferences were updated.");
+      notify("success", "Work preferences saved", "Your availability, timezone, and working hours were updated.");
     } catch (requestError) {
       setError(
         requestError?.message ||
@@ -609,6 +611,7 @@ apiRequest("/senders"),
       }
 
       setSuccess("Your notification preferences were updated.");
+      notify("success", "Notifications updated", "Your notification preferences are now live.");
     } catch (requestError) {
       setError(
         requestError?.message ||
@@ -645,6 +648,7 @@ apiRequest("/senders"),
       }));
 
       setSuccess("Your calling preferences were updated.");
+      notify("success", "Calling preferences saved", "Your personal calling workspace preferences were updated.");
     } catch (requestError) {
       setError(
         requestError?.message ||
@@ -682,6 +686,7 @@ apiRequest("/senders"),
       }));
 
       setSuccess("Your email preferences were updated.");
+      notify("success", "Email preferences saved", "Your sender and signature preferences were updated.");
     } catch (requestError) {
       setError(
         requestError?.message ||
@@ -738,6 +743,7 @@ apiRequest("/senders"),
       });
 
       setSuccess("Your password was changed successfully.");
+      notify("success", "Password updated", "Your ReachFly account password has been changed.");
     } catch (requestError) {
       setError(
         requestError?.message ||
@@ -826,6 +832,7 @@ apiRequest("/senders"),
       setSuccess(
         "Your profile picture was updated."
       );
+      notify("success", "Profile picture updated", "Your new profile picture is now visible across the workspace.");
     } catch (requestError) {
       setError(
         requestError?.message ||
@@ -865,6 +872,7 @@ apiRequest("/senders"),
       }));
 
       setSuccess("Your profile picture was removed.");
+      notify("success", "Profile picture removed", "Your profile picture was removed from the workspace.");
     } catch (requestError) {
       setError(
         requestError?.message ||
@@ -893,6 +901,7 @@ apiRequest("/senders"),
       );
 
       setSuccess("The selected session was signed out.");
+      notify("success", "Session signed out", "The selected device session has been terminated.");
     } catch (requestError) {
       setError(
         requestError?.message ||
@@ -922,6 +931,7 @@ apiRequest("/senders"),
       );
 
       setSuccess("All other sessions were signed out.");
+      notify("success", "Other sessions signed out", "All other account sessions have been terminated.");
     } catch (requestError) {
       setError(
         requestError?.message ||
@@ -937,7 +947,9 @@ apiRequest("/senders"),
   }
 
   return (
-    <main className="rf-role-dashboard">
+    <main className="rf-role-dashboard rf-profile-settings-v7">
+      <ProfileSettingsStyles />
+
       <ProfileHeader
         profile={profile}
         refreshing={refreshing}
@@ -1131,7 +1143,7 @@ function ProfileHeader({
   onRefresh,
 }) {
   return (
-    <header className="rf-dashboard-header">
+    <header className="rf-dashboard-header rf-profile-v7-header">
       <div className="rf-dashboard-header__identity">
         <ProfileAvatar
           profile={profile}
@@ -1140,27 +1152,33 @@ function ProfileHeader({
 
         <div>
           <p className="rf-dashboard-eyebrow">
-            Account preferences
+            Personal workspace
           </p>
 
-          <h1>Profile settings</h1>
+          <h1>Profile & preferences</h1>
 
           <p className="rf-dashboard-subtitle">
-            Manage your personal information, working preferences,
-            notifications, call configuration and account security.
+            Manage your identity, availability, notifications, calling tools,
+            sender preferences, and account security from one place.
           </p>
         </div>
       </div>
 
-      <div className="rf-dashboard-header__actions">
-        <div className="rf-server-status">
-          <span className="rf-status-dot" />
+      <div className="rf-dashboard-header__actions rf-profile-v7-header-actions">
+        <div className="rf-profile-v7-account-chip">
+          <span className={`rf-profile-v7-dot rf-profile-v7-dot--${normalizeStatus(
+            profile?.availabilityStatus || "offline"
+          )}`} />
 
           <div>
-            <strong>Profile synchronized</strong>
+            <strong>
+              {profile?.name || profile?.email || "ReachFly member"}
+            </strong>
 
             <small>
-              Changes apply across your workspace
+              {formatLabel(
+                profile?.workspaceRole || profile?.role || "member"
+              )}
             </small>
           </div>
         </div>
@@ -1173,7 +1191,7 @@ function ProfileHeader({
         >
           {refreshing
             ? "Refreshing…"
-            : "Refresh settings"}
+            : "Refresh profile"}
         </button>
       </div>
     </header>
@@ -2633,7 +2651,9 @@ function SettingsAlert({
 
 function ProfileSettingsSkeleton() {
   return (
-    <main className="rf-role-dashboard">
+    <main className="rf-role-dashboard rf-profile-settings-v7">
+      <ProfileSettingsStyles />
+
       <div className="rf-dashboard-skeleton-header" />
 
       <section className="rf-settings-layout">
@@ -2641,6 +2661,685 @@ function ProfileSettingsSkeleton() {
         <div className="rf-dashboard-skeleton-panel" />
       </section>
     </main>
+  );
+}
+
+function ProfileSettingsStyles() {
+  return (
+    <style>{`
+      .rf-profile-settings-v7{
+        --rfp-card:#ffffff;
+        --rfp-surface:#f8f9fa;
+        --rfp-soft:#f1f2f4;
+        --rfp-line:#e2e4e7;
+        --rfp-text:#191c1d;
+        --rfp-text-2:#50515d;
+        --rfp-muted:#777986;
+        --rfp-primary:#4648d4;
+        --rfp-primary-dark:#3638b8;
+        --rfp-primary-soft:#e9eaff;
+        --rfp-violet:#6b38d4;
+        --rfp-violet-soft:#f1eaff;
+        --rfp-success:#087a51;
+        --rfp-success-soft:#e1f7ec;
+        --rfp-warning:#8a6100;
+        --rfp-warning-soft:#fff4d8;
+        --rfp-danger:#b42318;
+        --rfp-danger-soft:#ffefed;
+        --rfp-ease:cubic-bezier(.2,.8,.2,1);
+        width:100%;
+        max-width:1440px;
+        margin:0 auto;
+        padding:24px 30px 48px;
+        color:var(--rfp-text);
+        font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+        animation:rfpPageIn .24s var(--rfp-ease);
+      }
+
+      .rf-profile-settings-v7 *,
+      .rf-profile-settings-v7 *::before,
+      .rf-profile-settings-v7 *::after{box-sizing:border-box}
+
+      @keyframes rfpPageIn{
+        from{opacity:0;transform:translate3d(0,6px,0)}
+        to{opacity:1;transform:none}
+      }
+
+      @keyframes rfpSpin{to{transform:rotate(360deg)}}
+
+      .rf-profile-settings-v7 .rf-dashboard-header{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:24px;
+        margin:0 0 18px;
+        padding:0;
+        background:transparent;
+        border:0;
+        box-shadow:none;
+      }
+
+      .rf-profile-settings-v7 .rf-dashboard-header__identity{
+        min-width:0;
+        display:flex;
+        align-items:center;
+        gap:14px;
+      }
+
+      .rf-profile-settings-v7 .rf-dashboard-header__identity > div{min-width:0}
+
+      .rf-profile-settings-v7 .rf-dashboard-eyebrow{
+        margin:0 0 3px;
+        color:var(--rfp-primary);
+        font-size:9px;
+        font-weight:760;
+        letter-spacing:.1em;
+        text-transform:uppercase;
+      }
+
+      .rf-profile-settings-v7 .rf-dashboard-header h1{
+        margin:0;
+        color:var(--rfp-text);
+        font:600 31px/38px Geist,Inter,sans-serif;
+        letter-spacing:-.025em;
+      }
+
+      .rf-profile-settings-v7 .rf-dashboard-subtitle{
+        max-width:760px;
+        margin:4px 0 0;
+        color:var(--rfp-text-2);
+        font-size:12px;
+        line-height:18px;
+      }
+
+      .rf-profile-settings-v7 .rf-avatar{
+        display:grid;
+        place-items:center;
+        overflow:hidden;
+        color:#fff;
+        background:linear-gradient(145deg,#5759df,#7042d7);
+        border:3px solid #fff;
+        border-radius:50%;
+        box-shadow:0 7px 20px rgba(70,72,212,.16);
+        font-weight:800;
+      }
+
+      .rf-profile-settings-v7 .rf-avatar img{
+        width:100%;
+        height:100%;
+        object-fit:cover;
+      }
+
+      .rf-profile-settings-v7 .rf-avatar--large{
+        width:52px;
+        height:52px;
+        flex:0 0 52px;
+        font-size:12px;
+      }
+
+      .rf-profile-settings-v7 .rf-dashboard-header__actions{
+        display:flex;
+        align-items:center;
+        gap:8px;
+      }
+
+      .rf-profile-settings-v7 .rf-profile-v7-account-chip{
+        min-height:43px;
+        display:flex;
+        align-items:center;
+        gap:8px;
+        padding:7px 10px;
+        background:#fff;
+        border:1px solid var(--rfp-line);
+        border-radius:9px;
+      }
+
+      .rf-profile-settings-v7 .rf-profile-v7-account-chip > div{display:grid;min-width:0}
+      .rf-profile-settings-v7 .rf-profile-v7-account-chip strong{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px}
+      .rf-profile-settings-v7 .rf-profile-v7-account-chip small{color:var(--rfp-muted);font-size:6px}
+
+      .rf-profile-settings-v7 .rf-profile-v7-dot{
+        width:8px;
+        height:8px;
+        display:block;
+        flex:0 0 8px;
+        background:#8d9098;
+        border-radius:50%;
+      }
+      .rf-profile-settings-v7 .rf-profile-v7-dot--available,
+      .rf-profile-settings-v7 .rf-profile-v7-dot--online{background:#16a16f}
+      .rf-profile-settings-v7 .rf-profile-v7-dot--busy{background:#d45a4a}
+      .rf-profile-settings-v7 .rf-profile-v7-dot--away{background:#d29a22}
+
+      .rf-profile-settings-v7 .rf-button{
+        min-height:38px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        gap:6px;
+        padding:7px 11px;
+        color:#fff;
+        background:var(--rfp-primary);
+        border:1px solid var(--rfp-primary);
+        border-radius:8px;
+        box-shadow:0 5px 14px rgba(70,72,212,.14);
+        cursor:pointer;
+        font-size:8px;
+        font-weight:700;
+        transition:.14s var(--rfp-ease);
+      }
+
+      .rf-profile-settings-v7 .rf-button:hover:not(:disabled){transform:translateY(-1px);background:var(--rfp-primary-dark)}
+      .rf-profile-settings-v7 .rf-button:disabled{opacity:.48;cursor:not-allowed}
+      .rf-profile-settings-v7 .rf-button--secondary{color:var(--rfp-text);background:#fff;border-color:var(--rfp-line);box-shadow:none}
+      .rf-profile-settings-v7 .rf-button--secondary:hover:not(:disabled){color:var(--rfp-primary);background:var(--rfp-primary-soft)}
+      .rf-profile-settings-v7 .rf-button--compact{min-height:31px;padding:5px 8px;font-size:7px}
+
+      .rf-profile-settings-v7 .rf-inline-alert{
+        min-height:43px;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:10px;
+        padding:10px 12px;
+        margin:0 0 12px;
+        color:#7f1d1d;
+        background:var(--rfp-danger-soft);
+        border:1px solid #ffd0cb;
+        border-radius:9px;
+        font-size:8px;
+        animation:rfpPageIn .18s var(--rfp-ease);
+      }
+
+      .rf-profile-settings-v7 .rf-inline-alert button{
+        padding:4px 6px;
+        color:inherit;
+        background:transparent;
+        border:0;
+        border-radius:5px;
+        cursor:pointer;
+        font-size:6px;
+        font-weight:750;
+      }
+
+      .rf-profile-settings-v7 .rf-settings-layout{
+        display:grid;
+        grid-template-columns:270px minmax(0,1fr);
+        gap:20px;
+        align-items:start;
+      }
+
+      .rf-profile-settings-v7 .rf-settings-navigation-panel{
+        position:sticky;
+        top:80px;
+        overflow:hidden;
+        background:#fff;
+        border:1px solid var(--rfp-line);
+        border-radius:13px;
+        box-shadow:0 1px 3px rgba(25,28,29,.03);
+      }
+
+      .rf-profile-settings-v7 .rf-settings-profile-summary{
+        display:grid;
+        justify-items:center;
+        padding:20px 16px 17px;
+        text-align:center;
+        background:
+          radial-gradient(circle at 50% 0,rgba(70,72,212,.10),transparent 43%),
+          linear-gradient(180deg,#fbfbff,#fff);
+        border-bottom:1px solid var(--rfp-line);
+      }
+
+      .rf-profile-settings-v7 .rf-settings-avatar--extra-large{
+        width:76px;
+        height:76px;
+        margin-bottom:9px;
+        font-size:17px;
+      }
+
+      .rf-profile-settings-v7 .rf-settings-profile-summary h2{
+        max-width:100%;
+        margin:0;
+        overflow:hidden;
+        color:var(--rfp-text);
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font:600 13px/18px Geist,Inter,sans-serif;
+      }
+
+      .rf-profile-settings-v7 .rf-settings-profile-summary > p{
+        margin:2px 0 0;
+        color:var(--rfp-text-2);
+        font-size:7px;
+      }
+
+      .rf-profile-settings-v7 .rf-settings-profile-summary > span:not(.rf-avatar):not(.rf-dashboard-status){
+        max-width:100%;
+        margin:3px 0 7px;
+        overflow:hidden;
+        color:var(--rfp-muted);
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font-size:6.5px;
+      }
+
+      .rf-profile-settings-v7 .rf-dashboard-status{
+        display:inline-flex;
+        align-items:center;
+        width:max-content;
+        padding:4px 7px;
+        color:#60656f;
+        background:var(--rfp-soft);
+        border-radius:999px;
+        font-size:6px;
+        font-weight:750;
+        text-transform:capitalize;
+      }
+      .rf-profile-settings-v7 .rf-dashboard-status--available,
+      .rf-profile-settings-v7 .rf-dashboard-status--active,
+      .rf-profile-settings-v7 .rf-dashboard-status--current{color:var(--rfp-success);background:var(--rfp-success-soft)}
+      .rf-profile-settings-v7 .rf-dashboard-status--busy{color:var(--rfp-danger);background:var(--rfp-danger-soft)}
+      .rf-profile-settings-v7 .rf-dashboard-status--away{color:var(--rfp-warning);background:var(--rfp-warning-soft)}
+
+      .rf-profile-settings-v7 .rf-settings-avatar-actions{
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        gap:6px;
+        margin-top:10px;
+      }
+
+      .rf-profile-settings-v7 .rf-settings-danger-link{
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        min-height:29px;
+        padding:5px 7px;
+        color:var(--rfp-danger);
+        background:transparent;
+        border:0;
+        border-radius:6px;
+        cursor:pointer;
+        font-size:6.5px;
+        font-weight:700;
+      }
+      .rf-profile-settings-v7 .rf-settings-danger-link:hover:not(:disabled){background:var(--rfp-danger-soft)}
+      .rf-profile-settings-v7 .rf-settings-danger-link:disabled{opacity:.45}
+
+      .rf-profile-settings-v7 .rf-settings-navigation{
+        display:grid;
+        gap:3px;
+        padding:8px;
+      }
+
+      .rf-profile-settings-v7 .rf-settings-navigation > button{
+        min-height:58px;
+        display:grid;
+        grid-template-columns:31px minmax(0,1fr);
+        align-items:center;
+        gap:8px;
+        padding:8px 9px;
+        color:var(--rfp-text-2);
+        background:transparent;
+        border:0;
+        border-radius:8px;
+        text-align:left;
+        cursor:pointer;
+        transition:.14s var(--rfp-ease);
+      }
+
+      .rf-profile-settings-v7 .rf-settings-navigation > button:hover{background:var(--rfp-soft)}
+      .rf-profile-settings-v7 .rf-settings-navigation > button.is-active{color:#3b3db6;background:var(--rfp-primary-soft)}
+
+      .rf-profile-settings-v7 .rf-settings-navigation > button > span{
+        width:31px;
+        height:31px;
+        display:grid;
+        place-items:center;
+        color:#666b76;
+        background:var(--rfp-soft);
+        border-radius:8px;
+        font-size:9px;
+        font-weight:800;
+      }
+
+      .rf-profile-settings-v7 .rf-settings-navigation > button.is-active > span{color:var(--rfp-primary);background:#fff}
+      .rf-profile-settings-v7 .rf-settings-navigation > button > div{min-width:0;display:grid}
+      .rf-profile-settings-v7 .rf-settings-navigation strong{font-size:8px;line-height:12px}
+      .rf-profile-settings-v7 .rf-settings-navigation small{overflow:hidden;color:var(--rfp-muted);text-overflow:ellipsis;white-space:nowrap;font-size:6px;line-height:10px}
+
+      .rf-profile-settings-v7 .rf-settings-content{min-width:0}
+      .rf-profile-settings-v7 .rf-settings-content > *{animation:rfpPageIn .2s var(--rfp-ease)}
+
+      .rf-profile-settings-v7 .rf-panel.rf-settings-panel{
+        overflow:hidden;
+        margin:0;
+        background:#fff;
+        border:1px solid var(--rfp-line);
+        border-radius:13px;
+        box-shadow:0 1px 3px rgba(25,28,29,.03);
+      }
+
+      .rf-profile-settings-v7 .rf-panel-header{
+        min-height:78px;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:12px;
+        padding:15px 17px;
+        background:#fbfbfc;
+        border-bottom:1px solid var(--rfp-line);
+      }
+
+      .rf-profile-settings-v7 .rf-panel-header > div{min-width:0}
+      .rf-profile-settings-v7 .rf-panel-header h2{margin:0;color:var(--rfp-text);font:600 14px/19px Geist,Inter,sans-serif}
+      .rf-profile-settings-v7 .rf-panel-header p{margin:2px 0 0;color:var(--rfp-text-2);font-size:8px;line-height:13px}
+
+      .rf-profile-settings-v7 .rf-settings-panel > form,
+      .rf-profile-settings-v7 .rf-settings-panel > .rf-security-summary-grid,
+      .rf-profile-settings-v7 .rf-settings-panel > .rf-session-list,
+      .rf-profile-settings-v7 .rf-settings-panel > .rf-empty-state{
+        padding:17px;
+      }
+
+      .rf-profile-settings-v7 .rf-settings-form-grid{
+        display:grid;
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:14px;
+      }
+
+      .rf-profile-settings-v7 .rf-settings-field{
+        min-width:0;
+        display:grid;
+        align-content:start;
+        gap:6px;
+        margin:0;
+      }
+
+      .rf-profile-settings-v7 .rf-settings-field--wide{grid-column:1/-1}
+      .rf-profile-settings-v7 .rf-settings-field > span:first-child{color:var(--rfp-text);font-size:8px;font-weight:650}
+      .rf-profile-settings-v7 .rf-settings-field > span:first-child b{color:var(--rfp-danger);font-weight:700}
+
+      .rf-profile-settings-v7 .rf-settings-field input,
+      .rf-profile-settings-v7 .rf-settings-field select,
+      .rf-profile-settings-v7 .rf-settings-field textarea{
+        width:100%;
+        color:var(--rfp-text);
+        background:#fff;
+        border:1px solid var(--rfp-line);
+        border-radius:8px;
+        outline:0;
+        font:500 9px/14px Inter,sans-serif;
+        transition:.14s var(--rfp-ease);
+      }
+
+      .rf-profile-settings-v7 .rf-settings-field input,
+      .rf-profile-settings-v7 .rf-settings-field select{height:42px;padding:0 10px}
+      .rf-profile-settings-v7 .rf-settings-field textarea{min-height:130px;padding:10px;resize:vertical}
+
+      .rf-profile-settings-v7 .rf-settings-field input:focus,
+      .rf-profile-settings-v7 .rf-settings-field select:focus,
+      .rf-profile-settings-v7 .rf-settings-field textarea:focus{
+        border-color:rgba(70,72,212,.52);
+        box-shadow:0 0 0 3px rgba(70,72,212,.07);
+      }
+
+      .rf-profile-settings-v7 .rf-settings-field input:disabled,
+      .rf-profile-settings-v7 .rf-settings-field select:disabled,
+      .rf-profile-settings-v7 .rf-settings-field textarea:disabled{color:#777b84;background:#f1f2f4;cursor:not-allowed}
+      .rf-profile-settings-v7 .rf-settings-field > small{color:var(--rfp-muted);font-size:6.5px;line-height:10px}
+
+      .rf-profile-settings-v7 .rf-settings-form-footer{
+        display:flex;
+        justify-content:flex-end;
+        margin:17px -17px -17px;
+        padding:12px 17px;
+        background:#fbfbfc;
+        border-top:1px solid var(--rfp-line);
+      }
+
+      .rf-profile-settings-v7 .rf-settings-form-footer .rf-button{min-height:35px;font-size:7px}
+
+      .rf-profile-settings-v7 .rf-settings-subsection{
+        margin-top:16px;
+        padding-top:16px;
+        border-top:1px solid var(--rfp-line);
+      }
+
+      .rf-profile-settings-v7 .rf-settings-subsection > header{margin-bottom:10px}
+      .rf-profile-settings-v7 .rf-settings-subsection h3{margin:0;font:600 10px/15px Geist,Inter,sans-serif}
+      .rf-profile-settings-v7 .rf-settings-subsection p{margin:2px 0 0;color:var(--rfp-muted);font-size:7px;line-height:11px}
+
+      .rf-profile-settings-v7 .rf-working-hours-list{display:grid;gap:6px}
+      .rf-profile-settings-v7 .rf-working-hours-row{
+        min-height:58px;
+        display:grid;
+        grid-template-columns:150px minmax(210px,1fr) 90px;
+        align-items:center;
+        gap:10px;
+        padding:9px 10px;
+        background:var(--rfp-soft);
+        border:1px solid transparent;
+        border-radius:8px;
+      }
+      .rf-profile-settings-v7 .rf-working-hours-row.is-enabled{background:#f9f9ff;border-color:#e3e4ff}
+      .rf-profile-settings-v7 .rf-working-hours-row > div{display:flex;align-items:center;gap:7px}
+      .rf-profile-settings-v7 .rf-working-hours-row > div input{min-width:0;height:33px;padding:0 7px;background:#fff;border:1px solid var(--rfp-line);border-radius:6px;font-size:7px}
+      .rf-profile-settings-v7 .rf-working-hours-row > div span{color:var(--rfp-muted);font-size:6px}
+      .rf-profile-settings-v7 .rf-working-hours-row > small{color:var(--rfp-muted);text-align:right;font-size:6.5px}
+
+      .rf-profile-settings-v7 .rf-settings-switch{
+        display:inline-flex;
+        align-items:center;
+        gap:7px;
+        cursor:pointer;
+      }
+      .rf-profile-settings-v7 .rf-settings-switch input{position:absolute;opacity:0;pointer-events:none}
+      .rf-profile-settings-v7 .rf-settings-switch > span{
+        position:relative;
+        width:38px;
+        height:22px;
+        display:block;
+        flex:0 0 38px;
+        background:#c8cbd0;
+        border-radius:999px;
+        transition:.15s var(--rfp-ease);
+      }
+      .rf-profile-settings-v7 .rf-settings-switch > span::after{
+        content:"";
+        position:absolute;
+        left:3px;
+        top:3px;
+        width:16px;
+        height:16px;
+        background:#fff;
+        border-radius:50%;
+        box-shadow:0 1px 3px rgba(25,28,29,.12);
+        transition:.15s var(--rfp-ease);
+      }
+      .rf-profile-settings-v7 .rf-settings-switch input:checked + span{background:var(--rfp-primary)}
+      .rf-profile-settings-v7 .rf-settings-switch input:checked + span::after{transform:translateX(16px)}
+      .rf-profile-settings-v7 .rf-settings-switch strong{font-size:7px}
+
+      .rf-profile-settings-v7 .rf-settings-channel-grid{
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:9px;
+        margin-bottom:12px;
+      }
+
+      .rf-profile-settings-v7 .rf-notification-channel-card{
+        min-height:125px;
+        display:grid;
+        align-content:space-between;
+        gap:12px;
+        padding:13px;
+        background:var(--rfp-soft);
+        border:1px solid transparent;
+        border-radius:9px;
+      }
+      .rf-profile-settings-v7 .rf-notification-channel-card.is-enabled{background:#f8f8ff;border-color:#dddeff}
+      .rf-profile-settings-v7 .rf-notification-channel-card strong{font-size:8px}
+      .rf-profile-settings-v7 .rf-notification-channel-card p{margin:3px 0 0;color:var(--rfp-muted);font-size:6.5px;line-height:11px}
+
+      .rf-profile-settings-v7 .rf-settings-toggle-list{display:grid;gap:6px}
+      .rf-profile-settings-v7 .rf-settings-toggle-row{
+        min-height:66px;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:14px;
+        padding:10px 11px;
+        background:var(--rfp-soft);
+        border-radius:8px;
+      }
+      .rf-profile-settings-v7 .rf-settings-toggle-row > div{min-width:0}
+      .rf-profile-settings-v7 .rf-settings-toggle-row strong{display:block;font-size:8px}
+      .rf-profile-settings-v7 .rf-settings-toggle-row p{margin:2px 0 0;color:var(--rfp-muted);font-size:6.5px;line-height:11px}
+
+      .rf-profile-settings-v7 .rf-settings-information-box{
+        display:grid;
+        gap:4px;
+        margin-top:12px;
+        padding:11px;
+        color:#4e29b8;
+        background:linear-gradient(135deg,#f3edff,#faf8ff);
+        border:1px solid #e4d9fb;
+        border-radius:8px;
+      }
+      .rf-profile-settings-v7 .rf-settings-information-box strong{font-size:8px}
+      .rf-profile-settings-v7 .rf-settings-information-box p{margin:0;color:var(--rfp-text-2);font-size:7px;line-height:11px}
+      .rf-profile-settings-v7 .rf-settings-information-box a{width:max-content;color:var(--rfp-primary);font-size:7px;font-weight:700;text-decoration:none}
+
+      .rf-profile-settings-v7 .rf-settings-security-stack{display:grid;gap:12px}
+      .rf-profile-settings-v7 .rf-security-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+      .rf-profile-settings-v7 .rf-security-summary{min-height:95px;display:grid;align-content:center;gap:4px;padding:12px;background:var(--rfp-soft);border:1px solid transparent;border-radius:9px}
+      .rf-profile-settings-v7 .rf-security-summary small{color:var(--rfp-muted);font-size:6px;text-transform:uppercase;letter-spacing:.05em}
+      .rf-profile-settings-v7 .rf-security-summary strong{font:600 10px/15px Geist,Inter,sans-serif}
+      .rf-profile-settings-v7 .rf-security-summary--success{color:var(--rfp-success);background:var(--rfp-success-soft);border-color:#c9efdd}
+      .rf-profile-settings-v7 .rf-security-summary--warning{color:var(--rfp-warning);background:var(--rfp-warning-soft);border-color:#f3dea6}
+      .rf-profile-settings-v7 .rf-security-summary--danger{color:var(--rfp-danger);background:var(--rfp-danger-soft);border-color:#ffd5d0}
+
+      .rf-profile-settings-v7 .rf-password-strength{display:grid;grid-template-columns:150px minmax(0,1fr);gap:10px;align-items:center;margin-top:13px;padding:10px;background:var(--rfp-soft);border-radius:8px}
+      .rf-profile-settings-v7 .rf-password-strength > div{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+      .rf-profile-settings-v7 .rf-password-strength > div span{height:5px;background:#d9dce0;border-radius:99px}
+      .rf-profile-settings-v7 .rf-password-strength > div span.is-active{background:var(--rfp-primary)}
+      .rf-profile-settings-v7 .rf-password-strength > div span.is-weak{background:#d35b4c}
+      .rf-profile-settings-v7 .rf-password-strength > div span.is-fair{background:#d99b28}
+      .rf-profile-settings-v7 .rf-password-strength > div span.is-strong{background:#178b62}
+      .rf-profile-settings-v7 .rf-password-strength > p{display:grid;margin:0}
+      .rf-profile-settings-v7 .rf-password-strength > p strong{font-size:7px}
+      .rf-profile-settings-v7 .rf-password-strength > p span{color:var(--rfp-muted);font-size:6px;line-height:10px}
+
+      .rf-profile-settings-v7 .rf-session-list{display:grid;gap:6px}
+      .rf-profile-settings-v7 .rf-session-card{min-height:69px;display:grid;grid-template-columns:37px minmax(0,1fr) auto;align-items:center;gap:9px;padding:9px 10px;background:var(--rfp-soft);border-radius:8px}
+      .rf-profile-settings-v7 .rf-session-card__icon{width:37px;height:37px;display:grid;place-items:center;color:var(--rfp-primary);background:#fff;border-radius:8px;font-size:9px;font-weight:800}
+      .rf-profile-settings-v7 .rf-session-card__content{min-width:0;display:grid}
+      .rf-profile-settings-v7 .rf-session-card__content strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px}
+      .rf-profile-settings-v7 .rf-session-card__content span,.rf-profile-settings-v7 .rf-session-card__content small{overflow:hidden;color:var(--rfp-muted);text-overflow:ellipsis;white-space:nowrap;font-size:6px}
+      .rf-profile-settings-v7 .rf-session-card__actions{display:flex;align-items:center;justify-content:flex-end}
+
+      .rf-profile-settings-v7 .rf-empty-state{min-height:250px;display:grid;place-items:center;align-content:center;gap:6px;text-align:center}
+      .rf-profile-settings-v7 .rf-empty-state__icon{width:43px;height:43px;display:grid;place-items:center;color:var(--rfp-primary);background:var(--rfp-primary-soft);border-radius:11px;font-size:9px;font-weight:800}
+      .rf-profile-settings-v7 .rf-empty-state strong{font-size:9px}.rf-profile-settings-v7 .rf-empty-state p{margin:0;color:var(--rfp-muted);font-size:7px}
+
+      .rf-profile-settings-v7 .rf-dashboard-skeleton-header,
+      .rf-profile-settings-v7 .rf-settings-skeleton-navigation,
+      .rf-profile-settings-v7 .rf-dashboard-skeleton-panel{
+        background:linear-gradient(90deg,#e8eaec 25%,#f8f9fa 45%,#e8eaec 65%);
+        background-size:220% 100%;
+        border-radius:12px;
+        animation:rfpShimmer 1.25s linear infinite;
+      }
+      @keyframes rfpShimmer{from{background-position:200% 0}to{background-position:-200% 0}}
+      .rf-profile-settings-v7 .rf-dashboard-skeleton-header{height:78px;margin-bottom:18px}
+      .rf-profile-settings-v7 .rf-settings-skeleton-navigation{height:520px}
+      .rf-profile-settings-v7 .rf-dashboard-skeleton-panel{height:640px}
+
+      @media(max-width:1050px){
+        .rf-profile-settings-v7{padding:22px}
+        .rf-profile-settings-v7 .rf-settings-layout{grid-template-columns:235px minmax(0,1fr);gap:16px}
+        .rf-profile-settings-v7 .rf-security-summary-grid{grid-template-columns:repeat(2,1fr)}
+      }
+
+      @media(max-width:820px){
+        .rf-profile-settings-v7 .rf-dashboard-header{align-items:flex-start;flex-direction:column}
+        .rf-profile-settings-v7 .rf-dashboard-header__actions{width:100%;justify-content:flex-end}
+        .rf-profile-settings-v7 .rf-settings-layout{grid-template-columns:1fr}
+        .rf-profile-settings-v7 .rf-settings-navigation-panel{position:static}
+        .rf-profile-settings-v7 .rf-settings-profile-summary{grid-template-columns:64px minmax(0,1fr) auto;justify-items:start;align-items:center;column-gap:10px;text-align:left}
+        .rf-profile-settings-v7 .rf-settings-avatar--extra-large{grid-row:1/5;width:58px;height:58px;margin:0}
+        .rf-profile-settings-v7 .rf-settings-profile-summary h2,.rf-profile-settings-v7 .rf-settings-profile-summary > p,.rf-profile-settings-v7 .rf-settings-profile-summary > span{grid-column:2}
+        .rf-profile-settings-v7 .rf-settings-profile-summary .rf-dashboard-status{grid-column:3;grid-row:1}
+        .rf-profile-settings-v7 .rf-settings-avatar-actions{grid-column:2/4;margin-top:4px}
+        .rf-profile-settings-v7 .rf-settings-navigation{display:flex;overflow:auto;padding:7px}
+        .rf-profile-settings-v7 .rf-settings-navigation > button{min-width:185px;flex:0 0 auto}
+        .rf-profile-settings-v7 .rf-working-hours-row{grid-template-columns:135px minmax(180px,1fr) 80px}
+      }
+
+      @media(max-width:650px){
+        .rf-profile-settings-v7{padding:18px 12px 86px}
+        .rf-profile-settings-v7 .rf-dashboard-header h1{font-size:25px;line-height:32px}
+        .rf-profile-settings-v7 .rf-dashboard-subtitle{font-size:10px;line-height:16px}
+        .rf-profile-settings-v7 .rf-profile-v7-account-chip{display:none}
+        .rf-profile-settings-v7 .rf-dashboard-header__actions{display:grid;grid-template-columns:1fr}
+        .rf-profile-settings-v7 .rf-dashboard-header__actions .rf-button{width:100%}
+        .rf-profile-settings-v7 .rf-settings-form-grid{grid-template-columns:1fr}
+        .rf-profile-settings-v7 .rf-settings-field--wide{grid-column:auto}
+        .rf-profile-settings-v7 .rf-settings-channel-grid{grid-template-columns:1fr}
+        .rf-profile-settings-v7 .rf-working-hours-row{grid-template-columns:1fr;gap:7px}
+        .rf-profile-settings-v7 .rf-working-hours-row > small{text-align:left}
+        .rf-profile-settings-v7 .rf-security-summary-grid{grid-template-columns:1fr 1fr}
+        .rf-profile-settings-v7 .rf-password-strength{grid-template-columns:1fr}
+      }
+
+      @media(max-width:430px){
+        .rf-profile-settings-v7 .rf-settings-profile-summary{grid-template-columns:54px minmax(0,1fr)}
+        .rf-profile-settings-v7 .rf-settings-profile-summary .rf-dashboard-status{grid-column:2;grid-row:auto}
+        .rf-profile-settings-v7 .rf-settings-avatar-actions{grid-column:1/-1;justify-content:flex-start}
+        .rf-profile-settings-v7 .rf-security-summary-grid{grid-template-columns:1fr}
+        .rf-profile-settings-v7 .rf-panel-header{align-items:flex-start;flex-direction:column}
+        .rf-profile-settings-v7 .rf-session-card{grid-template-columns:37px minmax(0,1fr)}
+        .rf-profile-settings-v7 .rf-session-card__actions{grid-column:2;justify-content:flex-start}
+      }
+
+      @media(prefers-reduced-motion:reduce){
+        .rf-profile-settings-v7,
+        .rf-profile-settings-v7 .rf-settings-content > *,
+        .rf-profile-settings-v7 .rf-inline-alert,
+        .rf-profile-settings-v7 .rf-dashboard-skeleton-header,
+        .rf-profile-settings-v7 .rf-settings-skeleton-navigation,
+        .rf-profile-settings-v7 .rf-dashboard-skeleton-panel{
+          animation:none!important;
+        }
+        .rf-profile-settings-v7 *,
+        .rf-profile-settings-v7 *::before,
+        .rf-profile-settings-v7 *::after{transition-duration:.01ms!important}
+      }
+    `}</style>
+  );
+}
+
+function notify(type, title, message) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const bridge = window.reachflyToast;
+
+  if (bridge && typeof bridge[type] === "function") {
+    bridge[type](title, message);
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent("reachfly:toast", {
+      detail: {
+        type,
+        title,
+        message,
+      },
+    })
   );
 }
 
