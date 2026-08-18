@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -22,47 +23,47 @@ import "../styles.css";
 import {
   BarChart3,
   Bell,
+  Bot,
   Building2,
+  Calendar,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   Clock3,
   GitBranch,
-  History,
   Inbox,
   LayoutDashboard,
+  Lightbulb,
   LogOut,
   Mail,
   MapPin,
   Menu,
   MessageCircle,
+  Phone,
+  Plus,
   Rocket,
   Search,
   Settings,
+  Sparkles,
   Target,
   UserRound,
   Users,
+  Workflow,
   X,
   Zap,
 } from "./icons";
 
-const defaultCounters = {
+const DEFAULT_COUNTERS = Object.freeze({
   activeCampaigns: 0,
   queuedCampaigns: 0,
   historyCampaigns: 0,
   contacts: 0,
   unreadInbox: 0,
-};
+});
 
-const OWNER_ROLES = new Set([
-  "owner",
-]);
-
-const ADMIN_ROLES = new Set([
-  "admin",
-]);
-
-const MANAGER_ROLES = new Set([
-  "manager",
-]);
-
+const OWNER_ROLES = new Set(["owner"]);
+const ADMIN_ROLES = new Set(["admin"]);
+const MANAGER_ROLES = new Set(["manager"]);
 const CALLER_ROLES = new Set([
   "caller",
   "cold_caller",
@@ -73,164 +74,198 @@ const CALLER_ROLES = new Set([
 
 const PLATFORM_OWNER_EMAIL = "owner@codesynclabs.com";
 const CODESYNC_WORKSPACE_ID = "codesync-labs-workspace";
+const TOAST_EVENT = "reachfly:toast";
 
+/**
+ * ReachFly V7.1 application shell.
+ *
+ * Goals:
+ * - Match the Stitch ReachFly.AI shell/navigation system.
+ * - Preserve existing route and role behavior while pages are migrated one by one.
+ * - Keep all current backend/API behavior untouched.
+ * - Provide global quick-create, command palette, notifications, responsive mobile nav,
+ *   and a reusable animated success/error/warning/info toast channel.
+ */
 export default function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
-  const counterRequestRef =
-    useRef({
-      key: "",
-      promise: null,
-      lastLoadedAt: 0,
-    });
+  const counterRequestRef = useRef({
+    key: "",
+    promise: null,
+    lastLoadedAt: 0,
+  });
 
-  const {
-    user,
-    logout,
-  } = useAuth();
+  const quickCreateRef = useRef(null);
+  const notificationsRef = useRef(null);
+  const commandInputRef = useRef(null);
+  const toastIdRef = useRef(0);
 
-  const [sidebarOpen, setSidebarOpen] =
-    useState(false);
-
-  const [counters, setCounters] =
-    useState(defaultCounters);
-
-  const [searchValue, setSearchValue] =
-    useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [commandOpen, setCommandOpen] = useState(false);
+  const [commandQuery, setCommandQuery] = useState("");
+  const [searchValue, setSearchValue] = useState("");
+  const [counters, setCounters] = useState(DEFAULT_COUNTERS);
+  const [toasts, setToasts] = useState([]);
 
   const role = useMemo(
-    () =>
-      normalizeRole(
-        user?.workspaceRole ||
-          user?.role ||
-          "caller"
-      ),
-    [
-      user?.workspaceRole,
-      user?.role,
-    ]
+    () => normalizeRole(user?.workspaceRole || user?.role || "caller"),
+    [user?.workspaceRole, user?.role]
   );
 
-  const isOwner =
-    OWNER_ROLES.has(role);
+  const isOwner = OWNER_ROLES.has(role);
+  const isAdmin = ADMIN_ROLES.has(role);
+  const isManager = MANAGER_ROLES.has(role);
+  const isCaller = CALLER_ROLES.has(role);
 
-  const isAdmin =
-    ADMIN_ROLES.has(role);
+  const canManageWorkspace = isOwner || isAdmin || isManager;
+  const canManageCompanySettings = isOwner || isAdmin;
+  const canManageCampaigns = canManageWorkspace;
+  const canViewAllAnalytics = canManageWorkspace;
+  const canViewInbox = canManageWorkspace;
+  const canViewContacts = canManageWorkspace;
 
-  const isManager =
-    MANAGER_ROLES.has(role);
+  const isIndividualAccount =
+    String(user?.accountType || user?.workspaceType || "")
+      .trim()
+      .toLowerCase() === "individual";
 
-  const isCaller =
-    CALLER_ROLES.has(role);
+  const canUseVoiceAgent = canManageWorkspace || isIndividualAccount;
 
   const isPlatformOwner =
     String(user?.email || "")
       .trim()
-      .toLowerCase() ===
-    PLATFORM_OWNER_EMAIL;
+      .toLowerCase() === PLATFORM_OWNER_EMAIL;
 
-  const isCodesyncLabsWorkspace =
-    useMemo(() => {
-      const values = [
-        user?.workspaceId,
-        user?.companyId,
-        user?.workspaceSlug,
-        user?.companySlug,
-        user?.workspaceName,
-        user?.companyName,
-      ]
-        .filter(Boolean)
-        .map((value) =>
-          String(value)
-            .trim()
-            .toLowerCase()
-            .replace(/[\s-]+/g, "_")
-        );
-
-      const codesyncIds = new Set([
-        CODESYNC_WORKSPACE_ID.replace(/[\s-]+/g, "_"),
-        "codesync_labs",
-        "codesynclabs",
-        "codesync_labs_workspace",
-      ]);
-
-      return values.some(
-        (value) =>
-          codesyncIds.has(value) ||
-          value.startsWith("codesync_labs_")
-      );
-    }, [
+  const isCodesyncLabsWorkspace = useMemo(() => {
+    const values = [
       user?.workspaceId,
       user?.companyId,
       user?.workspaceSlug,
       user?.companySlug,
       user?.workspaceName,
       user?.companyName,
+    ]
+      .filter(Boolean)
+      .map((value) =>
+        String(value)
+          .trim()
+          .toLowerCase()
+          .replace(/[\s-]+/g, "_")
+      );
+
+    const codesyncIds = new Set([
+      CODESYNC_WORKSPACE_ID.replace(/[\s-]+/g, "_"),
+      "codesync_labs",
+      "codesynclabs",
+      "codesync_labs_workspace",
     ]);
 
-  /*
-   * Codesync's existing platform-owner control plane becomes the primary
-   * Dashboard experience. The route and backend permissions stay unchanged;
-   * only navigation/presentation changes.
-   */
+    return values.some(
+      (value) => codesyncIds.has(value) || value.startsWith("codesync_labs_")
+    );
+  }, [
+    user?.workspaceId,
+    user?.companyId,
+    user?.workspaceSlug,
+    user?.companySlug,
+    user?.workspaceName,
+    user?.companyName,
+  ]);
+
   const useCodesyncPlatformDashboard =
-    isCodesyncLabsWorkspace &&
-    isPlatformOwner;
+    isCodesyncLabsWorkspace && isPlatformOwner;
 
-  const dashboardHomePath =
-    useCodesyncPlatformDashboard
-      ? "/app/platform-admin"
-      : "/app/dashboard";
+  const dashboardHomePath = useCodesyncPlatformDashboard
+    ? "/app/platform-admin"
+    : "/app/dashboard";
 
-  const canManageWorkspace =
-    isOwner ||
-    isAdmin ||
-    isManager;
+  const workspace = useMemo(() => {
+    const isCompany =
+      user?.accountType === "company" ||
+      user?.workspaceType === "company" ||
+      user?.companyAccount === true ||
+      Boolean(user?.workspaceId || user?.companyId);
 
-  const canManageCompanySettings =
-    isOwner ||
-    isAdmin;
+    return {
+      isCompany,
+      title: isCompany
+        ? user?.companyName || user?.workspaceName || "Company workspace"
+        : user?.name || "Individual workspace",
+      type: isCompany ? "Company workspace" : "Individual workspace",
+      role: formatRoleLabel(role),
+      email: user?.email || "Signed in",
+      initials: getInitials(user?.name || user?.companyName || "RF"),
+      avatarUrl:
+        user?.avatarUrl || user?.profileImage || user?.photoUrl || "",
+    };
+  }, [user, role]);
 
-  const canManageCampaigns =
-    isOwner ||
-    isAdmin ||
-    isManager;
+  const showToast = useCallback((input = {}) => {
+    const normalized = normalizeToast(input);
+    const id = `${Date.now()}-${toastIdRef.current++}`;
+    const toast = { ...normalized, id };
 
-  const canViewAllAnalytics =
-    isOwner ||
-    isAdmin ||
-    isManager;
+    setToasts((current) => [...current.slice(-3), toast]);
 
-  const canViewInbox =
-    isOwner ||
-    isAdmin ||
-    isManager;
+    window.setTimeout(() => {
+      setToasts((current) => current.filter((item) => item.id !== id));
+    }, normalized.duration);
 
-  const canViewContacts =
-    isManager ||
-    isCaller;
+    return id;
+  }, []);
 
-  const isIndividualAccount =
-    String(
-      user?.accountType ||
-        user?.workspaceType ||
-        ""
-    )
-      .trim()
-      .toLowerCase() ===
-    "individual";
+  const dismissToast = useCallback((id) => {
+    setToasts((current) => current.filter((item) => item.id !== id));
+  }, []);
 
-  const canUseVoiceAgent =
-    canManageWorkspace ||
-    isIndividualAccount;
+  /*
+   * Global toast bridge.
+   *
+   * Any migrated page can use either:
+   *   window.reachflyToast.success("Saved", "Your changes are live.")
+   *   window.reachflyToast.error("Couldn't save", "Please try again.")
+   *
+   * Or dispatch a CustomEvent("reachfly:toast", { detail: {...} }).
+   */
+  useEffect(() => {
+    function handleToastEvent(event) {
+      showToast(event?.detail || {});
+    }
+
+    const previousBridge = window.reachflyToast;
+
+    window.reachflyToast = {
+      show: (detail) => showToast(detail),
+      success: (title, message, options = {}) =>
+        showToast({ type: "success", title, message, ...options }),
+      error: (title, message, options = {}) =>
+        showToast({ type: "error", title, message, ...options }),
+      warning: (title, message, options = {}) =>
+        showToast({ type: "warning", title, message, ...options }),
+      info: (title, message, options = {}) =>
+        showToast({ type: "info", title, message, ...options }),
+    };
+
+    window.addEventListener(TOAST_EVENT, handleToastEvent);
+
+    return () => {
+      window.removeEventListener(TOAST_EVENT, handleToastEvent);
+
+      if (previousBridge) {
+        window.reachflyToast = previousBridge;
+      } else {
+        delete window.reachflyToast;
+      }
+    };
+  }, [showToast]);
 
   useEffect(() => {
     if (!user?.id) {
-      setCounters(
-        defaultCounters
-      );
-
+      setCounters(DEFAULT_COUNTERS);
       return undefined;
     }
 
@@ -244,223 +279,94 @@ export default function AppShell() {
       canViewInbox,
     ].join(":");
 
-    async function loadCounters({
-      force = false,
-    } = {}) {
-      const now =
-        Date.now();
-
-      const cached =
-        counterRequestRef.current;
+    async function loadCounters({ force = false } = {}) {
+      const now = Date.now();
+      const cached = counterRequestRef.current;
 
       if (
         !force &&
-        cached.key ===
-          requestKey &&
-        now -
-          cached.lastLoadedAt <
-          30_000
+        cached.key === requestKey &&
+        now - cached.lastLoadedAt < 30_000
       ) {
         return cached.promise;
       }
 
-      const requestPromise =
-        (async () => {
-          const requests = [];
+      const requestPromise = (async () => {
+        const requests = [];
 
-          if (
-            canManageCampaigns
-          ) {
-            requests.push({
-              key:
-                "campaigns",
-              promise:
-                api.campaigns(),
-            });
-          }
+        if (canManageCampaigns) {
+          requests.push({ key: "campaigns", promise: api.campaigns() });
+        }
 
-          if (
-            canViewInbox
-          ) {
-            requests.push({
-              key:
-                "inbox",
-              promise:
-                api.inbox(),
-            });
-          }
+        if (canViewInbox) {
+          requests.push({ key: "inbox", promise: api.inbox() });
+        }
 
-          if (
-            canViewContacts
-          ) {
-            requests.push({
-              key:
-                "contacts",
-              promise:
-                api.contacts(),
-            });
-          }
+        if (canViewContacts) {
+          requests.push({ key: "contacts", promise: api.contacts() });
+        }
 
-          const results =
-            await Promise.allSettled(
-              requests.map(
-                (request) =>
-                  request.promise
-              )
-            );
+        const results = await Promise.allSettled(
+          requests.map((request) => request.promise)
+        );
 
-          if (!alive) {
-            return;
-          }
+        if (!alive) return;
 
-          const responseMap =
-            {};
+        const responseMap = {};
+        results.forEach((result, index) => {
+          responseMap[requests[index].key] = result;
+        });
 
-          results.forEach(
-            (
-              result,
-              index
-            ) => {
-              responseMap[
-                requests[
-                  index
-                ].key
-              ] = result;
-            }
-          );
+        const campaigns = normalizeCollection(
+          responseMap.campaigns?.status === "fulfilled"
+            ? responseMap.campaigns.value
+            : [],
+          ["campaigns", "items"]
+        );
 
-          const campaignsValue =
-            responseMap
-              .campaigns
-              ?.status ===
-            "fulfilled"
-              ? responseMap
-                  .campaigns
-                  .value
-              : [];
+        const inboxItems = normalizeCollection(
+          responseMap.inbox?.status === "fulfilled"
+            ? responseMap.inbox.value
+            : [],
+          ["items", "messages", "inbox"]
+        );
 
-          const campaigns =
-            Array.isArray(
-              campaignsValue
+        const contacts = normalizeCollection(
+          responseMap.contacts?.status === "fulfilled"
+            ? responseMap.contacts.value
+            : [],
+          ["contacts", "items", "leads"]
+        );
+
+        setCounters({
+          activeCampaigns: campaigns.filter(
+            (campaign) => normalizeStatus(campaign.status) === "active"
+          ).length,
+          queuedCampaigns: campaigns.filter(
+            (campaign) => normalizeStatus(campaign.status) === "queued"
+          ).length,
+          historyCampaigns: campaigns.filter((campaign) =>
+            ["history", "completed"].includes(
+              normalizeStatus(campaign.status)
             )
-              ? campaignsValue
-              : Array.isArray(
-                    campaignsValue
-                      ?.campaigns
-                  )
-                ? campaignsValue
-                    .campaigns
-                : [];
+          ).length,
+          contacts: contacts.length,
+          unreadInbox: inboxItems.filter(
+            (item) => item.unread === true || item.read === false
+          ).length,
+        });
+      })();
 
-          const inboxValue =
-            responseMap.inbox
-              ?.status ===
-            "fulfilled"
-              ? responseMap
-                  .inbox
-                  .value
-              : [];
-
-          const inboxItems =
-            Array.isArray(
-              inboxValue
-            )
-              ? inboxValue
-              : Array.isArray(
-                    inboxValue
-                      ?.items
-                  )
-                ? inboxValue
-                    .items
-                : Array.isArray(
-                      inboxValue
-                        ?.messages
-                    )
-                  ? inboxValue
-                      .messages
-                  : [];
-
-          const contactsValue =
-            responseMap
-              .contacts
-              ?.status ===
-            "fulfilled"
-              ? responseMap
-                  .contacts
-                  .value
-              : [];
-
-          const contacts =
-            Array.isArray(
-              contactsValue
-            )
-              ? contactsValue
-              : Array.isArray(
-                    contactsValue
-                      ?.contacts
-                  )
-                ? contactsValue
-                    .contacts
-                : [];
-
-          setCounters({
-            activeCampaigns:
-              campaigns.filter(
-                (campaign) =>
-                  campaign.status ===
-                  "active"
-              ).length,
-
-            queuedCampaigns:
-              campaigns.filter(
-                (campaign) =>
-                  campaign.status ===
-                  "queued"
-              ).length,
-
-            historyCampaigns:
-              campaigns.filter(
-                (campaign) =>
-                  campaign.status ===
-                    "history" ||
-                  campaign.status ===
-                    "completed"
-              ).length,
-
-            contacts:
-              contacts.length,
-
-            unreadInbox:
-              inboxItems.filter(
-                (item) =>
-                  item.unread ===
-                    true ||
-                  item.read ===
-                    false
-              ).length,
-          });
-        })();
-
-      counterRequestRef.current =
-        {
-          key:
-            requestKey,
-
-          promise:
-            requestPromise,
-
-          lastLoadedAt:
-            now,
-        };
+      counterRequestRef.current = {
+        key: requestKey,
+        promise: requestPromise,
+        lastLoadedAt: now,
+      };
 
       try {
         await requestPromise;
       } catch {
-        if (alive) {
-          setCounters(
-            defaultCounters
-          );
-        }
+        if (alive) setCounters(DEFAULT_COUNTERS);
       }
 
       return requestPromise;
@@ -468,26 +374,13 @@ export default function AppShell() {
 
     void loadCounters();
 
-    /*
-     * Socket events provide immediate updates elsewhere.
-     * This is only a low-frequency fallback.
-     */
-    const timer =
-      window.setInterval(
-        () => {
-          void loadCounters({
-            force: true,
-          });
-        },
-        60_000
-      );
+    const timer = window.setInterval(() => {
+      void loadCounters({ force: true });
+    }, 60_000);
 
     return () => {
       alive = false;
-
-      window.clearInterval(
-        timer
-      );
+      window.clearInterval(timer);
     };
   }, [
     canManageCampaigns,
@@ -499,119 +392,63 @@ export default function AppShell() {
 
   useEffect(() => {
     setSidebarOpen(false);
-  }, [
-    location.pathname,
-    location.search,
-  ]);
+    setQuickCreateOpen(false);
+    setNotificationsOpen(false);
+    setCommandOpen(false);
+    setCommandQuery("");
+  }, [location.pathname, location.search]);
 
-  const workspace = useMemo(() => {
-    const isCompany =
-      user?.accountType ===
-        "company" ||
-      user?.workspaceType ===
-        "company" ||
-      user?.companyAccount ===
-        true ||
-      Boolean(
-        user?.workspaceId ||
-        user?.companyId
-      );
+  useEffect(() => {
+    function handleKeyDown(event) {
+      const isCommandShortcut =
+        (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k";
 
-    return {
-      isCompany,
+      if (isCommandShortcut) {
+        event.preventDefault();
+        setCommandOpen(true);
+        window.setTimeout(() => commandInputRef.current?.focus(), 0);
+        return;
+      }
 
-      title: isCompany
-        ? user?.companyName ||
-          "Company workspace"
-        : user?.name ||
-          "Individual workspace",
+      if (event.key === "Escape") {
+        setCommandOpen(false);
+        setQuickCreateOpen(false);
+        setNotificationsOpen(false);
+        setSidebarOpen(false);
+      }
+    }
 
-      type: isCompany
-        ? "Company account"
-        : "Individual account",
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
-      role: formatRoleLabel(role),
+  useEffect(() => {
+    function handlePointerDown(event) {
+      if (
+        quickCreateOpen &&
+        quickCreateRef.current &&
+        !quickCreateRef.current.contains(event.target)
+      ) {
+        setQuickCreateOpen(false);
+      }
 
-      email:
-        user?.email ||
-        "Signed in",
+      if (
+        notificationsOpen &&
+        notificationsRef.current &&
+        !notificationsRef.current.contains(event.target)
+      ) {
+        setNotificationsOpen(false);
+      }
+    }
 
-      initials: getInitials(
-        user?.name ||
-          user?.companyName ||
-          "RF"
-      ),
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [quickCreateOpen, notificationsOpen]);
 
-      avatarUrl:
-        user?.avatarUrl ||
-        user?.profileImage ||
-        user?.photoUrl ||
-        "",
-    };
-  }, [
-    user,
-    role,
-  ]);
-
-  const navGroups =
-    useMemo(() => {
-      const groups = [];
-
-      const voiceAgentChildren = [
-        {
-          label: "Voice setup",
-          to: "/app/voice-agent?tab=setup&view=calling",
-          matchQueryTab: "setup",
-          matchQueryDefault: true,
-          queryPathPrefix: "/app/voice-agent",
-          children: [
-            { label: "Calling", to: "/app/voice-agent?tab=setup&view=calling", matchQuery: { tab: ["setup", null], view: ["calling", null] }, queryPathPrefix: "/app/voice-agent" },
-            { label: "My numbers", to: "/app/voice-agent?tab=setup&view=my-numbers", matchQuery: { tab: "setup", view: "my-numbers" }, queryPathPrefix: "/app/voice-agent" },
-            { label: "Buy numbers", to: "/app/voice-agent?tab=setup&view=buy-numbers", matchQuery: { tab: "setup", view: "buy-numbers" }, queryPathPrefix: "/app/voice-agent" },
-            { label: "Connect number", to: "/app/voice-agent?tab=setup&view=connect-number", matchQuery: { tab: "setup", view: "connect-number" }, queryPathPrefix: "/app/voice-agent" },
-            { label: "Agent & voice", to: "/app/voice-agent?tab=setup&view=agent", matchQuery: { tab: "setup", view: "agent" }, queryPathPrefix: "/app/voice-agent" },
-            { label: "Business", to: "/app/voice-agent?tab=setup&view=business", matchQuery: { tab: "setup", view: "business" }, queryPathPrefix: "/app/voice-agent" },
-            { label: "Workflow", to: "/app/voice-agent?tab=setup&view=workflow", matchQuery: { tab: "setup", view: "workflow" }, queryPathPrefix: "/app/voice-agent" },
-            { label: "Activate", to: "/app/voice-agent?tab=setup&view=activate", matchQuery: { tab: "setup", view: "activate" }, queryPathPrefix: "/app/voice-agent" },
-          ],
-        },
-        {
-          label: "Lead queue",
-          to: "/app/voice-agent?tab=leads&view=dialer",
-          matchQueryTab: "leads",
-          queryPathPrefix: "/app/voice-agent",
-          children: [
-            { label: "Dialer", to: "/app/voice-agent?tab=leads&view=dialer", matchQuery: { tab: "leads", view: ["dialer", "quick-lead", null] }, queryPathPrefix: "/app/voice-agent" },
-            { label: "Google leads", to: "/app/voice-agent?tab=leads&view=google-leads", matchQuery: { tab: "leads", view: "google-leads" }, queryPathPrefix: "/app/voice-agent" },
-            { label: "Lead pool", to: "/app/voice-agent?tab=leads&view=lead-pool", matchQuery: { tab: "leads", view: "lead-pool" }, queryPathPrefix: "/app/voice-agent" },
-            { label: "Queue activity", to: "/app/voice-agent?tab=leads&view=queue-activity", matchQuery: { tab: "leads", view: "queue-activity" }, queryPathPrefix: "/app/voice-agent" },
-            { label: "Launch calls", to: "/app/voice-agent?tab=leads&view=launch-calls", matchQuery: { tab: "leads", view: "launch-calls" }, queryPathPrefix: "/app/voice-agent" },
-          ],
-        },
-        {
-          label: "Live calls",
-          to: "/app/voice-agent?tab=calls&view=active-calls",
-          matchQueryTab: "calls",
-          queryPathPrefix: "/app/voice-agent",
-          children: [
-            { label: "Active calls", to: "/app/voice-agent?tab=calls&view=active-calls", matchQuery: { tab: "calls", view: ["active-calls", null] }, queryPathPrefix: "/app/voice-agent" },
-            { label: "Call history", to: "/app/voice-agent?tab=calls&view=call-history", matchQuery: { tab: "calls", view: "call-history" }, queryPathPrefix: "/app/voice-agent" },
-          ],
-        },
-        {
-          label: "Meetings",
-          to: "/app/voice-agent?tab=meetings&view=upcoming",
-          matchQueryTab: "meetings",
-          queryPathPrefix: "/app/voice-agent",
-          children: [
-            { label: "Upcoming", to: "/app/voice-agent?tab=meetings&view=upcoming", matchQuery: { tab: "meetings", view: ["upcoming", null] }, queryPathPrefix: "/app/voice-agent" },
-            { label: "Meeting history", to: "/app/voice-agent?tab=meetings&view=meeting-history", matchQuery: { tab: "meetings", view: "meeting-history" }, queryPathPrefix: "/app/voice-agent" },
-          ],
-        },
-      ];
-
-      groups.push({
-        label: "Overview",
+  const navGroups = useMemo(() => {
+    const groups = [
+      {
+        label: "Home",
         items: [
           {
             label: "Dashboard",
@@ -622,700 +459,1194 @@ export default function AppShell() {
               : ["/app/dashboard"],
             visible: true,
           },
-          { label: "My assigned leads", to: "/app/my-leads", icon: Target, matchPrefix: "/app/my-leads", visible: isCaller },
-          { label: "Attendance", to: "/app/attendance", icon: Clock3, matchPrefix: "/app/attendance", visible: isCaller },
         ],
-      });
-
-      groups.push({
-        label: "AI workforce",
-        className: "sb-section-ai-workforce",
-        items: [
-          { label: "AI Agents", to: "/app/agents", icon: Zap, matchPrefix: "/app/agents", visible: canUseVoiceAgent },
-          { label: "Campaigns", to: "/app/campaigns/active", icon: Target, count: counters.activeCampaigns, matchPrefix: "/app/campaigns", visible: canManageCampaigns },
-          { label: "Create campaign", to: "/app/builder", icon: Rocket, matchPrefix: "/app/builder", visible: canManageCampaigns },
-        ],
-      });
-
-      groups.push({
-        label: "Voice",
-        className: "sb-section-voice-operations",
+      },
+      {
+        label: "Growth",
         items: [
           {
-            label: "Voice agent",
-            to: "/app/voice-agent?tab=setup&view=calling",
-            icon: Zap,
-            priorityRoot: true,
-            navTone: "voice-primary",
-            matchPrefix: "/app/voice-agent",
-            visible: canUseVoiceAgent,
-            children: voiceAgentChildren,
+            label: isCaller ? "My Leads" : "Leads",
+            to: isCaller ? "/app/my-leads" : "/app/leads",
+            icon: Target,
+            matchPrefixes: isCaller
+              ? ["/app/my-leads"]
+              : ["/app/leads", "/app/lead-discovery", "/app/builder", "/app/launch-campaign"],
+            visible: isCaller || canManageCampaigns,
           },
-          { label: "My Numbers", to: "/app/voice-agent?tab=setup&view=my-numbers", icon: Building2, priorityRoot: true, navTone: "voice-number", matchQuery: { tab: "setup", view: "my-numbers" }, queryPathPrefix: "/app/voice-agent", visible: canUseVoiceAgent },
-          { label: "Buy Numbers", to: "/app/voice-agent?tab=setup&view=buy-numbers", icon: Rocket, priorityRoot: true, navTone: "voice-buy", matchQuery: { tab: "setup", view: "buy-numbers" }, queryPathPrefix: "/app/voice-agent", visible: canUseVoiceAgent },
-          { label: "Dialer", to: "/app/voice-agent?tab=leads&view=dialer", icon: Zap, priorityRoot: true, navTone: "voice-dialer", matchQuery: { tab: "leads", view: ["dialer", "quick-lead", null] }, queryPathPrefix: "/app/voice-agent", visible: canUseVoiceAgent },
-          { label: "Connect Number", to: "/app/voice-agent?tab=setup&view=connect-number", icon: Building2, priorityRoot: true, navTone: "voice-connect", matchQuery: { tab: "setup", view: "connect-number" }, queryPathPrefix: "/app/voice-agent", visible: canUseVoiceAgent },
-          { label: "Bundles & Credits", to: "/app/commerce", icon: BarChart3, matchPrefix: "/app/commerce", visible: canUseVoiceAgent && canManageCompanySettings },
+          {
+            label: "AI Audits",
+            to: "/app/audits",
+            icon: Sparkles,
+            matchPrefixes: ["/app/audits", "/app/website-audits"],
+            visible: canManageWorkspace,
+          },
+          {
+            label: "Campaigns",
+            to: "/app/campaigns",
+            icon: Rocket,
+            count: counters.activeCampaigns,
+            matchPrefix: "/app/campaigns",
+            visible: canManageCampaigns,
+          },
         ],
-      });
-
-      groups.push({
-        label: "Sales execution",
+      },
+      {
+        label: "Communication",
         items: [
-          { label: "Lead queue", to: "/app/voice-agent?tab=leads&view=dialer", icon: Users, count: counters.contacts, matchQueryTab: "leads", queryPathPrefix: "/app/voice-agent", visible: canUseVoiceAgent },
-          { label: "Live calls", to: "/app/voice-agent?tab=calls&view=active-calls", icon: Zap, matchQueryTab: "calls", queryPathPrefix: "/app/voice-agent", visible: canUseVoiceAgent },
-          { label: "Meetings", to: "/app/voice-agent?tab=meetings&view=upcoming", icon: Clock3, matchQueryTab: "meetings", queryPathPrefix: "/app/voice-agent", visible: canUseVoiceAgent },
-          { label: "Contacts", to: "/app/contacts", icon: Users, count: counters.contacts, matchPrefix: "/app/contacts", visible: canViewContacts },
-          { label: "Inbox", to: "/app/inbox", icon: Inbox, count: counters.unreadInbox, highlightCount: true, matchPrefix: "/app/inbox", visible: canViewInbox },
+          {
+            label: "Inbox",
+            to: "/app/inbox",
+            icon: Inbox,
+            count: counters.unreadInbox,
+            highlightCount: true,
+            matchPrefix: "/app/inbox",
+            visible: canViewInbox,
+          },
+          {
+            label: "Email",
+            to: "/app/email",
+            icon: Mail,
+            matchPrefix: "/app/email",
+            visible: canManageWorkspace,
+          },
+          {
+            label: "WhatsApp",
+            to: "/app/whatsapp",
+            icon: MessageCircle,
+            matchPrefix: "/app/whatsapp",
+            visible: canManageWorkspace,
+          },
+          {
+            label: "Dialer",
+            to: "/app/dialer",
+            icon: Phone,
+            matchPrefixes: ["/app/dialer", "/app/call-workspace"],
+            visible: isCaller || canUseVoiceAgent,
+          },
         ],
-      });
-
-      groups.push({
-        label: "Connections",
+      },
+      {
+        label: "AI Voice",
         items: [
-          { label: "Email & Calendar", to: "/app/connections", icon: Mail, matchPrefix: "/app/connections", visible: canManageWorkspace },
-          { label: "Advanced email setup", to: "/app/email", icon: Mail, matchPrefix: "/app/email", visible: canManageWorkspace },
-          { label: "WhatsApp", to: "/app/whatsapp", icon: MessageCircle, matchPrefix: "/app/whatsapp", visible: canManageWorkspace },
+          {
+            label: "Voice Agents",
+            to: "/app/voice-agents",
+            icon: Bot,
+            matchPrefixes: ["/app/voice-agents", "/app/agents"],
+            visible: canUseVoiceAgent,
+          },
+          {
+            label: "Calls",
+            to: "/app/calls",
+            icon: Phone,
+            matchPrefixes: ["/app/calls"],
+            visible: canUseVoiceAgent,
+          },
+          {
+            label: "Phone Numbers",
+            to: "/app/phone-numbers",
+            icon: Building2,
+            matchPrefixes: ["/app/phone-numbers"],
+            visible: canUseVoiceAgent,
+          },
         ],
-      });
-
-      groups.push({
-        label: "Team",
+      },
+      {
+        label: "CRM",
         items: [
-          { label: "Resource board", to: "/app/resource-board", icon: LayoutDashboard, matchPrefixes: ["/app/resource-board", "/app/team-management"], visible: canManageWorkspace },
-          { label: canManageWorkspace ? "Team operations" : "My work", to: "/app/role-operations", icon: Users, matchPrefixes: ["/app/role-operations", "/app/operations", "/app/team"], visible: true },
-          { label: "Team communication", to: "/app/role-operations?tab=communication", icon: MessageCircle, matchQueryTab: "communication", visible: true },
+          {
+            label: "Contacts",
+            to: "/app/contacts",
+            icon: Users,
+            count: counters.contacts,
+            matchPrefix: "/app/contacts",
+            visible: canViewContacts,
+          },
+          {
+            label: "Pipeline",
+            to: "/app/pipeline",
+            icon: GitBranch,
+            matchPrefix: "/app/pipeline",
+            visible: canManageCampaigns,
+          },
+          {
+            label: "Meetings",
+            to: "/app/meetings",
+            icon: Calendar,
+            matchPrefixes: ["/app/meetings"],
+            visible: canUseVoiceAgent,
+          },
         ],
-      });
-
-      groups.push({
-        label: "Intelligence",
+      },
+      {
+        label: "Workspace",
         items: [
-          { label: "ReachFly AI", to: "/app/ai", icon: Target, matchPrefix: "/app/ai", visible: canManageWorkspace },
-          { label: "Analytics", to: "/app/analytics", icon: BarChart3, matchPrefix: "/app/analytics", visible: canViewAllAnalytics },
+          {
+            label: canManageWorkspace ? "Team" : "My Work",
+            to: "/app/team",
+            icon: Users,
+            matchPrefixes: ["/app/team", "/app/role-operations"],
+            visible: true,
+          },
+          {
+            label: "Billing",
+            to: "/app/billing",
+            icon: BarChart3,
+            matchPrefix: "/app/billing",
+            visible: canManageCompanySettings || isIndividualAccount,
+          },
+          {
+            label: "Integrations",
+            to: "/app/integrations",
+            icon: Zap,
+            matchPrefixes: ["/app/integrations", "/app/connections"],
+            visible: canManageWorkspace,
+          },
+          {
+            label: "Settings",
+            to: canManageCompanySettings
+              ? "/app/settings"
+              : "/app/profile-settings",
+            icon: Settings,
+            matchPrefixes: canManageCompanySettings
+              ? ["/app/settings"]
+              : ["/app/profile-settings", "/app/profile"],
+            visible: true,
+          },
         ],
-      });
-
-      groups.push({
-        label: "Account",
+      },
+      {
+        label: "More",
         items: [
-          { label: "Profile settings", to: "/app/profile-settings", icon: UserRound, matchPrefixes: ["/app/profile-settings", "/app/profile"], visible: true },
-          { label: "Workspace settings", to: "/app/settings", icon: Settings, matchPrefix: "/app/settings", visible: canManageCompanySettings },
-          { label: "Billing & usage", to: "/app/billing", icon: BarChart3, matchPrefix: "/app/billing", visible: canManageCompanySettings },
+          {
+            label: "ReachFly AI",
+            to: "/app/ai",
+            icon: Lightbulb,
+            matchPrefix: "/app/ai",
+            visible: canManageWorkspace,
+          },
+          {
+            label: "Analytics",
+            to: "/app/analytics",
+            icon: BarChart3,
+            matchPrefix: "/app/analytics",
+            visible: canViewAllAnalytics,
+          },
+          {
+            label: "Territories",
+            to: "/app/territories",
+            icon: MapPin,
+            matchPrefix: "/app/territories",
+            visible: canManageWorkspace,
+          },
+          {
+            label: "Resource Board",
+            to: "/app/resource-board",
+            icon: Workflow,
+            matchPrefixes: ["/app/resource-board", "/app/team-management"],
+            visible: canManageWorkspace,
+          },
+          {
+            label: "Attendance",
+            to: "/app/attendance",
+            icon: Clock3,
+            matchPrefix: "/app/attendance",
+            visible: isCaller,
+          },
+          {
+            label: "Platform Admin",
+            to: "/app/platform-admin",
+            icon: Lightbulb,
+            matchPrefix: "/app/platform-admin",
+            visible: useCodesyncPlatformDashboard,
+          },
         ],
-      });
+      },
+    ];
 
-      return groups
-        .map((group) => ({
-          ...group,
-          items: group.items.filter((item) => item.visible !== false),
-        }))
-        .filter((group) => group.items.length > 0);
-    }, [
+    return groups
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((item) => item.visible !== false),
+      }))
+      .filter((group) => group.items.length > 0);
+  }, [
+    canManageCampaigns,
+    canManageCompanySettings,
+    canManageWorkspace,
+    canUseVoiceAgent,
+    canViewAllAnalytics,
+    canViewContacts,
+    canViewInbox,
+    counters.activeCampaigns,
+    counters.contacts,
+    counters.unreadInbox,
+    dashboardHomePath,
+    isCaller,
+    isIndividualAccount,
+    useCodesyncPlatformDashboard,
+  ]);
+
+  const quickCreateItems = useMemo(
+    () =>
+      [
+        {
+          label: "Find Leads",
+          description: "Discover prospects and build a list",
+          icon: Target,
+          to: isCaller ? "/app/my-leads" : "/app/leads",
+          visible: isCaller || canManageCampaigns,
+        },
+        {
+          label: "Create Campaign",
+          description: "Launch a new outreach workflow",
+          icon: Rocket,
+          to: "/app/launch-campaign",
+          visible: canManageCampaigns,
+        },
+        {
+          label: "Create Voice Agent",
+          description: "Configure an AI calling agent",
+          icon: Bot,
+          to: "/app/voice-agent?tab=setup&view=calling",
+          visible: canUseVoiceAgent,
+        },
+        {
+          label: "Buy Phone Number",
+          description: "Search and purchase a business line",
+          icon: Phone,
+          to: "/app/voice-agent?tab=setup&view=buy-numbers",
+          visible: canUseVoiceAgent,
+        },
+        {
+          label: "Send Email",
+          description: "Open your connected email workspace",
+          icon: Mail,
+          to: "/app/email",
+          visible: canManageWorkspace,
+        },
+        {
+          label: "Schedule Meeting",
+          description: "Open meeting operations",
+          icon: Calendar,
+          to: "/app/meetings",
+          visible: canUseVoiceAgent,
+        },
+      ].filter((item) => item.visible !== false),
+    [
       canManageCampaigns,
       canManageWorkspace,
-      canManageCompanySettings,
-      canViewAllAnalytics,
-      canViewContacts,
-      canViewInbox,
       canUseVoiceAgent,
-      counters,
       isCaller,
-      isPlatformOwner,
-      isCodesyncLabsWorkspace,
-      useCodesyncPlatformDashboard,
+    ]
+  );
+
+  const commandItems = useMemo(() => {
+    const navItems = navGroups.flatMap((group) =>
+      group.items.map((item) => ({
+        label: item.label,
+        description: group.label,
+        icon: item.icon,
+        to: item.to,
+        keywords: `${group.label} ${item.label}`,
+      }))
+    );
+
+    const createItems = quickCreateItems.map((item) => ({
+      ...item,
+      description: item.description || "Create",
+      keywords: `create new ${item.label}`,
+    }));
+
+    return dedupeCommandItems([...createItems, ...navItems]);
+  }, [navGroups, quickCreateItems]);
+
+  const filteredCommandItems = useMemo(() => {
+    const query = commandQuery.trim().toLowerCase();
+    if (!query) return commandItems.slice(0, 12);
+
+    return commandItems
+      .map((item) => ({
+        ...item,
+        score: scoreCommandItem(item, query),
+      }))
+      .filter((item) => item.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 16);
+  }, [commandItems, commandQuery]);
+
+  const breadcrumbs = useMemo(
+    () => buildBreadcrumbs(location.pathname, location.search),
+    [location.pathname, location.search]
+  );
+
+  const notificationItems = useMemo(() => {
+    const items = [];
+
+    if (canViewInbox && counters.unreadInbox > 0) {
+      items.push({
+        id: "inbox",
+        icon: Inbox,
+        tone: "primary",
+        title: `${counters.unreadInbox} unread message${
+          counters.unreadInbox === 1 ? "" : "s"
+        }`,
+        copy: "Review your latest customer conversations.",
+        to: "/app/inbox",
+      });
+    }
+
+    if (canManageCampaigns && counters.queuedCampaigns > 0) {
+      items.push({
+        id: "queued-campaigns",
+        icon: Rocket,
+        tone: "warning",
+        title: `${counters.queuedCampaigns} queued campaign${
+          counters.queuedCampaigns === 1 ? "" : "s"
+        }`,
+        copy: "Campaigns are waiting in the launch queue.",
+        to: "/app/campaigns/queued",
+      });
+    }
+
+    if (canManageCampaigns && counters.activeCampaigns > 0) {
+      items.push({
+        id: "active-campaigns",
+        icon: Zap,
+        tone: "success",
+        title: `${counters.activeCampaigns} campaign${
+          counters.activeCampaigns === 1 ? "" : "s"
+        } active`,
+        copy: "Outreach is running in your workspace.",
+        to: "/app/campaigns/active",
+      });
+    }
+
+    return items;
+  }, [
+    canManageCampaigns,
+    canViewInbox,
+    counters.activeCampaigns,
+    counters.queuedCampaigns,
+    counters.unreadInbox,
+  ]);
+
+  const mobileItems = useMemo(
+    () =>
+      [
+        {
+          label: "Home",
+          to: dashboardHomePath,
+          icon: LayoutDashboard,
+          matchPrefixes: [dashboardHomePath, "/app/dashboard"],
+          visible: true,
+        },
+        {
+          label: "Leads",
+          to: isCaller ? "/app/my-leads" : "/app/leads",
+          icon: Target,
+          matchPrefixes: isCaller ? ["/app/my-leads"] : ["/app/builder"],
+          visible: isCaller || canManageCampaigns,
+        },
+        {
+          label: "Inbox",
+          to: canViewInbox ? "/app/inbox" : "/app/role-operations?tab=communication",
+          icon: Inbox,
+          count: canViewInbox ? counters.unreadInbox : 0,
+          matchPrefixes: canViewInbox ? ["/app/inbox"] : ["/app/role-operations"],
+          visible: true,
+        },
+        {
+          label: "Voice",
+          to: canUseVoiceAgent ? "/app/voice-agents" : "/app/dialer",
+          icon: Bot,
+          matchPrefixes: canUseVoiceAgent
+            ? ["/app/voice-agents", "/app/agents", "/app/voice-agent", "/app/calls", "/app/phone-numbers"]
+            : ["/app/dialer", "/app/call-workspace"],
+          visible: canUseVoiceAgent || isCaller,
+        },
+        {
+          label: "More",
+          to: canManageCompanySettings ? "/app/settings" : "/app/profile-settings",
+          icon: Menu,
+          matchPrefixes: ["/app/settings", "/app/profile-settings", "/app/profile"],
+          visible: true,
+        },
+      ].filter((item) => item.visible !== false),
+    [
+      canManageCampaigns,
+      canManageCompanySettings,
+      canUseVoiceAgent,
+      canViewInbox,
+      counters.unreadInbox,
       dashboardHomePath,
-    ]);
+      isCaller,
+    ]
+  );
 
-  function handleSearchSubmit(
-    event
-  ) {
+  function handleSearchSubmit(event) {
     event.preventDefault();
-
-    const value =
-      searchValue.trim();
+    const value = searchValue.trim();
 
     if (!value) {
+      setCommandOpen(true);
+      window.setTimeout(() => commandInputRef.current?.focus(), 0);
       return;
     }
 
-    if (
-      isCaller &&
-      !canManageWorkspace
-    ) {
-      navigate(
-        `/app/my-leads?search=${encodeURIComponent(
-          value
-        )}`
-      );
-
+    if (isCaller && !canManageWorkspace) {
+      navigate(`/app/my-leads?search=${encodeURIComponent(value)}`);
       return;
     }
 
-    if (isManager) {
-      navigate(
-        `/app/contacts?search=${encodeURIComponent(
-          value
-        )}`
-      );
-
+    if (canViewContacts) {
+      navigate(`/app/contacts?search=${encodeURIComponent(value)}`);
       return;
     }
 
-    navigate(
-      `/app/role-operations?search=${encodeURIComponent(
-        value
-      )}`
-    );
+    navigate(`/app/role-operations?search=${encodeURIComponent(value)}`);
+  }
+
+  function openCommandPalette() {
+    setCommandOpen(true);
+    setQuickCreateOpen(false);
+    setNotificationsOpen(false);
+    window.setTimeout(() => commandInputRef.current?.focus(), 0);
+  }
+
+  function navigateFromOverlay(to) {
+    setCommandOpen(false);
+    setQuickCreateOpen(false);
+    setNotificationsOpen(false);
+    setSidebarOpen(false);
+    setCommandQuery("");
+    navigate(to);
   }
 
   async function handleLogout() {
     setSidebarOpen(false);
+    setQuickCreateOpen(false);
+    setNotificationsOpen(false);
 
-    await Promise.resolve(
-      logout()
-    );
+    try {
+      await Promise.resolve(logout());
+    } catch (error) {
+      showToast({
+        type: "error",
+        title: "Couldn't sign out",
+        message:
+          error?.message || "Your session could not be closed. Please try again.",
+      });
+    }
   }
 
   return (
-    <div className="app-shell">
-      {sidebarOpen ? (
-        <button
-          className="sidebar-overlay"
-          type="button"
-          aria-label="Close sidebar"
-          onClick={() =>
-            setSidebarOpen(false)
-          }
-        />
-      ) : null}
+    <div className="rf-app-v7">
+      <ShellMotionStyles />
 
-      <aside
-        className={`sidebar ${
-          sidebarOpen
-            ? "open"
-            : ""
-        }`}
-      >
-        <div className="sb-brand">
-          <Link
-            className="sb-logo"
-            to={dashboardHomePath}
-            onClick={() =>
-              setSidebarOpen(false)
-            }
-          >
-            <BrandLogo size={42} />
-          </Link>
-
-          <Link
-            to={dashboardHomePath}
-            className="sb-brand-copy"
-            onClick={() =>
-              setSidebarOpen(false)
-            }
-          >
-            <div className="sb-name">
-              ReachFly.Ai
-            </div>
-
-            <div className="sb-sub">
-              Growth CRM
-            </div>
-          </Link>
-
+      <div className="rf7-shell">
+        {sidebarOpen ? (
           <button
-            className="sb-close-btn"
+            className="rf7-sidebar-overlay"
             type="button"
-            aria-label="Close sidebar"
-            onClick={() =>
-              setSidebarOpen(false)
-            }
-          >
-            <X size={18} />
-          </button>
-        </div>
+            aria-label="Close navigation"
+            onClick={() => setSidebarOpen(false)}
+          />
+        ) : null}
 
-        <div className="sb-workspace-card">
-          <span>
-            {workspace.isCompany ? (
-              <Building2 size={17} />
-            ) : (
-              <UserRound size={17} />
-            )}
-          </span>
-
-          <div>
-            <b>{workspace.title}</b>
-
-            <small>
-              {workspace.type}
-            </small>
-
-            <em className="sb-workspace-role">
-              {workspace.role}
-            </em>
-          </div>
-        </div>
-
-        <div className="sb-mini-stats">
-          {canManageCampaigns ? (
-            <>
-              <div>
-                <b>
-                  {
-                    counters.activeCampaigns
-                  }
-                </b>
-
-                <span>Active</span>
-              </div>
-
-              <div>
-                <b>
-                  {
-                    counters.queuedCampaigns
-                  }
-                </b>
-
-                <span>Queued</span>
-              </div>
-            </>
-          ) : (
-            <>
-              <div>
-                <b>
-                  {workspace.role}
-                </b>
-
-                <span>Role</span>
-              </div>
-
-              <div>
-                <b>
-                  {
-                    counters.contacts
-                  }
-                </b>
-
-                <span>Contacts</span>
-              </div>
-            </>
-          )}
-
-          <div>
-            <b>
-              {
-                counters.unreadInbox
-              }
-            </b>
-
-            <span>Unread</span>
-          </div>
-        </div>
-
-        <nav
-          className="sb-scroll"
+        <aside
+          className={`rf7-sidebar ${sidebarOpen ? "open" : ""}`}
           aria-label="ReachFly workspace navigation"
         >
-          {navGroups.map(
-            (group) => (
-              <div
-                className={`sb-section ${group.className || ""}`}
-                key={group.label}
-              >
-                <p className="sb-label">
-                  {group.label}
-                </p>
-
-                <div className="sb-nav-list">
-                  {group.items.map(
-                    (item) => {
-                      const Icon = item.icon;
-                      const hasChildren =
-                        Array.isArray(item.children) &&
-                        item.children.length > 0;
-                      const treeOpen =
-                        hasChildren &&
-                        location.pathname.startsWith(
-                          item.matchPrefix || item.to.split("?")[0]
-                        );
-
-                      return (
-                        <div
-                          className={`sb-nav-tree ${
-                            treeOpen ? "open" : ""
-                          } ${
-                            item.priorityRoot ? "priority-root" : ""
-                          } ${item.navTone || ""}`}
-                          key={`${item.to}-${item.label}`}
-                        >
-                          <NavLink
-                            to={item.to}
-                            className={({ isActive }) =>
-                              `sb-item ${
-                                isNavActive({
-                                  item,
-                                  isActive,
-                                  pathname: location.pathname,
-                                  search: location.search,
-                                })
-                                  ? "active"
-                                  : ""
-                              }`
-                            }
-                            onClick={() =>
-                              !hasChildren
-                                ? setSidebarOpen(false)
-                                : undefined
-                            }
-                          >
-                            <span className="sb-item-icon-wrap">
-                              <Icon size={18} />
-
-                              {item.highlightCount &&
-                              item.count > 0 ? (
-                                <em className="sb-counter">
-                                  {formatCount(item.count)}
-                                </em>
-                              ) : null}
-                            </span>
-
-                            <span className="sb-item-label">
-                              {item.label}
-                            </span>
-
-                            {!item.highlightCount &&
-                            item.count > 0 ? (
-                              <em className="sb-nav-badge">
-                                {formatCount(item.count)}
-                              </em>
-                            ) : null}
-
-                            {hasChildren ? (
-                              <span
-                                className="sb-tree-chevron"
-                                aria-hidden="true"
-                              >
-                                ›
-                              </span>
-                            ) : null}
-                          </NavLink>
-
-                          {hasChildren && treeOpen ? (
-                            <div
-                              className="sb-subnav"
-                              aria-label={`${item.label} sections`}
-                            >
-                              {item.children.map((child) => {
-                                const childHasChildren =
-                                  Array.isArray(child.children) &&
-                                  child.children.length > 0;
-                                const childActive = isNavActive({
-                                  item: child,
-                                  isActive: false,
-                                  pathname: location.pathname,
-                                  search: location.search,
-                                });
-                                const childOpen =
-                                  childHasChildren && childActive;
-
-                                return (
-                                  <div
-                                    className={`sb-subtree ${
-                                      childOpen ? "open" : ""
-                                    }`}
-                                    key={`${child.to}-${child.label}`}
-                                  >
-                                    <NavLink
-                                      to={child.to}
-                                      className={({ isActive }) =>
-                                        `sb-subitem ${
-                                          isNavActive({
-                                            item: child,
-                                            isActive,
-                                            pathname:
-                                              location.pathname,
-                                            search:
-                                              location.search,
-                                          })
-                                            ? "active"
-                                            : ""
-                                        } ${
-                                          childHasChildren
-                                            ? "has-children"
-                                            : ""
-                                        }`
-                                      }
-                                      onClick={() =>
-                                        !childHasChildren
-                                          ? setSidebarOpen(false)
-                                          : undefined
-                                      }
-                                    >
-                                      <span className="sb-subitem-dot" />
-                                      <span>{child.label}</span>
-                                      {childHasChildren ? (
-                                        <span
-                                          className="sb-subtree-chevron"
-                                          aria-hidden="true"
-                                        >
-                                          ›
-                                        </span>
-                                      ) : null}
-                                    </NavLink>
-
-                                    {childOpen ? (
-                                      <div
-                                        className="sb-subsubnav"
-                                        aria-label={`${child.label} sections`}
-                                      >
-                                        {child.children.map(
-                                          (grandchild) => (
-                                            <NavLink
-                                              key={`${grandchild.to}-${grandchild.label}`}
-                                              to={grandchild.to}
-                                              className={({ isActive }) =>
-                                                `sb-subsubitem ${
-                                                  isNavActive({
-                                                    item: grandchild,
-                                                    isActive,
-                                                    pathname:
-                                                      location.pathname,
-                                                    search:
-                                                      location.search,
-                                                  })
-                                                    ? "active"
-                                                    : ""
-                                                }`
-                                              }
-                                              onClick={() =>
-                                                setSidebarOpen(false)
-                                              }
-                                            >
-                                              <span className="sb-subsubitem-line" />
-                                              <span>{grandchild.label}</span>
-                                            </NavLink>
-                                          )
-                                        )}
-                                      </div>
-                                    ) : null}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          ) : null}
-                        </div>
-                      );
-                    }
-                  )}
-                </div>
-              </div>
-            )
-          )}
-        </nav>
-
-        <div className="sb-system-card">
-          <span>
-            {canViewInbox ? (
-              <Bell size={15} />
-            ) : (
-              <UserRound size={15} />
-            )}
-          </span>
-
-          <div>
-            <b>
-              {canViewInbox
-                ? counters.unreadInbox
-                  ? `${counters.unreadInbox} unread message${
-                      counters.unreadInbox === 1
-                        ? ""
-                        : "s"
-                    }`
-                  : "Inbox synced"
-                : `${workspace.role} workspace`}
-            </b>
-
-            <small>
-              {canViewInbox
-                ? counters.unreadInbox
-                  ? "Open inbox to review activity"
-                  : "No unread mailbox items"
-                : "Your role-specific tools are ready"}
-            </small>
-          </div>
-        </div>
-
-        <div className="sb-foot">
-          <Link
-            to="/app/profile-settings"
-            className="sb-avatar"
-            title="Open profile settings"
-            onClick={() =>
-              setSidebarOpen(false)
-            }
-          >
-            {workspace.avatarUrl ? (
-              <img
-                src={
-                  workspace.avatarUrl
-                }
-                alt={
-                  user?.name ||
-                  "User"
-                }
-                onError={(
-                  event
-                ) => {
-                  event.currentTarget.style.display =
-                    "none";
-                }}
-              />
-            ) : (
-              workspace.initials
-            )}
-          </Link>
-
-          <Link
-            to="/app/profile-settings"
-            className="sb-user-copy"
-            onClick={() =>
-              setSidebarOpen(false)
-            }
-          >
-            <b>
-              {user?.name ||
-                "User"}
-            </b>
-
-            <small>
-              {workspace.email}
-            </small>
-          </Link>
-
-          <button
-            className="btn-icon sb-logout-btn"
-            type="button"
-            title="Logout"
-            aria-label="Logout"
-            onClick={() => {
-              void handleLogout();
-            }}
-          >
-            <LogOut size={17} />
-          </button>
-        </div>
-      </aside>
-
-      <main className="app-main">
-        <div className="topbar">
-          <button
-            className="mobile-menu"
-            type="button"
-            aria-label="Open sidebar"
-            onClick={() =>
-              setSidebarOpen(true)
-            }
-          >
-            <Menu size={20} />
-          </button>
-
-          <form
-            className="topbar-search"
-            onSubmit={
-              handleSearchSubmit
-            }
-          >
-            <Search size={17} />
-
-            <input
-              value={searchValue}
-              onChange={(event) =>
-                setSearchValue(
-                  event.target.value
-                )
-              }
-              placeholder={
-                isCaller &&
-                !canManageWorkspace
-                  ? "Search assigned leads and tasks…"
-                  : isManager
-                    ? "Search campaigns, leads, inbox…"
-                    : "Search team operations and reports…"
-              }
-              aria-label="Search ReachFly"
-            />
-          </form>
-
-          <div className="topbar-spacer" />
-
-          <Link
-            to="/app/role-operations?tab=communication"
-            className="notif-btn"
-            aria-label="Open team communication"
-            title="Team communication"
-          >
-            <MessageCircle
-              size={18}
-            />
-          </Link>
-
-          {canViewInbox ? (
+          <div className="rf7-sidebar-head">
             <Link
-              to="/app/inbox"
-              className={`notif-btn ${
-                counters.unreadInbox > 0
-                  ? "has-unread"
-                  : ""
-              }`}
-              aria-label="Open inbox notifications"
+              className="rf7-brand"
+              to={dashboardHomePath}
+              onClick={() => setSidebarOpen(false)}
             >
-              <Bell size={18} />
+              <span className="rf7-brand-mark" aria-hidden="true">
+                <BrandLogo size={30} />
+              </span>
 
-              {counters.unreadInbox > 0 ? (
-                <span>
-                  {formatCount(
-                    counters.unreadInbox
+              <span className="rf7-brand-copy">
+                <strong>ReachFly.AI</strong>
+                <small>Sales operating system</small>
+              </span>
+            </Link>
+
+            <button
+              className="rf7-sidebar-toggle rf7-sidebar-close-v7"
+              type="button"
+              aria-label="Close navigation"
+              title="Close navigation"
+              onClick={() => setSidebarOpen(false)}
+            >
+              <X size={17} />
+            </button>
+          </div>
+
+          <Link
+            className="rf7-workspace-switcher"
+            to={canManageCompanySettings ? "/app/settings" : "/app/profile-settings"}
+            onClick={() => setSidebarOpen(false)}
+            title="Workspace settings"
+          >
+            <span className="rf7-workspace-icon" aria-hidden="true">
+              {workspace.isCompany ? (
+                <Building2 size={15} />
+              ) : (
+                <UserRound size={15} />
+              )}
+            </span>
+
+            <span className="rf7-workspace-copy">
+              <strong>{workspace.title}</strong>
+              <span>
+                {workspace.role} · {workspace.type}
+              </span>
+            </span>
+
+            <ChevronDown size={15} aria-hidden="true" />
+          </Link>
+
+          <nav className="rf7-nav-scroll">
+            {navGroups.map((group) => (
+              <section className="rf7-nav-group" key={group.label}>
+                <span className="rf7-nav-label">{group.label}</span>
+
+                <div className="rf7-nav-list">
+                  {group.items.map((item) => {
+                    const Icon = item.icon;
+                    const active = isNavActive({
+                      item,
+                      pathname: location.pathname,
+                      search: location.search,
+                    });
+
+                    return (
+                      <NavLink
+                        key={`${group.label}-${item.label}-${item.to}`}
+                        to={item.to}
+                        className={`rf7-nav-link ${active ? "active" : ""}`}
+                        onClick={() => setSidebarOpen(false)}
+                      >
+                        <Icon size={18} aria-hidden="true" />
+                        <span className="rf7-nav-link-text">{item.label}</span>
+
+                        {Number(item.count || 0) > 0 ? (
+                          <em className="rf7-nav-badge">
+                            {formatCount(item.count)}
+                          </em>
+                        ) : null}
+                      </NavLink>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </nav>
+
+          <div className="rf7-sidebar-foot">
+            <Link
+              className="rf7-nav-link rf7-sidebar-help"
+              to="/contact"
+              onClick={() => setSidebarOpen(false)}
+            >
+              <Lightbulb size={18} />
+              <span className="rf7-nav-link-text">Help & Support</span>
+            </Link>
+
+            <div className="rf7-profile-row">
+              <Link
+                className="rf7-profile-avatar"
+                to="/app/profile-settings"
+                title="Open profile settings"
+                onClick={() => setSidebarOpen(false)}
+              >
+                {workspace.avatarUrl ? (
+                  <img
+                    src={workspace.avatarUrl}
+                    alt={user?.name || "User"}
+                    onError={(event) => {
+                      event.currentTarget.style.display = "none";
+                    }}
+                  />
+                ) : (
+                  workspace.initials
+                )}
+              </Link>
+
+              <Link
+                className="rf7-profile-copy rf7-profile-link-v7"
+                to="/app/profile-settings"
+                onClick={() => setSidebarOpen(false)}
+              >
+                <strong>{user?.name || "ReachFly user"}</strong>
+                <span>{workspace.role}</span>
+              </Link>
+
+              <Link
+                className="rf7-icon-btn rf7-profile-settings-v7"
+                to="/app/profile-settings"
+                aria-label="Profile settings"
+                title="Profile settings"
+                onClick={() => setSidebarOpen(false)}
+              >
+                <Settings size={16} />
+              </Link>
+
+              <button
+                className="rf7-icon-btn rf7-profile-logout-v7"
+                type="button"
+                aria-label="Sign out"
+                title="Sign out"
+                onClick={() => void handleLogout()}
+              >
+                <LogOut size={16} />
+              </button>
+            </div>
+          </div>
+        </aside>
+
+        <main className="rf7-shell-main">
+          <header className="rf7-topbar">
+            <div className="rf7-topbar-start">
+              <button
+                className="rf7-icon-btn rf7-mobile-menu-btn"
+                type="button"
+                aria-label="Open navigation"
+                onClick={() => setSidebarOpen(true)}
+              >
+                <Menu size={18} />
+              </button>
+
+              <Breadcrumbs items={breadcrumbs} />
+
+              <form className="rf7-global-search" onSubmit={handleSearchSubmit}>
+                <Search size={17} aria-hidden="true" />
+                <input
+                  value={searchValue}
+                  onChange={(event) => setSearchValue(event.target.value)}
+                  onFocus={() => {
+                    if (!searchValue) return;
+                    setCommandQuery(searchValue);
+                  }}
+                  placeholder="Search ReachFly..."
+                  aria-label="Search ReachFly"
+                />
+                <button
+                  className="rf7-search-command-v7"
+                  type="button"
+                  aria-label="Open command palette"
+                  title="Open command palette"
+                  onClick={openCommandPalette}
+                >
+                  <span className="rf7-key-hint">⌘K</span>
+                </button>
+              </form>
+            </div>
+
+            <div className="rf7-topbar-end">
+              <div className="rf7-topbar-popover-anchor-v7" ref={quickCreateRef}>
+                <button
+                  className="rf7-create-btn"
+                  type="button"
+                  aria-expanded={quickCreateOpen}
+                  aria-haspopup="menu"
+                  onClick={() => {
+                    setQuickCreateOpen((value) => !value);
+                    setNotificationsOpen(false);
+                  }}
+                >
+                  <Plus size={17} />
+                  <span className="rf7-create-label">Create</span>
+                </button>
+
+                {quickCreateOpen ? (
+                  <div
+                    className="rf7-popover rf7-quick-create rf7-popover-enter-v7"
+                    role="menu"
+                    aria-label="Quick create"
+                  >
+                    <div className="rf7-popover-title-v7">
+                      <strong>Quick create</strong>
+                      <span>Start a workflow</span>
+                    </div>
+
+                    {quickCreateItems.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <button
+                          key={item.label}
+                          className="rf7-menu-item rf7-menu-item-rich-v7"
+                          type="button"
+                          role="menuitem"
+                          onClick={() => navigateFromOverlay(item.to)}
+                        >
+                          <span className="rf7-menu-icon-v7">
+                            <Icon size={17} />
+                          </span>
+                          <span>
+                            <strong>{item.label}</strong>
+                            <small>{item.description}</small>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
+
+              <Link
+                className="rf7-icon-btn rf7-topbar-icon"
+                to="/app/role-operations?tab=communication"
+                aria-label="Team communication"
+                title="Team communication"
+              >
+                <MessageCircle size={18} />
+              </Link>
+
+              <div
+                className="rf7-topbar-popover-anchor-v7"
+                ref={notificationsRef}
+              >
+                <button
+                  className="rf7-icon-btn rf7-topbar-icon"
+                  type="button"
+                  aria-label="Notifications"
+                  aria-haspopup="menu"
+                  aria-expanded={notificationsOpen}
+                  onClick={() => {
+                    setNotificationsOpen((value) => !value);
+                    setQuickCreateOpen(false);
+                  }}
+                >
+                  <Bell size={18} />
+                  {notificationItems.length > 0 ? (
+                    <span className="rf7-notification-dot" />
+                  ) : null}
+                </button>
+
+                {notificationsOpen ? (
+                  <div
+                    className="rf7-popover rf7-notifications-popover-v7 rf7-popover-enter-v7"
+                    role="menu"
+                    aria-label="Notifications"
+                  >
+                    <div className="rf7-notifications-head-v7">
+                      <div>
+                        <strong>Notifications</strong>
+                        <span>Workspace activity</span>
+                      </div>
+                      {notificationItems.length > 0 ? (
+                        <span className="rf7-notifications-count-v7">
+                          {notificationItems.length}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    {notificationItems.length ? (
+                      <div className="rf7-notifications-list-v7">
+                        {notificationItems.map((item) => {
+                          const Icon = item.icon;
+                          return (
+                            <button
+                              key={item.id}
+                              className="rf7-notification-item-v7"
+                              type="button"
+                              role="menuitem"
+                              onClick={() => navigateFromOverlay(item.to)}
+                            >
+                              <span
+                                className={`rf7-notification-icon-v7 ${item.tone}`}
+                              >
+                                <Icon size={16} />
+                              </span>
+                              <span className="rf7-notification-copy-v7">
+                                <strong>{item.title}</strong>
+                                <small>{item.copy}</small>
+                              </span>
+                              <ChevronRight size={15} />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="rf7-notifications-empty-v7">
+                        <CheckCircle2 size={24} />
+                        <strong>You're all caught up</strong>
+                        <span>No new workspace alerts right now.</span>
+                      </div>
+                    )}
+
+                    <Link
+                      className="rf7-notifications-footer-v7"
+                      to={canViewInbox ? "/app/inbox" : "/app/role-operations"}
+                      onClick={() => setNotificationsOpen(false)}
+                    >
+                      View activity
+                      <ChevronRight size={14} />
+                    </Link>
+                  </div>
+                ) : null}
+              </div>
+
+              <Link
+                className="rf7-topbar-profile-v7"
+                to="/app/profile-settings"
+                title="Profile settings"
+              >
+                <span className="rf7-topbar-avatar-v7">
+                  {workspace.avatarUrl ? (
+                    <img src={workspace.avatarUrl} alt="" />
+                  ) : (
+                    workspace.initials
                   )}
                 </span>
-              ) : null}
-            </Link>
-          ) : null}
+                <span className="rf7-topbar-profile-copy-v7">
+                  <strong>{user?.name || "Account"}</strong>
+                  <small>{workspace.role}</small>
+                </span>
+                <ChevronDown size={14} />
+              </Link>
+            </div>
+          </header>
 
-          {isManager ? (
-            <Link
-              to="/app/builder"
-              className="btn primary"
+          <div className="rf7-page-stage" key={`${location.pathname}${location.search}`}>
+            <div className="rf7-route-enter-v7">
+              <Outlet />
+            </div>
+          </div>
+        </main>
+
+        <nav className="rf7-mobile-bottom-nav" aria-label="Mobile navigation">
+          {mobileItems.map((item) => {
+            const Icon = item.icon;
+            const active = isNavActive({
+              item,
+              pathname: location.pathname,
+              search: location.search,
+            });
+
+            return (
+              <NavLink
+                key={item.label}
+                className={`rf7-mobile-nav-link-v7 ${active ? "active" : ""}`}
+                to={item.to}
+              >
+                <span className="rf7-mobile-nav-icon-v7">
+                  <Icon size={19} />
+                  {Number(item.count || 0) > 0 ? (
+                    <em>{formatCount(item.count)}</em>
+                  ) : null}
+                </span>
+                <span>{item.label}</span>
+              </NavLink>
+            );
+          })}
+        </nav>
+
+        {commandOpen ? (
+          <div
+            className="rf7-command-backdrop"
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.currentTarget === event.target) {
+                setCommandOpen(false);
+              }
+            }}
+          >
+            <div
+              className="rf7-command"
+              role="dialog"
+              aria-modal="true"
+              aria-label="ReachFly command palette"
             >
-              <Rocket size={15} />
+              <div className="rf7-command-input">
+                <Search size={19} />
+                <input
+                  ref={commandInputRef}
+                  value={commandQuery}
+                  onChange={(event) => setCommandQuery(event.target.value)}
+                  placeholder="Search pages or start an action..."
+                  autoComplete="off"
+                />
+                <span className="rf7-key-hint">ESC</span>
+              </div>
 
-              New campaign
-            </Link>
-          ) : isCaller ? (
-            <Link
-              to="/app/my-leads"
-              className="btn primary"
-            >
-              <Target size={15} />
+              <div className="rf7-command-results">
+                {filteredCommandItems.length ? (
+                  filteredCommandItems.map((item, index) => {
+                    const Icon = item.icon || Search;
+                    return (
+                      <button
+                        className="rf7-command-item-v7"
+                        type="button"
+                        key={`${item.to}-${item.label}`}
+                        autoFocus={index === 0 && !commandQuery}
+                        onClick={() => navigateFromOverlay(item.to)}
+                      >
+                        <span className="rf7-command-item-icon-v7">
+                          <Icon size={17} />
+                        </span>
+                        <span className="rf7-command-item-copy-v7">
+                          <strong>{item.label}</strong>
+                          <small>{item.description}</small>
+                        </span>
+                        <ChevronRight size={15} />
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="rf7-command-empty">
+                    No matching ReachFly actions found.
+                  </div>
+                )}
+              </div>
 
-              My leads
-            </Link>
-          ) : null}
-        </div>
+              <div className="rf7-command-footer-v7">
+                <span>
+                  <kbd>↑</kbd><kbd>↓</kbd> navigate
+                </span>
+                <span>
+                  <kbd>↵</kbd> open
+                </span>
+                <span>
+                  <kbd>esc</kbd> close
+                </span>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
-        <Outlet />
-      </main>
+        <ToastStack toasts={toasts} onDismiss={dismissToast} />
+      </div>
     </div>
   );
 }
 
-function isNavActive({
-  item,
-  isActive,
-  pathname,
-  search,
-}) {
+function Breadcrumbs({ items }) {
+  if (!items?.length) return null;
+
+  return (
+    <nav className="rf7-breadcrumbs" aria-label="Breadcrumb">
+      {items.map((item, index) => (
+        <span className="rf7-breadcrumb-v7" key={`${item.label}-${index}`}>
+          {index > 0 ? <ChevronRight size={13} aria-hidden="true" /> : null}
+          {item.to && index < items.length - 1 ? (
+            <Link to={item.to}>{item.label}</Link>
+          ) : (
+            <strong>{item.label}</strong>
+          )}
+        </span>
+      ))}
+    </nav>
+  );
+}
+
+function ToastStack({ toasts, onDismiss }) {
+  return (
+    <div
+      className="rf7-toast-stack-v7"
+      role="region"
+      aria-label="Notifications"
+      aria-live="polite"
+    >
+      {toasts.map((toast) => {
+        const Icon = toast.type === "success" ? CheckCircle2 : toast.type === "error" ? X : toast.type === "warning" ? Clock3 : Bell;
+
+        return (
+          <article
+            className={`rf7-toast-v7 ${toast.type}`}
+            key={toast.id}
+            style={{ "--rf7-toast-duration": `${toast.duration}ms` }}
+          >
+            <span className="rf7-toast-icon-v7" aria-hidden="true">
+              <Icon size={19} />
+            </span>
+
+            <span className="rf7-toast-copy-v7">
+              <strong>{toast.title}</strong>
+              {toast.message ? <small>{toast.message}</small> : null}
+            </span>
+
+            {toast.action?.label && toast.action?.onClick ? (
+              <button
+                className="rf7-toast-action-v7"
+                type="button"
+                onClick={() => toast.action.onClick()}
+              >
+                {toast.action.label}
+              </button>
+            ) : null}
+
+            <button
+              className="rf7-toast-close-v7"
+              type="button"
+              aria-label="Dismiss notification"
+              onClick={() => onDismiss(toast.id)}
+            >
+              <X size={15} />
+            </button>
+
+            <span className="rf7-toast-progress-v7" />
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
+/*
+ * Small shell-only motion/detail layer.
+ * The primary Stitch design tokens/layout stay in styles.css. These styles make
+ * shell popovers, command results and toast messages functional immediately.
+ */
+function ShellMotionStyles() {
+  return (
+    <style>{`
+      .rf7-sidebar-close-v7{display:none}
+      .rf7-profile-link-v7{text-decoration:none}
+      .rf7-profile-settings-v7,.rf7-profile-logout-v7{width:30px;height:30px;flex:0 0 30px;color:rgba(240,241,242,.52)}
+      .rf7-profile-settings-v7:hover{color:#fff}
+      .rf7-profile-logout-v7:hover{color:#ffb4ab;background:rgba(255,180,171,.08)}
+      .rf7-topbar-popover-anchor-v7{position:relative;display:flex;align-items:center}
+      .rf7-topbar-popover-anchor-v7 .rf7-quick-create{top:47px;right:0}
+      .rf7-search-command-v7{appearance:none;display:inline-flex;padding:0;background:transparent;border:0;cursor:pointer}
+      .rf7-popover-enter-v7{animation:rf7PopoverIn 180ms var(--rf7-ease)}
+      @keyframes rf7PopoverIn{from{opacity:0;transform:translateY(-5px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+      .rf7-popover-title-v7{display:grid;gap:1px;padding:7px 9px 9px;margin-bottom:3px;border-bottom:1px solid var(--rf7-outline)}
+      .rf7-popover-title-v7 strong{font-family:Geist,Inter,sans-serif;font-size:12px;color:var(--rf7-text)}
+      .rf7-popover-title-v7 span{font-size:10px;color:var(--rf7-text-muted)}
+      .rf7-menu-item-rich-v7{align-items:flex-start;min-height:50px}
+      .rf7-menu-icon-v7{width:30px;height:30px;display:grid;place-items:center;flex:0 0 30px;color:var(--rf7-primary);background:var(--rf7-primary-soft);border-radius:8px}
+      .rf7-menu-item-rich-v7>span:last-child{min-width:0;display:grid;gap:1px}
+      .rf7-menu-item-rich-v7 strong{color:var(--rf7-text);font-size:11px;font-weight:650;line-height:15px}
+      .rf7-menu-item-rich-v7 small{color:var(--rf7-text-muted);font-size:9px;line-height:13px}
+      .rf7-menu-item-rich-v7:hover strong{color:var(--rf7-primary)}
+      .rf7-notifications-popover-v7{top:47px;right:-48px;width:min(360px,calc(100vw - 24px));padding:0;overflow:hidden}
+      .rf7-notifications-head-v7{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 15px;border-bottom:1px solid var(--rf7-outline)}
+      .rf7-notifications-head-v7>div{display:grid;gap:1px}
+      .rf7-notifications-head-v7 strong{font-family:Geist,Inter,sans-serif;font-size:13px;color:var(--rf7-text)}
+      .rf7-notifications-head-v7 span{font-size:9px;color:var(--rf7-text-muted)}
+      .rf7-notifications-count-v7{min-width:20px;height:20px;display:grid;place-items:center;color:#fff!important;background:var(--rf7-primary);border-radius:999px;font-weight:700}
+      .rf7-notifications-list-v7{max-height:360px;overflow:auto;padding:6px}
+      .rf7-notification-item-v7{width:100%;display:flex;align-items:center;gap:10px;padding:10px;color:var(--rf7-text-soft);background:transparent;border:0;border-radius:8px;text-align:left;cursor:pointer;transition:background 160ms var(--rf7-ease),transform 160ms var(--rf7-ease)}
+      .rf7-notification-item-v7:hover{background:var(--rf7-surface-low);transform:translateX(1px)}
+      .rf7-notification-icon-v7{width:32px;height:32px;display:grid;place-items:center;flex:0 0 32px;border-radius:9px}
+      .rf7-notification-icon-v7.primary{color:var(--rf7-primary);background:var(--rf7-primary-soft)}
+      .rf7-notification-icon-v7.success{color:var(--rf7-success);background:var(--rf7-success-bg)}
+      .rf7-notification-icon-v7.warning{color:var(--rf7-warning);background:var(--rf7-warning-bg)}
+      .rf7-notification-copy-v7{min-width:0;flex:1;display:grid;gap:2px}
+      .rf7-notification-copy-v7 strong{color:var(--rf7-text);font-size:10px;line-height:14px}
+      .rf7-notification-copy-v7 small{color:var(--rf7-text-muted);font-size:9px;line-height:13px}
+      .rf7-notifications-empty-v7{display:grid;justify-items:center;gap:5px;padding:28px 20px;color:var(--rf7-success);text-align:center}
+      .rf7-notifications-empty-v7 strong{color:var(--rf7-text);font-size:11px}
+      .rf7-notifications-empty-v7 span{color:var(--rf7-text-muted);font-size:9px}
+      .rf7-notifications-footer-v7{display:flex;align-items:center;justify-content:center;gap:4px;padding:10px;color:var(--rf7-primary);border-top:1px solid var(--rf7-outline);text-decoration:none;font-size:10px;font-weight:650}
+      .rf7-topbar-profile-v7{display:flex;align-items:center;gap:8px;min-height:38px;padding:3px 7px 3px 4px;color:var(--rf7-text-soft);text-decoration:none;border-radius:9px;transition:background 160ms var(--rf7-ease)}
+      .rf7-topbar-profile-v7:hover{background:var(--rf7-surface-low)}
+      .rf7-topbar-avatar-v7{width:30px;height:30px;display:grid;place-items:center;overflow:hidden;color:#fff;background:linear-gradient(145deg,#6e70e4,#8c58e3);border-radius:50%;font-size:10px;font-weight:700}
+      .rf7-topbar-avatar-v7 img{width:100%;height:100%;object-fit:cover}
+      .rf7-topbar-profile-copy-v7{display:grid;gap:0;max-width:120px}
+      .rf7-topbar-profile-copy-v7 strong,.rf7-topbar-profile-copy-v7 small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .rf7-topbar-profile-copy-v7 strong{color:var(--rf7-text);font-size:10px;line-height:14px}
+      .rf7-topbar-profile-copy-v7 small{color:var(--rf7-text-muted);font-size:8px;line-height:11px}
+      .rf7-breadcrumb-v7{display:inline-flex;align-items:center;gap:7px}
+      .rf7-breadcrumb-v7 a{color:var(--rf7-text-soft);text-decoration:none;transition:color 150ms var(--rf7-ease)}
+      .rf7-breadcrumb-v7 a:hover{color:var(--rf7-primary)}
+      .rf7-command-item-v7{width:100%;min-height:52px;display:flex;align-items:center;gap:11px;padding:9px 10px;color:var(--rf7-text-soft);background:transparent;border:0;border-radius:9px;text-align:left;cursor:pointer;transition:background 140ms var(--rf7-ease),transform 140ms var(--rf7-ease)}
+      .rf7-command-item-v7:hover,.rf7-command-item-v7:focus-visible{outline:none;background:var(--rf7-primary-soft);transform:translateX(1px)}
+      .rf7-command-item-icon-v7{width:32px;height:32px;display:grid;place-items:center;flex:0 0 32px;color:var(--rf7-primary);background:#fff;border:1px solid var(--rf7-outline);border-radius:8px}
+      .rf7-command-item-copy-v7{min-width:0;flex:1;display:grid;gap:1px}
+      .rf7-command-item-copy-v7 strong{color:var(--rf7-text);font-size:11px;line-height:15px}
+      .rf7-command-item-copy-v7 small{color:var(--rf7-text-muted);font-size:9px;line-height:13px}
+      .rf7-command-footer-v7{display:flex;align-items:center;gap:15px;padding:9px 14px;color:var(--rf7-text-muted);background:var(--rf7-surface-low);border-top:1px solid var(--rf7-outline);font-size:9px}
+      .rf7-command-footer-v7 span{display:flex;align-items:center;gap:3px}
+      .rf7-command-footer-v7 kbd{min-width:18px;height:18px;display:inline-grid;place-items:center;padding:0 4px;color:var(--rf7-text-soft);background:#fff;border:1px solid var(--rf7-outline-strong);border-radius:4px;font:600 8px Inter,sans-serif}
+      .rf7-toast-stack-v7{position:fixed;z-index:200;top:78px;right:18px;width:min(390px,calc(100vw - 28px));display:grid;gap:9px;pointer-events:none}
+      .rf7-toast-v7{--toast-accent:var(--rf7-info);position:relative;display:flex;align-items:flex-start;gap:10px;overflow:hidden;padding:13px 39px 14px 13px;color:var(--rf7-text);background:rgba(255,255,255,.97);border:1px solid var(--rf7-outline);border-left:3px solid var(--toast-accent);border-radius:12px;box-shadow:var(--rf7-shadow-2);pointer-events:auto;animation:rf7ToastIn 260ms var(--rf7-ease)}
+      .rf7-toast-v7.success{--toast-accent:var(--rf7-success)}
+      .rf7-toast-v7.error{--toast-accent:var(--rf7-danger)}
+      .rf7-toast-v7.warning{--toast-accent:var(--rf7-warning)}
+      .rf7-toast-v7.info{--toast-accent:var(--rf7-info)}
+      .rf7-toast-icon-v7{width:30px;height:30px;display:grid;place-items:center;flex:0 0 30px;color:var(--toast-accent);background:color-mix(in srgb,var(--toast-accent) 10%,white);border-radius:9px}
+      .rf7-toast-copy-v7{min-width:0;flex:1;display:grid;gap:2px;padding-top:1px}
+      .rf7-toast-copy-v7 strong{font-family:Geist,Inter,sans-serif;font-size:11px;line-height:15px}
+      .rf7-toast-copy-v7 small{color:var(--rf7-text-soft);font-size:9px;line-height:14px}
+      .rf7-toast-action-v7{align-self:center;padding:5px 8px;color:var(--toast-accent);background:transparent;border:0;border-radius:6px;cursor:pointer;font-size:9px;font-weight:700}
+      .rf7-toast-action-v7:hover{background:var(--rf7-surface-low)}
+      .rf7-toast-close-v7{position:absolute;top:9px;right:8px;width:27px;height:27px;display:grid;place-items:center;color:var(--rf7-text-muted);background:transparent;border:0;border-radius:7px;cursor:pointer}
+      .rf7-toast-close-v7:hover{color:var(--rf7-text);background:var(--rf7-surface-low)}
+      .rf7-toast-progress-v7{position:absolute;left:0;bottom:0;height:2px;width:100%;background:var(--toast-accent);transform-origin:left;animation:rf7ToastProgress var(--rf7-toast-duration) linear forwards}
+      @keyframes rf7ToastIn{from{opacity:0;transform:translate3d(18px,-4px,0) scale(.98)}to{opacity:1;transform:translate3d(0,0,0) scale(1)}}
+      @keyframes rf7ToastProgress{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+      .rf7-route-enter-v7{min-height:100%;animation:rf7RouteEnter 260ms var(--rf7-ease)}
+      @keyframes rf7RouteEnter{from{opacity:0;transform:translate3d(0,5px,0)}to{opacity:1;transform:translate3d(0,0,0)}}
+      .rf7-nav-link{position:relative}
+      .rf7-nav-link.active::before{content:"";position:absolute;left:-8px;top:50%;width:3px;height:18px;background:var(--rf7-primary);border-radius:0 999px 999px 0;transform:translateY(-50%);animation:rf7NavMarkerIn 180ms var(--rf7-ease)}
+      @keyframes rf7NavMarkerIn{from{opacity:0;transform:translateY(-50%) scaleY(.4)}to{opacity:1;transform:translateY(-50%) scaleY(1)}}
+      .rf7-mobile-nav-link-v7{position:relative;min-width:0;display:grid;justify-items:center;gap:2px;padding:7px 5px;color:var(--rf7-text-muted);text-decoration:none;font-size:8px;font-weight:600;transition:color 150ms var(--rf7-ease),transform 150ms var(--rf7-ease)}
+      .rf7-mobile-nav-link-v7.active{color:var(--rf7-primary)}
+      .rf7-mobile-nav-link-v7:active{transform:scale(.96)}
+      .rf7-mobile-nav-icon-v7{position:relative;width:31px;height:25px;display:grid;place-items:center;border-radius:10px;transition:background 150ms var(--rf7-ease)}
+      .rf7-mobile-nav-link-v7.active .rf7-mobile-nav-icon-v7{background:var(--rf7-primary-soft)}
+      .rf7-mobile-nav-icon-v7 em{position:absolute;top:-4px;right:-7px;min-width:15px;height:15px;display:grid;place-items:center;padding:0 3px;color:#fff;background:#e43e46;border:2px solid #fff;border-radius:999px;font-size:7px;font-style:normal}
+      @media(max-width:900px){.rf7-sidebar-close-v7{display:inline-grid}.rf7-topbar-profile-copy-v7{display:none}.rf7-topbar-profile-v7>svg{display:none}}
+      @media(max-width:640px){.rf7-topbar-profile-v7{display:none}.rf7-topbar-end{gap:4px}.rf7-topbar .rf7-topbar-icon{width:34px;height:34px;flex-basis:34px}.rf7-notifications-popover-v7{position:fixed;top:62px;right:8px}.rf7-toast-stack-v7{top:67px;right:10px;width:calc(100vw - 20px)}.rf7-mobile-bottom-nav{position:fixed;z-index:75;right:0;bottom:0;left:0;height:62px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:center;padding:4px 7px calc(4px + env(safe-area-inset-bottom));background:rgba(255,255,255,.96);border-top:1px solid var(--rf7-outline);box-shadow:0 -8px 24px rgba(20,24,31,.06);backdrop-filter:blur(14px)}}
+      @media(prefers-reduced-motion:reduce){.rf7-popover-enter-v7,.rf7-toast-v7,.rf7-toast-progress-v7,.rf7-route-enter-v7,.rf7-nav-link.active::before{animation:none!important}.rf7-command-item-v7,.rf7-notification-item-v7{transition:none!important}}
+    `}</style>
+  );
+}
+
+function isNavActive({ item, pathname, search }) {
+  // Canonical V7 routes are used in navigation, but legacy Voice Agent query
+  // routes remain active during the page-by-page migration so old deep links
+  // and backend redirects still highlight the correct destination.
+  if (pathname.startsWith("/app/voice-agent")) {
+    const params = new URLSearchParams(search);
+    const tab = params.get("tab");
+    const view = params.get("view");
+
+    if (
+      item.to === "/app/calls" &&
+      tab === "calls"
+    ) {
+      return true;
+    }
+
+    if (
+      item.to === "/app/phone-numbers" &&
+      (["my-numbers", "buy-numbers", "connect-number"].includes(view) ||
+        (tab === "setup" && !view))
+    ) {
+      return true;
+    }
+
+    if (
+      item.to === "/app/meetings" &&
+      tab === "meetings"
+    ) {
+      return true;
+    }
+
+    if (
+      item.to === "/app/dialer" &&
+      tab === "leads" &&
+      ["dialer", "quick-lead", null].includes(view)
+    ) {
+      return true;
+    }
+
+    if (
+      item.to === "/app/voice-agents" &&
+      !["calls", "meetings", "leads"].includes(tab) &&
+      !["my-numbers", "buy-numbers", "connect-number"].includes(view)
+    ) {
+      return true;
+    }
+  }
+
   if (item.matchQuery && typeof item.matchQuery === "object") {
     const params = new URLSearchParams(search);
     const queryPathPrefix =
@@ -1337,61 +1668,17 @@ function isNavActive({
       }
     );
 
-    return (
-      pathname.startsWith(queryPathPrefix) &&
-      matchesQuery
-    );
-  }
-
-  if (item.matchQueryTab) {
-    const params = new URLSearchParams(search);
-    const tab = params.get("tab");
-    const queryPathPrefix =
-      item.queryPathPrefix || "/app/role-operations";
-
-    return (
-      pathname.startsWith(queryPathPrefix) &&
-      (
-        tab === item.matchQueryTab ||
-        (
-          item.matchQueryDefault === true &&
-          !tab
-        )
-      )
-    );
-  }
-
-  if (isActive) {
-    return true;
+    return pathname.startsWith(queryPathPrefix) && matchesQuery;
   }
 
   if (
-    item.matchPrefix &&
-    pathname.startsWith(
-      item.matchPrefix
-    )
-  ) {
-    return true;
-  }
-
-  if (
-    Array.isArray(
-      item.matchPrefixes
-    ) &&
-    item.matchPrefixes.some(
-      (prefix) =>
-        pathname.startsWith(
-          prefix
-        )
-    )
+    Array.isArray(item.matchPrefixes) &&
+    item.matchPrefixes.some((prefix) => pathname.startsWith(prefix))
   ) {
     if (
-      item.to ===
-        "/app/role-operations" &&
-      new URLSearchParams(
-        search
-      ).get("tab") ===
-        "communication"
+      item.to === "/app/role-operations?tab=team" &&
+      new URLSearchParams(search).get("tab") &&
+      !["team"].includes(new URLSearchParams(search).get("tab"))
     ) {
       return false;
     }
@@ -1399,81 +1686,195 @@ function isNavActive({
     return true;
   }
 
-  const campaignListRoutes =
-    new Set([
-      "/app/campaigns/active",
-      "/app/campaigns/queued",
-      "/app/campaigns/history",
-      "/app/campaigns/external-leads",
-    ]);
-
-  if (
-    item.to ===
-      "/app/campaigns/active" &&
-    /^\/app\/campaigns\/[^/]+$/.test(
-      pathname
-    ) &&
-    !campaignListRoutes.has(
-      pathname
-    )
-  ) {
+  if (item.matchPrefix && pathname.startsWith(item.matchPrefix)) {
     return true;
   }
 
-  if (
-    item.to ===
-      "/app/pipeline" &&
-    pathname.includes(
-      "/pipeline"
-    )
-  ) {
-    return true;
+  const itemPath = item.to?.split("?")[0];
+  return itemPath ? pathname === itemPath : false;
+}
+
+function buildBreadcrumbs(pathname, search) {
+  const params = new URLSearchParams(search);
+  const tab = params.get("tab");
+  const view = params.get("view");
+
+  if (pathname.startsWith("/app/voice-agent")) {
+    if (tab === "calls") {
+      return [
+        { label: "AI Voice", to: "/app/agents" },
+        { label: view === "active-calls" ? "Live Calls" : "Calls" },
+      ];
+    }
+
+    if (tab === "meetings") {
+      return [
+        { label: "CRM", to: "/app/contacts" },
+        { label: "Meetings" },
+      ];
+    }
+
+    if (tab === "leads") {
+      return [
+        { label: "Communication", to: "/app/inbox" },
+        { label: "Dialer" },
+      ];
+    }
+
+    if (["my-numbers", "buy-numbers", "connect-number"].includes(view)) {
+      return [
+        { label: "AI Voice", to: "/app/agents" },
+        { label: "Phone Numbers" },
+      ];
+    }
+
+    return [
+      { label: "AI Voice", to: "/app/agents" },
+      { label: "Voice Agent" },
+    ];
   }
 
-  return false;
+  const routeMap = [
+    ["/app/platform-admin", ["Home", "Platform Admin"]],
+    ["/app/dashboard", ["Home", "Dashboard"]],
+    ["/app/leads", ["Growth", "Leads"]],
+    ["/app/lead-discovery", ["Growth", "Leads"]],
+    ["/app/builder", ["Growth", "Leads"]],
+    ["/app/my-leads", ["Growth", "My Leads"]],
+    ["/app/audits", ["Growth", "AI Audits"]],
+    ["/app/website-audits", ["Growth", "AI Audits"]],
+    ["/app/campaigns", ["Growth", "Campaigns"]],
+    ["/app/ai", ["ReachFly AI", "Assistant"]],
+    ["/app/inbox", ["Communication", "Inbox"]],
+    ["/app/email", ["Communication", "Email"]],
+    ["/app/whatsapp", ["Communication", "WhatsApp"]],
+    ["/app/dialer", ["Communication", "Dialer"]],
+    ["/app/call-workspace", ["Communication", "Dialer"]],
+    ["/app/voice-agents", ["AI Voice", "Voice Agents"]],
+    ["/app/agents", ["AI Voice", "Voice Agents"]],
+    ["/app/calls", ["AI Voice", "Calls"]],
+    ["/app/phone-numbers", ["AI Voice", "Phone Numbers"]],
+    ["/app/contacts", ["CRM", "Contacts"]],
+    ["/app/pipeline", ["CRM", "Pipeline"]],
+    ["/app/meetings", ["CRM", "Meetings"]],
+    ["/app/team", ["Workspace", "Team"]],
+    ["/app/role-operations", ["Workspace", "Team"]],
+    ["/app/billing", ["Workspace", "Billing"]],
+    ["/app/integrations", ["Workspace", "Integrations"]],
+    ["/app/connections", ["Workspace", "Integrations"]],
+    ["/app/settings", ["Workspace", "Settings"]],
+    ["/app/analytics", ["More", "Analytics"]],
+    ["/app/territories", ["More", "Territories"]],
+    ["/app/resource-board", ["More", "Resource Board"]],
+    ["/app/attendance", ["More", "Attendance"]],
+    ["/app/profile-settings", ["Account", "Profile"]],
+  ];
+
+  const match = routeMap.find(([prefix]) => pathname.startsWith(prefix));
+  const labels = match?.[1] || ["ReachFly"];
+
+  return labels.map((label, index) => ({
+    label,
+    to:
+      index === 0 && labels.length > 1
+        ? resolveBreadcrumbRoot(label)
+        : undefined,
+  }));
+}
+
+function resolveBreadcrumbRoot(label) {
+  const map = {
+    Home: "/app/dashboard",
+    Growth: "/app/leads",
+    Communication: "/app/inbox",
+    "AI Voice": "/app/agents",
+    CRM: "/app/contacts",
+    Workspace: "/app/team",
+    Account: "/app/profile-settings",
+    "ReachFly AI": "/app/ai",
+    More: "/app/analytics",
+  };
+
+  return map[label];
+}
+
+function normalizeToast(input = {}) {
+  const type = ["success", "error", "warning", "info"].includes(input.type)
+    ? input.type
+    : "info";
+
+  const fallbackTitles = {
+    success: "Success",
+    error: "Something went wrong",
+    warning: "Attention needed",
+    info: "Update",
+  };
+
+  const durationNumber = Number(input.duration || 4200);
+
+  return {
+    type,
+    title: String(input.title || fallbackTitles[type]),
+    message: input.message ? String(input.message) : "",
+    duration:
+      Number.isFinite(durationNumber) && durationNumber >= 1800
+        ? Math.min(durationNumber, 12_000)
+        : 4200,
+    action: input.action || null,
+  };
+}
+
+function normalizeCollection(value, keys = []) {
+  if (Array.isArray(value)) return value;
+
+  for (const key of keys) {
+    if (Array.isArray(value?.[key])) return value[key];
+  }
+
+  return [];
+}
+
+function dedupeCommandItems(items) {
+  const seen = new Set();
+
+  return items.filter((item) => {
+    const key = `${item.label}|${item.to}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function scoreCommandItem(item, query) {
+  const label = String(item.label || "").toLowerCase();
+  const description = String(item.description || "").toLowerCase();
+  const keywords = String(item.keywords || "").toLowerCase();
+
+  if (label === query) return 100;
+  if (label.startsWith(query)) return 80;
+  if (label.includes(query)) return 60;
+  if (keywords.includes(query)) return 40;
+  if (description.includes(query)) return 20;
+  return 0;
 }
 
 function normalizeRole(value) {
-  const role = String(
-    value || ""
-  )
+  const role = String(value || "")
     .trim()
     .toLowerCase()
     .replace(/\s+/g, "_")
     .replace(/-/g, "_");
 
-  if (
-    role.includes("owner")
-  ) {
-    return "owner";
-  }
-
-  if (
-    role.includes("admin")
-  ) {
-    return "admin";
-  }
-
-  if (
-    role.includes("manager")
-  ) {
-    return "manager";
-  }
+  if (role.includes("owner")) return "owner";
+  if (role.includes("admin")) return "admin";
+  if (role.includes("manager")) return "manager";
 
   if (
     role === "caller" ||
-    role.includes(
-      "cold_caller"
-    ) ||
-    role.includes(
-      "sales_representative"
-    ) ||
-    role.includes(
-      "sales_rep"
-    ) ||
-    role.includes(
-      "telemarketer"
-    )
+    role.includes("cold_caller") ||
+    role.includes("sales_representative") ||
+    role.includes("sales_rep") ||
+    role.includes("telemarketer")
   ) {
     return "caller";
   }
@@ -1493,36 +1894,28 @@ function formatRoleLabel(role) {
     labels[role] ||
     String(role || "Member")
       .replace(/_/g, " ")
-      .replace(
-        /\b\w/g,
-        (letter) =>
-          letter.toUpperCase()
-      )
+      .replace(/\b\w/g, (letter) => letter.toUpperCase())
   );
 }
 
 function formatCount(value) {
-  const number = Number(
-    value || 0
-  );
-
-  if (number > 99) {
-    return "99+";
-  }
-
+  const number = Number(value || 0);
+  if (number > 99) return "99+";
   return String(number);
 }
 
 function getInitials(value) {
-  return String(
-    value || "RF"
-  )
+  return String(value || "RF")
     .trim()
     .split(/\s+/)
     .slice(0, 2)
-    .map(
-      (part) =>
-        part[0]?.toUpperCase()
-    )
+    .map((part) => part[0]?.toUpperCase())
     .join("");
+}
+
+function normalizeStatus(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
 }

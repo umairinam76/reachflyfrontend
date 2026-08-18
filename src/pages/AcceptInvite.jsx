@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight, Lock, Mail } from "../components/icons";
 import AuthLayout from "./AuthLayout";
-import { upgradeApi } from "../api/upgradeApi";
+import { upgradeApi } from "../api";
 
 export default function AcceptInvite() {
   const navigate = useNavigate();

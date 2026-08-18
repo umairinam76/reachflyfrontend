@@ -4,12 +4,17 @@ import {
   ArrowRight,
   Building2,
   Check,
+  ChevronRight,
   Mail,
   MapPin,
+  Phone,
+  RefreshCw,
   Search,
+  Sparkles,
   Target,
   UserRound,
   Users,
+  X,
 } from "../components/icons";
 import { City, Country, State } from "country-state-city";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -1489,7 +1494,7 @@ const set = (key, value) => {
     });
 
     navigate(
-      "/app/builder?view=results"
+      "/app/leads?view=results"
     );
 
     try {
@@ -1958,7 +1963,7 @@ function clearLeadResponse() {
     setLeadSearch("");
     setSelectedLead(null);
     setError("");
-    navigate("/app/builder", {
+    navigate("/app/leads", {
       replace: true,
     });
   }
@@ -2063,6 +2068,7 @@ function clearLeadResponse() {
 if (!canManage) {
   return (
     <div className="page builder-page">
+      <style>{BUILDER_V7_CSS}</style>
       <div className="card">
         <span className="eyebrow">
           Restricted workspace feature
@@ -2421,6 +2427,7 @@ if (showingResults) {
 
   return (
     <div className="builder-page">
+      <style>{BUILDER_V7_CSS}</style>
       <div className="page-top">
         <div>
           <span className="eyebrow">Campaign builder</span>
@@ -2876,6 +2883,1489 @@ function Duplicate({ matches, onOpen }) {
     </div>
   );
 }
+const BUILDER_V7_CSS = `
+.rf7-leads-page {
+  min-height: calc(100vh - 128px);
+  color: var(--rf7-text, #191c1d);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.rf7-leads-page *,
+.rf7-leads-page *::before,
+.rf7-leads-page *::after {
+  box-sizing: border-box;
+}
+
+.rf7-leads-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.rf7-leads-head h1 {
+  margin: 0;
+  color: #191c1d;
+  font-family: Geist, Inter, sans-serif;
+  font-size: 32px;
+  line-height: 40px;
+  letter-spacing: -0.02em;
+  font-weight: 650;
+}
+
+.rf7-leads-head p {
+  margin: 4px 0 0;
+  color: #464554;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.rf7-leads-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.rf7-filter-wrap {
+  position: relative;
+}
+
+.rf7-leads-secondary,
+.rf7-leads-primary,
+.rf7-table-action {
+  appearance: none;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.rf7-leads-secondary,
+.rf7-leads-primary {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 18px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 650;
+  transition:
+    transform 150ms cubic-bezier(.2,.7,.2,1),
+    box-shadow 150ms cubic-bezier(.2,.7,.2,1),
+    background 150ms cubic-bezier(.2,.7,.2,1);
+}
+
+.rf7-leads-secondary {
+  color: #191c1d;
+  background: #e7e8e9;
+  border: 1px solid #e1e3e4;
+}
+
+.rf7-leads-secondary:hover,
+.rf7-leads-secondary.active {
+  background: #dfe0e2;
+  transform: translateY(-1px);
+}
+
+.rf7-leads-primary {
+  min-width: 154px;
+  color: #fff;
+  background: #4648d4;
+  box-shadow: 0 4px 12px rgba(70,72,212,.18);
+}
+
+.rf7-leads-primary:hover {
+  background: #3f41c7;
+  box-shadow: 0 8px 18px rgba(70,72,212,.22);
+  transform: translateY(-1px);
+}
+
+.rf7-leads-primary:active,
+.rf7-leads-secondary:active {
+  transform: translateY(0) scale(.985);
+}
+
+.rf7-filter-glyph {
+  display: grid;
+  width: 18px;
+  place-items: center;
+  font-size: 22px;
+  line-height: 14px;
+  transform: rotate(90deg);
+}
+
+.rf7-filter-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 40;
+  width: 292px;
+  padding: 16px;
+  border: 1px solid #dfe0e5;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 18px 48px rgba(20,24,31,.14);
+}
+
+.rf7-filter-popover-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #edeeef;
+}
+
+.rf7-filter-popover-head strong,
+.rf7-filter-popover-head span {
+  display: block;
+}
+
+.rf7-filter-popover-head strong {
+  font-family: Geist, Inter, sans-serif;
+  font-size: 15px;
+}
+
+.rf7-filter-popover-head span {
+  margin-top: 2px;
+  color: #767586;
+  font-size: 12px;
+}
+
+.rf7-filter-close {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  color: #464554;
+  background: transparent;
+  cursor: pointer;
+}
+
+.rf7-filter-close:hover {
+  background: #f3f4f5;
+}
+
+.rf7-filter-check {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  color: #464554;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.rf7-filter-check:first-of-type {
+  margin-top: 10px;
+}
+
+.rf7-filter-check input {
+  width: 16px;
+  height: 16px;
+  accent-color: #4648d4;
+}
+
+.rf7-filter-check b {
+  color: #767586;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.rf7-filter-quality {
+  display: block;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #edeeef;
+}
+
+.rf7-filter-quality > span {
+  display: flex;
+  justify-content: space-between;
+  color: #464554;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.rf7-filter-quality > span b {
+  color: #4648d4;
+}
+
+.rf7-filter-quality input {
+  width: 100%;
+  margin-top: 10px;
+  accent-color: #4648d4;
+}
+
+.rf7-filter-reset {
+  width: 100%;
+  margin-top: 12px;
+  padding: 9px 12px;
+  border: 1px solid #dfe0e5;
+  border-radius: 8px;
+  color: #464554;
+  background: #f8f9fa;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.rf7-filter-reset:hover {
+  background: #f3f4f5;
+}
+
+.rf7-lead-tabs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.rf7-lead-tabs button {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 18px;
+  border: 0;
+  border-radius: 999px;
+  color: #191c1d;
+  background: #e7e8e9;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    color 150ms ease,
+    background 150ms ease,
+    transform 150ms ease;
+}
+
+.rf7-lead-tabs button:hover {
+  transform: translateY(-1px);
+  background: #e1e3e4;
+}
+
+.rf7-lead-tabs button.active {
+  color: #fff;
+  background: #6063ee;
+}
+
+.rf7-lead-tabs button span {
+  min-width: 18px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  color: inherit;
+  background: rgba(255,255,255,.17);
+  font-size: 10px;
+}
+
+.rf7-discovery-progress {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid #dfe0e5;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(20,24,31,.04);
+}
+
+.rf7-discovery-progress.error {
+  border-color: rgba(186,26,26,.2);
+  background: #fff8f7;
+}
+
+.rf7-discovery-progress-top {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.rf7-discovery-progress-top strong,
+.rf7-discovery-progress-top span {
+  display: block;
+}
+
+.rf7-discovery-progress-top strong {
+  font-family: Geist, Inter, sans-serif;
+  font-size: 14px;
+  color: #191c1d;
+}
+
+.rf7-discovery-progress-top span {
+  margin-top: 1px;
+  color: #767586;
+  font-size: 12px;
+}
+
+.rf7-discovery-progress-top > b {
+  color: #4648d4;
+  font-size: 12px;
+}
+
+.rf7-discovery-orb {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #4648d4;
+  background: #e9e9ff;
+}
+
+.rf7-discovery-orb.running svg {
+  animation: rf7-search-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes rf7-search-pulse {
+  0%, 100% { transform: scale(1); opacity: .72; }
+  50% { transform: scale(1.14); opacity: 1; }
+}
+
+.rf7-discovery-track {
+  height: 5px;
+  margin-top: 12px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: #edeeef;
+}
+
+.rf7-discovery-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #4648d4, #6b38d4);
+}
+
+.rf7-discovery-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  color: #93000a;
+  font-size: 12px;
+}
+
+.rf7-discovery-error button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 9px;
+  border: 1px solid rgba(186,26,26,.18);
+  border-radius: 7px;
+  color: #93000a;
+  background: #fff;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.rf7-leads-table-card {
+  min-height: 530px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #edeeef;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(20,24,31,.04);
+}
+
+.rf7-leads-toolbar {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 16px;
+  border-bottom: 1px solid #edeeef;
+  background: #fff;
+}
+
+.rf7-leads-search {
+  width: min(420px, 48vw);
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 11px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #767586;
+  background: #f3f4f5;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+}
+
+.rf7-leads-search:focus-within {
+  border-color: rgba(70,72,212,.35);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(70,72,212,.08);
+}
+
+.rf7-leads-search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  color: #191c1d;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+}
+
+.rf7-leads-toolbar-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rf7-selected-pill {
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: #2f2ebe;
+  background: #e1e0ff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.rf7-table-action {
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid #dfe0e5;
+  border-radius: 8px;
+  color: #464554;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 650;
+  transition: background 150ms ease, transform 150ms ease;
+}
+
+.rf7-table-action.icon {
+  width: 34px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+
+.rf7-table-action:hover:not(:disabled) {
+  background: #f3f4f5;
+  transform: translateY(-1px);
+}
+
+.rf7-table-action:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+.rf7-table-action .spin {
+  animation: rf7-spin .8s linear infinite;
+}
+
+@keyframes rf7-spin {
+  to { transform: rotate(360deg); }
+}
+
+.rf7-leads-table-scroll {
+  overflow: auto;
+  flex: 1;
+}
+
+.rf7-leads-table {
+  width: 100%;
+  min-width: 930px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.rf7-leads-table th {
+  height: 50px;
+  padding: 0 16px;
+  color: #30313f;
+  background: #f3f4f5;
+  text-align: left;
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 750;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.rf7-leads-table th.check,
+.rf7-leads-table td.check {
+  width: 52px;
+  text-align: center;
+}
+
+.rf7-leads-table th:nth-child(2) { width: 31%; }
+.rf7-leads-table th:nth-child(3) { width: 17%; }
+.rf7-leads-table th:nth-child(4) { width: 20%; }
+.rf7-leads-table th:nth-child(5) { width: 14%; }
+.rf7-leads-table th:nth-child(6) { width: 14%; }
+.rf7-leads-table th:nth-child(7) { width: 108px; }
+
+.rf7-leads-table input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #4648d4;
+  cursor: pointer;
+}
+
+.rf7-leads-table tbody tr {
+  height: 80px;
+  border-bottom: 1px solid #edeeef;
+  background: #fff;
+  cursor: pointer;
+  transition: background 130ms ease, box-shadow 130ms ease;
+}
+
+.rf7-leads-table tbody tr:hover {
+  background: #fafafa;
+}
+
+.rf7-leads-table tbody tr.selected {
+  background: #f7f7ff;
+  box-shadow: inset 3px 0 0 #4648d4;
+}
+
+.rf7-leads-table td {
+  padding: 12px 16px;
+  color: #191c1d;
+  vertical-align: middle;
+  font-size: 13px;
+  line-height: 19px;
+}
+
+.rf7-company-cell {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.rf7-company-avatar {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  font-family: Geist, Inter, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.rf7-company-avatar.tone-0 { color: #23005c; background: #e9ddff; }
+.rf7-company-avatar.tone-1 { color: #131b2e; background: #dae2fd; }
+.rf7-company-avatar.tone-2 { color: #93000a; background: #ffdad6; }
+.rf7-company-avatar.tone-3 { color: #2f2ebe; background: #e1e0ff; }
+
+.rf7-company-copy {
+  min-width: 0;
+}
+
+.rf7-company-copy strong {
+  display: block;
+  overflow: hidden;
+  color: #191c1d;
+  font-family: Geist, Inter, sans-serif;
+  font-size: 15px;
+  line-height: 21px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rf7-company-copy a,
+.rf7-company-copy > span {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 3px;
+  overflow: hidden;
+  color: #464554;
+  font-size: 11px;
+  line-height: 16px;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rf7-company-copy a:hover {
+  color: #4648d4;
+}
+
+.rf7-table-muted {
+  display: block;
+  overflow: hidden;
+  color: #464554;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rf7-contact-cell span,
+.rf7-contact-cell small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rf7-contact-cell span {
+  color: #464554;
+}
+
+.rf7-contact-cell small {
+  margin-top: 1px;
+  color: #464554;
+  font-size: 11px;
+}
+
+.rf7-quality-cell {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.rf7-quality-track {
+  width: 78px;
+  height: 7px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: #e7e8e9;
+}
+
+.rf7-quality-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.rf7-quality-track span.good { background: #6b38d4; }
+.rf7-quality-track span.medium { background: #565e74; }
+.rf7-quality-track span.low { background: #8a8995; }
+
+.rf7-quality-cell b {
+  min-width: 24px;
+  color: #464554;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.rf7-status-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  color: #2f2ebe;
+  background: #e1e0ff;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.rf7-status-pill.qualified {
+  color: #5516be;
+  background: #e9ddff;
+}
+
+.rf7-status-pill.interested {
+  color: #0f6b46;
+  background: #e9f8f0;
+}
+
+.rf7-status-pill.meeting {
+  color: #275fba;
+  background: #edf4ff;
+}
+
+.rf7-status-pill.won {
+  color: #0f6b46;
+  background: #dff5e9;
+}
+
+.rf7-status-pill.unqualified {
+  color: #464554;
+  background: #e1e3e4;
+}
+
+.rf7-row-actions {
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 130ms ease;
+}
+
+.rf7-leads-table tbody tr:hover .rf7-row-actions,
+.rf7-leads-table tbody tr:focus-within .rf7-row-actions {
+  opacity: 1;
+}
+
+.rf7-row-actions button {
+  width: 30px;
+  height: 30px;
+  display: inline-grid;
+  place-items: center;
+  margin-left: 2px;
+  border: 0;
+  border-radius: 7px;
+  color: #464554;
+  background: transparent;
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease, transform 120ms ease;
+}
+
+.rf7-row-actions button:hover:not(:disabled) {
+  color: #4648d4;
+  background: #e9e9ff;
+  transform: translateY(-1px);
+}
+
+.rf7-row-actions button:disabled {
+  opacity: .3;
+  cursor: not-allowed;
+}
+
+.rf7-leads-empty {
+  min-height: 360px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  padding: 40px 24px;
+  text-align: center;
+}
+
+.rf7-leads-empty-icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 14px;
+  border-radius: 14px;
+  color: #4648d4;
+  background: #e9e9ff;
+}
+
+.rf7-leads-empty h3 {
+  margin: 0;
+  font-family: Geist, Inter, sans-serif;
+  font-size: 18px;
+}
+
+.rf7-leads-empty p {
+  max-width: 420px;
+  margin: 6px 0 18px;
+  color: #767586;
+  font-size: 13px;
+}
+
+.rf7-table-skeletons {
+  min-height: 360px;
+  padding: 8px 16px;
+}
+
+.rf7-table-skeleton-row {
+  height: 70px;
+  display: grid;
+  grid-template-columns: 42px 2fr 1fr 1fr .8fr;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid #edeeef;
+}
+
+.rf7-table-skeleton-row span {
+  height: 12px;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, #f3f4f5 25%, #e7e8e9 37%, #f3f4f5 63%);
+  background-size: 400% 100%;
+  animation: rf7-shimmer 1.25s ease infinite;
+}
+
+.rf7-table-skeleton-row span:first-child {
+  width: 36px;
+  height: 36px;
+  border-radius: 7px;
+}
+
+@keyframes rf7-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
+
+.rf7-leads-table-footer {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: auto;
+  padding: 0 16px;
+  border-top: 1px solid #edeeef;
+  color: #464554;
+  background: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.rf7-lead-foot-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.rf7-lead-foot-meta span + span {
+  position: relative;
+  padding-left: 12px;
+}
+
+.rf7-lead-foot-meta span + span::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #c7c4d7;
+  transform: translateY(-50%);
+}
+
+.rf7-lead-ops-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.rf7-operational-card,
+.rf7-lead-ops-grid > .ai-voice-launch-panel {
+  margin: 0 !important;
+  border: 1px solid #dfe0e5 !important;
+  border-radius: 16px !important;
+  background: #fff !important;
+  box-shadow: 0 1px 2px rgba(20,24,31,.04) !important;
+}
+
+.rf7-inline-alert {
+  animation: rf7-alert-in 260ms cubic-bezier(.2,.7,.2,1) both;
+}
+
+.rf7-inline-alert.success {
+  border-color: rgba(15,138,85,.18) !important;
+  color: #0f6b46 !important;
+  background: #e9f8f0 !important;
+}
+
+.rf7-inline-alert.error {
+  border-color: rgba(186,26,26,.18) !important;
+  color: #93000a !important;
+  background: #fff0ee !important;
+}
+
+@keyframes rf7-alert-in {
+  from { opacity: 0; transform: translateY(-7px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.rf7-drawer-backdrop {
+  position: fixed;
+  inset: 64px 0 0 260px;
+  z-index: 80;
+  border: 0;
+  background: rgba(25,28,29,.18);
+  backdrop-filter: blur(1.5px);
+  cursor: default;
+}
+
+.rf7-lead-drawer {
+  position: fixed;
+  z-index: 90;
+  top: 80px;
+  right: 24px;
+  bottom: 24px;
+  width: min(480px, calc(100vw - 32px));
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #edeeef;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(20,24,31,.20);
+}
+
+.rf7-lead-drawer-head {
+  position: relative;
+  padding: 24px;
+  border-bottom: 1px solid #edeeef;
+}
+
+.rf7-drawer-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  color: #464554;
+  background: transparent;
+  cursor: pointer;
+}
+
+.rf7-drawer-close:hover {
+  background: #f3f4f5;
+}
+
+.rf7-drawer-identity {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding-right: 28px;
+}
+
+.rf7-drawer-avatar {
+  width: 62px;
+  height: 62px;
+  flex: 0 0 62px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  color: #23005c;
+  background: #e9ddff;
+  font-family: Geist, Inter, sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.rf7-drawer-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rf7-drawer-badges span,
+.rf7-drawer-badges b {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 14px;
+  font-weight: 700;
+}
+
+.rf7-drawer-badges span {
+  color: #2f2ebe;
+  background: #e1e0ff;
+}
+
+.rf7-drawer-badges b {
+  color: #6b38d4;
+  background: transparent;
+}
+
+.rf7-drawer-identity h2 {
+  margin: 5px 0 0;
+  font-family: Geist, Inter, sans-serif;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 650;
+}
+
+.rf7-drawer-identity a,
+.rf7-drawer-identity p {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 3px 0 0;
+  color: #4648d4;
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.rf7-drawer-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.rf7-drawer-actions button {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 8px;
+  color: #191c1d;
+  background: #e7e8e9;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 130ms ease, background 130ms ease;
+}
+
+.rf7-drawer-actions button.primary {
+  color: #fff;
+  background: #4648d4;
+}
+
+.rf7-drawer-actions button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.rf7-drawer-actions button:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+
+.rf7-drawer-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 18px;
+  border-bottom: 1px solid #edeeef;
+  background: rgba(248,249,250,.75);
+}
+
+.rf7-drawer-tabs button {
+  min-height: 42px;
+  padding: 0 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: #464554;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.rf7-drawer-tabs button.active {
+  color: #4648d4;
+  border-bottom-color: #4648d4;
+}
+
+.rf7-drawer-tabs button:disabled {
+  opacity: .45;
+}
+
+.rf7-drawer-body {
+  flex: 1;
+  overflow: auto;
+  padding: 22px;
+  background: #f8f9fa;
+}
+
+.rf7-drawer-body section + section {
+  margin-top: 22px;
+}
+
+.rf7-drawer-body h3 {
+  margin: 0 0 10px;
+  font-family: Geist, Inter, sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 650;
+}
+
+.rf7-drawer-detail-card {
+  overflow: hidden;
+  border: 1px solid #edeeef;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.rf7-drawer-detail-card > div {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 12px 14px;
+}
+
+.rf7-drawer-detail-card > div + div {
+  border-top: 1px solid #edeeef;
+}
+
+.rf7-drawer-detail-card svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: #767586;
+}
+
+.rf7-drawer-detail-card span {
+  min-width: 0;
+}
+
+.rf7-drawer-detail-card small,
+.rf7-drawer-detail-card b {
+  display: block;
+}
+
+.rf7-drawer-detail-card small {
+  color: #767586;
+  font-size: 10px;
+}
+
+.rf7-drawer-detail-card b {
+  margin-top: 1px;
+  overflow: hidden;
+  color: #191c1d;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+
+.rf7-drawer-ai-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid #e9ddff;
+  border-radius: 10px;
+  background: rgba(233,221,255,.34);
+}
+
+.rf7-drawer-score {
+  width: 58px;
+  height: 58px;
+  flex: 0 0 58px;
+  display: grid;
+  place-items: center;
+  border: 4px solid #6b38d4;
+  border-radius: 50%;
+  color: #6b38d4;
+  background: #fff;
+  font-family: Geist, Inter, sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.rf7-drawer-ai-card strong {
+  display: block;
+  font-size: 13px;
+}
+
+.rf7-drawer-ai-card p,
+.rf7-drawer-next p {
+  margin: 3px 0 0;
+  color: #464554;
+  font-size: 11px;
+  line-height: 17px;
+}
+
+.rf7-drawer-next {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #dfe0e5;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.rf7-drawer-next svg {
+  color: #6b38d4;
+}
+
+.rf7-drawer-next strong {
+  font-size: 12px;
+}
+
+.builder-page {
+  max-width: 980px;
+  margin: 0 auto;
+  color: #191c1d;
+}
+
+.builder-page .page-top {
+  align-items: flex-start;
+}
+
+.builder-page .page-top .eyebrow {
+  color: #4648d4;
+}
+
+.builder-page .page-top h1 {
+  margin-top: 6px;
+  font-family: Geist, Inter, sans-serif;
+  font-size: 30px;
+  line-height: 38px;
+  letter-spacing: -.02em;
+}
+
+.builder-page .builder-subtitle {
+  max-width: 680px;
+  color: #464554;
+}
+
+.builder-page .step-count {
+  min-width: 62px;
+  min-height: 42px;
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 2px;
+  border: 1px solid #dfe0e5;
+  border-radius: 10px;
+  color: #4648d4;
+  background: #fff;
+  font-family: Geist, Inter, sans-serif;
+  font-weight: 700;
+  box-shadow: 0 1px 2px rgba(20,24,31,.04);
+}
+
+.builder-page .step-line {
+  height: 5px;
+  gap: 6px;
+  margin: 18px 0;
+  background: transparent;
+}
+
+.builder-page .step-line i {
+  flex: 1;
+  height: 5px;
+  border-radius: 999px;
+  background: #e1e3e4;
+  transition: background 220ms ease, transform 220ms ease;
+}
+
+.builder-page .step-line i.active {
+  background: #4648d4;
+}
+
+.builder-page .builder-card {
+  overflow: hidden;
+  border: 1px solid #dfe0e5;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 10px 32px rgba(20,24,31,.06);
+}
+
+.builder-page .builder-step {
+  padding: 30px 32px 8px;
+}
+
+.builder-page .builder-step h2 {
+  margin-top: 6px;
+  font-family: Geist, Inter, sans-serif;
+  font-size: 22px;
+  line-height: 30px;
+  letter-spacing: -.01em;
+}
+
+.builder-page .builder-step > p {
+  color: #464554;
+}
+
+.builder-page .builder-workspace-summary,
+.builder-page .sentence-card,
+.builder-page .launch-settings,
+.builder-page .review-grid {
+  border-color: #edeeef;
+  border-radius: 12px;
+}
+
+.builder-page .field input,
+.builder-page .field select,
+.builder-page .launch-settings select {
+  min-height: 44px;
+  border-color: #dfe0e5;
+  border-radius: 9px;
+  background: #fff;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.builder-page .field input:focus,
+.builder-page .field select:focus,
+.builder-page .launch-settings select:focus {
+  border-color: rgba(70,72,212,.5);
+  box-shadow: 0 0 0 3px rgba(70,72,212,.08);
+}
+
+.builder-page .suggestions button,
+.builder-page .radius-quick-options button {
+  border-color: #dfe0e5;
+  border-radius: 999px;
+  color: #464554;
+  background: #f8f9fa;
+  transition: transform 130ms ease, background 130ms ease, border-color 130ms ease;
+}
+
+.builder-page .suggestions button:hover,
+.builder-page .radius-quick-options button:hover,
+.builder-page .radius-quick-options button.active {
+  color: #2f2ebe;
+  border-color: #c0c1ff;
+  background: #e9e9ff;
+  transform: translateY(-1px);
+}
+
+.builder-page .builder-actions {
+  margin-top: 20px;
+  padding: 18px 32px 24px;
+  border-top: 1px solid #edeeef;
+  background: #fbfbfc;
+}
+
+.builder-page .builder-actions .btn {
+  min-height: 42px;
+  border-radius: 8px;
+  transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.builder-page .builder-actions .btn.primary {
+  background: #4648d4;
+  box-shadow: 0 4px 12px rgba(70,72,212,.16);
+}
+
+.builder-page .builder-actions .btn.primary:hover {
+  background: #3f41c7;
+  transform: translateY(-1px);
+  box-shadow: 0 7px 16px rgba(70,72,212,.2);
+}
+
+.builder-page .form-error,
+.builder-page .error-banner,
+.builder-page .success-banner {
+  animation: rf7-alert-in 260ms cubic-bezier(.2,.7,.2,1) both;
+}
+
+@media (max-width: 1100px) {
+  .rf7-lead-ops-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .rf7-drawer-backdrop {
+    inset: 64px 0 0 0;
+  }
+
+  .rf7-lead-drawer {
+    top: 76px;
+    right: 12px;
+    bottom: 12px;
+  }
+
+  .rf7-leads-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .rf7-leads-head-actions {
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 700px) {
+  .rf7-leads-head h1 {
+    font-size: 26px;
+    line-height: 34px;
+  }
+
+  .rf7-leads-head-actions {
+    display: grid;
+    grid-template-columns: 1fr 1.25fr;
+  }
+
+  .rf7-leads-secondary,
+  .rf7-leads-primary {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .rf7-filter-popover {
+    position: fixed;
+    z-index: 120;
+    left: 12px;
+    right: 12px;
+    bottom: 82px;
+    top: auto;
+    width: auto;
+  }
+
+  .rf7-lead-tabs {
+    flex-wrap: nowrap;
+    margin-right: -16px;
+    padding-right: 16px;
+    overflow-x: auto;
+  }
+
+  .rf7-lead-tabs button {
+    flex: 0 0 auto;
+  }
+
+  .rf7-leads-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .rf7-leads-search {
+    width: 100%;
+  }
+
+  .rf7-leads-toolbar-meta {
+    justify-content: flex-end;
+  }
+
+  .rf7-leads-table-card {
+    min-height: 500px;
+  }
+
+  .rf7-leads-table-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: center;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .rf7-drawer-backdrop {
+    inset: 0;
+  }
+
+  .rf7-lead-drawer {
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .rf7-drawer-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .builder-page .builder-step {
+    padding: 22px 18px 6px;
+  }
+
+  .builder-page .builder-actions {
+    padding: 16px 18px 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rf7-leads-page *,
+  .builder-page * {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+`;
+
 function LiveLeadResultsPage({
   result,
   form,
@@ -2913,584 +4403,731 @@ function LiveLeadResultsPage({
   onOpenVoice,
   onOpenBilling,
 }) {
-  const leads = Array.isArray(
-    result?.leads
-  )
-    ? result.leads
-    : [];
-  const queuedAuditWebsitesRef =
-    useRef(new Set());
+  const leads = Array.isArray(result?.leads) ? result.leads : [];
+  const queuedAuditWebsitesRef = useRef(new Set());
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [onlyEmail, setOnlyEmail] = useState(false);
+  const [onlyPhone, setOnlyPhone] = useState(false);
+  const [onlyWebsite, setOnlyWebsite] = useState(false);
+  const [minQuality, setMinQuality] = useState(0);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [drawerLead, setDrawerLead] = useState(null);
+  const previousStatusRef = useRef("");
 
   useEffect(() => {
     const pending = leads
       .filter((lead) => lead?.website)
       .filter((lead) => {
-        const website = String(
-          lead.website || ""
-        ).trim();
+        const website = String(lead.website || "").trim();
 
-        if (
-          !website ||
-          queuedAuditWebsitesRef.current.has(
-            website
-          )
-        ) {
+        if (!website || queuedAuditWebsitesRef.current.has(website)) {
           return false;
         }
 
-        queuedAuditWebsitesRef.current.add(
-          website
-        );
+        queuedAuditWebsitesRef.current.add(website);
         return true;
       });
 
-    if (!pending.length) return;
+    if (!pending.length) return undefined;
 
-    const timer = window.setTimeout(
-      () => {
-        auditApi(
-          "/lead-audits/mini/batch",
-          {
-            method: "POST",
-            body: {
-              leads: pending,
-              niche: form.niche,
-              location:
-                form.location,
-              workspaceName:
-                workspace?.title || "",
-            },
-          }
-        ).catch(() => {
-          for (const lead of pending) {
-            queuedAuditWebsitesRef.current.delete(
-              String(
-                lead.website || ""
-              ).trim()
-            );
-          }
-        });
-      },
-      700
+    const timer = window.setTimeout(() => {
+      auditApi("/lead-audits/mini/batch", {
+        method: "POST",
+        body: {
+          leads: pending,
+          niche: form.niche,
+          location: form.location,
+          workspaceName: workspace?.title || "",
+        },
+      }).catch(() => {
+        for (const lead of pending) {
+          queuedAuditWebsitesRef.current.delete(
+            String(lead.website || "").trim()
+          );
+        }
+      });
+    }, 700);
+
+    return () => window.clearTimeout(timer);
+  }, [leads, form.niche, form.location, workspace?.title]);
+
+  useEffect(() => {
+    const status = String(result?.status || "").toLowerCase();
+    const previousStatus = previousStatusRef.current;
+    previousStatusRef.current = status;
+
+    if (!status || status === previousStatus) return;
+
+    if (status === "error") {
+      window.reachflyToast?.error?.(
+        "Lead discovery interrupted",
+        result?.error || result?.message || "We couldn't complete this lead search."
+      );
+    }
+
+    if (
+      ["complete", "completed", "success", "ready"].includes(status) &&
+      leads.length > 0
+    ) {
+      window.reachflyToast?.success?.(
+        "Lead list ready",
+        `${leads.length.toLocaleString()} ${
+          leads.length === 1 ? "lead is" : "leads are"
+        } ready to review.`
+      );
+    }
+  }, [result?.status, result?.error, result?.message, leads.length]);
+
+  useEffect(() => {
+    if (!assignmentMessage) return;
+    window.reachflyToast?.success?.(
+      "Leads assigned",
+      assignmentMessage
     );
+  }, [assignmentMessage]);
 
-    return () =>
-      window.clearTimeout(timer);
-  }, [
-    leads,
-    form.niche,
-    form.location,
-    workspace?.title,
-  ]);
+  useEffect(() => {
+    if (!assignmentError) return;
+    window.reachflyToast?.error?.(
+      "Assignment failed",
+      assignmentError
+    );
+  }, [assignmentError]);
 
-  const normalizedSearch =
-    String(search || "")
-      .trim()
-      .toLowerCase();
+  useEffect(() => {
+    if (!voiceLaunchMessage) return;
+    window.reachflyToast?.success?.(
+      "AI Voice campaign started",
+      voiceLaunchMessage
+    );
+  }, [voiceLaunchMessage]);
 
-  const filteredLeads =
-    normalizedSearch
-      ? leads.filter((lead) =>
-          [
-            lead.business,
-            lead.name,
-            lead.website,
-            lead.domain,
-            lead.email,
-            lead.phone,
-            lead.address,
-            lead.category,
-          ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase()
-            .includes(
-              normalizedSearch
-            )
+  useEffect(() => {
+    if (!voiceLaunchError) return;
+    window.reachflyToast?.error?.(
+      "AI Voice launch failed",
+      voiceLaunchError
+    );
+  }, [voiceLaunchError]);
+
+  const normalizedSearch = String(search || "").trim().toLowerCase();
+
+  const enrichedLeads = useMemo(
+    () =>
+      leads.map((lead, index) => {
+        const quality = Number(
+          lead.qualityScore ??
+            lead.confidence ??
+            lead.score ??
+            lead.dataQualityScore ??
+            0
+        );
+
+        const sourceStatus = String(
+          lead.status ||
+            lead.pipelineStatus ||
+            lead.stage ||
+            lead.disposition ||
+            ""
         )
-      : leads;
+          .trim()
+          .toLowerCase();
 
-  const requested = Number(
-    result?.requested ||
-      form.limit ||
-      100
+        const status =
+          sourceStatus ||
+          (quality >= 80 ? "qualified" : "new");
+
+        return {
+          lead,
+          index,
+          quality: Number.isFinite(quality)
+            ? Math.max(0, Math.min(100, Math.round(quality)))
+            : 0,
+          status,
+          id: leadIdentity(lead) || `lead-${index}`,
+        };
+      }),
+    [leads]
   );
+
+  const filteredLeads = enrichedLeads.filter(({ lead, quality, status }) => {
+    if (
+      normalizedSearch &&
+      ![
+        lead.business,
+        lead.name,
+        lead.website,
+        lead.domain,
+        lead.email,
+        lead.phone,
+        lead.address,
+        lead.city,
+        lead.state,
+        lead.category,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedSearch)
+    ) {
+      return false;
+    }
+
+    if (statusFilter !== "all" && status !== statusFilter) return false;
+    if (onlyEmail && !isDisplayableEmail(lead.email)) return false;
+    if (onlyPhone && !lead.phone) return false;
+    if (onlyWebsite && !lead.website) return false;
+    if (quality < minQuality) return false;
+
+    return true;
+  });
+
+  const requested = Number(result?.requested || form.limit || 100);
   const delivered = leads.length;
-  const percent = Math.max(
-    0,
-    Math.min(
-      100,
-      Number(
-        result?.percent || 0
-      )
-    )
-  );
+  const percent = Math.max(0, Math.min(100, Number(result?.percent || 0)));
   const isLoading =
-    result?.streaming === true ||
-    result?.status === "loading";
-  const hasError =
-    result?.status === "error";
+    result?.streaming === true || String(result?.status || "").toLowerCase() === "loading";
+  const hasError = String(result?.status || "").toLowerCase() === "error";
+  const emailCount = leads.filter((lead) => isDisplayableEmail(lead.email)).length;
+  const phoneCount = leads.filter((lead) => lead.phone).length;
+  const websiteCount = leads.filter((lead) => lead.website).length;
 
-  const emailCount = leads.filter(
-    (lead) =>
-      isDisplayableEmail(
-        lead.email
-      )
-  ).length;
-  const phoneCount = leads.filter(
-    (lead) => lead.phone
-  ).length;
-  const websiteCount = leads.filter(
-    (lead) => lead.website
-  ).length;
+  const statusCounts = useMemo(() => {
+    const counts = {
+      all: enrichedLeads.length,
+      new: 0,
+      qualified: 0,
+      interested: 0,
+      meeting: 0,
+      won: 0,
+    };
 
+    enrichedLeads.forEach(({ status }) => {
+      if (Object.prototype.hasOwnProperty.call(counts, status)) {
+        counts[status] += 1;
+      }
+    });
+
+    return counts;
+  }, [enrichedLeads]);
+
+  const visibleIds = filteredLeads.map(({ id }) => id);
+  const allVisibleSelected =
+    visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
+
+  function toggleAllVisible() {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+
+      if (allVisibleSelected) {
+        visibleIds.forEach((id) => next.delete(id));
+      } else {
+        visibleIds.forEach((id) => next.add(id));
+      }
+
+      return next;
+    });
+  }
+
+  function toggleLead(id) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function statusLabel(value) {
+    const labels = {
+      all: "All Leads",
+      new: "New",
+      qualified: "Qualified",
+      interested: "Interested",
+      meeting: "Meeting",
+      won: "Won",
+    };
+    return labels[value] || value;
+  }
+
+  function openEmail(lead) {
+    const email = isDisplayableEmail(lead?.email) ? String(lead.email).trim() : "";
+    if (!email) {
+      window.reachflyToast?.warning?.(
+        "Email unavailable",
+        "This lead does not have a verified public email address."
+      );
+      return;
+    }
+
+    window.location.href = `mailto:${email}`;
+  }
 
   return (
-    <div className="live-results-page">
-      <div className="live-results-topbar">
-        <button
-          type="button"
-          className="btn ghost live-results-back"
-          onClick={onBack}
-        >
-          <ArrowLeft /> Back to builder
-        </button>
+    <div className="rf7-leads-page">
+      <style>{BUILDER_V7_CSS}</style>
 
-        <div className="live-results-top-actions">
-          <button
-            type="button"
-            className="btn ghost"
-            disabled={!leads.length}
-            onClick={onDownload}
-          >
-            Download CSV
-          </button>
-
-          <button
-            type="button"
-            className="btn primary"
-            disabled={isLoading}
-            onClick={onRetry}
-          >
-            <Search /> Run again
-          </button>
-        </div>
-      </div>
-
-      <section className="live-results-hero">
+      <motion.section
+        className="rf7-leads-head"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.28 }}
+      >
         <div>
-          <span className="eyebrow">
-            Live Google Places results
-          </span>
-
-          <h1>
-            {isLoading
-              ? "Building your lead list"
-              : hasError
-                ? "Lead search interrupted"
-                : "Your lead list is ready"}
-          </h1>
-
-          <p>
-            <b>{form.niche}</b> in{" "}
-            <b>{form.location}</b>
-          </p>
+          <h1>Leads</h1>
+          <p>Manage and discover high-intent prospects.</p>
         </div>
 
-        <div
-          className={`live-status-pill ${
-            hasError
-              ? "error"
-              : isLoading
-                ? "loading"
-                : "complete"
-          }`}
-        >
-          <i />
-          {hasError
-            ? "Needs attention"
-            : isLoading
-              ? "Live search"
-              : "Complete"}
-        </div>
-      </section>
-
-      <section className="live-progress-card">
-        <div className="live-progress-main">
-          <div
-            className={`live-progress-icon ${
-              isLoading
-                ? "spinning"
-                : hasError
-                  ? "failed"
-                  : "finished"
-            }`}
-            aria-hidden="true"
-          >
-            {isLoading
-              ? ""
-              : hasError
-                ? "!"
-                : "✓"}
-          </div>
-
-          <div className="live-progress-copy">
-            <div className="live-progress-title-row">
-              <div>
-                <h2>
-                  {hasError
-                    ? "Search stopped"
-                    : result?.message ||
-                      "Searching Google Places…"}
-                </h2>
-
-                <p>
-                  Results appear below as each Google page is processed and each business website is checked.
-                </p>
-              </div>
-
-              <strong>
-                {isLoading
-                  ? `${percent}%`
-                  : `${delivered}/${requested}`}
-              </strong>
-            </div>
-
-            <div
-              className="live-progress-track"
-              role="progressbar"
-              aria-valuemin="0"
-              aria-valuemax="100"
-              aria-valuenow={percent}
+        <div className="rf7-leads-head-actions">
+          <div className="rf7-filter-wrap">
+            <button
+              type="button"
+              className={`rf7-leads-secondary ${filterOpen ? "active" : ""}`}
+              onClick={() => setFilterOpen((value) => !value)}
+              aria-expanded={filterOpen}
             >
-              <span
-                style={{
-                  width: `${
-                    hasError
-                      ? Math.max(
-                          percent,
-                          6
-                        )
-                      : percent
-                  }%`,
-                }}
-              />
-            </div>
-
-            <div className="live-progress-meta">
-              <span>
-                <b>{delivered}</b> leads loaded
+              <span className="rf7-filter-glyph" aria-hidden="true">
+                ≡
               </span>
-              <span>
-                Goal: <b>{requested}</b>
-              </span>
-              <span>
-                Source: <b>Google Places</b>
-              </span>
-            </div>
+              Filter
+            </button>
 
-            {hasError ? (
-              <div className="live-results-error">
-                {result?.error ||
-                  result?.message ||
-                  "The lead search could not be completed."}
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </section>
+            <AnimatePresence>
+              {filterOpen ? (
+                <motion.div
+                  className="rf7-filter-popover"
+                  initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                  transition={{ duration: 0.16 }}
+                >
+                  <div className="rf7-filter-popover-head">
+                    <div>
+                      <strong>Filter leads</strong>
+                      <span>Narrow the current result set.</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="rf7-filter-close"
+                      onClick={() => setFilterOpen(false)}
+                      aria-label="Close filters"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
 
-      <section className="live-results-stats">
-        <ResultStat
-          label="Leads found"
-          value={delivered}
-          detail={`${Math.max(
-            0,
-            requested - delivered
-          )} remaining`}
-        />
-        <ResultStat
-          label="With email"
-          value={emailCount}
-          detail="Public contact emails"
-        />
-        <ResultStat
-          label="With phone"
-          value={phoneCount}
-          detail="Direct business numbers"
-        />
-        <ResultStat
-          label="With website"
-          value={websiteCount}
-          detail="Official web presence"
-        />
-      </section>
+                  <label className="rf7-filter-check">
+                    <input
+                      type="checkbox"
+                      checked={onlyEmail}
+                      onChange={(event) => setOnlyEmail(event.target.checked)}
+                    />
+                    <span>Has email</span>
+                    <b>{emailCount}</b>
+                  </label>
 
-      {!isLoading &&
-    leads.length > 0 ? (
-      <section className="live-assignment-panel">
-        <div className="live-assignment-header">
-          <div>
-            <span className="eyebrow">
-              Assign to a caller
-            </span>
+                  <label className="rf7-filter-check">
+                    <input
+                      type="checkbox"
+                      checked={onlyPhone}
+                      onChange={(event) => setOnlyPhone(event.target.checked)}
+                    />
+                    <span>Has phone</span>
+                    <b>{phoneCount}</b>
+                  </label>
 
-            <h2>
-              Choose a caller and lead quantity
-            </h2>
+                  <label className="rf7-filter-check">
+                    <input
+                      type="checkbox"
+                      checked={onlyWebsite}
+                      onChange={(event) => setOnlyWebsite(event.target.checked)}
+                    />
+                    <span>Has website</span>
+                    <b>{websiteCount}</b>
+                  </label>
 
-            <p>
-              Select exactly how many generated leads should
-              be assigned to one calling resource.
-            </p>
-          </div>
+                  <label className="rf7-filter-quality">
+                    <span>
+                      Minimum quality
+                      <b>{minQuality || "Any"}</b>
+                    </span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="5"
+                      value={minQuality}
+                      onChange={(event) => setMinQuality(Number(event.target.value))}
+                    />
+                  </label>
 
-          <Users />
-        </div>
-
-        {assignmentError ? (
-          <div className="error-banner">
-            {assignmentError}
-          </div>
-        ) : null}
-
-        {assignmentMessage ? (
-          <div className="success-banner">
-            {assignmentMessage}
-          </div>
-        ) : null}
-
-        <div className="live-assignment-form">
-          <label className="field">
-            <span>
-              Caller resource
-            </span>
-
-            <select
-              value={
-                selectedCallerId
-              }
-              onChange={(
-                event
-              ) =>
-                onSelectCaller(
-                  event.target
-                    .value
-                )
-              }
-            >
-              <option value="">
-                Select caller
-              </option>
-
-              {callers.map(
-                (caller) => (
-                  <option
-                    key={
-                      caller.id
-                    }
-                    value={
-                      caller.id
-                    }
+                  <button
+                    type="button"
+                    className="rf7-filter-reset"
+                    onClick={() => {
+                      setOnlyEmail(false);
+                      setOnlyPhone(false);
+                      setOnlyWebsite(false);
+                      setMinQuality(0);
+                    }}
                   >
-                    {caller.name ||
-                      caller.fullName ||
-                      caller.email ||
-                      "Caller"}
-                    {caller.email
-                      ? ` — ${caller.email}`
-                      : ""}
-                  </option>
-                )
-              )}
-            </select>
-          </label>
-
-          <label className="field">
-            <span>
-              Number of leads
-            </span>
-
-            <input
-              type="number"
-              min="1"
-              max={
-                leads.length
-              }
-              value={
-                assignmentLeadCount
-              }
-              onChange={(
-                event
-              ) =>
-                onAssignmentLeadCountChange(
-                  Math.max(
-                    1,
-                    Math.min(
-                      leads.length,
-                      Number(
-                        event
-                          .target
-                          .value ||
-                          1
-                      )
-                    )
-                  )
-                )
-              }
-            />
-
-            <small>
-              Maximum available:{" "}
-              {leads.length}
-            </small>
-          </label>
-        </div>
-
-        {!callers.length ? (
-          <div className="safe-note-v54">
-            No active caller accounts were found.
+                    Reset filters
+                  </button>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
           </div>
-        ) : null}
 
-        <div className="live-assignment-summary">
-          <span>
-            <b>
-              {Math.min(
-                leads.length,
-                Number(
-                  assignmentLeadCount ||
-                    1
-                )
-              )}
-            </b>{" "}
-            leads will be assigned
-          </span>
-
-          <span>
-            {assignmentCampaignId
-              ? "Campaign saved"
-              : "A campaign will be created automatically"}
-          </span>
+          <button
+            type="button"
+            className="rf7-leads-primary"
+            onClick={onBack}
+          >
+            <Search size={18} />
+            Find Leads
+          </button>
         </div>
+      </motion.section>
 
-        <button
-          type="button"
-          className="btn primary"
-          disabled={
-            assignmentSaving ||
-            !callers.length ||
-            !selectedCallerId ||
-            !assignmentLeadCount
-          }
-          onClick={
-            onAssign
-          }
+      <motion.div
+        className="rf7-lead-tabs"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.24, delay: 0.04 }}
+      >
+        {["all", "new", "qualified", "interested", "meeting", "won"].map(
+          (item) => (
+            <button
+              key={item}
+              type="button"
+              className={statusFilter === item ? "active" : ""}
+              onClick={() => setStatusFilter(item)}
+            >
+              {statusLabel(item)}
+              {statusCounts[item] ? <span>{statusCounts[item]}</span> : null}
+            </button>
+          )
+        )}
+      </motion.div>
+
+      {isLoading || hasError ? (
+        <motion.section
+          className={`rf7-discovery-progress ${hasError ? "error" : ""}`}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
         >
-          <Users />
-
-          {assignmentSaving
-            ? "Assigning…"
-            : "Assign leads to caller"}
-        </button>
-      </section>
-    ) : null}
-
-    {!isLoading && leads.length > 0 ? (
-      <AiVoiceLaunchPanel
-        enabled={voiceEnabled}
-        ready={voiceReady}
-        number={voiceNumber}
-        phoneLeadCount={phoneCount}
-        value={voiceLaunchCount}
-        max={phoneCount}
-        onChange={onVoiceLaunchCount}
-        confirmed={voiceLaunchConfirmed}
-        onConfirmed={onVoiceLaunchConfirmed}
-        launching={voiceLaunching}
-        message={voiceLaunchMessage}
-        error={voiceLaunchError}
-        aiCallBalance={aiCallBalance}
-        creditsKnown={aiCallCreditsKnown}
-        onLaunch={onLaunchVoice}
-        onSetup={onOpenVoice}
-        onBilling={onOpenBilling}
-      />
-    ) : null}
-
-    <section className="live-results-content">
-        <div className="live-results-toolbar">
-          <div>
-            <span className="eyebrow">
-              Lead directory
-            </span>
-            <h2>
-              {filteredLeads.length}{" "}
-              {filteredLeads.length === 1
-                ? "business"
-                : "businesses"}
-            </h2>
+          <div className="rf7-discovery-progress-top">
+            <div className={`rf7-discovery-orb ${isLoading ? "running" : ""}`}>
+              {hasError ? "!" : <Search size={18} />}
+            </div>
+            <div>
+              <strong>
+                {hasError
+                  ? "Lead search interrupted"
+                  : result?.message || "Discovering businesses…"}
+              </strong>
+              <span>
+                {delivered.toLocaleString()} of {requested.toLocaleString()} leads loaded
+              </span>
+            </div>
+            <b>{isLoading ? `${percent}%` : "Needs attention"}</b>
           </div>
 
-          <label className="live-results-search">
-            <Search />
+          <div
+            className="rf7-discovery-track"
+            role="progressbar"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-valuenow={percent}
+          >
+            <motion.span
+              initial={{ width: 0 }}
+              animate={{ width: `${Math.max(hasError ? 5 : 0, percent)}%` }}
+              transition={{ duration: 0.35 }}
+            />
+          </div>
+
+          {hasError ? (
+            <div className="rf7-discovery-error">
+              <span>{result?.error || result?.message || "The search could not be completed."}</span>
+              <button type="button" onClick={onRetry}>
+                <RefreshCw size={14} />
+                Retry
+              </button>
+            </div>
+          ) : null}
+        </motion.section>
+      ) : null}
+
+      <motion.section
+        className="rf7-leads-table-card"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.28, delay: 0.08 }}
+      >
+        <div className="rf7-leads-toolbar">
+          <label className="rf7-leads-search">
+            <Search size={17} />
             <input
               type="search"
               value={search}
-              onChange={(event) =>
-                onSearch(
-                  event.target.value
-                )
-              }
-              placeholder="Search business, city, email…"
+              onChange={(event) => onSearch(event.target.value)}
+              placeholder="Search leads..."
             />
           </label>
+
+          <div className="rf7-leads-toolbar-meta">
+            {selectedIds.size ? (
+              <span className="rf7-selected-pill">
+                {selectedIds.size} selected
+              </span>
+            ) : null}
+
+            <button
+              type="button"
+              className="rf7-table-action"
+              disabled={!leads.length}
+              onClick={onDownload}
+            >
+              Download CSV
+            </button>
+
+            <button
+              type="button"
+              className="rf7-table-action icon"
+              disabled={isLoading}
+              onClick={onRetry}
+              title="Run this search again"
+              aria-label="Run this search again"
+            >
+              <RefreshCw size={16} className={isLoading ? "spin" : ""} />
+            </button>
+          </div>
         </div>
 
-        {filteredLeads.length ? (
-          <div className="live-lead-grid">
-            {filteredLeads.map(
-              (lead, index) => (
-                <LiveLeadCard
-                  key={
-                    leadIdentity(lead) ||
-                    index
-                  }
-                  lead={lead}
-                  index={
-                    leads.indexOf(lead) + 1
-                  }
-                  onOpenAudit={
-                    onOpenAudit
-                  }
-                  onCall={onCall}
-                />
-              )
-            )}
-          </div>
-        ) : isLoading ? (
-          <LeadCardSkeletons />
-        ) : (
-          <div className="live-results-empty">
-            <Search />
-            <h3>No matching leads</h3>
-            <p>
-              Clear the search field or run the Google Places search again.
-            </p>
-          </div>
-        )}
+        <div className="rf7-leads-table-scroll">
+          <table className="rf7-leads-table">
+            <thead>
+              <tr>
+                <th className="check">
+                  <input
+                    type="checkbox"
+                    checked={allVisibleSelected}
+                    onChange={toggleAllVisible}
+                    aria-label="Select visible leads"
+                  />
+                </th>
+                <th>Company</th>
+                <th>Location</th>
+                <th>Contact</th>
+                <th>Quality</th>
+                <th>Status</th>
+                <th aria-label="Actions" />
+              </tr>
+            </thead>
 
-        {isLoading && leads.length ? (
-          <div className="live-results-loading-more">
-            <span />
-            Loading and verifying more businesses…
+            <tbody>
+              <AnimatePresence initial={false}>
+                {filteredLeads.map(({ lead, index, quality, status, id }) => (
+                  <LiveLeadTableRow
+                    key={id}
+                    lead={lead}
+                    index={index + 1}
+                    quality={quality}
+                    status={status}
+                    selected={selectedIds.has(id)}
+                    onSelected={() => toggleLead(id)}
+                    onOpen={() => setDrawerLead(lead)}
+                    onOpenAudit={onOpenAudit}
+                    onCall={onCall}
+                  />
+                ))}
+              </AnimatePresence>
+            </tbody>
+          </table>
+        </div>
+
+        {!filteredLeads.length && !isLoading ? (
+          <div className="rf7-leads-empty">
+            <div className="rf7-leads-empty-icon">
+              <Search size={22} />
+            </div>
+            <h3>{leads.length ? "No leads match these filters" : "Build your first prospect list"}</h3>
+            <p>
+              {leads.length
+                ? "Adjust the search or filter controls to see more leads."
+                : "Search a market and ReachFly will build a live business prospect list."}
+            </p>
+            <button type="button" className="rf7-leads-primary" onClick={onBack}>
+              <Search size={17} />
+              Find Leads
+            </button>
           </div>
         ) : null}
-      </section>
 
-      <p className="builder-promise live-results-promise">
-        <Check /> Google Places lead discovery · Results update live · Official business websites
-      </p>
+        {isLoading && !filteredLeads.length ? <LeadTableSkeletons /> : null}
+
+        <div className="rf7-leads-table-footer">
+          <span>
+            Showing {filteredLeads.length ? 1 : 0}-
+            {filteredLeads.length.toLocaleString()} of {leads.length.toLocaleString()} leads
+          </span>
+
+          <div className="rf7-lead-foot-meta">
+            <span>{emailCount} emails</span>
+            <span>{phoneCount} phones</span>
+            <span>{websiteCount} websites</span>
+          </div>
+        </div>
+      </motion.section>
+
+      {!isLoading && leads.length > 0 ? (
+        <motion.section
+          className="rf7-lead-ops-grid"
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.12 }}
+        >
+          <section className="live-assignment-panel rf7-operational-card">
+            <div className="live-assignment-header">
+              <div>
+                <span className="eyebrow">Assign to a caller</span>
+                <h2>Move leads into human calling.</h2>
+                <p>
+                  Pick a caller and the exact number of generated leads to assign.
+                </p>
+              </div>
+              <Users />
+            </div>
+
+            {assignmentError ? (
+              <div className="error-banner rf7-inline-alert error">
+                {assignmentError}
+              </div>
+            ) : null}
+
+            {assignmentMessage ? (
+              <div className="success-banner rf7-inline-alert success">
+                {assignmentMessage}
+              </div>
+            ) : null}
+
+            <div className="live-assignment-form">
+              <label className="field">
+                <span>Caller resource</span>
+                <select
+                  value={selectedCallerId}
+                  onChange={(event) => onSelectCaller(event.target.value)}
+                >
+                  <option value="">Select caller</option>
+                  {callers.map((caller) => (
+                    <option key={caller.id} value={caller.id}>
+                      {caller.name || caller.fullName || caller.email || "Caller"}
+                      {caller.email ? ` — ${caller.email}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="field">
+                <span>Number of leads</span>
+                <input
+                  type="number"
+                  min="1"
+                  max={leads.length}
+                  value={assignmentLeadCount}
+                  onChange={(event) =>
+                    onAssignmentLeadCountChange(
+                      Math.max(
+                        1,
+                        Math.min(leads.length, Number(event.target.value || 1))
+                      )
+                    )
+                  }
+                />
+                <small>Maximum available: {leads.length}</small>
+              </label>
+            </div>
+
+            {!callers.length ? (
+              <div className="safe-note-v54">
+                No active caller accounts were found.
+              </div>
+            ) : null}
+
+            <div className="live-assignment-summary">
+              <span>
+                <b>
+                  {Math.min(
+                    leads.length,
+                    Number(assignmentLeadCount || 1)
+                  )}
+                </b>{" "}
+                leads will be assigned
+              </span>
+              <span>
+                {assignmentCampaignId
+                  ? "Campaign saved"
+                  : "A campaign will be created automatically"}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              className="btn primary"
+              disabled={
+                assignmentSaving ||
+                !callers.length ||
+                !selectedCallerId ||
+                !assignmentLeadCount
+              }
+              onClick={onAssign}
+            >
+              <Users />
+              {assignmentSaving ? "Assigning…" : "Assign leads to caller"}
+            </button>
+          </section>
+
+          <AiVoiceLaunchPanel
+            enabled={voiceEnabled}
+            ready={voiceReady}
+            number={voiceNumber}
+            phoneLeadCount={phoneCount}
+            value={voiceLaunchCount}
+            max={phoneCount}
+            onChange={onVoiceLaunchCount}
+            confirmed={voiceLaunchConfirmed}
+            onConfirmed={onVoiceLaunchConfirmed}
+            launching={voiceLaunching}
+            message={voiceLaunchMessage}
+            error={voiceLaunchError}
+            aiCallBalance={aiCallBalance}
+            creditsKnown={aiCallCreditsKnown}
+            onLaunch={onLaunchVoice}
+            onSetup={onOpenVoice}
+            onBilling={onOpenBilling}
+          />
+        </motion.section>
+      ) : null}
+
+      <AnimatePresence>
+        {drawerLead ? (
+          <LeadQuickDrawer
+            lead={drawerLead}
+            onClose={() => setDrawerLead(null)}
+            onAudit={() => {
+              setDrawerLead(null);
+              onOpenAudit?.(drawerLead);
+            }}
+            onCall={() => {
+              setDrawerLead(null);
+              onCall?.(drawerLead);
+            }}
+            onEmail={() => openEmail(drawerLead)}
+          />
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }
@@ -3509,23 +5146,32 @@ function ResultStat({
   );
 }
 
-function LiveLeadCard({
+function LiveLeadTableRow({
   lead,
   index,
+  quality,
+  status,
+  selected,
+  onSelected,
+  onOpen,
   onOpenAudit,
   onCall,
 }) {
-  const business =
-    lead.business ||
-    lead.name ||
-    `Lead ${index}`;
-  const hostname =
-    lead.domain ||
-    safeHostname(lead.website);
-  const email =
-    isDisplayableEmail(lead.email)
-      ? lead.email
-      : "";
+  const business = lead.business || lead.name || `Lead ${index}`;
+  const hostname = lead.domain || safeHostname(lead.website);
+  const email = isDisplayableEmail(lead.email) ? lead.email : "";
+  const contactName =
+    lead.contactName ||
+    lead.contact ||
+    lead.ownerName ||
+    lead.personName ||
+    "";
+  const location =
+    lead.location ||
+    lead.city ||
+    lead.address ||
+    [lead.city, lead.state].filter(Boolean).join(", ") ||
+    "—";
   const initials = business
     .split(/\s+/)
     .filter(Boolean)
@@ -3534,175 +5180,331 @@ function LiveLeadCard({
     .join("")
     .toUpperCase();
 
-  const openAudit = () => {
-    if (lead.website) {
-      onOpenAudit?.(lead);
-    }
-  };
+  const normalizedStatus = String(status || "new").toLowerCase();
+  const statusText =
+    normalizedStatus === "qualified"
+      ? "Qualified"
+      : normalizedStatus === "interested"
+        ? "Interested"
+        : normalizedStatus === "meeting"
+          ? "Meeting"
+          : normalizedStatus === "won"
+            ? "Won"
+            : normalizedStatus === "unqualified"
+              ? "Unqualified"
+              : "New";
 
   return (
-    <article
-      className={`live-lead-card ${
-        lead.website
-          ? "audit-ready"
-          : ""
-      }`}
-      onClick={openAudit}
-      onKeyDown={(event) => {
-        if (
-          lead.website &&
-          ["Enter", " "].includes(
-            event.key
-          )
-        ) {
-          event.preventDefault();
-          openAudit();
-        }
-      }}
-      role={
-        lead.website
-          ? "button"
-          : undefined
-      }
-      tabIndex={
-        lead.website ? 0 : -1
-      }
+    <motion.tr
+      layout
+      initial={{ opacity: 0, y: 5 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -5 }}
+      transition={{ duration: 0.18 }}
+      className={selected ? "selected" : ""}
+      onClick={onOpen}
     >
-      <div className="live-lead-card-head">
-        <div className="live-lead-avatar">
-          {initials || "RF"}
-        </div>
+      <td className="check" onClick={(event) => event.stopPropagation()}>
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onSelected}
+          aria-label={`Select ${business}`}
+        />
+      </td>
 
-        <span className="live-lead-number">
-          #{index}
-        </span>
-      </div>
-
-      <div className="live-lead-card-title">
-        <h3>{business}</h3>
-        {lead.category ? (
-          <span>{lead.category}</span>
-        ) : null}
-      </div>
-
-      <div className="live-lead-details">
-        {lead.address ? (
-          <div>
-            <MapPin />
-            <span>{lead.address}</span>
-          </div>
-        ) : null}
-
-        {email ? (
-          <div>
-            <Mail />
-            <a
-              href={`mailto:${email}`}
-              onClick={(event) =>
-                event.stopPropagation()
-              }
-            >
-              {email}
-            </a>
-          </div>
-        ) : null}
-
-        {lead.phone ? (
-          <div>
-            <span className="live-lead-detail-symbol">
-              ☎
-            </span>
-            <a
-              href={`tel:${String(
-                lead.phone
-              ).replace(/[^+\d]/g, "")}`}
-              onClick={(event) =>
-                event.stopPropagation()
-              }
-            >
-              {lead.phone}
-            </a>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="live-lead-card-footer">
-        {lead.website ? (
-          <a
-            className="live-lead-website"
-            href={lead.website}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(event) =>
-              event.stopPropagation()
-            }
+      <td>
+        <div className="rf7-company-cell">
+          <div
+            className={`rf7-company-avatar tone-${index % 4}`}
+            aria-hidden="true"
           >
-            <Building2 />
-            <span>
-              {hostname ||
-                "Visit website"}
-            </span>
-            <ArrowRight />
-          </a>
-        ) : (
-          <span className="live-lead-no-website">
-            Website unavailable
-          </span>
-        )}
+            {initials || "RF"}
+          </div>
+          <div className="rf7-company-copy">
+            <strong>{business}</strong>
+            {lead.website ? (
+              <a
+                href={lead.website}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <Building2 size={13} />
+                {hostname || "Visit website"}
+              </a>
+            ) : (
+              <span>
+                <Building2 size={13} />
+                No Website
+              </span>
+            )}
+          </div>
+        </div>
+      </td>
 
-        <span
-          className={`live-lead-quality ${
-            lead.dataQuality ||
-            "usable"
-          }`}
-        >
-          {lead.qualityScore ||
-            lead.confidence ||
-            "—"}
+      <td>
+        <span className="rf7-table-muted">{location}</span>
+      </td>
+
+      <td>
+        <div className="rf7-contact-cell">
+          <span>{contactName || (email ? "Public contact" : "Unknown")}</span>
+          <small>{email || lead.phone || "No public contact"}</small>
+        </div>
+      </td>
+
+      <td>
+        <div className="rf7-quality-cell">
+          <div className="rf7-quality-track">
+            <motion.span
+              initial={{ width: 0 }}
+              animate={{ width: `${quality}%` }}
+              transition={{ duration: 0.45, delay: 0.04 }}
+              className={quality >= 70 ? "good" : quality >= 45 ? "medium" : "low"}
+            />
+          </div>
+          <b>{quality || "—"}</b>
+        </div>
+      </td>
+
+      <td>
+        <span className={`rf7-status-pill ${normalizedStatus}`}>
+          {statusText}
         </span>
-      </div>
+      </td>
 
-      {lead.assignedToName ||
-    lead.assigneeName ? (
-      <div className="live-lead-assigned">
-        <Users />
-        Assigned to{" "}
-        <b>
-          {lead.assignedToName ||
-            lead.assigneeName}
-        </b>
-      </div>
-    ) : null}
-
-    <div className="lead-action-row">
+      <td className="rf7-row-actions" onClick={(event) => event.stopPropagation()}>
         <button
           type="button"
-          className="lead-call-button"
           disabled={!lead.phone}
-          onClick={(event) => {
-            event.stopPropagation();
-            onCall?.(lead);
-          }}
+          onClick={() => onCall?.(lead)}
+          title="Call lead"
+          aria-label={`Call ${business}`}
         >
-          <span>☎</span>
-          Call lead
+          <Phone size={15} />
         </button>
+        <button
+          type="button"
+          disabled={!lead.website}
+          onClick={() => onOpenAudit?.(lead)}
+          title="Run AI Audit"
+          aria-label={`Run AI Audit for ${business}`}
+        >
+          <Sparkles size={15} />
+        </button>
+        <button
+          type="button"
+          onClick={onOpen}
+          title="Open lead details"
+          aria-label={`Open ${business}`}
+        >
+          <ChevronRight size={16} />
+        </button>
+      </td>
+    </motion.tr>
+  );
+}
 
-      <button
+function LeadQuickDrawer({
+  lead,
+  onClose,
+  onAudit,
+  onCall,
+  onEmail,
+}) {
+  const business = lead?.business || lead?.name || "Lead";
+  const hostname = lead?.domain || safeHostname(lead?.website);
+  const email = isDisplayableEmail(lead?.email) ? lead.email : "";
+  const initials = business
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+  const quality = Math.max(
+    0,
+    Math.min(
+      100,
+      Number(
+        lead?.qualityScore ??
+          lead?.confidence ??
+          lead?.score ??
+          0
+      ) || 0
+    )
+  );
+
+  return (
+    <>
+      <motion.button
         type="button"
-        className="mini-audit-button"
-        disabled={!lead.website}
-        onClick={(event) => {
-          event.stopPropagation();
-          openAudit();
-        }}
+        className="rf7-drawer-backdrop"
+        aria-label="Close lead details"
+        onClick={onClose}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+      />
+
+      <motion.aside
+        className="rf7-lead-drawer"
+        initial={{ x: "105%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "105%" }}
+        transition={{ type: "spring", stiffness: 360, damping: 34 }}
       >
-        <span>✦</span>
-        View mini audit
-        <ArrowRight />
-      </button>
-      </div>
-    </article>
+        <div className="rf7-lead-drawer-head">
+          <button
+            type="button"
+            className="rf7-drawer-close"
+            onClick={onClose}
+            aria-label="Close lead details"
+          >
+            <X size={18} />
+          </button>
+
+          <div className="rf7-drawer-identity">
+            <div className="rf7-drawer-avatar">{initials || "RF"}</div>
+            <div>
+              <div className="rf7-drawer-badges">
+                <span>New Lead</span>
+                {quality >= 80 ? <b>Hot</b> : null}
+              </div>
+              <h2>{business}</h2>
+              {lead.website ? (
+                <a href={lead.website} target="_blank" rel="noopener noreferrer">
+                  {hostname || "Visit website"}
+                  <ArrowRight size={14} />
+                </a>
+              ) : (
+                <p>No website available</p>
+              )}
+            </div>
+          </div>
+
+          <div className="rf7-drawer-actions">
+            <button
+              type="button"
+              className="primary"
+              disabled={!lead.website}
+              onClick={onAudit}
+            >
+              <Sparkles size={16} />
+              Run Audit
+            </button>
+            <button type="button" disabled={!email} onClick={onEmail}>
+              <Mail size={16} />
+              Email
+            </button>
+            <button type="button" disabled={!lead.phone} onClick={onCall}>
+              <Phone size={16} />
+              Call
+            </button>
+          </div>
+        </div>
+
+        <div className="rf7-drawer-tabs">
+          <button type="button" className="active">Overview</button>
+          <button type="button" onClick={onAudit} disabled={!lead.website}>Audit</button>
+        </div>
+
+        <div className="rf7-drawer-body">
+          <section>
+            <h3>Company Details</h3>
+            <div className="rf7-drawer-detail-card">
+              <div>
+                <MapPin size={18} />
+                <span>
+                  <small>Address</small>
+                  <b>{lead.address || lead.location || "Not available"}</b>
+                </span>
+              </div>
+              <div>
+                <Target size={18} />
+                <span>
+                  <small>Industry</small>
+                  <b>{lead.category || lead.niche || "Not classified"}</b>
+                </span>
+              </div>
+              <div>
+                <Phone size={18} />
+                <span>
+                  <small>Phone</small>
+                  <b>{lead.phone || "Not available"}</b>
+                </span>
+              </div>
+              <div>
+                <Mail size={18} />
+                <span>
+                  <small>Email</small>
+                  <b>{email || "Not available"}</b>
+                </span>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <h3>AI Lead Scoring</h3>
+            <div className="rf7-drawer-ai-card">
+              <div className="rf7-drawer-score">
+                {quality || "—"}
+              </div>
+              <div>
+                <strong>
+                  {quality >= 80
+                    ? "High Intent Match"
+                    : quality >= 60
+                      ? "Promising Match"
+                      : quality
+                        ? "Needs Qualification"
+                        : "Awaiting Score"}
+                </strong>
+                <p>
+                  Quality is calculated from the currently available business and contact data.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <h3>Next action</h3>
+            <div className="rf7-drawer-next">
+              <Sparkles size={18} />
+              <div>
+                <strong>
+                  {lead.website
+                    ? "Run an AI Audit before outreach"
+                    : lead.phone
+                      ? "Qualify the lead by phone"
+                      : "Review contact information"}
+                </strong>
+                <p>
+                  Keep the lead context attached as you move into outreach.
+                </p>
+              </div>
+            </div>
+          </section>
+        </div>
+      </motion.aside>
+    </>
+  );
+}
+
+function LeadTableSkeletons() {
+  return (
+    <div className="rf7-table-skeletons" aria-label="Loading lead results">
+      {Array.from({ length: 5 }).map((_, index) => (
+        <div key={index} className="rf7-table-skeleton-row">
+          <span />
+          <span />
+          <span />
+          <span />
+          <span />
+        </div>
+      ))}
+    </div>
   );
 }
 

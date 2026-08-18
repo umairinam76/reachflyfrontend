@@ -1,7 +1,11 @@
+import { useEffect } from "react";
+
 import {
   Navigate,
   Route,
   Routes,
+  useLocation,
+  useNavigate,
 } from "react-router-dom";
 
 import {
@@ -38,6 +42,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/SignUp";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import AcceptInvite from "./pages/AcceptInvite";
 import LegalPage from "./pages/LegalPage";
 
 /*
@@ -51,8 +56,10 @@ import PipelineBuilder from "./pages/PipelineBuilder";
 import EmailSetup from "./pages/EmailSetup";
 import WhatsAppSetup from "./pages/WhatsAppSetup";
 import ReachFlyAI from "./pages/ReachFlyAI";
+import WebsiteAudits from "./pages/WebsiteAudits";
 import Analytics from "./pages/Analytics";
 import Contacts from "./pages/Contacts";
+import Companies from "./pages/Companies";
 import Inbox from "./pages/Inbox";
 import InboxDetail from "./pages/InboxDetails";
 import Territories from "./pages/Territories";
@@ -164,6 +171,21 @@ function AppRoutes() {
         <Route path="/contact" element={<LegalPage kind="contact" />} />
 
         {/*
+         * Workspace invitation acceptance must stay public even when the normal
+         * login/signup pages are guarded by PublicOnlyRoute. Invitation links
+         * arrive by email before the invited user has a ReachFly session.
+         */}
+        <Route
+          path="/accept-invite"
+          element={<AcceptInvite />}
+        />
+
+        <Route
+          path="/invite/accept"
+          element={<PreserveSearchRedirect to="/accept-invite" />}
+        />
+
+        {/*
          * Authentication pages
          */}
         <Route element={<PublicOnlyRoute />}>
@@ -214,6 +236,103 @@ function AppRoutes() {
             <Route
               path="dashboard"
               element={<DashboardRoute />}
+            />
+
+            {/*
+             * Canonical V7 product routes.
+             *
+             * These aliases let the new Stitch navigation use clean product
+             * language while the underlying production pages are migrated one
+             * by one. Existing URLs remain active below, so bookmarks, emails,
+             * backend redirects and deep links continue to work.
+             */}
+            <Route
+              path="leads"
+              element={<LeadsRoute />}
+            />
+
+            <Route
+              path="lead-discovery"
+              element={<LeadsRoute />}
+            />
+
+            <Route
+              path="audits"
+              element={
+                <ManagerOnlyRoute>
+                  <WebsiteAudits />
+                </ManagerOnlyRoute>
+              }
+            />
+
+            <Route
+              path="website-audits"
+              element={
+                <ManagerOnlyRoute>
+                  <PreserveSearchRedirect to="/app/audits" />
+                </ManagerOnlyRoute>
+              }
+            />
+
+            <Route
+              path="ai-audits"
+              element={
+                <ManagerOnlyRoute>
+                  <PreserveSearchRedirect to="/app/audits" />
+                </ManagerOnlyRoute>
+              }
+            />
+
+            <Route
+              path="campaigns"
+              element={
+                <ManagerOnlyRoute>
+                  <CampaignList />
+                </ManagerOnlyRoute>
+              }
+            />
+
+            <Route
+              path="voice-agents"
+              element={<VoiceAgentsRoute />}
+            />
+
+            <Route
+              path="phone-numbers"
+              element={
+                <VoiceAgentRoute>
+                  <Navigate
+                    to="/app/voice-agent?tab=setup&view=my-numbers"
+                    replace
+                  />
+                </VoiceAgentRoute>
+              }
+            />
+
+            <Route
+              path="meetings"
+              element={
+                <VoiceAgentRoute>
+                  <Navigate
+                    to="/app/voice-agent?tab=meetings&view=upcoming"
+                    replace
+                  />
+                </VoiceAgentRoute>
+              }
+            />
+
+            <Route
+              path="dialer"
+              element={<DialerRoute />}
+            />
+
+            <Route
+              path="integrations"
+              element={
+                <WorkspaceManagementRoute>
+                  <ConnectionsPage />
+                </WorkspaceManagementRoute>
+              }
             />
 
             {/*
@@ -365,12 +484,7 @@ function AppRoutes() {
 
             <Route
               path="calls"
-              element={
-                <Navigate
-                  to="/app/role-operations?tab=calls"
-                  replace
-                />
-              }
+              element={<CallsRoute />}
             />
 
             {/*
@@ -472,6 +586,19 @@ function AppRoutes() {
               }
             />
 
+
+            <Route
+              path="team/performance"
+              element={
+                <WorkspaceManagementRoute>
+                  <Navigate
+                    to="/app/analytics"
+                    replace
+                  />
+                </WorkspaceManagementRoute>
+              }
+            />
+
             {/*
              * Team communication
              */}
@@ -497,6 +624,16 @@ function AppRoutes() {
 
             <Route
               path="tasks"
+              element={
+                <Navigate
+                  to="/app/role-operations?tab=assignments"
+                  replace
+                />
+              }
+            />
+
+            <Route
+              path="assignments"
               element={
                 <Navigate
                   to="/app/role-operations?tab=assignments"
@@ -569,6 +706,38 @@ function AppRoutes() {
               element={
                 <ManagerOnlyRoute>
                   <Contacts />
+                </ManagerOnlyRoute>
+              }
+            />
+
+            <Route
+              path="companies"
+              element={
+                <ManagerOnlyRoute>
+                  <Companies />
+                </ManagerOnlyRoute>
+              }
+            />
+
+            {/*
+             * Compatibility aliases for older account/company links. These do
+             * not create a second source of truth; they preserve any existing
+             * deep links while the CRM navigation moves to /app/companies.
+             */}
+            <Route
+              path="accounts"
+              element={
+                <ManagerOnlyRoute>
+                  <PreserveSearchRedirect to="/app/companies" />
+                </ManagerOnlyRoute>
+              }
+            />
+
+            <Route
+              path="company"
+              element={
+                <ManagerOnlyRoute>
+                  <PreserveSearchRedirect to="/app/companies" />
                 </ManagerOnlyRoute>
               }
             />
@@ -671,11 +840,7 @@ function DashboardRoute() {
   } = useAuth();
 
   if (initializing) {
-    return (
-      <div className="route-loading-state">
-        Loading dashboard…
-      </div>
-    );
+    return <RouteLoadingState label="Loading dashboard" />;
   }
 
   const role = normalizeRole(
@@ -691,6 +856,152 @@ function DashboardRoute() {
   return role === "caller"
     ? <CallerDashboard />
     : <DashboardV6 />;
+}
+
+/**
+ * Canonical Leads destination. Managers/owners/admins use the prospect builder;
+ * callers stay inside their assigned-lead workspace.
+ */
+function LeadsRoute() {
+  const { user, initializing } = useAuth();
+
+  if (initializing) {
+    return <RouteLoadingState label="Loading leads" />;
+  }
+
+  const role = normalizeRole(user?.workspaceRole || user?.role || "caller");
+
+  if (role === "caller") {
+    return <MyLeadsPage />;
+  }
+
+  if (["owner", "admin", "manager"].includes(role)) {
+    return <Builder />;
+  }
+
+  return (
+    <AccessRedirect
+      to="/app/dashboard"
+      title="Lead access restricted"
+      message="Your workspace role does not have access to lead discovery."
+    />
+  );
+}
+
+/**
+ * Canonical Voice Agents destination. Individual accounts go directly into
+ * their Voice Agent workspace; company managers retain the existing workforce
+ * page while that page is visually migrated to the Stitch design.
+ */
+function VoiceAgentsRoute() {
+  const { user, initializing } = useAuth();
+
+  if (initializing) {
+    return <RouteLoadingState label="Loading Voice Agents" />;
+  }
+
+  const role = normalizeRole(user?.workspaceRole || user?.role || "caller");
+  const accountType = String(user?.accountType || user?.workspaceType || "")
+    .trim()
+    .toLowerCase();
+
+  if (accountType === "individual") {
+    return <Navigate to="/app/voice-agent" replace />;
+  }
+
+  if (["owner", "admin", "manager"].includes(role)) {
+    return <AIWorkforcePage />;
+  }
+
+  return (
+    <AccessRedirect
+      to="/app/dashboard"
+      title="Voice Agent access unavailable"
+      message="Your current workspace role does not have access to Voice Agents."
+    />
+  );
+}
+
+/**
+ * Calls keeps the existing human-caller workflow for caller accounts and sends
+ * Voice Agent-enabled workspaces to the AI call history.
+ */
+function CallsRoute() {
+  const { user, initializing } = useAuth();
+
+  if (initializing) {
+    return <RouteLoadingState label="Loading calls" />;
+  }
+
+  const role = normalizeRole(user?.workspaceRole || user?.role || "caller");
+  const accountType = String(user?.accountType || user?.workspaceType || "")
+    .trim()
+    .toLowerCase();
+
+  if (role === "caller") {
+    return (
+      <Navigate
+        to="/app/role-operations?tab=calls"
+        replace
+      />
+    );
+  }
+
+  if (["owner", "admin", "manager"].includes(role) || accountType === "individual") {
+    return (
+      <Navigate
+        to="/app/voice-agent?tab=calls&view=call-history"
+        replace
+      />
+    );
+  }
+
+  return (
+    <AccessRedirect
+      to="/app/dashboard"
+      title="Call access restricted"
+      message="Your workspace role does not have access to call history."
+    />
+  );
+}
+
+/**
+ * Canonical dialer route. Human callers keep their dedicated call workspace;
+ * managers and individual Voice Agent accounts use the existing Voice Agent
+ * manual-dialer view.
+ */
+function DialerRoute() {
+  const { user, initializing } = useAuth();
+
+  if (initializing) {
+    return <RouteLoadingState label="Loading dialer" />;
+  }
+
+  const role = normalizeRole(user?.workspaceRole || user?.role || "caller");
+  const accountType = String(user?.accountType || user?.workspaceType || "")
+    .trim()
+    .toLowerCase();
+
+  if (role === "caller") {
+    return <CallWorkspacePage />;
+  }
+
+  if (["owner", "admin", "manager"].includes(role) || accountType === "individual") {
+    return (
+      <Navigate
+        to="/app/voice-agent?tab=leads&view=dialer"
+        replace
+      />
+    );
+  }
+
+  return (
+    <AccessRedirect
+      to="/app/dashboard"
+      title="Dialer access restricted"
+      message="Your workspace role does not have access to the dialer."
+    />
+  );
 }
 
 function isCodesyncDashboardUser(user) {
@@ -740,7 +1051,7 @@ function isCodesyncDashboardUser(user) {
  * - lead assignment pages
  * - pipelines
  * - territories
- * - campaign contacts
+ * - campaign contacts and companies
  */
 function ManagerOnlyRoute({
   children,
@@ -817,11 +1128,7 @@ function VoiceAgentRoute({
   const { user, initializing } = useAuth();
 
   if (initializing) {
-    return (
-      <div className="route-loading-state">
-        Loading voice agent…
-      </div>
-    );
+    return <RouteLoadingState label="Loading Voice Agent" />;
   }
 
   const role = normalizeRole(
@@ -846,9 +1153,10 @@ function VoiceAgentRoute({
 
   if (!allowedRole && !individual) {
     return (
-      <Navigate
+      <AccessRedirect
         to="/app/dashboard"
-        replace
+        title="Voice Agent access unavailable"
+        message="Your current workspace role does not have access to this area."
       />
     );
   }
@@ -860,11 +1168,7 @@ function CodesyncAdminRoute({ children }) {
   const { user, initializing } = useAuth();
 
   if (initializing) {
-    return (
-      <div className="route-loading-state">
-        Loading platform admin…
-      </div>
-    );
+    return <RouteLoadingState label="Loading platform admin" />;
   }
 
   const email = String(user?.email || "")
@@ -872,7 +1176,13 @@ function CodesyncAdminRoute({ children }) {
     .toLowerCase();
 
   if (email !== "owner@codesynclabs.com") {
-    return <Navigate to="/app/dashboard" replace />;
+    return (
+      <AccessRedirect
+        to="/app/dashboard"
+        title="Platform admin access restricted"
+        message="This area is available only to the ReachFly platform owner."
+      />
+    );
   }
 
   return children;
@@ -913,11 +1223,7 @@ function RoleAccess({
   } = useAuth();
 
   if (initializing) {
-    return (
-      <div className="route-loading-state">
-        Loading workspace…
-      </div>
-    );
+    return <RouteLoadingState label="Loading workspace" />;
   }
 
   const role = normalizeRole(
@@ -936,9 +1242,10 @@ function RoleAccess({
       );
 
     return (
-      <Navigate
+      <AccessRedirect
         to={redirectPath}
-        replace
+        title="Access restricted"
+        message="Your workspace role does not have permission to open that page."
       />
     );
   }
@@ -976,6 +1283,68 @@ function getDefaultDashboardPath(
   }
 
   return "dashboard";
+}
+
+/**
+ * Keeps invitation tokens and any other query parameters intact when routing
+ * legacy public links into their canonical destination.
+ */
+function PreserveSearchRedirect({ to }) {
+  const location = useLocation();
+  return <Navigate to={`${to}${location.search || ""}`} replace />;
+}
+
+/**
+ * Animated shell-friendly loading state. It uses the V7 design primitives
+ * already appended to styles.css, so old pages stay untouched.
+ */
+function RouteLoadingState({ label = "Loading workspace" }) {
+  return (
+    <div
+      className="rf7-page-content"
+      role="status"
+      aria-live="polite"
+      aria-label={label}
+    >
+      <div
+        className="rf7-card pad"
+        style={{
+          display: "grid",
+          gap: 14,
+          maxWidth: 760,
+          marginTop: 24,
+          animation: "rf7-modal-in 180ms var(--rf7-ease, ease)",
+        }}
+      >
+        <div className="rf7-skeleton" style={{ width: 120, height: 12 }} />
+        <div className="rf7-skeleton" style={{ width: "58%", height: 28 }} />
+        <div className="rf7-skeleton" style={{ width: "82%", height: 13 }} />
+        <div className="rf7-skeleton" style={{ width: "70%", height: 13 }} />
+        <span className="rf7-muted" style={{ fontSize: 13 }}>
+          {label}…
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Redirects an unauthorized route and uses the AppShell toast bridge to give
+ * the user a clear animated explanation instead of silently jumping pages.
+ */
+function AccessRedirect({
+  to,
+  title = "Access restricted",
+  message = "You do not have permission to open that page.",
+}) {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    window.reachflyToast?.warning?.(title, message, { duration: 4200 });
+    navigate(to, { replace: true });
+  }, [navigate, to, title, message]);
+
+  return <RouteLoadingState label="Redirecting" />;
 }
 
 function normalizeRole(value) {
