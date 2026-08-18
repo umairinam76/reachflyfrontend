@@ -3238,7 +3238,7 @@ td a {
    ReachFly Auth Pages — polished 2-step version
    Fully scoped. Does not affect Builder, Sidebar, or App pages.
    ========================================================== */
-
+/*
 .rf-auth-page {
   min-height: 100vh;
   padding: 28px;
@@ -72280,4 +72280,4 @@ label {
   font-size: 12px !important;
   font-weight: 950 !important;
   letter-spacing: -.03em !important;
-} */
+ }   */
