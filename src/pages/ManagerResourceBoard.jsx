@@ -565,12 +565,21 @@ export default function ManagerResourceBoard() {
         (item) => item.id === resourceId
       );
 
-      setSuccess(
+      const successMessage =
         resourceId
           ? `Lead assigned to ${
               resource?.name || "the selected caller"
             }.`
-          : "Lead moved to the unassigned pool."
+          : "Lead moved to the unassigned pool.";
+
+      setSuccess(
+        successMessage
+      );
+
+      notifyResourceBoard(
+        "success",
+        "Lead assignment updated",
+        successMessage
       );
 
       void loadBoard({ silent: true });
@@ -611,10 +620,19 @@ export default function ManagerResourceBoard() {
         )
       );
 
-      setSuccess(
+      const successMessage =
         resourceId
           ? "Task reassigned successfully."
-          : "Task moved to the unassigned pool."
+          : "Task moved to the unassigned pool.";
+
+      setSuccess(
+        successMessage
+      );
+
+      notifyResourceBoard(
+        "success",
+        "Task assignment updated",
+        successMessage
       );
 
       void loadBoard({ silent: true });
@@ -723,6 +741,11 @@ export default function ManagerResourceBoard() {
 
       setTaskForm(EMPTY_TASK);
       setSuccess("Task created and assigned.");
+      notifyResourceBoard(
+        "success",
+        "Task created",
+        "Task created and assigned."
+      );
       void loadBoard({ silent: true });
     } catch (requestError) {
       setError(
@@ -775,8 +798,17 @@ export default function ManagerResourceBoard() {
         ),
       ]);
 
+      const successMessage =
+        `Settings saved for ${resource.name}.`;
+
       setSuccess(
-        `Settings saved for ${resource.name}.`
+        successMessage
+      );
+
+      notifyResourceBoard(
+        "success",
+        "Resource settings saved",
+        successMessage
       );
       await loadBoard({ silent: true });
     } catch (requestError) {
@@ -817,8 +849,17 @@ export default function ManagerResourceBoard() {
       setCredentials(response.credentials);
       setResourceForm(EMPTY_RESOURCE);
       setShowCreateResource(false);
+      const successMessage =
+        `${response.resource?.name || "Caller resource"} was created successfully.`;
+
       setSuccess(
-        `${response.resource?.name || "Caller resource"} was created successfully.`
+        successMessage
+      );
+
+      notifyResourceBoard(
+        "success",
+        "Caller resource created",
+        successMessage
       );
       await loadBoard({ silent: true });
     } catch (requestError) {
@@ -904,19 +945,18 @@ export default function ManagerResourceBoard() {
   }
 
   return (
-    <main className="rf-resource-board-page">
+    <main className="rf-resource-board-page rf-resource-board-v7">
+      <ManagerResourceBoardV7Styles />
       <header className="rf-resource-board-header">
         <div>
           <span className="eyebrow">
-            Manager control center
+            Resource operations
           </span>
           <h1>
-            Resource whiteboard
+            Team resource board
           </h1>
           <p>
-            Assign leads and tasks by drag and drop, enforce caller capacity,
-            connect email senders and phone numbers, and monitor progress in
-            real time.
+            Assign leads and tasks, manage caller capacity, connect approved channels, and monitor team progress from one operational board.
           </p>
         </div>
 
@@ -960,7 +1000,7 @@ export default function ManagerResourceBoard() {
 
       {error ? (
         <div className="error-banner">
-          {error}
+          {safeResourceBoardMessage(error)}
         </div>
       ) : null}
 
@@ -2968,4 +3008,774 @@ function activityIcon(type) {
   if (String(type).includes("limit")) return "LM";
   if (String(type).includes("resource")) return "RS";
   return "UP";
+}
+
+function safeResourceBoardMessage(value) {
+  return String(value || "")
+    .replace(/ElevenLabs/gi, "voice service")
+    .replace(/Telnyx/gi, "calling service")
+    .replace(/\bSIP\b/gi, "voice connection");
+}
+
+function notifyResourceBoard(
+  type,
+  title,
+  message
+) {
+  if (
+    typeof window ===
+    "undefined"
+  ) {
+    return;
+  }
+
+  const bridge =
+    window.reachflyToast;
+
+  if (
+    bridge &&
+    typeof bridge[type] ===
+      "function"
+  ) {
+    bridge[type](
+      title,
+      message
+    );
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent(
+      "reachfly:toast",
+      {
+        detail: {
+          type,
+          title,
+          message,
+        },
+      }
+    )
+  );
+}
+
+function ManagerResourceBoardV7Styles() {
+  return (
+    <style>{`
+      .rf-resource-board-v7{
+        --rfrb-card:#fff;
+        --rfrb-soft:#f6f7f8;
+        --rfrb-text:#191c1d;
+        --rfrb-text2:#4d4c59;
+        --rfrb-muted:#777784;
+        --rfrb-line:#e2e4e7;
+        --rfrb-primary:#4648d4;
+        --rfrb-primary-dark:#393bbb;
+        --rfrb-primary-soft:#e8e9ff;
+        --rfrb-violet:#6b38d4;
+        --rfrb-violet-soft:#f1ebff;
+        --rfrb-green:#087a51;
+        --rfrb-green-soft:#e4f7ee;
+        --rfrb-red:#ba1a1a;
+        --rfrb-red-soft:#ffedeb;
+        --rfrb-amber:#9a5b00;
+        --rfrb-amber-soft:#fff3d8;
+        --rfrb-dark:#2e3132;
+        --rfrb-ease:cubic-bezier(.2,.8,.2,1);
+        width:100%;
+        min-height:100%;
+        padding:24px 30px 52px;
+        color:var(--rfrb-text);
+        font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+        animation:rfrbPageIn .24s var(--rfrb-ease);
+      }
+
+      .rf-resource-board-v7 *,
+      .rf-resource-board-v7 *::before,
+      .rf-resource-board-v7 *::after{
+        box-sizing:border-box;
+      }
+
+      @keyframes rfrbPageIn{
+        from{opacity:0;transform:translateY(5px)}
+        to{opacity:1;transform:none}
+      }
+
+      @keyframes rfrbLive{
+        0%,100%{opacity:.35}
+        50%{opacity:1}
+      }
+
+      .rf-resource-board-v7 .rf-resource-board-header{
+        display:flex;
+        align-items:flex-end;
+        justify-content:space-between;
+        gap:22px;
+        margin-bottom:17px;
+      }
+
+      .rf-resource-board-v7 .rf-resource-board-header > div:first-child{
+        min-width:0;
+      }
+
+      .rf-resource-board-v7 .eyebrow{
+        display:block;
+        margin:0 0 4px;
+        color:var(--rfrb-primary);
+        font-size:9px;
+        font-weight:800;
+        letter-spacing:.09em;
+        text-transform:uppercase;
+      }
+
+      .rf-resource-board-v7 .rf-resource-board-header h1{
+        margin:0;
+        font:600 32px/40px Geist,Inter,sans-serif;
+        letter-spacing:-.025em;
+      }
+
+      .rf-resource-board-v7 .rf-resource-board-header p{
+        max-width:780px;
+        margin:5px 0 0;
+        color:var(--rfrb-text2);
+        font-size:12px;
+        line-height:18px;
+      }
+
+      .rf-resource-board-v7 .rf-resource-board-header__actions{
+        display:flex;
+        flex-wrap:wrap;
+        align-items:center;
+        justify-content:flex-end;
+        gap:7px;
+      }
+
+      .rf-resource-board-v7 .btn{
+        min-height:39px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        gap:6px;
+        padding:7px 11px;
+        border:1px solid transparent;
+        border-radius:8px;
+        cursor:pointer;
+        text-decoration:none;
+        font:700 7px/1 Inter,sans-serif;
+        transition:.14s var(--rfrb-ease);
+      }
+
+      .rf-resource-board-v7 .btn:hover:not(:disabled){
+        transform:translateY(-1px);
+      }
+
+      .rf-resource-board-v7 .btn:disabled{
+        opacity:.45;
+        cursor:not-allowed;
+      }
+
+      .rf-resource-board-v7 .btn.primary{
+        color:#fff;
+        background:var(--rfrb-primary);
+        border-color:var(--rfrb-primary);
+        box-shadow:0 7px 16px rgba(70,72,212,.14);
+      }
+
+      .rf-resource-board-v7 .btn.primary:hover:not(:disabled){
+        background:var(--rfrb-primary-dark);
+      }
+
+      .rf-resource-board-v7 .btn.light{
+        color:var(--rfrb-text);
+        background:#fff;
+        border-color:var(--rfrb-line);
+      }
+
+      .rf-resource-board-v7 .btn.full{
+        width:100%;
+      }
+
+      .rf-resource-board-v7 .error-banner,
+      .rf-resource-board-v7 .success-banner{
+        padding:10px 12px;
+        margin-bottom:11px;
+        border:1px solid;
+        border-radius:9px;
+        font-size:7px;
+        line-height:12px;
+      }
+
+      .rf-resource-board-v7 .error-banner{
+        color:#7c1d1d;
+        background:var(--rfrb-red-soft);
+        border-color:#ffd0cc;
+      }
+
+      .rf-resource-board-v7 .success-banner{
+        color:#086846;
+        background:var(--rfrb-green-soft);
+        border-color:#caeadb;
+      }
+
+      .rf-resource-board-v7 .rf-credentials-panel{
+        position:relative;
+        display:grid;
+        grid-template-columns:42px minmax(0,1fr) auto;
+        align-items:start;
+        gap:10px;
+        padding:13px;
+        margin-bottom:11px;
+        color:#fff;
+        background:
+          radial-gradient(circle at 90% 10%,rgba(99,102,241,.22),transparent 32%),
+          #2e3132;
+        border:1px solid rgba(255,255,255,.08);
+        border-radius:11px;
+      }
+
+      .rf-resource-board-v7 .rf-credentials-close{
+        width:28px;
+        height:28px;
+        display:grid;
+        place-items:center;
+        padding:0;
+        color:#fff;
+        background:rgba(255,255,255,.08);
+        border:1px solid rgba(255,255,255,.08);
+        border-radius:7px;
+        cursor:pointer;
+      }
+
+      .rf-resource-board-v7 .rf-resource-board-summary{
+        display:grid;
+        grid-template-columns:repeat(4,minmax(0,1fr));
+        gap:9px;
+        margin-bottom:11px;
+      }
+
+      .rf-resource-board-v7 .rf-resource-board-summary > article,
+      .rf-resource-board-v7 .rf-resource-board-summary > div{
+        min-height:110px;
+        display:grid;
+        align-content:end;
+        padding:13px;
+        background:#fff;
+        border:1px solid var(--rfrb-line);
+        border-radius:10px;
+        box-shadow:0 1px 3px rgba(25,28,29,.025);
+      }
+
+      .rf-resource-board-v7 .rf-resource-board-summary strong{
+        font:600 23px/28px Geist,Inter,sans-serif;
+      }
+
+      .rf-resource-board-v7 .rf-resource-board-summary span,
+      .rf-resource-board-v7 .rf-resource-board-summary small{
+        color:var(--rfrb-muted);
+        font-size:5.8px;
+      }
+
+      .rf-resource-board-v7 .rf-resource-board-tabs{
+        display:flex;
+        gap:5px;
+        overflow-x:auto;
+        padding:5px;
+        margin-bottom:10px;
+        background:#fff;
+        border:1px solid var(--rfrb-line);
+        border-radius:10px;
+        scrollbar-width:none;
+      }
+
+      .rf-resource-board-v7 .rf-resource-board-tabs::-webkit-scrollbar{
+        display:none;
+      }
+
+      .rf-resource-board-v7 .rf-resource-board-tabs button{
+        min-height:36px;
+        flex:0 0 auto;
+        padding:6px 9px;
+        color:var(--rfrb-text2);
+        background:transparent;
+        border:0;
+        border-radius:7px;
+        cursor:pointer;
+        font-size:6.5px;
+        font-weight:700;
+        transition:.13s var(--rfrb-ease);
+      }
+
+      .rf-resource-board-v7 .rf-resource-board-tabs button:hover{
+        background:#f4f5f6;
+      }
+
+      .rf-resource-board-v7 .rf-resource-board-tabs button.active{
+        color:var(--rfrb-primary);
+        background:var(--rfrb-primary-soft);
+      }
+
+      .rf-resource-board-v7 .rf-resource-board-toolbar{
+        min-height:61px;
+        display:flex;
+        align-items:flex-end;
+        gap:8px;
+        padding:10px;
+        margin-bottom:11px;
+        background:#fff;
+        border:1px solid var(--rfrb-line);
+        border-radius:10px;
+      }
+
+      .rf-resource-board-v7 .rf-resource-board-toolbar label{
+        min-width:0;
+        display:grid;
+        gap:4px;
+      }
+
+      .rf-resource-board-v7 .rf-resource-board-toolbar label > span{
+        color:var(--rfrb-muted);
+        font-size:5.5px;
+        font-weight:750;
+        text-transform:uppercase;
+      }
+
+      .rf-resource-board-v7 .rf-resource-board-search{
+        flex:1;
+      }
+
+      .rf-resource-board-v7 .rf-resource-board-toolbar input,
+      .rf-resource-board-v7 .rf-resource-board-toolbar select,
+      .rf-resource-board-v7 .rf-resource-settings-card input,
+      .rf-resource-board-v7 .rf-resource-settings-card select,
+      .rf-resource-board-v7 .rf-quick-task-form input,
+      .rf-resource-board-v7 .rf-quick-task-form select,
+      .rf-resource-board-v7 .rf-quick-task-form textarea,
+      .rf-resource-board-v7 .rf-resource-dialog input,
+      .rf-resource-board-v7 .rf-resource-dialog select,
+      .rf-resource-board-v7 .rf-resource-dialog textarea{
+        width:100%;
+        min-height:38px;
+        padding:8px 9px;
+        color:var(--rfrb-text);
+        background:#f7f8f9;
+        border:1px solid transparent;
+        border-radius:8px;
+        outline:0;
+        font:400 7px/12px Inter,sans-serif;
+        transition:.13s var(--rfrb-ease);
+      }
+
+      .rf-resource-board-v7 textarea{
+        min-height:88px!important;
+        resize:vertical;
+      }
+
+      .rf-resource-board-v7 input:focus,
+      .rf-resource-board-v7 select:focus,
+      .rf-resource-board-v7 textarea:focus{
+        background:#fff;
+        border-color:rgba(70,72,212,.5);
+        box-shadow:0 0 0 3px rgba(70,72,212,.06);
+      }
+
+      .rf-resource-board-v7 .rf-whiteboard{
+        display:grid;
+        grid-template-columns:repeat(4,minmax(245px,1fr));
+        gap:9px;
+        overflow-x:auto;
+        padding:1px 0 5px;
+      }
+
+      .rf-resource-board-v7 .rf-whiteboard--tasks{
+        grid-template-columns:repeat(5,minmax(235px,1fr));
+      }
+
+      .rf-resource-board-v7 .rf-board-lane{
+        min-width:245px;
+        overflow:hidden;
+        background:#f7f8f9;
+        border:1px solid var(--rfrb-line);
+        border-radius:11px;
+      }
+
+      .rf-resource-board-v7 .rf-board-lane__header{
+        min-height:62px;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:8px;
+        padding:10px;
+        background:#fff;
+        border-bottom:1px solid var(--rfrb-line);
+      }
+
+      .rf-resource-board-v7 .rf-board-lane__identity{
+        min-width:0;
+        display:flex;
+        align-items:center;
+        gap:8px;
+      }
+
+      .rf-resource-board-v7 .rf-resource-avatar,
+      .rf-resource-board-v7 .rf-board-pool-icon{
+        width:34px;
+        height:34px;
+        display:grid;
+        place-items:center;
+        flex:0 0 34px;
+        color:var(--rfrb-primary);
+        background:var(--rfrb-primary-soft);
+        border-radius:8px;
+        font-size:7px;
+        font-weight:800;
+      }
+
+      .rf-resource-board-v7 .rf-board-lane__identity > div{
+        min-width:0;
+        display:grid;
+      }
+
+      .rf-resource-board-v7 .rf-board-lane__identity strong{
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font-size:6.7px;
+      }
+
+      .rf-resource-board-v7 .rf-board-lane__identity small,
+      .rf-resource-board-v7 .rf-resource-capacity{
+        color:var(--rfrb-muted);
+        font-size:5.5px;
+      }
+
+      .rf-resource-board-v7 .rf-board-lane__body{
+        min-height:250px;
+        display:grid;
+        align-content:start;
+        gap:6px;
+        padding:7px;
+      }
+
+      .rf-resource-board-v7 .rf-board-card__top{
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:7px;
+      }
+
+      .rf-resource-board-v7 .rf-board-card__meta{
+        display:flex;
+        flex-wrap:wrap;
+        gap:4px;
+        color:var(--rfrb-muted);
+        font-size:5.3px;
+      }
+
+      .rf-resource-board-v7 .rf-drag-handle{
+        cursor:grab;
+      }
+
+      .rf-resource-board-v7 .rf-board-card__controls{
+        display:flex;
+        flex-wrap:wrap;
+        gap:5px;
+      }
+
+      .rf-resource-board-v7 .rf-board-card__controls button,
+      .rf-resource-board-v7 .rf-board-card__mobile-assign{
+        min-height:31px;
+        padding:5px 7px;
+        color:var(--rfrb-text2);
+        background:#fff;
+        border:1px solid var(--rfrb-line);
+        border-radius:7px;
+        cursor:pointer;
+        font-size:5.6px;
+        font-weight:700;
+      }
+
+      .rf-resource-board-v7 .rf-lane-empty{
+        min-height:110px;
+        display:grid;
+        place-items:center;
+        padding:15px;
+        color:var(--rfrb-muted);
+        text-align:center;
+        border:1px dashed #d7d9dd;
+        border-radius:8px;
+        font-size:6px;
+      }
+
+      .rf-resource-board-v7 .rf-task-board-layout{
+        display:grid;
+        grid-template-columns:minmax(0,1fr) 310px;
+        align-items:start;
+        gap:11px;
+      }
+
+      .rf-resource-board-v7 .rf-quick-task-form,
+      .rf-resource-board-v7 .rf-resource-settings-card,
+      .rf-resource-board-v7 .rf-resources-panel,
+      .rf-resource-board-v7 .rf-activity-panel{
+        padding:13px;
+        background:#fff;
+        border:1px solid var(--rfrb-line);
+        border-radius:11px;
+      }
+
+      .rf-resource-board-v7 .rf-quick-task-form{
+        position:sticky;
+        top:78px;
+      }
+
+      .rf-resource-board-v7 .rf-quick-task-grid,
+      .rf-resource-board-v7 .rf-resource-settings-grid{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:7px;
+      }
+
+      .rf-resource-board-v7 .rf-quick-task-form label,
+      .rf-resource-board-v7 .rf-resource-settings-card label,
+      .rf-resource-board-v7 .rf-resource-dialog label{
+        display:grid;
+        gap:4px;
+      }
+
+      .rf-resource-board-v7 .rf-quick-task-form label > span,
+      .rf-resource-board-v7 .rf-resource-settings-card label > span,
+      .rf-resource-board-v7 .rf-resource-dialog label > span{
+        color:var(--rfrb-muted);
+        font-size:5.5px;
+        font-weight:750;
+        text-transform:uppercase;
+      }
+
+      .rf-resource-board-v7 .rf-resources-panel{
+        display:grid;
+        gap:8px;
+      }
+
+      .rf-resource-board-v7 .rf-resource-settings-card{
+        display:grid;
+        gap:8px;
+      }
+
+      .rf-resource-board-v7 .rf-resource-performance{
+        display:grid;
+        grid-template-columns:repeat(3,1fr);
+        gap:6px;
+      }
+
+      .rf-resource-board-v7 .rf-resource-performance > div{
+        min-height:62px;
+        display:grid;
+        align-content:center;
+        padding:8px;
+        background:#f7f8f9;
+        border-radius:8px;
+      }
+
+      .rf-resource-board-v7 .rf-resource-performance strong{
+        font-size:8px;
+      }
+
+      .rf-resource-board-v7 .rf-resource-performance span{
+        color:var(--rfrb-muted);
+        font-size:5.3px;
+      }
+
+      .rf-resource-board-v7 .rf-activity-list{
+        display:grid;
+        gap:5px;
+      }
+
+      .rf-resource-board-v7 .rf-activity-list > article,
+      .rf-resource-board-v7 .rf-activity-list > div{
+        min-height:58px;
+        display:grid;
+        grid-template-columns:34px minmax(0,1fr) auto;
+        align-items:center;
+        gap:8px;
+        padding:8px;
+        background:#f7f8f9;
+        border-radius:8px;
+      }
+
+      .rf-resource-board-v7 .rf-activity-icon{
+        width:34px;
+        height:34px;
+        display:grid;
+        place-items:center;
+        color:var(--rfrb-primary);
+        background:#fff;
+        border-radius:8px;
+      }
+
+      .rf-resource-board-v7 .rf-resource-board-live{
+        display:inline-flex;
+        align-items:center;
+        gap:5px;
+        color:var(--rfrb-green);
+        font-size:5.5px;
+        font-weight:750;
+      }
+
+      .rf-resource-board-v7 .rf-resource-board-live::before{
+        content:"";
+        width:6px;
+        height:6px;
+        background:currentColor;
+        border-radius:50%;
+        animation:rfrbLive 1.1s infinite ease-in-out;
+      }
+
+      .rf-resource-board-v7 .rf-resource-dialog-backdrop{
+        position:fixed;
+        z-index:1100;
+        inset:0;
+        display:grid;
+        place-items:center;
+        padding:18px;
+        background:rgba(25,28,29,.56);
+        backdrop-filter:blur(8px);
+      }
+
+      .rf-resource-board-v7 .rf-resource-dialog{
+        width:min(720px,100%);
+        max-height:calc(100vh - 36px);
+        overflow:auto;
+        padding:16px;
+        background:#fff;
+        border:1px solid rgba(255,255,255,.3);
+        border-radius:14px;
+        box-shadow:0 24px 70px rgba(0,0,0,.18);
+      }
+
+      .rf-resource-board-v7 .rf-dialog-close{
+        width:31px;
+        height:31px;
+        display:grid;
+        place-items:center;
+        padding:0;
+        color:var(--rfrb-text2);
+        background:#f1f2f3;
+        border:1px solid var(--rfrb-line);
+        border-radius:8px;
+        cursor:pointer;
+      }
+
+      .rf-resource-board-v7 .rf-resource-dialog-grid{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:8px;
+      }
+
+      .rf-resource-board-v7 .rf-board-skeleton{
+        min-height:430px;
+        opacity:.55;
+      }
+
+      @media(max-width:1120px){
+        .rf-resource-board-v7{
+          padding:22px;
+        }
+
+        .rf-resource-board-v7 .rf-resource-board-summary{
+          grid-template-columns:1fr 1fr;
+        }
+
+        .rf-resource-board-v7 .rf-task-board-layout{
+          grid-template-columns:1fr;
+        }
+
+        .rf-resource-board-v7 .rf-quick-task-form{
+          position:static;
+        }
+      }
+
+      @media(max-width:820px){
+        .rf-resource-board-v7 .rf-resource-board-header{
+          align-items:flex-start;
+          flex-direction:column;
+        }
+
+        .rf-resource-board-v7 .rf-resource-board-header__actions{
+          width:100%;
+          justify-content:flex-start;
+        }
+
+        .rf-resource-board-v7 .rf-resource-board-toolbar{
+          align-items:stretch;
+          flex-direction:column;
+        }
+      }
+
+      @media(max-width:620px){
+        .rf-resource-board-v7{
+          padding:18px 12px 80px;
+        }
+
+        .rf-resource-board-v7 .rf-resource-board-header h1{
+          font-size:25px;
+          line-height:32px;
+        }
+
+        .rf-resource-board-v7 .rf-resource-board-header p{
+          font-size:10px;
+          line-height:16px;
+        }
+
+        .rf-resource-board-v7 .rf-resource-board-header__actions{
+          display:grid;
+          grid-template-columns:1fr;
+        }
+
+        .rf-resource-board-v7 .rf-resource-board-summary{
+          grid-template-columns:1fr 1fr;
+        }
+
+        .rf-resource-board-v7 .rf-resource-board-tabs{
+          margin-left:-12px;
+          margin-right:-12px;
+          border-radius:0;
+        }
+
+        .rf-resource-board-v7 .rf-resource-settings-grid,
+        .rf-resource-board-v7 .rf-quick-task-grid,
+        .rf-resource-board-v7 .rf-resource-dialog-grid{
+          grid-template-columns:1fr;
+        }
+
+        .rf-resource-board-v7 .rf-resource-performance{
+          grid-template-columns:1fr;
+        }
+
+        .rf-resource-board-v7 .rf-resource-dialog-backdrop{
+          padding:0;
+        }
+
+        .rf-resource-board-v7 .rf-resource-dialog{
+          max-height:100vh;
+          min-height:100vh;
+          border-radius:0;
+        }
+      }
+
+      @media(max-width:420px){
+        .rf-resource-board-v7 .rf-resource-board-summary{
+          grid-template-columns:1fr;
+        }
+      }
+
+      @media(prefers-reduced-motion:reduce){
+        .rf-resource-board-v7,
+        .rf-resource-board-v7 *,
+        .rf-resource-board-v7 *::before,
+        .rf-resource-board-v7 *::after{
+          animation:none!important;
+          transition-duration:.01ms!important;
+        }
+      }
+    `}</style>
+  );
 }

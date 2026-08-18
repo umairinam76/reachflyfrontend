@@ -1536,11 +1536,23 @@ export default function AttendancePage() {
 
           setSelfieDataUrl("");
 
-          setSuccessMessage(
+          const successText =
             action ===
               "check-in"
               ? "Check-in completed successfully."
-              : "Check-out completed successfully."
+              : "Check-out completed successfully.";
+
+          setSuccessMessage(
+            successText
+          );
+
+          notifyAttendance(
+            "success",
+            action ===
+              "check-in"
+              ? "Checked in"
+              : "Checked out",
+            successText
           );
 
           stopCamera({
@@ -1766,20 +1778,20 @@ export default function AttendancePage() {
   }
 
   return (
-    <main className="attendance-page">
+    <main className="attendance-page rf-attendance-v7">
+      <AttendanceV7Styles />
       <header className="page-heading">
         <div>
           <span className="eyebrow">
-            Caller attendance
+            Workday attendance
           </span>
 
           <h1>
-            Check in and check out
+            Start and finish your workday
           </h1>
 
           <p>
-            Capture a live selfie for every shift action.
-            Location is recorded when browser permission is available.
+            Use a live camera capture for each attendance action. Location is attached when browser permission is available.
           </p>
         </div>
 
@@ -1817,7 +1829,7 @@ export default function AttendancePage() {
           </span>
 
           <small>
-            API endpoint: {API_BASE_URL}
+            Check your connection and try again. If the issue continues, contact your workspace administrator.
           </small>
         </div>
       ) : null}
@@ -3166,5 +3178,474 @@ function delay(
         )
       );
     }
+  );
+}
+
+function notifyAttendance(
+  type,
+  title,
+  message
+) {
+  if (
+    typeof window ===
+    "undefined"
+  ) {
+    return;
+  }
+
+  const bridge =
+    window.reachflyToast;
+
+  if (
+    bridge &&
+    typeof bridge[type] ===
+      "function"
+  ) {
+    bridge[type](
+      title,
+      message
+    );
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent(
+      "reachfly:toast",
+      {
+        detail: {
+          type,
+          title,
+          message,
+        },
+      }
+    )
+  );
+}
+
+function AttendanceV7Styles() {
+  return (
+    <style>{`
+      .rf-attendance-v7{
+        --rfa-card:#fff;
+        --rfa-soft:#f6f7f8;
+        --rfa-text:#191c1d;
+        --rfa-text2:#4d4c59;
+        --rfa-muted:#777784;
+        --rfa-line:#e2e4e7;
+        --rfa-primary:#4648d4;
+        --rfa-primary-dark:#393bbb;
+        --rfa-primary-soft:#e8e9ff;
+        --rfa-green:#087a51;
+        --rfa-green-soft:#e4f7ee;
+        --rfa-red:#ba1a1a;
+        --rfa-red-soft:#ffedeb;
+        --rfa-dark:#2e3132;
+        --rfa-ease:cubic-bezier(.2,.8,.2,1);
+        width:100%;
+        min-height:100%;
+        padding:24px 30px 52px;
+        color:var(--rfa-text);
+        font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+        animation:rfaAttendanceIn .24s var(--rfa-ease);
+      }
+
+      .rf-attendance-v7 *,
+      .rf-attendance-v7 *::before,
+      .rf-attendance-v7 *::after{
+        box-sizing:border-box;
+      }
+
+      @keyframes rfaAttendanceIn{
+        from{opacity:0;transform:translateY(5px)}
+        to{opacity:1;transform:none}
+      }
+
+      @keyframes rfaAttendancePulse{
+        0%,100%{opacity:.45}
+        50%{opacity:1}
+      }
+
+      .rf-attendance-v7 .page-heading{
+        display:flex;
+        align-items:flex-end;
+        justify-content:space-between;
+        gap:22px;
+        margin-bottom:17px;
+      }
+
+      .rf-attendance-v7 .page-heading > div{
+        min-width:0;
+      }
+
+      .rf-attendance-v7 .eyebrow{
+        display:block;
+        margin:0 0 4px;
+        color:var(--rfa-primary);
+        font-size:9px;
+        font-weight:800;
+        letter-spacing:.09em;
+        text-transform:uppercase;
+      }
+
+      .rf-attendance-v7 .page-heading h1{
+        margin:0;
+        font:600 32px/40px Geist,Inter,sans-serif;
+        letter-spacing:-.025em;
+      }
+
+      .rf-attendance-v7 .page-heading p{
+        max-width:760px;
+        margin:5px 0 0;
+        color:var(--rfa-text2);
+        font-size:12px;
+        line-height:18px;
+      }
+
+      .rf-attendance-v7 .btn{
+        min-height:39px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        gap:6px;
+        padding:7px 11px;
+        border:1px solid transparent;
+        border-radius:8px;
+        cursor:pointer;
+        font:700 7px/1 Inter,sans-serif;
+        transition:.14s var(--rfa-ease);
+      }
+
+      .rf-attendance-v7 .btn:hover:not(:disabled){
+        transform:translateY(-1px);
+      }
+
+      .rf-attendance-v7 .btn:disabled{
+        opacity:.45;
+        cursor:not-allowed;
+      }
+
+      .rf-attendance-v7 .btn.primary{
+        color:#fff;
+        background:var(--rfa-primary);
+        border-color:var(--rfa-primary);
+        box-shadow:0 7px 16px rgba(70,72,212,.14);
+      }
+
+      .rf-attendance-v7 .btn.primary:hover:not(:disabled){
+        background:var(--rfa-primary-dark);
+      }
+
+      .rf-attendance-v7 .btn.light,
+      .rf-attendance-v7 .btn.ghost{
+        color:var(--rfa-text);
+        background:#fff;
+        border-color:var(--rfa-line);
+      }
+
+      .rf-attendance-v7 .btn.full{
+        width:100%;
+      }
+
+      .rf-attendance-v7 .error-banner,
+      .rf-attendance-v7 .success-banner{
+        display:grid;
+        gap:2px;
+        padding:10px 12px;
+        margin-bottom:11px!important;
+        border:1px solid;
+        border-radius:9px;
+        animation:rfaAttendanceIn .16s var(--rfa-ease);
+      }
+
+      .rf-attendance-v7 .error-banner{
+        color:#7c1d1d;
+        background:var(--rfa-red-soft);
+        border-color:#ffd0cc;
+      }
+
+      .rf-attendance-v7 .success-banner{
+        color:#086846;
+        background:var(--rfa-green-soft);
+        border-color:#caeadb;
+      }
+
+      .rf-attendance-v7 .error-banner strong,
+      .rf-attendance-v7 .success-banner strong{
+        font-size:7px;
+      }
+
+      .rf-attendance-v7 .error-banner span,
+      .rf-attendance-v7 .success-banner span,
+      .rf-attendance-v7 .error-banner small{
+        font-size:6.5px;
+        line-height:11px;
+      }
+
+      .rf-attendance-v7 .attendance-metrics{
+        display:grid;
+        grid-template-columns:repeat(4,minmax(0,1fr));
+        gap:9px;
+        margin-bottom:12px;
+      }
+
+      .rf-attendance-v7 .metric-card{
+        min-height:125px;
+        display:grid;
+        align-content:end;
+        padding:14px;
+        background:#fff;
+        border:1px solid var(--rfa-line);
+        border-radius:11px;
+        box-shadow:0 1px 3px rgba(25,28,29,.025);
+      }
+
+      .rf-attendance-v7 .metric-num{
+        color:var(--rfa-text);
+        font:600 23px/29px Geist,Inter,sans-serif;
+        letter-spacing:-.025em;
+      }
+
+      .rf-attendance-v7 .metric-num.sm{
+        font-size:20px;
+      }
+
+      .rf-attendance-v7 .metric-label{
+        margin-top:3px;
+        color:var(--rfa-muted);
+        font-size:6px;
+        font-weight:750;
+        text-transform:uppercase;
+      }
+
+      .rf-attendance-v7 .attendance-layout{
+        display:grid;
+        grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr);
+        align-items:start;
+        gap:12px;
+      }
+
+      .rf-attendance-v7 .card,
+      .rf-attendance-v7 .attendance-camera-card{
+        background:#fff;
+        border:1px solid var(--rfa-line);
+        border-radius:12px;
+        box-shadow:0 1px 3px rgba(25,28,29,.025);
+      }
+
+      .rf-attendance-v7 .card{
+        padding:14px;
+      }
+
+      .rf-attendance-v7 .attendance-camera-card{
+        overflow:hidden;
+        padding:0;
+      }
+
+      .rf-attendance-v7 .attendance-camera-card > .flex,
+      .rf-attendance-v7 .attendance-camera-card > div:first-child{
+        padding:13px 14px 10px;
+      }
+
+      .rf-attendance-v7 .attendance-camera-frame{
+        position:relative;
+        overflow:hidden;
+        min-height:420px;
+        display:grid;
+        place-items:center;
+        margin:0 14px;
+        color:#fff;
+        background:
+          radial-gradient(circle at 75% 15%,rgba(70,72,212,.2),transparent 30%),
+          #2e3132;
+        border-radius:11px;
+      }
+
+      .rf-attendance-v7 .attendance-camera-frame video,
+      .rf-attendance-v7 .attendance-camera-frame img{
+        width:100%;
+        height:100%;
+        min-height:420px;
+        object-fit:cover;
+      }
+
+      .rf-attendance-v7 .attendance-camera-placeholder,
+      .rf-attendance-v7 .attendance-camera-loading{
+        display:grid;
+        place-items:center;
+        align-content:center;
+        gap:7px;
+        width:100%;
+        min-height:420px;
+        padding:28px;
+        color:rgba(244,246,247,.72);
+        text-align:center;
+      }
+
+      .rf-attendance-v7 .attendance-camera-loading{
+        animation:rfaAttendancePulse 1s infinite ease-in-out;
+      }
+
+      .rf-attendance-v7 .attendance-camera-selector{
+        display:grid;
+        grid-template-columns:minmax(0,1fr) auto;
+        align-items:end;
+        gap:8px;
+        padding:11px 14px 0;
+      }
+
+      .rf-attendance-v7 .attendance-camera-selector label{
+        display:grid;
+        gap:4px;
+      }
+
+      .rf-attendance-v7 .attendance-camera-selector label span,
+      .rf-attendance-v7 .attendance-camera-meta span{
+        color:var(--rfa-muted);
+        font-size:5.8px;
+        font-weight:700;
+        text-transform:uppercase;
+      }
+
+      .rf-attendance-v7 .attendance-camera-selector select{
+        width:100%;
+        min-height:38px;
+        padding:8px 9px;
+        color:var(--rfa-text);
+        background:#f7f8f9;
+        border:1px solid transparent;
+        border-radius:8px;
+        outline:0;
+        font-size:7px;
+      }
+
+      .rf-attendance-v7 .attendance-camera-selector select:focus{
+        background:#fff;
+        border-color:rgba(70,72,212,.5);
+        box-shadow:0 0 0 3px rgba(70,72,212,.06);
+      }
+
+      .rf-attendance-v7 .attendance-camera-actions{
+        display:flex;
+        flex-wrap:wrap;
+        gap:7px;
+        padding:11px 14px;
+      }
+
+      .rf-attendance-v7 .attendance-camera-actions .btn{
+        flex:1;
+        min-width:120px;
+      }
+
+      .rf-attendance-v7 .attendance-camera-meta{
+        display:grid;
+        gap:5px;
+        padding:10px 14px 14px;
+        color:var(--rfa-text2);
+        border-top:1px solid #eff0f1;
+      }
+
+      .rf-attendance-v7 .attendance-history{
+        display:grid;
+        gap:5px;
+        margin-top:10px;
+      }
+
+      .rf-attendance-v7 .attendance-history-row{
+        min-height:58px;
+        display:grid;
+        grid-template-columns:110px 1fr 1fr auto;
+        align-items:center;
+        gap:8px;
+        padding:8px 10px;
+        background:#f7f8f9;
+        border:1px solid transparent;
+        border-radius:8px;
+      }
+
+      .rf-attendance-v7 .attendance-history-row strong{
+        font-size:6.5px;
+      }
+
+      .rf-attendance-v7 .attendance-history-row span,
+      .rf-attendance-v7 .attendance-history-row small{
+        color:var(--rfa-muted);
+        font-size:5.8px;
+      }
+
+      .rf-attendance-v7 .text-muted{
+        color:var(--rfa-muted)!important;
+      }
+
+      @media(max-width:1040px){
+        .rf-attendance-v7{
+          padding:22px;
+        }
+
+        .rf-attendance-v7 .attendance-metrics{
+          grid-template-columns:1fr 1fr;
+        }
+
+        .rf-attendance-v7 .attendance-layout{
+          grid-template-columns:1fr;
+        }
+      }
+
+      @media(max-width:680px){
+        .rf-attendance-v7{
+          padding:18px 12px 80px;
+        }
+
+        .rf-attendance-v7 .page-heading{
+          align-items:flex-start;
+          flex-direction:column;
+        }
+
+        .rf-attendance-v7 .page-heading h1{
+          font-size:25px;
+          line-height:32px;
+        }
+
+        .rf-attendance-v7 .page-heading p{
+          font-size:10px;
+          line-height:16px;
+        }
+
+        .rf-attendance-v7 .page-heading .btn{
+          width:100%;
+        }
+
+        .rf-attendance-v7 .attendance-camera-frame,
+        .rf-attendance-v7 .attendance-camera-frame video,
+        .rf-attendance-v7 .attendance-camera-frame img,
+        .rf-attendance-v7 .attendance-camera-placeholder,
+        .rf-attendance-v7 .attendance-camera-loading{
+          min-height:330px;
+        }
+
+        .rf-attendance-v7 .attendance-camera-selector{
+          grid-template-columns:1fr;
+        }
+
+        .rf-attendance-v7 .attendance-history-row{
+          grid-template-columns:1fr 1fr;
+        }
+      }
+
+      @media(max-width:420px){
+        .rf-attendance-v7 .attendance-metrics{
+          grid-template-columns:1fr;
+        }
+      }
+
+      @media(prefers-reduced-motion:reduce){
+        .rf-attendance-v7,
+        .rf-attendance-v7 *,
+        .rf-attendance-v7 *::before,
+        .rf-attendance-v7 *::after{
+          animation:none!important;
+          transition-duration:.01ms!important;
+        }
+      }
+    `}</style>
   );
 }
