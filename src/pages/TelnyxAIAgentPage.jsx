@@ -12,6 +12,22 @@ import {
 } from "react-router-dom";
 
 import {
+  Activity,
+  Bot,
+  Building2,
+  Calendar,
+  CheckCircle2,
+  Clock3,
+  Phone,
+  RefreshCw,
+  Settings,
+  Sparkles,
+  Target,
+  Users,
+  Zap,
+} from "../components/icons";
+
+import {
   Avatar,
   Style,
 } from "@dicebear/core";
@@ -186,7 +202,7 @@ const LEAD_STEP_VIEWS = [
   "launch-calls",
 ];
 
-const VOICE_UI_VERSION = "5.5-artist-portraits-layout";
+const VOICE_UI_VERSION = "7.0-stitch-voice-workspace";
 
 const LIVE_CALL_STATES = new Set([
   "creating",
@@ -205,6 +221,10 @@ export default function TelnyxAIAgentPage() {
   const onboardingMode = searchParams.get("onboarding") === "1";
   const refreshTimerRef = useRef(null);
   const mountedRef = useRef(true);
+  const lastToastRef = useRef({
+    error: "",
+    success: "",
+  });
 
   const [dashboard, setDashboard] = useState(null);
   const [voiceCommerce, setVoiceCommerce] = useState(null);
@@ -516,6 +536,26 @@ export default function TelnyxAIAgentPage() {
   }, [loadDashboard, loadVoiceCommerce, loadBillingData]);
 
   useEffect(() => {
+    if (!error || lastToastRef.current.error === error) return;
+    lastToastRef.current.error = error;
+    notifyVoice(
+      "error",
+      "Voice workspace needs attention",
+      error
+    );
+  }, [error]);
+
+  useEffect(() => {
+    if (!success || lastToastRef.current.success === success) return;
+    lastToastRef.current.success = success;
+    notifyVoice(
+      "success",
+      "Voice workspace updated",
+      success
+    );
+  }, [success]);
+
+  useEffect(() => {
     if (onboardingMode) {
       selectVoiceTab("setup");
     }
@@ -759,6 +799,30 @@ export default function TelnyxAIAgentPage() {
   const recommendedVoice = useMemo(
     () => chooseFrontendRecommendedVoice(voices),
     [voices]
+  );
+
+  const voiceOverview = useMemo(
+    () =>
+      buildVoiceOverview({
+        calls,
+        meetings,
+        dashboard,
+        diagnostics,
+        billingData,
+        voiceCommerce,
+        form,
+        agent,
+      }),
+    [
+      calls,
+      meetings,
+      dashboard,
+      diagnostics,
+      billingData,
+      voiceCommerce,
+      form,
+      agent,
+    ]
   );
 
   const allVisibleSelected =
@@ -1428,87 +1492,267 @@ export default function TelnyxAIAgentPage() {
 
   if (loading && !dashboard) {
     return (
-      <main className="rf-agent-page">
-        <section className="rf-agent-loading">
-          <span className="rf-agent-spinner" />
-          <b>Loading ReachFly Voice Agent…</b>
-          <small>
-            Checking workspace access, configuration and lead queue.
-          </small>
-        </section>
-      </main>
+      <>
+        <VoiceWorkspaceV7Styles />
+        <main className="rf-agent-page rf-agent-v7">
+          <section className="rf-agent-loading">
+            <span className="rf-agent-spinner" />
+            <b>Loading ReachFly Voice Agent…</b>
+            <small>
+              Checking workspace access, configuration and lead queue.
+            </small>
+          </section>
+        </main>
+      </>
     );
   }
 
   return (
-    <main
-      className="rf-agent-page"
-      data-voice-ui-version={VOICE_UI_VERSION}
-    >
-      <header className="rf-agent-header">
-        <div>
-          <span className="eyebrow">
-            {onboardingMode ? "Voice Agent onboarding" : "ReachFly Voice"}
-          </span>
-          <h1>
-            {onboardingMode ? "Set up your AI phone agent" : "Inbound & outbound voice agent"}
-          </h1>
-          <p>
-            {onboardingMode
-              ? diagnostics?.purchasedNumberRequired !== false ||
-                diagnostics?.paidCreditsRequired !== false
-                ? "Complete the required calling activation, configure the agent and business context, approve calling policy, then save the runtime before adding leads."
-                : "Configure the agent and business context, approve calling policy, then save the runtime before adding leads."
-              : "Answer inbound calls, run compliant outbound conversations, capture outcomes, book meetings and keep every call connected to the same workspace."}
-          </p>
-        </div>
+    <>
+      <VoiceWorkspaceV7Styles />
 
-        <div className="rf-agent-header-actions">
-          <span
-            className={`rf-agent-live-pill ${
-              diagnostics.configured ? "ready" : "warning"
-            }`}
-          >
-            <i />
-            {onboardingMode
-              ? onboardingState.ready
-                ? "Setup ready"
-                : "Setup in progress"
-              : diagnostics.configured
-                ? "Voice stack configured"
-                : "Configuration required"}
-          </span>
+      <main
+        className="rf-agent-page rf-agent-v7"
+        data-voice-ui-version={VOICE_UI_VERSION}
+      >
+        <header className="rf-agent-header rf-agent-header-v7">
+          <div className="rf-agent-identity-v7">
+            <span
+              className={`rf-agent-avatar-v7 ${
+                diagnostics.configured ? "ready" : "pending"
+              }`}
+            >
+              {String(agent?.name || form.name || "AI")
+                .trim()
+                .slice(0, 1)
+                .toUpperCase()}
+            </span>
 
-          <button
-            type="button"
-            className="btn light"
-            disabled={refreshing}
-            onClick={() => void loadDashboard({ silent: true })}
-          >
-            {refreshing ? "Refreshing…" : "Refresh"}
-          </button>
-        </div>
-      </header>
+            <div>
+              <span className="rf-agent-kicker-v7">
+                {onboardingMode ? "Voice Agent onboarding" : "AI Voice Agent"}
+              </span>
 
-      {error ? (
-        <div className="rf-agent-alert error">
-          <span>{error}</span>
-          <button type="button" onClick={() => setError("")}>
-            ×
-          </button>
-        </div>
-      ) : null}
+              <div className="rf-agent-title-line-v7">
+                <h1>
+                  {onboardingMode
+                    ? "Set up your AI phone agent"
+                    : agent?.name || form.name || "Voice Agent"}
+                </h1>
 
-      {success ? (
-        <div className="rf-agent-alert success">
-          <span>{success}</span>
-          <button type="button" onClick={() => setSuccess("")}>
-            ×
-          </button>
-        </div>
-      ) : null}
+                <span
+                  className={`rf-agent-live-pill ${
+                    diagnostics.configured ? "ready" : "warning"
+                  }`}
+                >
+                  <i />
+                  {onboardingMode
+                    ? onboardingState.ready
+                      ? "Setup ready"
+                      : "Setup in progress"
+                    : diagnostics.configured
+                      ? "Active"
+                      : "Setup required"}
+                </span>
 
-      {onboardingMode ? (
+                {!onboardingMode ? (
+                  <span className="rf-agent-mode-pill-v7">
+                    <Phone size={13} />
+                    {formatCallingModeLabel(form.callingMode)}
+                  </span>
+                ) : null}
+              </div>
+
+              <p>
+                {onboardingMode
+                  ? diagnostics?.purchasedNumberRequired !== false ||
+                    diagnostics?.paidCreditsRequired !== false
+                    ? "Complete calling activation, configure the agent and business context, approve the calling policy, then save before adding leads."
+                    : "Configure the agent and business context, approve the calling policy, then save before adding leads."
+                  : voiceOverview.businessNumber
+                    ? `${formatPhone(voiceOverview.businessNumber)} · ${dashboard?.workspace?.name || user?.companyName || "ReachFly workspace"}`
+                    : "Inbound and outbound AI calling, lead qualification, call outcomes and booked meetings in one workspace."}
+              </p>
+            </div>
+          </div>
+
+          <div className="rf-agent-header-actions rf-agent-header-actions-v7">
+            {!onboardingMode ? (
+              <>
+                <button
+                  type="button"
+                  className="rf-agent-action-v7 secondary"
+                  onClick={() => selectVoiceView("setup", "agent")}
+                >
+                  <Settings size={15} />
+                  Configure Agent
+                </button>
+
+                <button
+                  type="button"
+                  className="rf-agent-action-v7 primary"
+                  onClick={() => selectVoiceView("leads", "quick-lead")}
+                >
+                  <Phone size={15} />
+                  Test Call
+                </button>
+              </>
+            ) : null}
+
+            <button
+              type="button"
+              className="rf-agent-icon-action-v7"
+              disabled={refreshing}
+              title="Refresh Voice workspace"
+              aria-label="Refresh Voice workspace"
+              onClick={() =>
+                void Promise.all([
+                  loadDashboard({ silent: true }),
+                  loadVoiceCommerce(),
+                  loadBillingData(),
+                ])
+              }
+            >
+              <RefreshCw
+                size={15}
+                className={refreshing ? "spin" : ""}
+              />
+            </button>
+          </div>
+        </header>
+
+        {error ? (
+          <div className="rf-agent-alert error" role="alert">
+            <span>{error}</span>
+            <button type="button" onClick={() => setError("")}>
+              ×
+            </button>
+          </div>
+        ) : null}
+
+        {success ? (
+          <div className="rf-agent-alert success" role="status">
+            <span>{success}</span>
+            <button type="button" onClick={() => setSuccess("")}>
+              ×
+            </button>
+          </div>
+        ) : null}
+
+        {!onboardingMode ? (
+          <section className="rf-voice-overview-grid-v7">
+            <div className="rf-voice-overview-main-v7">
+              <section className="rf-agent-metrics rf-agent-metrics-v7">
+                <VoiceOverviewMetric
+                  icon={<Phone size={16} />}
+                  label="Total Calls"
+                  value={voiceOverview.totalCalls}
+                  note="Loaded call history"
+                />
+
+                <VoiceOverviewMetric
+                  icon={<Activity size={16} />}
+                  label="Connected Rate"
+                  value={
+                    voiceOverview.connectedRate === null
+                      ? "—"
+                      : `${voiceOverview.connectedRate}%`
+                  }
+                  note={`${voiceOverview.connectedCalls} connected`}
+                  tone="primary"
+                />
+
+                <VoiceOverviewMetric
+                  icon={<Target size={16} />}
+                  label="Ready Leads"
+                  value={voiceOverview.readyLeads}
+                  note="Callable prospects"
+                  tone="violet"
+                />
+
+                <VoiceOverviewMetric
+                  icon={<Calendar size={16} />}
+                  label="Meetings Booked"
+                  value={voiceOverview.meetingsBooked}
+                  note="Recorded meetings"
+                  tone="success"
+                />
+
+                <VoiceOverviewMetric
+                  icon={<Clock3 size={16} />}
+                  label="Avg Duration"
+                  value={voiceOverview.averageDuration}
+                  note="Calls with duration"
+                  tone="neutral"
+                />
+
+                <VoiceOverviewMetric
+                  icon={<Zap size={16} />}
+                  label="AI Call Credits"
+                  value={voiceOverview.callCredits}
+                  note="Available balance"
+                  tone="neutral"
+                />
+              </section>
+
+              <section className="rf-voice-performance-v7">
+                <div className="rf-voice-performance-head-v7">
+                  <div>
+                    <span className="rf-agent-kicker-v7">Live workspace</span>
+                    <h2>Calling operations</h2>
+                    <p>
+                      Lead queue, active calls, recent outcomes and meetings update from the same Voice workspace.
+                    </p>
+                  </div>
+
+                  <span className="rf-voice-performance-status-v7">
+                    <i className={diagnostics.configured ? "ready" : "pending"} />
+                    {diagnostics.configured ? "Ready for calls" : "Finish setup"}
+                  </span>
+                </div>
+
+                <div className="rf-voice-performance-grid-v7">
+                  <VoicePerformanceItem
+                    label="Business Number"
+                    value={
+                      voiceOverview.businessNumber
+                        ? formatPhone(voiceOverview.businessNumber)
+                        : "Not connected"
+                    }
+                    icon={<Building2 size={15} />}
+                  />
+
+                  <VoicePerformanceItem
+                    label="Agent"
+                    value={agent?.name || form.name || "Not configured"}
+                    icon={<Bot size={15} />}
+                  />
+
+                  <VoicePerformanceItem
+                    label="Queued Leads"
+                    value={voiceOverview.queuedLeads}
+                    icon={<Users size={15} />}
+                  />
+
+                  <VoicePerformanceItem
+                    label="Live Calls"
+                    value={voiceOverview.liveCalls}
+                    icon={<Activity size={15} />}
+                  />
+                </div>
+              </section>
+            </div>
+
+            <VoiceHealthPanel
+              overview={voiceOverview}
+              diagnostics={diagnostics}
+              form={form}
+              onSetup={() => selectVoiceView("setup", "calling")}
+            />
+          </section>
+        ) : null}
+
+        {onboardingMode ? (
         <AgentSetup
           form={form}
           voices={voices}
@@ -1550,61 +1794,7 @@ export default function TelnyxAIAgentPage() {
         />
       ) : (
         <>
-      <section className="rf-agent-metrics">
-        <Metric
-          label="Ready leads"
-          value={dashboard?.summary?.assignableLeads || 0}
-          text="Leads with callable numbers"
-        />
-        <Metric
-          label="Queued"
-          value={dashboard?.summary?.queuedLeads || 0}
-          text="Awaiting an approved call window"
-        />
-        <Metric
-          label="Live calls"
-          value={dashboard?.summary?.activeCalls || 0}
-          text="Current AI conversations"
-        />
-        <Metric
-          label="Upcoming meetings"
-          value={dashboard?.summary?.meetingsUpcoming || 0}
-          text="Confirmed by leads"
-        />
-      </section>
-
-      <section className="rf-agent-provider-card">
-        <div>
-          <span className="rf-agent-provider-logo">T</span>
-          <div>
-            <b>ReachFly Calling</b>
-            <small>
-              {diagnostics.configured ? "Voice runtime connected" : "Voice runtime needs setup"}
-            </small>
-          </div>
-        </div>
-
-        <dl>
-          <div>
-            <dt>Voice agent</dt>
-            <dd>{agent?.name || form.name || "Not configured"}</dd>
-          </div>
-          <div>
-            <dt>Business number</dt>
-            <dd>{diagnostics.selectedFromNumber || "Not connected"}</dd>
-          </div>
-          <div>
-            <dt>Call events</dt>
-            <dd>{diagnostics.configured ? "Connected" : "Needs attention"}</dd>
-          </div>
-          <div>
-            <dt>Workspace</dt>
-            <dd>{dashboard?.workspace?.name || user?.companyName}</dd>
-          </div>
-        </dl>
-      </section>
-
-      <nav className="rf-agent-tabs" aria-label="Voice-agent sections">
+      <nav className="rf-agent-tabs rf-agent-tabs-v7" aria-label="Voice-agent sections">
         {TABS.map(([value, label]) => (
           <button
             key={value}
@@ -1612,7 +1802,8 @@ export default function TelnyxAIAgentPage() {
             className={activeTab === value ? "active" : ""}
             onClick={() => selectVoiceTab(value)}
           >
-            {label}
+            <VoiceTabIcon value={value} />
+            <span>{label}</span>
             {value === "leads" && dashboard?.summary?.queuedLeads ? (
               <b>{dashboard.summary.queuedLeads}</b>
             ) : null}
@@ -1732,8 +1923,144 @@ export default function TelnyxAIAgentPage() {
       ) : null}
         </>
       )}
-    </main>
+      </main>
+    </>
   );
+}
+
+function VoiceOverviewMetric({
+  icon,
+  label,
+  value,
+  note,
+  tone = "primary",
+}) {
+  return (
+    <article className={`rf-voice-overview-metric-v7 ${tone}`}>
+      <div className="rf-voice-overview-metric-top-v7">
+        <span>{icon}</span>
+        <small>{label}</small>
+      </div>
+      <strong>{value}</strong>
+      <em>{note}</em>
+    </article>
+  );
+}
+
+function VoicePerformanceItem({ label, value, icon }) {
+  return (
+    <div className="rf-voice-performance-item-v7">
+      <span>{icon}</span>
+      <div>
+        <small>{label}</small>
+        <strong>{value}</strong>
+      </div>
+    </div>
+  );
+}
+
+function VoiceHealthPanel({
+  overview,
+  diagnostics,
+  form,
+  onSetup,
+}) {
+  const healthItems = [
+    {
+      key: "number",
+      label: "Business Number",
+      text: overview.businessNumber
+        ? formatPhone(overview.businessNumber)
+        : "Connect a number",
+      ready: overview.numberReady,
+      icon: Building2,
+    },
+    {
+      key: "agent",
+      label: "Voice Agent",
+      text: diagnostics.configured
+        ? "Runtime connected"
+        : "Finish agent activation",
+      ready: Boolean(diagnostics.configured),
+      icon: Bot,
+    },
+    {
+      key: "policy",
+      label: "Calling Policy",
+      text: form.complianceConfirmed
+        ? "Approved"
+        : "Approval required",
+      ready: Boolean(form.complianceConfirmed),
+      icon: CheckCircle2,
+    },
+    {
+      key: "credits",
+      label: "AI Call Credits",
+      text: overview.creditsReady
+        ? `${overview.callCredits} available`
+        : "Add call credits",
+      ready: overview.creditsReady,
+      icon: Zap,
+    },
+  ];
+
+  const readyCount = healthItems.filter((item) => item.ready).length;
+  const healthy = readyCount === healthItems.length;
+
+  return (
+    <aside className="rf-voice-health-v7">
+      <div className="rf-voice-health-head-v7">
+        <div>
+          <span className="rf-agent-kicker-v7">Agent health</span>
+          <h2>Calling readiness</h2>
+        </div>
+        <span className={healthy ? "excellent" : "attention"}>
+          {healthy ? "Ready" : `${readyCount}/${healthItems.length} ready`}
+        </span>
+      </div>
+
+      <div className="rf-voice-health-list-v7">
+        {healthItems.map((item) => {
+          const Icon = item.icon;
+          return (
+            <div key={item.key}>
+              <span className="rf-voice-health-icon-v7">
+                <Icon size={14} />
+              </span>
+              <div>
+                <strong>{item.label}</strong>
+                <small>{item.text}</small>
+              </div>
+              <span
+                className={`rf-voice-health-check-v7 ${
+                  item.ready ? "ready" : "pending"
+                }`}
+              >
+                {item.ready ? <CheckCircle2 size={14} /> : <Clock3 size={14} />}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="rf-voice-health-balance-v7">
+        <div>
+          <small>AI call credits</small>
+          <strong>{overview.callCredits}</strong>
+        </div>
+        <button type="button" onClick={onSetup}>
+          {healthy ? "Configure" : "Finish setup"}
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+function VoiceTabIcon({ value }) {
+  if (value === "leads") return <Users size={14} />;
+  if (value === "calls") return <Phone size={14} />;
+  if (value === "meetings") return <Calendar size={14} />;
+  return <Settings size={14} />;
 }
 
 function VoiceCommerceOnboarding({
@@ -2104,8 +2431,8 @@ function VoiceCommerceOnboarding({
                     </b>
                     <span>
                       {item.testMode
-                        ? "Sandbox activation only · no Telnyx number is purchased"
-                        : "Includes first provider month when returned by Telnyx"}
+                        ? "Sandbox activation only · no live number is purchased"
+                        : "Includes the first service month when available"}
                     </span>
                   </div>
 
@@ -3094,7 +3421,7 @@ function AgentSetup({
         );
       } else if (status === "routing_required") {
         onSuccess?.(
-          "Ownership verified. Complete the SIP routing test below to activate inbound calling."
+          "Ownership verified. Complete the inbound routing test below to activate calling."
         );
       } else if (status === "carrier_action_required") {
         onSuccess?.(
@@ -3256,9 +3583,9 @@ function AgentSetup({
             Set up inbound and outbound calling in one guided flow.
           </h2>
           <p>
-            ReachFly owns the carrier/provider setup. Your workspace
+            ReachFly manages the calling infrastructure. Your workspace
             chooses the calling mode, business number, voice and business
-            workflow without seeing SIP credentials or provider IDs.
+            workflow without exposing technical routing details.
           </p>
         </div>
 
@@ -3329,9 +3656,9 @@ function AgentSetup({
               {step === 0
                 ? "Choose inbound, outbound, or both. You can use the same real business number for both directions."
                 : step === 1
-                  ? "Buy a ReachFly-managed number or connect a supported number you already own. The carrier account stays managed by ReachFly."
+                  ? "Buy a ReachFly-managed number or connect a supported number you already own. ReachFly manages the calling infrastructure for you."
                   : step === 2
-                    ? "Choose only the customer-facing name and voice. Provider configuration stays hidden."
+                    ? "Choose the customer-facing name and voice. Technical calling configuration stays managed automatically."
                     : step === 3
                       ? "Website intelligence is optional. When added, ReachFly prepares the context before calls."
                       : step === 4
@@ -3763,7 +4090,7 @@ function AgentSetup({
                                         }
                                       >
                                         <option value="sip_byoc">
-                                          SIP / BYOC
+                                          Advanced carrier routing
                                         </option>
                                         <option value="forwarding">
                                           Verified forwarding
@@ -3773,10 +4100,9 @@ function AgentSetup({
                                         </option>
                                       </select>
                                       <small>
-                                        SIP/BYOC is the preferred
-                                        full inbound + outbound path
-                                        when the current carrier
-                                        supports it.
+                                        Use advanced carrier routing
+                                        when your current provider supports
+                                        direct inbound and outbound calling.
                                       </small>
                                     </label>
                                   </div>
@@ -3873,7 +4199,7 @@ function AgentSetup({
                                         existingPending?.number?.status
                                       ) === "routing_required" ? (
                                         <div className="rf-voice-sip-routing-step">
-                                          <span>Inbound SIP destination</span>
+                                          <span>Inbound routing destination</span>
                                           <code>
                                             {existingPending?.sipDestination ||
                                               `sip:${normalizePhoneForUi(
@@ -4991,7 +5317,7 @@ function VoiceLibraryPicker({
                 selected.useCase || selected.niche || selected.category,
               ]
                 .filter(Boolean)
-                .join(" · ") || "ElevenLabs managed voice"}
+                .join(" · ") || "Managed AI voice"}
             </small>
           </div>
           <button
@@ -5108,7 +5434,7 @@ function VoiceLibraryPicker({
 
                   <div className="rf-voice-card-copy">
                     <div>
-                      <strong>{voice.name || "ElevenLabs voice"}</strong>
+                      <strong>{voice.name || "AI voice"}</strong>
                       {selectedVoice ? <em>Selected</em> : null}
                     </div>
 
@@ -5148,7 +5474,7 @@ function VoiceLibraryPicker({
                   onClick={(event) => togglePreview(event, voice)}
                   title={
                     voice.previewUrl
-                      ? "Play ElevenLabs voice preview"
+                      ? "Play AI voice preview"
                       : "No provider preview is available for this voice"
                   }
                 >
@@ -5164,7 +5490,7 @@ function VoiceLibraryPicker({
       ) : (
         <div className="rf-voice-library-empty">
           <b>No voices match these filters.</b>
-          <p>Clear one or more filters to see the full ElevenLabs library.</p>
+          <p>Clear one or more filters to see the full voice library.</p>
           <button type="button" className="btn light" onClick={clearFilters}>
             Clear filters
           </button>
@@ -8122,6 +8448,1231 @@ function buildVoiceOnboardingState({
         (step) => step.done
       ),
   };
+}
+
+function buildVoiceOverview({
+  calls,
+  meetings,
+  dashboard,
+  diagnostics,
+  billingData,
+  voiceCommerce,
+  form,
+  agent,
+}) {
+  const safeCalls = Array.isArray(calls) ? calls : [];
+  const connectedCalls = safeCalls.filter(isConnectedVoiceCall);
+  const durations = safeCalls
+    .map((call) =>
+      safeNumber(
+        call.durationSeconds ??
+          call.duration ??
+          call.connectedSeconds ??
+          call.billableSeconds,
+        0
+      )
+    )
+    .filter((value) => value > 0);
+
+  const averageSeconds = durations.length
+    ? Math.round(
+        durations.reduce((total, value) => total + value, 0) /
+          durations.length
+      )
+    : 0;
+
+  const activeNumber = voiceCommerce?.activeNumber || null;
+  const businessNumber =
+    activeNumber?.phoneNumber ||
+    agent?.fromNumber ||
+    form?.fromNumber ||
+    diagnostics?.selectedFromNumber ||
+    "";
+  const numberReady =
+    diagnostics?.purchasedNumberRequired === false
+      ? Boolean(businessNumber)
+      : normalizeStatus(activeNumber?.status) === "active" &&
+        Boolean(activeNumber?.phoneNumber);
+
+  const credits = Number(
+    billingData?.aiCalling?.wallet?.balance || 0
+  );
+  const creditsRequired = diagnostics?.paidCreditsRequired !== false;
+
+  return {
+    totalCalls: safeCalls.length,
+    connectedCalls: connectedCalls.length,
+    connectedRate: safeCalls.length
+      ? Math.round((connectedCalls.length / safeCalls.length) * 100)
+      : null,
+    readyLeads: Number(dashboard?.summary?.assignableLeads || 0),
+    queuedLeads: Number(dashboard?.summary?.queuedLeads || 0),
+    liveCalls: Number(dashboard?.summary?.activeCalls || 0),
+    meetingsBooked: Array.isArray(meetings) ? meetings.length : 0,
+    averageDuration: averageSeconds ? formatDuration(averageSeconds) : "—",
+    callCredits: creditsRequired ? formatCreditsCompact(credits) : "Ready",
+    creditsReady: creditsRequired ? credits > 0 : true,
+    creditsRequired,
+    businessNumber,
+    numberReady,
+  };
+}
+
+function isConnectedVoiceCall(call) {
+  if (!call || typeof call !== "object") return false;
+  if (call.answeredAt || call.connectedAt || call.startedAt && call.endedAt) {
+    return true;
+  }
+
+  return [
+    "answered",
+    "assistant_active",
+    "active",
+    "connected",
+    "completed",
+    "ended",
+    "hangup",
+    "meeting_booked",
+  ].includes(normalizeStatus(call.status));
+}
+
+function formatCallingModeLabel(value) {
+  const mode = normalizeStatus(value || "outbound");
+  if (mode === "both") return "Inbound + Outbound";
+  if (mode === "inbound") return "Inbound";
+  return "Outbound";
+}
+
+function notifyVoice(type, title, message) {
+  if (typeof window === "undefined" || !message) return;
+
+  const bridge = window.reachflyToast;
+  if (bridge && typeof bridge[type] === "function") {
+    bridge[type](title, message);
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent("reachfly:toast", {
+      detail: {
+        type,
+        title,
+        message,
+      },
+    })
+  );
+}
+
+function VoiceWorkspaceV7Styles() {
+  return (
+    <style>{`
+      .rf-agent-page.rf-agent-v7{
+        --rfv7-surface:#f8f9fa;
+        --rfv7-card:#ffffff;
+        --rfv7-soft:#f3f4f5;
+        --rfv7-high:#e7e8e9;
+        --rfv7-text:#191c1d;
+        --rfv7-text-soft:#464554;
+        --rfv7-muted:#767586;
+        --rfv7-outline:#e3e5e7;
+        --rfv7-outline-strong:#c7c4d7;
+        --rfv7-primary:#4648d4;
+        --rfv7-primary-dark:#3537bb;
+        --rfv7-primary-soft:#e8e9ff;
+        --rfv7-violet:#6b38d4;
+        --rfv7-violet-soft:#f0eaff;
+        --rfv7-success:#087a51;
+        --rfv7-success-soft:#dcfce7;
+        --rfv7-warning:#8a6100;
+        --rfv7-warning-soft:#fff4d6;
+        --rfv7-danger:#ba1a1a;
+        --rfv7-danger-soft:#ffedeb;
+        --rfv7-ease:cubic-bezier(.2,.8,.2,1);
+        width:100%;
+        min-height:100%;
+        padding:26px 32px 48px;
+        color:var(--rfv7-text);
+        background:transparent;
+        font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+        animation:rfv7PageIn 260ms var(--rfv7-ease);
+      }
+
+      .rf-agent-v7 *,
+      .rf-agent-v7 *::before,
+      .rf-agent-v7 *::after{
+        box-sizing:border-box;
+      }
+
+      .rf-agent-v7 .spin{
+        animation:rfv7Spin 800ms linear infinite;
+      }
+
+      @keyframes rfv7PageIn{
+        from{opacity:0;transform:translate3d(0,6px,0)}
+        to{opacity:1;transform:translate3d(0,0,0)}
+      }
+
+      @keyframes rfv7FadeUp{
+        from{opacity:0;transform:translate3d(0,7px,0)}
+        to{opacity:1;transform:translate3d(0,0,0)}
+      }
+
+      @keyframes rfv7ScaleIn{
+        from{opacity:0;transform:scale(.986)}
+        to{opacity:1;transform:scale(1)}
+      }
+
+      @keyframes rfv7Spin{
+        to{transform:rotate(360deg)}
+      }
+
+      @keyframes rfv7Shimmer{
+        from{background-position:200% 0}
+        to{background-position:-200% 0}
+      }
+
+      .rf-agent-header-v7{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:24px;
+        padding:0;
+        margin:0 0 22px;
+        background:transparent;
+        border:0;
+      }
+
+      .rf-agent-identity-v7{
+        min-width:0;
+        display:flex;
+        align-items:center;
+        gap:15px;
+      }
+
+      .rf-agent-avatar-v7{
+        position:relative;
+        width:66px;
+        height:66px;
+        display:grid;
+        place-items:center;
+        flex:0 0 66px;
+        color:#fff;
+        background:linear-gradient(145deg,#6668e8,#4648d4);
+        border-radius:50%;
+        box-shadow:0 8px 22px rgba(70,72,212,.22);
+        font:700 24px/1 Geist,Inter,sans-serif;
+      }
+
+      .rf-agent-avatar-v7::after{
+        content:"";
+        position:absolute;
+        right:3px;
+        bottom:3px;
+        width:12px;
+        height:12px;
+        background:#a8acb1;
+        border:3px solid var(--rfv7-surface);
+        border-radius:50%;
+      }
+
+      .rf-agent-avatar-v7.ready::after{
+        background:#13a36f;
+      }
+
+      .rf-agent-identity-v7 > div{
+        min-width:0;
+      }
+
+      .rf-agent-kicker-v7{
+        display:block;
+        margin-bottom:3px;
+        color:var(--rfv7-primary);
+        font-size:8px;
+        font-weight:800;
+        line-height:12px;
+        letter-spacing:.09em;
+        text-transform:uppercase;
+      }
+
+      .rf-agent-title-line-v7{
+        display:flex;
+        align-items:center;
+        flex-wrap:wrap;
+        gap:8px;
+      }
+
+      .rf-agent-title-line-v7 h1{
+        margin:0;
+        color:var(--rfv7-text);
+        font:600 31px/39px Geist,Inter,sans-serif;
+        letter-spacing:-.025em;
+      }
+
+      .rf-agent-identity-v7 > div > p{
+        margin:3px 0 0;
+        color:var(--rfv7-text-soft);
+        font-size:11px;
+        line-height:17px;
+      }
+
+      .rf-agent-live-pill{
+        min-height:24px;
+        display:inline-flex;
+        align-items:center;
+        gap:5px;
+        padding:4px 8px;
+        border-radius:999px;
+        font-size:8px;
+        font-weight:700;
+      }
+
+      .rf-agent-live-pill > i{
+        width:7px;
+        height:7px;
+        display:block;
+        border-radius:50%;
+      }
+
+      .rf-agent-live-pill.ready{
+        color:var(--rfv7-success);
+        background:var(--rfv7-success-soft);
+      }
+
+      .rf-agent-live-pill.ready > i{
+        background:#13a36f;
+      }
+
+      .rf-agent-live-pill.warning{
+        color:var(--rfv7-warning);
+        background:var(--rfv7-warning-soft);
+      }
+
+      .rf-agent-live-pill.warning > i{
+        background:#d39b28;
+      }
+
+      .rf-agent-mode-pill-v7{
+        min-height:24px;
+        display:inline-flex;
+        align-items:center;
+        gap:5px;
+        padding:4px 8px;
+        color:#555965;
+        background:#eceeef;
+        border-radius:999px;
+        font-size:8px;
+        font-weight:650;
+      }
+
+      .rf-agent-header-actions-v7{
+        display:flex;
+        align-items:center;
+        gap:8px;
+        flex:0 0 auto;
+      }
+
+      .rf-agent-action-v7,
+      .rf-agent-icon-action-v7{
+        appearance:none;
+        min-height:39px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        gap:7px;
+        padding:7px 13px;
+        border:1px solid transparent;
+        border-radius:999px;
+        cursor:pointer;
+        font:600 9px/14px Inter,sans-serif;
+        transition:transform 140ms var(--rfv7-ease),background 140ms var(--rfv7-ease),border-color 140ms var(--rfv7-ease),color 140ms var(--rfv7-ease),box-shadow 140ms var(--rfv7-ease);
+      }
+
+      .rf-agent-action-v7:hover:not(:disabled),
+      .rf-agent-icon-action-v7:hover:not(:disabled){
+        transform:translateY(-1px);
+      }
+
+      .rf-agent-action-v7.secondary{
+        color:var(--rfv7-text);
+        background:#fff;
+        border-color:var(--rfv7-outline);
+      }
+
+      .rf-agent-action-v7.secondary:hover{
+        color:var(--rfv7-primary);
+        background:var(--rfv7-primary-soft);
+      }
+
+      .rf-agent-action-v7.primary{
+        color:#fff;
+        background:var(--rfv7-primary);
+        border-color:var(--rfv7-primary);
+        box-shadow:0 5px 14px rgba(70,72,212,.16);
+      }
+
+      .rf-agent-action-v7.primary:hover{
+        background:var(--rfv7-primary-dark);
+      }
+
+      .rf-agent-icon-action-v7{
+        width:39px;
+        padding:0;
+        color:var(--rfv7-text-soft);
+        background:#fff;
+        border-color:var(--rfv7-outline);
+      }
+
+      .rf-agent-alert{
+        min-height:42px;
+        display:flex;
+        align-items:flex-start;
+        gap:10px;
+        padding:10px 12px;
+        margin:0 0 12px;
+        border:1px solid;
+        border-radius:9px;
+        animation:rfv7FadeUp 170ms var(--rfv7-ease);
+      }
+
+      .rf-agent-alert > span{
+        flex:1;
+        font-size:9px;
+        line-height:14px;
+      }
+
+      .rf-agent-alert > button{
+        width:24px;
+        height:24px;
+        display:grid;
+        place-items:center;
+        padding:0;
+        color:inherit;
+        background:rgba(255,255,255,.6);
+        border:0;
+        border-radius:6px;
+        cursor:pointer;
+        font-size:15px;
+      }
+
+      .rf-agent-alert.error{
+        color:#7d1717;
+        background:var(--rfv7-danger-soft);
+        border-color:#ffd0cc;
+      }
+
+      .rf-agent-alert.success{
+        color:#075b3d;
+        background:var(--rfv7-success-soft);
+        border-color:#b8efd6;
+      }
+
+      .rf-voice-overview-grid-v7{
+        display:grid;
+        grid-template-columns:minmax(0,1fr) 310px;
+        gap:16px;
+        margin-bottom:16px;
+        align-items:start;
+      }
+
+      .rf-voice-overview-main-v7{
+        min-width:0;
+        display:grid;
+        gap:14px;
+      }
+
+      .rf-agent-metrics-v7{
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:10px;
+        margin:0;
+      }
+
+      .rf-voice-overview-metric-v7{
+        min-width:0;
+        min-height:125px;
+        display:flex;
+        flex-direction:column;
+        gap:7px;
+        justify-content:space-between;
+        padding:17px 18px 15px;
+        background:#fff;
+        border:1px solid var(--rfv7-outline);
+        border-radius:13px;
+        box-shadow:0 1px 3px rgba(25,28,29,.03);
+        animation:rfv7ScaleIn 230ms var(--rfv7-ease) both;
+      }
+
+      .rf-voice-overview-metric-top-v7{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:10px;
+      }
+
+      .rf-voice-overview-metric-top-v7 > span{
+        width:30px;
+        height:30px;
+        display:grid;
+        place-items:center;
+        color:var(--rfv7-primary);
+        background:var(--rfv7-primary-soft);
+        border-radius:8px;
+      }
+
+      .rf-voice-overview-metric-v7.violet .rf-voice-overview-metric-top-v7 > span{
+        color:var(--rfv7-violet);
+        background:var(--rfv7-violet-soft);
+      }
+
+      .rf-voice-overview-metric-v7.success .rf-voice-overview-metric-top-v7 > span{
+        color:var(--rfv7-success);
+        background:var(--rfv7-success-soft);
+      }
+
+      .rf-voice-overview-metric-v7.neutral .rf-voice-overview-metric-top-v7 > span{
+        color:#5e6470;
+        background:#eef1f5;
+      }
+
+      .rf-voice-overview-metric-top-v7 > small{
+        min-width:0;
+        overflow:hidden;
+        color:var(--rfv7-text-soft);
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font-size:7px;
+        font-weight:750;
+        line-height:11px;
+        letter-spacing:.08em;
+        text-transform:uppercase;
+      }
+
+      .rf-voice-overview-metric-v7 > strong{
+        overflow:hidden;
+        color:var(--rfv7-text);
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font:600 25px/31px Geist,Inter,sans-serif;
+        letter-spacing:-.02em;
+      }
+
+      .rf-voice-overview-metric-v7 > em{
+        overflow:hidden;
+        color:var(--rfv7-muted);
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font-size:7px;
+        font-style:normal;
+        line-height:11px;
+      }
+
+      .rf-voice-performance-v7{
+        overflow:hidden;
+        background:#fff;
+        border:1px solid var(--rfv7-outline);
+        border-radius:13px;
+        box-shadow:0 1px 3px rgba(25,28,29,.03);
+      }
+
+      .rf-voice-performance-head-v7{
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:14px;
+        padding:16px 18px;
+        background:#fbfbfc;
+        border-bottom:1px solid var(--rfv7-outline);
+      }
+
+      .rf-voice-performance-head-v7 h2,
+      .rf-voice-health-head-v7 h2{
+        margin:0;
+        color:var(--rfv7-text);
+        font:600 14px/19px Geist,Inter,sans-serif;
+      }
+
+      .rf-voice-performance-head-v7 p{
+        margin:3px 0 0;
+        color:var(--rfv7-muted);
+        font-size:8px;
+        line-height:13px;
+      }
+
+      .rf-voice-performance-status-v7{
+        min-height:27px;
+        display:inline-flex;
+        align-items:center;
+        gap:5px;
+        flex:0 0 auto;
+        padding:5px 8px;
+        color:var(--rfv7-text-soft);
+        background:var(--rfv7-soft);
+        border-radius:999px;
+        font-size:7px;
+        font-weight:700;
+      }
+
+      .rf-voice-performance-status-v7 > i{
+        width:7px;
+        height:7px;
+        display:block;
+        background:#a5a7ab;
+        border-radius:50%;
+      }
+
+      .rf-voice-performance-status-v7 > i.ready{
+        background:#13a36f;
+      }
+
+      .rf-voice-performance-grid-v7{
+        display:grid;
+        grid-template-columns:repeat(4,minmax(0,1fr));
+        gap:8px;
+        padding:14px 15px;
+      }
+
+      .rf-voice-performance-item-v7{
+        min-width:0;
+        display:flex;
+        align-items:center;
+        gap:8px;
+        padding:10px;
+        background:var(--rfv7-soft);
+        border-radius:9px;
+      }
+
+      .rf-voice-performance-item-v7 > span{
+        width:28px;
+        height:28px;
+        display:grid;
+        place-items:center;
+        flex:0 0 28px;
+        color:var(--rfv7-primary);
+        background:#fff;
+        border-radius:7px;
+      }
+
+      .rf-voice-performance-item-v7 > div{
+        min-width:0;
+        display:grid;
+        gap:0;
+      }
+
+      .rf-voice-performance-item-v7 small{
+        color:var(--rfv7-muted);
+        font-size:6px;
+        line-height:9px;
+      }
+
+      .rf-voice-performance-item-v7 strong{
+        overflow:hidden;
+        color:var(--rfv7-text);
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font-size:8px;
+        line-height:12px;
+      }
+
+      .rf-voice-health-v7{
+        position:sticky;
+        top:80px;
+        min-width:0;
+        overflow:hidden;
+        background:#fff;
+        border:1px solid var(--rfv7-outline);
+        border-radius:13px;
+        box-shadow:0 1px 3px rgba(25,28,29,.03);
+      }
+
+      .rf-voice-health-head-v7{
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:10px;
+        padding:16px;
+        background:#fbfbfc;
+        border-bottom:1px solid var(--rfv7-outline);
+      }
+
+      .rf-voice-health-head-v7 > span{
+        min-height:23px;
+        display:inline-flex;
+        align-items:center;
+        padding:4px 7px;
+        border-radius:999px;
+        font-size:7px;
+        font-weight:700;
+      }
+
+      .rf-voice-health-head-v7 > span.excellent{
+        color:var(--rfv7-success);
+        background:var(--rfv7-success-soft);
+      }
+
+      .rf-voice-health-head-v7 > span.attention{
+        color:var(--rfv7-warning);
+        background:var(--rfv7-warning-soft);
+      }
+
+      .rf-voice-health-list-v7{
+        display:grid;
+        padding:6px 0;
+      }
+
+      .rf-voice-health-list-v7 > div{
+        min-height:58px;
+        display:grid;
+        grid-template-columns:32px minmax(0,1fr) 20px;
+        align-items:center;
+        gap:9px;
+        padding:9px 14px;
+      }
+
+      .rf-voice-health-list-v7 > div + div{
+        border-top:1px solid #f2f3f4;
+      }
+
+      .rf-voice-health-icon-v7{
+        width:31px;
+        height:31px;
+        display:grid;
+        place-items:center;
+        color:var(--rfv7-primary);
+        background:var(--rfv7-primary-soft);
+        border-radius:50%;
+      }
+
+      .rf-voice-health-list-v7 > div > div{
+        min-width:0;
+        display:grid;
+        gap:1px;
+      }
+
+      .rf-voice-health-list-v7 strong{
+        overflow:hidden;
+        color:var(--rfv7-text);
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font-size:8px;
+        line-height:12px;
+      }
+
+      .rf-voice-health-list-v7 small{
+        overflow:hidden;
+        color:var(--rfv7-muted);
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font-size:6px;
+        line-height:10px;
+      }
+
+      .rf-voice-health-check-v7{
+        color:#9a9da4;
+      }
+
+      .rf-voice-health-check-v7.ready{
+        color:#0aa36d;
+      }
+
+      .rf-voice-health-balance-v7{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:10px;
+        padding:12px 14px;
+        background:#f0f1f6;
+        border-top:1px solid var(--rfv7-outline);
+      }
+
+      .rf-voice-health-balance-v7 > div{
+        min-width:0;
+        display:grid;
+      }
+
+      .rf-voice-health-balance-v7 small{
+        color:var(--rfv7-muted);
+        font-size:6px;
+        line-height:9px;
+      }
+
+      .rf-voice-health-balance-v7 strong{
+        color:var(--rfv7-text);
+        font:600 14px/18px Geist,Inter,sans-serif;
+      }
+
+      .rf-voice-health-balance-v7 button{
+        min-height:29px;
+        padding:5px 8px;
+        color:var(--rfv7-primary);
+        background:transparent;
+        border:0;
+        border-radius:6px;
+        cursor:pointer;
+        font-size:7px;
+        font-weight:700;
+      }
+
+      .rf-voice-health-balance-v7 button:hover{
+        background:#fff;
+      }
+
+      .rf-agent-tabs-v7{
+        display:flex;
+        align-items:center;
+        gap:5px;
+        padding:5px;
+        margin:0 0 14px;
+        overflow:auto;
+        background:#eceeef;
+        border:0;
+        border-radius:10px;
+      }
+
+      .rf-agent-tabs-v7 button{
+        min-height:36px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        gap:6px;
+        flex:1 0 auto;
+        padding:7px 11px;
+        color:var(--rfv7-text-soft);
+        background:transparent;
+        border:0;
+        border-radius:7px;
+        cursor:pointer;
+        font:600 8px/12px Inter,sans-serif;
+      }
+
+      .rf-agent-tabs-v7 button:hover{
+        color:var(--rfv7-primary);
+      }
+
+      .rf-agent-tabs-v7 button.active{
+        color:var(--rfv7-text);
+        background:#fff;
+        box-shadow:0 1px 4px rgba(25,28,29,.08);
+      }
+
+      .rf-agent-tabs-v7 button b{
+        min-width:18px;
+        height:18px;
+        display:grid;
+        place-items:center;
+        padding:0 4px;
+        color:#fff;
+        background:var(--rfv7-primary);
+        border-radius:999px;
+        font-size:6px;
+      }
+
+      .rf-agent-v7 .rf-voice-setup-shell,
+      .rf-agent-v7 .rf-lead-flow-shell,
+      .rf-agent-v7 .rf-agent-card,
+      .rf-agent-v7 .rf-agent-form-card,
+      .rf-agent-v7 .rf-agent-live-monitor,
+      .rf-agent-v7 .rf-agent-meeting-card,
+      .rf-agent-v7 .rf-agent-queue-card,
+      .rf-agent-v7 .rf-agent-google-leads-card,
+      .rf-agent-v7 .rf-agent-custom-lead-card{
+        color:var(--rfv7-text);
+        background:#fff;
+        border-color:var(--rfv7-outline);
+        box-shadow:0 1px 3px rgba(25,28,29,.03);
+      }
+
+      .rf-agent-v7 .rf-voice-setup-shell,
+      .rf-agent-v7 .rf-lead-flow-shell{
+        overflow:hidden;
+        border:1px solid var(--rfv7-outline);
+        border-radius:14px;
+        animation:rfv7FadeUp 220ms var(--rfv7-ease);
+      }
+
+      .rf-agent-v7 .rf-voice-setup-hero{
+        padding:21px 22px;
+        background:radial-gradient(circle at 90% 0,rgba(107,56,212,.08),transparent 28%),#fff;
+        border-bottom:1px solid var(--rfv7-outline);
+      }
+
+      .rf-agent-v7 .rf-voice-setup-hero h2{
+        margin:0;
+        color:var(--rfv7-text);
+        font:600 20px/27px Geist,Inter,sans-serif;
+      }
+
+      .rf-agent-v7 .rf-voice-setup-hero p{
+        max-width:760px;
+        color:var(--rfv7-text-soft);
+        font-size:9px;
+        line-height:15px;
+      }
+
+      .rf-agent-v7 .rf-voice-wizard-kicker{
+        color:var(--rfv7-primary);
+        font-size:8px;
+        font-weight:800;
+        letter-spacing:.08em;
+        text-transform:uppercase;
+      }
+
+      .rf-agent-v7 .rf-voice-credit-orb{
+        min-width:150px;
+        color:var(--rfv7-text);
+        background:#f0f0fb;
+        border-color:#dedfff;
+      }
+
+      .rf-agent-v7 .rf-voice-setup-progress{
+        padding:14px 16px;
+        background:#fbfbfc;
+        border-bottom:1px solid var(--rfv7-outline);
+      }
+
+      .rf-agent-v7 .rf-voice-setup-progress button{
+        color:var(--rfv7-muted);
+        background:transparent;
+      }
+
+      .rf-agent-v7 .rf-voice-setup-progress button.current,
+      .rf-agent-v7 .rf-voice-setup-progress button.done{
+        color:var(--rfv7-primary);
+      }
+
+      .rf-agent-v7 .rf-voice-setup-stage{
+        padding:20px 22px 24px;
+        background:#fff;
+      }
+
+      .rf-agent-v7 .rf-voice-setup-stage-head{
+        padding-bottom:15px;
+        margin-bottom:16px;
+        border-bottom:1px solid var(--rfv7-outline);
+      }
+
+      .rf-agent-v7 .rf-voice-setup-stage-head h3{
+        color:var(--rfv7-text);
+        font:600 17px/23px Geist,Inter,sans-serif;
+      }
+
+      .rf-agent-v7 .rf-voice-setup-stage-head p{
+        color:var(--rfv7-text-soft);
+        font-size:9px;
+        line-height:14px;
+      }
+
+      .rf-agent-v7 .rf-voice-mode-card,
+      .rf-agent-v7 .rf-voice-number-card,
+      .rf-agent-v7 .rf-owned-number-card,
+      .rf-agent-v7 .rf-voice-card,
+      .rf-agent-v7 .rf-voice-review-card,
+      .rf-agent-v7 .rf-voice-workflow-block,
+      .rf-agent-v7 .rf-voice-existing-number-panel,
+      .rf-agent-v7 .rf-voice-credit-card,
+      .rf-agent-v7 .rf-voice-language-panel{
+        background:#fff;
+        border-color:var(--rfv7-outline);
+        border-radius:11px;
+      }
+
+      .rf-agent-v7 .rf-voice-mode-card.selected,
+      .rf-agent-v7 .rf-voice-number-card.selected,
+      .rf-agent-v7 .rf-voice-card.selected,
+      .rf-agent-v7 .rf-owned-number-card.selected{
+        background:#f4f4ff;
+        border-color:rgba(70,72,212,.35);
+        box-shadow:inset 3px 0 0 var(--rfv7-primary);
+      }
+
+      .rf-agent-v7 .rf-agent-field input,
+      .rf-agent-v7 .rf-agent-field select,
+      .rf-agent-v7 .rf-agent-field textarea,
+      .rf-agent-v7 .rf-voice-search input,
+      .rf-agent-v7 .rf-voice-picker-field select,
+      .rf-agent-v7 .rf-agent-number-input input{
+        color:var(--rfv7-text);
+        background:#fff;
+        border-color:var(--rfv7-outline);
+        border-radius:8px;
+      }
+
+      .rf-agent-v7 .rf-agent-field input:focus,
+      .rf-agent-v7 .rf-agent-field select:focus,
+      .rf-agent-v7 .rf-agent-field textarea:focus,
+      .rf-agent-v7 .rf-voice-search input:focus{
+        border-color:rgba(70,72,212,.5);
+        box-shadow:0 0 0 3px rgba(70,72,212,.07);
+        outline:none;
+      }
+
+      .rf-agent-v7 .rf-agent-toolbar,
+      .rf-agent-v7 .rf-v6-lead-control-bar,
+      .rf-agent-v7 .rf-lead-activity-toolbar{
+        background:#fbfbfc;
+        border-color:var(--rfv7-outline);
+      }
+
+      .rf-agent-v7 .rf-agent-table-wrap{
+        overflow:auto;
+        border:1px solid var(--rfv7-outline);
+        border-radius:10px;
+      }
+
+      .rf-agent-v7 .rf-agent-table{
+        min-width:820px;
+        border-collapse:separate;
+        border-spacing:0;
+      }
+
+      .rf-agent-v7 .rf-agent-table thead th{
+        color:var(--rfv7-text-soft);
+        background:#eceeef;
+        border-color:var(--rfv7-outline);
+        font-size:7px;
+        letter-spacing:.07em;
+        text-transform:uppercase;
+      }
+
+      .rf-agent-v7 .rf-agent-table tbody td{
+        border-color:#f1f2f3;
+      }
+
+      .rf-agent-v7 .rf-agent-table tbody tr:hover{
+        background:#f8f8fc;
+      }
+
+      .rf-agent-v7 .rf-agent-status,
+      .rf-agent-v7 .rf-agent-custom-badge,
+      .rf-agent-v7 .rf-agent-google-badge,
+      .rf-agent-v7 .rf-voice-number-badge{
+        border-radius:999px;
+      }
+
+      .rf-agent-v7 .rf-agent-live-monitor,
+      .rf-agent-v7 .rf-agent-call-details,
+      .rf-agent-v7 .rf-agent-live-transcript{
+        border-radius:11px;
+      }
+
+      .rf-agent-v7 .rf-agent-live-transcript{
+        background:#16191b;
+        color:#fff;
+      }
+
+      .rf-agent-v7 .rf-agent-live-transcript-heading{
+        border-color:rgba(255,255,255,.1);
+      }
+
+      .rf-agent-v7 .rf-agent-transcript-message{
+        border-radius:9px;
+      }
+
+      .rf-agent-v7 .rf-agent-meeting-grid{
+        gap:10px;
+      }
+
+      .rf-agent-v7 .rf-agent-meeting-card{
+        border-radius:11px;
+      }
+
+      .rf-agent-v7 .btn,
+      .rf-agent-v7 button.btn,
+      .rf-agent-v7 .rf-voice-primary-action,
+      .rf-agent-v7 .rf-voice-activate-button{
+        border-radius:8px;
+      }
+
+      .rf-agent-loading{
+        min-height:420px;
+        display:grid;
+        place-items:center;
+        align-content:center;
+        gap:7px;
+        padding:28px;
+        color:var(--rfv7-muted);
+        background:#fff;
+        border:1px solid var(--rfv7-outline);
+        border-radius:14px;
+        text-align:center;
+      }
+
+      .rf-agent-loading b{
+        color:var(--rfv7-text);
+        font:600 13px/18px Geist,Inter,sans-serif;
+      }
+
+      .rf-agent-loading small{
+        font-size:8px;
+        line-height:13px;
+      }
+
+      .rf-agent-spinner{
+        width:30px;
+        height:30px;
+        border:3px solid #e3e4ef;
+        border-top-color:var(--rfv7-primary);
+        border-radius:50%;
+        animation:rfv7Spin 800ms linear infinite;
+      }
+
+      @media(max-width:1180px){
+        .rf-agent-page.rf-agent-v7{
+          padding:24px 24px 44px;
+        }
+
+        .rf-voice-overview-grid-v7{
+          grid-template-columns:1fr;
+        }
+
+        .rf-voice-health-v7{
+          position:static;
+        }
+
+        .rf-voice-health-list-v7{
+          grid-template-columns:repeat(2,minmax(0,1fr));
+        }
+
+        .rf-voice-health-list-v7 > div + div{
+          border-top:0;
+        }
+
+        .rf-voice-health-list-v7 > div:nth-child(n+3){
+          border-top:1px solid #f2f3f4;
+        }
+      }
+
+      @media(max-width:900px){
+        .rf-agent-header-v7{
+          align-items:flex-start;
+          flex-direction:column;
+        }
+
+        .rf-agent-header-actions-v7{
+          width:100%;
+          justify-content:flex-end;
+        }
+
+        .rf-agent-metrics-v7{
+          grid-template-columns:repeat(2,minmax(0,1fr));
+        }
+
+        .rf-voice-performance-grid-v7{
+          grid-template-columns:repeat(2,minmax(0,1fr));
+        }
+
+        .rf-agent-v7 .rf-voice-setup-progress.six{
+          overflow:auto;
+          display:flex;
+        }
+
+        .rf-agent-v7 .rf-voice-setup-progress.six > button{
+          min-width:130px;
+        }
+      }
+
+      @media(max-width:680px){
+        .rf-agent-page.rf-agent-v7{
+          padding:18px 12px 84px;
+        }
+
+        .rf-agent-avatar-v7{
+          width:52px;
+          height:52px;
+          flex-basis:52px;
+          font-size:19px;
+        }
+
+        .rf-agent-title-line-v7 h1{
+          font-size:24px;
+          line-height:31px;
+        }
+
+        .rf-agent-header-actions-v7{
+          display:grid;
+          grid-template-columns:1fr 1fr 40px;
+        }
+
+        .rf-agent-action-v7{
+          padding:7px 9px;
+          font-size:8px;
+        }
+
+        .rf-agent-metrics-v7{
+          grid-template-columns:1fr 1fr;
+          gap:7px;
+        }
+
+        .rf-voice-overview-metric-v7{
+          min-height:104px;
+          padding:13px;
+        }
+
+        .rf-voice-overview-metric-v7 > strong{
+          font-size:21px;
+          line-height:26px;
+        }
+
+        .rf-voice-health-list-v7{
+          grid-template-columns:1fr;
+        }
+
+        .rf-voice-health-list-v7 > div:nth-child(n+2){
+          border-top:1px solid #f2f3f4;
+        }
+
+        .rf-agent-tabs-v7 button{
+          min-width:100px;
+          flex:0 0 auto;
+        }
+
+        .rf-agent-v7 .rf-voice-setup-hero,
+        .rf-agent-v7 .rf-voice-setup-stage{
+          padding-left:14px;
+          padding-right:14px;
+        }
+      }
+
+      @media(max-width:470px){
+        .rf-agent-header-actions-v7{
+          grid-template-columns:1fr 1fr;
+        }
+
+        .rf-agent-icon-action-v7{
+          grid-column:1/-1;
+          width:100%;
+          border-radius:8px;
+        }
+
+        .rf-agent-metrics-v7,
+        .rf-voice-performance-grid-v7{
+          grid-template-columns:1fr;
+        }
+
+        .rf-voice-performance-head-v7{
+          flex-direction:column;
+        }
+      }
+
+      @media(prefers-reduced-motion:reduce){
+        .rf-agent-page.rf-agent-v7,
+        .rf-agent-v7 .rf-agent-alert,
+        .rf-agent-v7 .rf-voice-overview-metric-v7,
+        .rf-agent-v7 .rf-voice-setup-shell,
+        .rf-agent-v7 .rf-lead-flow-shell,
+        .rf-agent-v7 .rf-agent-spinner,
+        .rf-agent-v7 .spin{
+          animation:none!important;
+        }
+
+        .rf-agent-v7 *,
+        .rf-agent-v7 *::before,
+        .rf-agent-v7 *::after{
+          transition-duration:.01ms!important;
+          scroll-behavior:auto!important;
+        }
+      }
+    `}</style>
+  );
 }
 
 function normalizeAgentForm(value = {}) {
