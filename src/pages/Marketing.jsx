@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
-import { motion, useReducedMotion, useScroll, useSpring, useTransform } from "framer-motion";
+import { motion, useReducedMotion, useScroll, useSpring, useTransform } from "motion/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
@@ -9,6 +9,8 @@ import "lenis/dist/lenis.css";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Float, Sparkles as ThreeSparkles } from "@react-three/drei";
 import BrandLogo from "../components/BrandLogo";
+import MarketingMotionHero from "../components/MarketingMotionHero";
+import "../Styles.css";
 import {
   ArrowRight,
   BarChart3,
@@ -22,7 +24,6 @@ import {
   Globe2,
   Mail,
   MapPinned,
-  Menu,
   MessageCircle,
   Phone,
   Shield,
@@ -30,7 +31,6 @@ import {
   Target,
   Users,
   Workflow,
-  X,
   Zap,
 } from "../components/icons";
 
@@ -271,7 +271,6 @@ const FAQ = [
 ];
 
 export default function Marketing() {
-  const [mobileOpen, setMobileOpen] = useState(false);
   const rootRef = useRef(null);
   const sceneProgressRef = useRef(0);
   const reduceMotion = useReducedMotion();
@@ -320,102 +319,6 @@ export default function Marketing() {
       });
 
       mm.add("(min-width: 901px)", () => {
-        const heroTimeline = gsap.timeline({ defaults: { ease: "power3.out" } });
-
-        heroTimeline
-          .from(".rf11m-hero-copy > *", {
-            opacity: 0,
-            y: 26,
-            duration: 0.78,
-            stagger: 0.075,
-          })
-          .from(
-            ".rf11m-hero-preview-wrap",
-            {
-              opacity: 0,
-              y: 54,
-              rotateX: 8,
-              rotateY: -7,
-              scale: 0.965,
-              transformOrigin: "50% 50%",
-              duration: 1.08,
-            },
-            "-=0.7"
-          );
-
-        const heroScene = gsap.timeline({
-          scrollTrigger: {
-            trigger: ".rf11m-hero",
-            start: "top top",
-            end: "bottom top",
-            scrub: 1,
-          },
-        });
-
-        heroScene
-          .to(".rf11m-hero-copy", { yPercent: -10, opacity: 0.32, ease: "none" }, 0)
-          .to(".rf11m-hero-preview-wrap", {
-            xPercent: -8,
-            yPercent: -8,
-            scale: 1.08,
-            rotateY: 7,
-            rotateX: -3,
-            ease: "none",
-          }, 0)
-          .to(".rf11m-hero-3d", { scale: 1.22, opacity: 1, ease: "none" }, 0)
-          .to(".rf11m-scroll-cue", { opacity: 0, y: 18, ease: "none" }, 0);
-
-        let removeHeroPointer = () => {};
-        const hero = rootRef.current?.querySelector(".rf11m-hero");
-        const previewWrap = rootRef.current?.querySelector(".rf11m-hero-preview-wrap");
-        if (hero && previewWrap) {
-          const rotateYTo = gsap.quickTo(previewWrap, "--rf11m-pointer-ry", { duration: 0.55, ease: "power3.out" });
-          const rotateXTo = gsap.quickTo(previewWrap, "--rf11m-pointer-rx", { duration: 0.55, ease: "power3.out" });
-          const onPointerMove = (event) => {
-            const rect = hero.getBoundingClientRect();
-            const nx = ((event.clientX - rect.left) / rect.width - 0.5) * 2;
-            const ny = ((event.clientY - rect.top) / rect.height - 0.5) * 2;
-            rotateYTo(nx * 4.5);
-            rotateXTo(ny * -3.2);
-          };
-          const onPointerLeave = () => {
-            rotateYTo(0);
-            rotateXTo(0);
-          };
-          hero.addEventListener("pointermove", onPointerMove);
-          hero.addEventListener("pointerleave", onPointerLeave);
-          removeHeroPointer = () => {
-            hero.removeEventListener("pointermove", onPointerMove);
-            hero.removeEventListener("pointerleave", onPointerLeave);
-          };
-        }
-
-        gsap.to(".rf11m-product-preview", {
-          yPercent: -5,
-          rotateX: 1.5,
-          ease: "none",
-          scrollTrigger: {
-            trigger: ".rf11m-hero",
-            start: "top top",
-            end: "bottom top",
-            scrub: 0.8,
-          },
-        });
-
-        gsap.to(".rf11m-hero-glow-one", {
-          xPercent: 35,
-          yPercent: 30,
-          ease: "none",
-          scrollTrigger: { trigger: ".rf11m-hero", start: "top top", end: "bottom top", scrub: 1.2 },
-        });
-
-        gsap.to(".rf11m-hero-glow-two", {
-          xPercent: -26,
-          yPercent: -20,
-          ease: "none",
-          scrollTrigger: { trigger: ".rf11m-hero", start: "top top", end: "bottom top", scrub: 1.2 },
-        });
-
         const stackTimeline = gsap.timeline({
           scrollTrigger: {
             trigger: ".rf11m-stack-section",
@@ -485,7 +388,7 @@ export default function Marketing() {
             );
           }
         });
-        return removeHeroPointer;
+        return undefined;
       });
 
       gsap.utils
@@ -511,33 +414,6 @@ export default function Marketing() {
     { scope: rootRef, dependencies: [reduceMotion], revertOnUpdate: true }
   );
 
-  useEffect(() => {
-    if (!mobileOpen) return undefined;
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape") {
-        setMobileOpen(false);
-      }
-    };
-
-    const handleResize = () => {
-      if (window.innerWidth > 900) {
-        setMobileOpen(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("resize", handleResize);
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("resize", handleResize);
-    };
-  }, [mobileOpen]);
 
   return (
     <>
@@ -553,199 +429,7 @@ export default function Marketing() {
           <span className="rf11m-atmosphere-orb rf11m-atmosphere-orb-b" />
           <span className="rf11m-atmosphere-noise" />
         </motion.div>
-        <header className="rf11m-nav">
-          <Link className="rf11m-brand" to="/" aria-label="ReachFly home">
-            <span>
-              <BrandLogo size={38} />
-            </span>
-
-            <div>
-              <strong>ReachFly</strong>
-              <small>Sales OS</small>
-            </div>
-          </Link>
-
-          <nav className="rf11m-desktop-nav" aria-label="Primary navigation">
-            <a href="#why">Why ReachFly</a>
-            <a href="#how">How it works</a>
-            <a href="#use-cases">Use cases</a>
-            <a href="#voice">AI Voice</a>
-            <a href="#trust">Trust</a>
-            <a href="#pricing">Pricing</a>
-          </nav>
-
-          <div className="rf11m-nav-actions">
-            <Link className="rf11m-btn secondary" to="/login">
-              Sign in
-            </Link>
-
-            <Link className="rf11m-btn primary" to="/signup">
-              Get started
-              <ArrowRight size={14} />
-            </Link>
-
-            <button
-              type="button"
-              className="rf11m-menu-btn"
-              aria-label="Open navigation"
-              aria-expanded={mobileOpen}
-              onClick={() => setMobileOpen(true)}
-            >
-              <Menu size={18} />
-            </button>
-          </div>
-        </header>
-
-        {mobileOpen ? (
-          <div
-            className="rf11m-mobile-backdrop"
-            role="presentation"
-            onMouseDown={(event) => {
-              if (event.target === event.currentTarget) {
-                setMobileOpen(false);
-              }
-            }}
-          >
-            <aside className="rf11m-mobile-menu" aria-label="Mobile navigation">
-              <header>
-                <Link className="rf11m-brand" to="/" onClick={() => setMobileOpen(false)}>
-                  <span>
-                    <BrandLogo size={34} />
-                  </span>
-                  <div>
-                    <strong>ReachFly</strong>
-                    <small>Sales OS</small>
-                  </div>
-                </Link>
-
-                <button
-                  type="button"
-                  aria-label="Close navigation"
-                  onClick={() => setMobileOpen(false)}
-                >
-                  <X size={17} />
-                </button>
-              </header>
-
-              <nav>
-                {[
-                  ["#why", "Why ReachFly"],
-                  ["#how", "How it works"],
-                  ["#use-cases", "Use cases"],
-                  ["#voice", "AI Voice"],
-                  ["#trust", "Trust"],
-                  ["#pricing", "Pricing"],
-                ].map(([href, label]) => (
-                  <a key={href} href={href} onClick={() => setMobileOpen(false)}>
-                    {label}
-                    <ChevronRight size={14} />
-                  </a>
-                ))}
-              </nav>
-
-              <div className="rf11m-mobile-actions">
-                <Link className="rf11m-btn secondary" to="/login">
-                  Sign in
-                </Link>
-                <Link className="rf11m-btn primary" to="/signup">
-                  Create workspace
-                  <ArrowRight size={14} />
-                </Link>
-              </div>
-            </aside>
-          </div>
-        ) : null}
-
-        <section className="rf11m-hero">
-          <div className="rf11m-hero-3d" aria-hidden="true">
-            <ReachFlyThreeScene progressRef={sceneProgressRef} reduceMotion={reduceMotion} />
-          </div>
-          <div className="rf11m-hero-grid" />
-          <div className="rf11m-hero-glow rf11m-hero-glow-one" />
-          <div className="rf11m-hero-glow rf11m-hero-glow-two" />
-
-          <motion.div
-            className="rf11m-hero-copy"
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <span className="rf11m-kicker">
-              <Sparkles size={14} />
-              AI sales workspace · prospect to conversation
-            </span>
-
-            <h1>
-              Turn the right businesses into <em>real sales conversations.</em>
-            </h1>
-
-            <p>
-              ReachFly discovers prospects, adds business context, gives AI Voice the information
-              needed for a relevant conversation, keeps follow-up connected, and moves qualified
-              opportunities toward meetings and pipeline — from one sales workspace.
-            </p>
-
-            <div className="rf11m-hero-actions">
-              <Link className="rf11m-btn primary large" to="/signup">
-                Start finding prospects
-                <ArrowRight size={17} />
-              </Link>
-
-              <a className="rf11m-btn ghost large" href="#how">
-                See how ReachFly works
-              </a>
-            </div>
-
-            <div className="rf11m-proof" aria-label="ReachFly product principles">
-              <span>
-                <Check size={13} />
-                One connected lead timeline
-              </span>
-              <span>
-                <Check size={13} />
-                AI Voice + business context
-              </span>
-              <span>
-                <Check size={13} />
-                Prepaid usage visibility
-              </span>
-            </div>
-          </motion.div>
-
-          <div className="rf11m-hero-preview-wrap">
-            <ProductPreview />
-            <motion.div
-              className="rf11m-float-signal signal-a"
-              animate={reduceMotion ? undefined : { y: [0, -14, 0], rotate: [-1, 1.5, -1] }}
-              transition={{ duration: 5.2, repeat: Infinity, ease: "easeInOut" }}
-              aria-hidden="true"
-            >
-              <span><Brain size={14} /></span><div><small>Context ready</small><strong>39 prospects</strong></div>
-            </motion.div>
-            <motion.div
-              className="rf11m-float-signal signal-b"
-              animate={reduceMotion ? undefined : { y: [0, 12, 0], x: [0, -6, 0] }}
-              transition={{ duration: 6.4, repeat: Infinity, ease: "easeInOut" }}
-              aria-hidden="true"
-            >
-              <span><Phone size={14} /></span><div><small>AI Voice</small><strong>Conversation live</strong></div>
-            </motion.div>
-            <motion.div
-              className="rf11m-float-signal signal-c"
-              animate={reduceMotion ? undefined : { y: [0, -9, 0], rotate: [1, -1, 1] }}
-              transition={{ duration: 5.8, repeat: Infinity, ease: "easeInOut" }}
-              aria-hidden="true"
-            >
-              <span><Calendar size={14} /></span><div><small>Outcome</small><strong>Meeting booked</strong></div>
-            </motion.div>
-            <span className="rf11m-preview-caption">Illustrative ReachFly workspace preview</span>
-          </div>
-
-          <a className="rf11m-scroll-cue" href="#why" aria-label="Scroll to discover ReachFly">
-            <span>Scroll to discover</span>
-            <i><ArrowRight size={13} /></i>
-          </a>
-        </section>
+        <MarketingMotionHero />
 
         <section className="rf11m-trusted-section" aria-label="ReachFly trust and audience">
           <div className="rf11m-trusted-copy">
