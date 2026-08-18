@@ -100,11 +100,30 @@ export default function CodesyncAdminPage() {
     setSuccess("");
     try {
       await action();
-      if (successMessage) setSuccess(successMessage);
+
+      if (successMessage) {
+        setSuccess(successMessage);
+        notifyCodesyncAdmin(
+          "success",
+          "Platform action completed",
+          successMessage
+        );
+      }
+
       await load({ silent: true });
     } catch (requestError) {
-      setError(requestError?.message || "The admin action failed.");
+      const message =
+        requestError?.message ||
+        "The admin action failed.";
+
+      setError(message);
       setErrorStatus(Number(requestError?.status || 0));
+
+      notifyCodesyncAdmin(
+        "error",
+        "Platform action failed",
+        message
+      );
     } finally {
       setBusyKey("");
     }
@@ -235,7 +254,8 @@ export default function CodesyncAdminPage() {
 
   if (loading) {
     return (
-      <main className="cs-admin-page">
+      <main className="cs-admin-page cs-admin-v7">
+        <CodesyncAdminV7Styles />
         <div className="cs-admin-loading">Loading Codesync dashboard…</div>
       </main>
     );
@@ -243,7 +263,8 @@ export default function CodesyncAdminPage() {
 
   if (error && !dashboard) {
     return (
-      <main className="cs-admin-page">
+      <main className="cs-admin-page cs-admin-v7">
+        <CodesyncAdminV7Styles />
         <section className="cs-admin-panel cs-admin-danger-panel">
           <span>CodeSync Labs · restricted dashboard</span>
           <h1>Dashboard</h1>
@@ -263,7 +284,8 @@ export default function CodesyncAdminPage() {
   }
 
   return (
-    <main className="cs-admin-page">
+    <main className="cs-admin-page cs-admin-v7">
+        <CodesyncAdminV7Styles />
       <header className="cs-admin-hero">
         <div>
           <span>CodeSync Labs · owner dashboard</span>
@@ -996,4 +1018,646 @@ function toDateInput(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   return date.toISOString().slice(0, 10);
+}
+
+
+function notifyCodesyncAdmin(
+  type,
+  title,
+  message
+) {
+  if (
+    typeof window ===
+    "undefined"
+  ) {
+    return;
+  }
+
+  const bridge =
+    window.reachflyToast;
+
+  if (
+    bridge &&
+    typeof bridge[type] ===
+      "function"
+  ) {
+    bridge[type](
+      title,
+      message
+    );
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent(
+      "reachfly:toast",
+      {
+        detail: {
+          type,
+          title,
+          message,
+        },
+      }
+    )
+  );
+}
+
+function CodesyncAdminV7Styles() {
+  return (
+    <style>{`
+      .cs-admin-v7{
+        --csa-card:#fff;
+        --csa-soft:#f6f7f8;
+        --csa-text:#191c1d;
+        --csa-text2:#4d4c59;
+        --csa-muted:#777784;
+        --csa-line:#e2e4e7;
+        --csa-primary:#4648d4;
+        --csa-primary-dark:#393bbb;
+        --csa-primary-soft:#e8e9ff;
+        --csa-violet:#6b38d4;
+        --csa-violet-soft:#f1ebff;
+        --csa-green:#087a51;
+        --csa-green-soft:#e4f7ee;
+        --csa-red:#ba1a1a;
+        --csa-red-soft:#ffedeb;
+        --csa-amber:#965900;
+        --csa-amber-soft:#fff3d8;
+        --csa-dark:#2e3132;
+        --csa-ease:cubic-bezier(.2,.8,.2,1);
+        width:100%;
+        max-width:none;
+        min-height:100%;
+        padding:24px 30px 52px;
+        color:var(--csa-text);
+        background:transparent;
+        font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+        animation:csaPageIn .24s var(--csa-ease);
+      }
+
+      .cs-admin-v7 *,
+      .cs-admin-v7 *::before,
+      .cs-admin-v7 *::after{
+        box-sizing:border-box;
+      }
+
+      @keyframes csaPageIn{
+        from{opacity:0;transform:translateY(5px)}
+        to{opacity:1;transform:none}
+      }
+
+      @keyframes csaPulse{
+        0%,100%{opacity:.45}
+        50%{opacity:1}
+      }
+
+      .cs-admin-v7 .cs-admin-loading{
+        min-height:440px;
+        display:grid;
+        place-items:center;
+        color:var(--csa-muted);
+        background:#fff;
+        border:1px solid var(--csa-line);
+        border-radius:12px;
+        font-size:8px;
+        animation:csaPulse 1s infinite ease-in-out;
+      }
+
+      .cs-admin-v7 .cs-admin-hero{
+        min-height:150px;
+        display:flex;
+        align-items:flex-end;
+        justify-content:space-between;
+        gap:22px;
+        padding:22px;
+        margin-bottom:12px;
+        overflow:hidden;
+        color:#fff;
+        background:
+          radial-gradient(circle at 88% 16%,rgba(94,97,232,.27),transparent 31%),
+          radial-gradient(circle at 10% 82%,rgba(107,56,212,.17),transparent 28%),
+          #2e3132;
+        border:1px solid rgba(255,255,255,.06);
+        border-radius:14px;
+      }
+
+      .cs-admin-v7 .cs-admin-hero > div{
+        min-width:0;
+      }
+
+      .cs-admin-v7 .cs-admin-hero span{
+        display:block;
+        margin-bottom:5px;
+        color:#c9caff;
+        font-size:6.5px;
+        font-weight:800;
+        letter-spacing:.08em;
+        text-transform:uppercase;
+      }
+
+      .cs-admin-v7 .cs-admin-hero h1{
+        margin:0;
+        color:#fff;
+        font:600 33px/41px Geist,Inter,sans-serif;
+        letter-spacing:-.035em;
+      }
+
+      .cs-admin-v7 .cs-admin-hero p{
+        max-width:820px;
+        margin:5px 0 0;
+        color:rgba(242,244,245,.64);
+        font-size:9px;
+        line-height:15px;
+      }
+
+      .cs-admin-v7 button{
+        transition:.14s var(--csa-ease);
+      }
+
+      .cs-admin-v7 button:hover:not(:disabled){
+        transform:translateY(-1px);
+      }
+
+      .cs-admin-v7 button:disabled{
+        opacity:.45;
+        cursor:not-allowed;
+      }
+
+      .cs-admin-v7 .cs-admin-hero > button,
+      .cs-admin-v7 .cs-admin-panel > button,
+      .cs-admin-v7 .cs-user-actions button,
+      .cs-admin-v7 .cs-credit-adjust button,
+      .cs-admin-v7 .cs-subscription-editor button,
+      .cs-admin-v7 .cs-table-wrap button{
+        min-height:36px;
+        padding:7px 9px;
+        color:var(--csa-text);
+        background:#fff;
+        border:1px solid var(--csa-line);
+        border-radius:7px;
+        cursor:pointer;
+        font:700 6px/1 Inter,sans-serif;
+      }
+
+      .cs-admin-v7 .cs-admin-hero > button{
+        color:#fff;
+        background:var(--csa-primary);
+        border-color:var(--csa-primary);
+        box-shadow:0 8px 18px rgba(0,0,0,.13);
+      }
+
+      .cs-admin-v7 .cs-admin-alert{
+        padding:10px 12px;
+        margin-bottom:10px;
+        border:1px solid;
+        border-radius:9px;
+        font-size:7px;
+        line-height:12px;
+      }
+
+      .cs-admin-v7 .cs-admin-alert.error{
+        color:#7c1d1d;
+        background:var(--csa-red-soft);
+        border-color:#ffd0cc;
+      }
+
+      .cs-admin-v7 .cs-admin-alert.success{
+        color:#086846;
+        background:var(--csa-green-soft);
+        border-color:#caeadb;
+      }
+
+      .cs-admin-v7 .cs-admin-danger-panel{
+        min-height:300px;
+        display:grid;
+        place-items:center;
+        align-content:center;
+        max-width:none;
+        margin:0;
+        padding:28px;
+        color:#7c1d1d;
+        background:linear-gradient(135deg,#fff7f6,#fff);
+        border:1px solid #ffd3cf;
+        border-radius:12px;
+        text-align:center;
+      }
+
+      .cs-admin-v7 .cs-admin-danger-panel > span{
+        color:var(--csa-red);
+        font-size:6px;
+        font-weight:800;
+        text-transform:uppercase;
+      }
+
+      .cs-admin-v7 .cs-admin-danger-panel h1{
+        margin:5px 0 0;
+        color:var(--csa-text);
+        font:600 24px/31px Geist,Inter,sans-serif;
+      }
+
+      .cs-admin-v7 .cs-admin-danger-panel p{
+        max-width:700px;
+        color:var(--csa-text2);
+        font-size:7px;
+        line-height:12px;
+      }
+
+      .cs-admin-v7 .cs-admin-tabs{
+        position:sticky;
+        z-index:25;
+        top:64px;
+        display:flex;
+        gap:5px;
+        overflow-x:auto;
+        padding:5px;
+        margin-bottom:10px;
+        background:rgba(255,255,255,.95);
+        border:1px solid var(--csa-line);
+        border-radius:10px;
+        backdrop-filter:blur(12px);
+        scrollbar-width:none;
+      }
+
+      .cs-admin-v7 .cs-admin-tabs::-webkit-scrollbar{
+        display:none;
+      }
+
+      .cs-admin-v7 .cs-admin-tabs button{
+        min-height:36px;
+        flex:0 0 auto;
+        padding:6px 9px;
+        color:var(--csa-text2);
+        background:transparent;
+        border:0;
+        border-radius:7px;
+        cursor:pointer;
+        font-size:6.3px;
+        font-weight:700;
+      }
+
+      .cs-admin-v7 .cs-admin-tabs button:hover{
+        background:#f3f4f5;
+      }
+
+      .cs-admin-v7 .cs-admin-tabs button.active{
+        color:var(--csa-primary);
+        background:var(--csa-primary-soft);
+      }
+
+      .cs-admin-v7 .cs-admin-search{
+        width:100%;
+        min-height:42px;
+        margin-bottom:10px;
+        padding:9px 11px;
+        color:var(--csa-text);
+        background:#fff;
+        border:1px solid var(--csa-line);
+        border-radius:9px;
+        outline:0;
+        font-size:7px;
+      }
+
+      .cs-admin-v7 .cs-admin-search:focus{
+        border-color:rgba(70,72,212,.5);
+        box-shadow:0 0 0 3px rgba(70,72,212,.06);
+      }
+
+      .cs-admin-v7 .cs-metric-grid{
+        display:grid;
+        grid-template-columns:repeat(4,minmax(0,1fr));
+        gap:8px;
+        margin-bottom:10px;
+      }
+
+      .cs-admin-v7 .cs-metric{
+        min-height:125px;
+        display:grid;
+        align-content:end;
+        padding:13px;
+        background:#fff;
+        border:1px solid var(--csa-line);
+        border-radius:10px;
+        box-shadow:0 1px 3px rgba(25,28,29,.025);
+      }
+
+      .cs-admin-v7 .cs-metric span{
+        color:var(--csa-muted);
+        font-size:5.7px;
+        font-weight:750;
+      }
+
+      .cs-admin-v7 .cs-metric strong{
+        margin-top:4px;
+        font:600 23px/28px Geist,Inter,sans-serif;
+        letter-spacing:-.02em;
+      }
+
+      .cs-admin-v7 .cs-metric small{
+        margin-top:3px;
+        color:var(--csa-muted);
+        font-size:5.3px;
+        line-height:9px;
+      }
+
+      .cs-admin-v7 .cs-admin-grid-two{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:10px;
+        margin-bottom:10px;
+      }
+
+      .cs-admin-v7 .cs-admin-panel{
+        min-width:0;
+        padding:13px;
+        margin-bottom:10px;
+        background:#fff;
+        border:1px solid var(--csa-line);
+        border-radius:11px;
+        box-shadow:0 1px 3px rgba(25,28,29,.025);
+      }
+
+      .cs-admin-v7 .cs-admin-panel h2{
+        margin:0;
+        font:600 14px/19px Geist,Inter,sans-serif;
+        letter-spacing:-.015em;
+      }
+
+      .cs-admin-v7 .cs-admin-panel > p{
+        color:var(--csa-text2);
+        font-size:6.5px;
+        line-height:11px;
+      }
+
+      .cs-admin-v7 .cs-status-stack{
+        display:grid;
+        gap:5px;
+        margin-top:9px;
+      }
+
+      .cs-admin-v7 .cs-status-line{
+        min-height:43px;
+        display:grid;
+        grid-template-columns:minmax(0,1fr) auto;
+        align-items:center;
+        gap:8px;
+        padding:8px 9px;
+        background:#f7f8f9;
+        border-radius:8px;
+        font-size:6px;
+      }
+
+      .cs-admin-v7 .cs-status-line.ok{
+        color:var(--csa-green);
+        background:var(--csa-green-soft);
+      }
+
+      .cs-admin-v7 .cs-status-line.warning{
+        color:var(--csa-amber);
+        background:var(--csa-amber-soft);
+      }
+
+      .cs-admin-v7 .cs-table-wrap{
+        overflow-x:auto;
+        padding:0;
+      }
+
+      .cs-admin-v7 table{
+        width:100%;
+        min-width:900px;
+        border-collapse:collapse;
+      }
+
+      .cs-admin-v7 th{
+        height:42px;
+        padding:8px 10px;
+        color:#686973;
+        background:#f7f8f9;
+        border-bottom:1px solid var(--csa-line);
+        text-align:left;
+        white-space:nowrap;
+        font-size:5.5px;
+        font-weight:800;
+        letter-spacing:.04em;
+        text-transform:uppercase;
+      }
+
+      .cs-admin-v7 td{
+        padding:9px 10px;
+        color:var(--csa-text2);
+        border-bottom:1px solid #eff0f1;
+        vertical-align:top;
+        font-size:6px;
+        line-height:10px;
+      }
+
+      .cs-admin-v7 tbody tr:hover td{
+        background:#fafaff;
+      }
+
+      .cs-admin-v7 td strong,
+      .cs-admin-v7 td b{
+        color:var(--csa-text);
+        font-size:6.4px;
+      }
+
+      .cs-admin-v7 .cs-admin-note{
+        padding:9px 10px;
+        margin:0 0 8px;
+        color:var(--csa-text2);
+        background:#f7f7fc;
+        border:1px solid #e5e5f3;
+        border-radius:8px;
+        font-size:6px;
+        line-height:10px;
+      }
+
+      .cs-admin-v7 input,
+      .cs-admin-v7 select,
+      .cs-admin-v7 textarea{
+        min-height:35px;
+        padding:7px 8px;
+        color:var(--csa-text);
+        background:#f7f8f9;
+        border:1px solid transparent;
+        border-radius:7px;
+        outline:0;
+        font:400 6.3px/10px Inter,sans-serif;
+      }
+
+      .cs-admin-v7 textarea{
+        min-height:72px;
+        resize:vertical;
+      }
+
+      .cs-admin-v7 input:focus,
+      .cs-admin-v7 select:focus,
+      .cs-admin-v7 textarea:focus{
+        background:#fff;
+        border-color:rgba(70,72,212,.5);
+        box-shadow:0 0 0 3px rgba(70,72,212,.06);
+      }
+
+      .cs-admin-v7 .cs-subscription-editor,
+      .cs-admin-v7 .cs-credit-adjust{
+        display:grid;
+        gap:6px;
+        min-width:230px;
+      }
+
+      .cs-admin-v7 .cs-inline-fields{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:5px;
+      }
+
+      .cs-admin-v7 .cs-owner-badge,
+      .cs-admin-v7 .cs-protected-label,
+      .cs-admin-v7 .cs-status-pill{
+        display:inline-flex;
+        align-items:center;
+        min-height:23px;
+        padding:4px 6px;
+        border-radius:999px;
+        font-size:5.2px;
+        font-weight:750;
+      }
+
+      .cs-admin-v7 .cs-owner-badge,
+      .cs-admin-v7 .cs-status-pill.active,
+      .cs-admin-v7 .cs-status-pill.succeeded,
+      .cs-admin-v7 .cs-status-pill.paid{
+        color:var(--csa-green);
+        background:var(--csa-green-soft);
+      }
+
+      .cs-admin-v7 .cs-protected-label{
+        color:var(--csa-primary);
+        background:var(--csa-primary-soft);
+      }
+
+      .cs-admin-v7 .cs-status-pill.blocked,
+      .cs-admin-v7 .cs-status-pill.failed,
+      .cs-admin-v7 .cs-status-pill.deleted{
+        color:#8a1c1c;
+        background:var(--csa-red-soft);
+      }
+
+      .cs-admin-v7 .cs-status-pill.pending,
+      .cs-admin-v7 .cs-status-pill.warning{
+        color:var(--csa-amber);
+        background:var(--csa-amber-soft);
+      }
+
+      .cs-admin-v7 .cs-user-actions{
+        display:flex;
+        flex-wrap:wrap;
+        gap:4px;
+      }
+
+      .cs-admin-v7 .cs-user-actions button.warning{
+        color:#7c5100;
+        background:var(--csa-amber-soft);
+        border-color:#ecd6a8;
+      }
+
+      .cs-admin-v7 .cs-user-actions button.danger{
+        color:#fff;
+        background:#b42318;
+        border-color:#b42318;
+      }
+
+      .cs-admin-v7 .cs-payment-compact{
+        display:grid;
+        gap:2px;
+      }
+
+      .cs-admin-v7 .cs-activity-list{
+        display:grid;
+        gap:5px;
+      }
+
+      .cs-admin-v7 .cs-activity-list > article,
+      .cs-admin-v7 .cs-activity-list > div{
+        min-height:58px;
+        display:grid;
+        grid-template-columns:minmax(130px,.8fr) minmax(0,1fr) auto;
+        align-items:center;
+        gap:8px;
+        padding:8px 9px;
+        background:#f7f8f9;
+        border-radius:8px;
+      }
+
+      .cs-admin-v7 .cs-empty-cell{
+        min-height:120px;
+        display:grid;
+        place-items:center;
+        color:var(--csa-muted);
+        text-align:center;
+      }
+
+      @media(max-width:1100px){
+        .cs-admin-v7{
+          padding:22px;
+        }
+
+        .cs-admin-v7 .cs-metric-grid{
+          grid-template-columns:1fr 1fr;
+        }
+
+        .cs-admin-v7 .cs-admin-grid-two{
+          grid-template-columns:1fr;
+        }
+      }
+
+      @media(max-width:720px){
+        .cs-admin-v7{
+          padding:18px 12px 80px;
+        }
+
+        .cs-admin-v7 .cs-admin-hero{
+          align-items:flex-start;
+          flex-direction:column;
+        }
+
+        .cs-admin-v7 .cs-admin-hero h1{
+          font-size:27px;
+          line-height:34px;
+        }
+
+        .cs-admin-v7 .cs-admin-hero > button{
+          width:100%;
+        }
+
+        .cs-admin-v7 .cs-admin-tabs{
+          top:61px;
+          margin-left:-12px;
+          margin-right:-12px;
+          border-left:0;
+          border-right:0;
+          border-radius:0;
+        }
+
+        .cs-admin-v7 .cs-inline-fields{
+          grid-template-columns:1fr;
+        }
+      }
+
+      @media(max-width:430px){
+        .cs-admin-v7 .cs-metric-grid{
+          grid-template-columns:1fr;
+        }
+      }
+
+      @media(prefers-reduced-motion:reduce){
+        .cs-admin-v7,
+        .cs-admin-v7 *,
+        .cs-admin-v7 *::before,
+        .cs-admin-v7 *::after{
+          animation:none!important;
+          transition-duration:.01ms!important;
+        }
+      }
+    `}</style>
+  );
 }
