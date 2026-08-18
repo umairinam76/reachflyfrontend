@@ -1,3 +1,4 @@
+import "../marketing-tailwind.css";
 import { useEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import { motion, useReducedMotion, useScroll, useSpring, useTransform } from "motion/react";
@@ -10,7 +11,6 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { Float, Sparkles as ThreeSparkles } from "@react-three/drei";
 import BrandLogo from "../components/BrandLogo";
 import MarketingMotionHero from "../components/MarketingMotionHero";
-import "../Styles.css";
 import {
   ArrowRight,
   BarChart3,
@@ -84,7 +84,7 @@ const JOURNEY = [
     eyebrow: "Find the market",
     title: "Tell ReachFly who you want to sell to.",
     text: "Choose a niche, geography, territory, or business type and turn that market into structured prospect records your team can work.",
-    detail: "Lead discovery · niche + location · territory context",
+    detail: "Lead discovery Â· niche + location Â· territory context",
   },
   {
     number: "02",
@@ -92,7 +92,7 @@ const JOURNEY = [
     eyebrow: "Understand the opportunity",
     title: "Know why the prospect may care before you contact them.",
     text: "Add website and business context to the lead so outreach starts with a reason instead of a generic introduction.",
-    detail: "Website intelligence · opportunity context · audit signals",
+    detail: "Website intelligence Â· opportunity context Â· audit signals",
   },
   {
     number: "03",
@@ -100,7 +100,7 @@ const JOURNEY = [
     eyebrow: "Start the conversation",
     title: "Give your AI Voice Agent more than a phone number.",
     text: "The agent can work from lead context, campaign intent, and sales instructions before the conversation begins.",
-    detail: "Lead context · campaign objective · AI Voice",
+    detail: "Lead context Â· campaign objective Â· AI Voice",
   },
   {
     number: "04",
@@ -108,7 +108,7 @@ const JOURNEY = [
     eyebrow: "Capture what happened",
     title: "Turn every conversation into structured sales context.",
     text: "Keep outcomes, notes, qualification, callbacks, objections, and meeting intent attached to the same prospect record.",
-    detail: "Outcome · notes · callbacks · qualification",
+    detail: "Outcome Â· notes Â· callbacks Â· qualification",
   },
   {
     number: "05",
@@ -116,7 +116,7 @@ const JOURNEY = [
     eyebrow: "Follow up intelligently",
     title: "Continue the conversation instead of starting over.",
     text: "Use the context already captured to coordinate email follow-up and the next action without rebuilding the prospect story.",
-    detail: "Email · inbox · next action · shared context",
+    detail: "Email Â· inbox Â· next action Â· shared context",
   },
   {
     number: "06",
@@ -124,7 +124,7 @@ const JOURNEY = [
     eyebrow: "Move the opportunity forward",
     title: "From first market signal to booked meeting and pipeline.",
     text: "Keep meeting status, ownership, lead stage, and team activity connected so the next step is always visible.",
-    detail: "Meetings · ownership · pipeline · team activity",
+    detail: "Meetings Â· ownership Â· pipeline Â· team activity",
   },
 ];
 
@@ -707,7 +707,7 @@ export default function Marketing() {
                 </span>
                 <div>
                   <b>Business</b>
-                  <p>Nova Dental · local practice</p>
+                  <p>Nova Dental Â· local practice</p>
                 </div>
                 <div>
                   <b>Opportunity</b>
@@ -773,7 +773,7 @@ export default function Marketing() {
               <div className="rf11m-trust-seal">
                 <Shield size={28} />
                 <strong>Built around visible sales operations</strong>
-                <span>Workspace · activity · outcomes · next actions</span>
+                <span>Workspace Â· activity Â· outcomes Â· next actions</span>
               </div>
             </div>
 
@@ -998,7 +998,7 @@ function JourneyVisual({ step }) {
             <MapPinned size={13} /> London
           </span>
           <span>
-            <Target size={13} /> 2–20 employees
+            <Target size={13} /> 2â€“20 employees
           </span>
         </div>
         <div className="rf11m-lead-list">
@@ -1086,7 +1086,7 @@ function JourneyVisual({ step }) {
           <span>Follow-up draft</span>
         </header>
         <strong>Audit + next-step recap</strong>
-        <p>Hi Sarah — thanks for the conversation. I pulled together the booking opportunities we discussed...</p>
+        <p>Hi Sarah â€” thanks for the conversation. I pulled together the booking opportunities we discussed...</p>
         <footer>
           <span>Context attached</span>
           <button type="button">Send</button>
@@ -1102,7 +1102,7 @@ function JourneyVisual({ step }) {
           <span>{stage}</span>
           <article>
             <b>{index === 0 ? "Smile Studio" : index === 1 ? "Pure Clinics" : "Nova Dental"}</b>
-            <small>{index === 2 ? "Tue · 10:30" : "Next action ready"}</small>
+            <small>{index === 2 ? "Tue Â· 10:30" : "Next action ready"}</small>
           </article>
         </div>
       ))}
@@ -1244,7 +1244,7 @@ function ProductPreview() {
           <div className="rf11m-preview-head">
             <div>
               <small>AI Voice Campaign</small>
-              <strong>Dental practices · London</strong>
+              <strong>Dental practices Â· London</strong>
             </div>
             <button type="button">Launch</button>
           </div>
@@ -1558,7 +1558,7 @@ function MarketingStyles() {
 
 
       /* ------------------------------------------------------------------ */
-      /* V9 immersive motion layer — Austin Werner-inspired storytelling     */
+      /* V9 immersive motion layer â€” Austin Werner-inspired storytelling     */
       /* ------------------------------------------------------------------ */
       .rf11-marketing{
         position:relative;
@@ -1617,7 +1617,7 @@ function MarketingStyles() {
 
 
       /* ==========================================================
-         ReachFly Marketing V10 — cinematic / real 3D art direction
+         ReachFly Marketing V10 â€” cinematic / real 3D art direction
          ========================================================== */
       .rf11-marketing{
         --rf11m-ink:#07090f;
@@ -1847,7 +1847,7 @@ function MarketingV11Overrides() {
 
 function MarketingV12ClarityStyles() {
   return <style>{`
-/* ReachFly V12 — Marketing clarity + contrast lock */
+/* ReachFly V12 â€” Marketing clarity + contrast lock */
 .rf11-marketing{
   --v12-bg:#050711;--v12-surface:#0b1020;--v12-surface-2:#11172a;
   --v12-line:rgba(166,177,255,.18);--v12-line-strong:rgba(166,177,255,.30);

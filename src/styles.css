@@ -3231,11 +3231,11 @@ td a {
 }
 
 /* ==========================================================
-   ReachFly Auth Pages — polished version
+   ReachFly Auth Pages â€” polished version
    Fully scoped. Does not affect Builder, Sidebar, or App pages.
    ========================================================== */
 /* ==========================================================
-   ReachFly Auth Pages — polished 2-step version
+   ReachFly Auth Pages â€” polished 2-step version
    Fully scoped. Does not affect Builder, Sidebar, or App pages.
    ========================================================== */
 
@@ -9168,7 +9168,7 @@ td a {
 }
 
 /* ==========================================================
-   External lead campaign — Sheet personalized pitch
+   External lead campaign â€” Sheet personalized pitch
    ========================================================== */
 
 .external-sheet-pitch-box {
@@ -9339,7 +9339,7 @@ td a {
 }
 
 /* ==========================================================
-   Pipeline Builder — editable sheet pitch format + preview
+   Pipeline Builder â€” editable sheet pitch format + preview
    ========================================================== */
 
 .pipeline-dynamic-body {
@@ -19018,11 +19018,11 @@ body.audit-drawer-open {
   }
 
   .rf-chat-action-button:nth-last-child(2)::after {
-    content: "☎";
+    content: "â˜Ž";
   }
 
   .rf-chat-action-button:last-child::after {
-    content: "◉";
+    content: "â—‰";
   }
 
   .rf-message-list {
@@ -28008,7 +28008,7 @@ body.audit-drawer-open {
 }
 
 /* ==========================================================
-   Team Communication — Slack-style refinement
+   Team Communication â€” Slack-style refinement
    Place this AFTER the existing team communication CSS
    ========================================================== */
 
@@ -29417,7 +29417,7 @@ body.audit-drawer-open {
   display: block;
 }
 
-/* Message actions — hidden until hover */
+/* Message actions â€” hidden until hover */
 
 .team-message-hover-actions {
   position: absolute;
@@ -30520,12 +30520,12 @@ body.audit-drawer-open {
   }
 
   .team-header-call-actions button:first-child::after {
-    content: "☎";
+    content: "â˜Ž";
     font-size: 15px;
   }
 
   .team-header-call-actions button:last-child::after {
-    content: "◉";
+    content: "â—‰";
     font-size: 15px;
   }
 
@@ -35369,7 +35369,7 @@ body.audit-drawer-open {
 }
 
 /* =========================================================
-   REACHFLY — PROFESSIONAL CALL WORKSPACE
+   REACHFLY â€” PROFESSIONAL CALL WORKSPACE
    Add this block at the END of your main CSS file
    ========================================================= */
 
@@ -36998,7 +36998,7 @@ body.audit-drawer-open {
 }
 
 /* =========================================================
-   RESPONSIVE — MEDIUM DESKTOP / TABLET
+   RESPONSIVE â€” MEDIUM DESKTOP / TABLET
    ========================================================= */
 
 @media (max-width: 1180px) {
@@ -37054,7 +37054,7 @@ body.audit-drawer-open {
 }
 
 /* =========================================================
-   RESPONSIVE — MOBILE
+   RESPONSIVE â€” MOBILE
    ========================================================= */
 
 @media (max-width: 680px) {
@@ -45063,7 +45063,7 @@ body.audit-drawer-open {
 @media(max-width:900px){.cs-admin-grid-two{grid-template-columns:1fr}.cs-admin-page{padding:18px}.cs-admin-hero{padding:22px;flex-direction:column}.cs-admin-hero h1{font-size:30px}}
 @media(max-width:700px){.cs-admin-page{padding:14px}.cs-admin-hero{padding:20px}.cs-admin-hero h1{font-size:28px}.cs-activity-list article,.cs-payment-compact article{flex-direction:column}.cs-payment-compact article>div:last-child{text-align:left}}
 /* ==========================================================================
-   ReachFly.Ai — Mature Marketing Page Override
+   ReachFly.Ai â€” Mature Marketing Page Override
    CSS ONLY. No Marketing.jsx changes required.
 
    Usage:
@@ -47135,7 +47135,7 @@ body.audit-drawer-open {
 }
 
 /* ============================================================================
-   ReachFly.Ai — 2026 FUTURE PROFESSIONAL VISUAL SYSTEM
+   ReachFly.Ai â€” 2026 FUTURE PROFESSIONAL VISUAL SYSTEM
    Final cascade layer. Keep this block at the END of styles.css.
    Purpose: unify marketing + dashboard + auth + billing + voice + admin UI.
    ============================================================================ */
@@ -47385,7 +47385,7 @@ button:disabled {
 }
 
 /* --------------------------------------------------------------------------
-   APP SHELL — professional futuristic cockpit
+   APP SHELL â€” professional futuristic cockpit
    -------------------------------------------------------------------------- */
 
 .app-shell {
@@ -48263,7 +48263,7 @@ td b {
 }
 
 /* ============================================================================
-   MARKETING PAGE — futuristic, premium, high-conversion visual layer
+   MARKETING PAGE â€” futuristic, premium, high-conversion visual layer
    Scope: .cu-page only
    ============================================================================ */
 
@@ -48494,7 +48494,7 @@ td b {
   font-weight: 620;
 }
 
-/* Product preview — the main futuristic visual */
+/* Product preview â€” the main futuristic visual */
 
 .cu-preview {
   overflow: visible;
@@ -48822,7 +48822,7 @@ td b {
   color: #687087;
 }
 
-/* Final CTA — turn the plain white card into a memorable product moment */
+/* Final CTA â€” turn the plain white card into a memorable product moment */
 
 .cu-final {
   width: min(1280px, calc(100% - 44px));
@@ -49622,7 +49622,7 @@ td b {
 
 
 /* ========================================================================== 
-   ReachFly Voice Setup V2 — guided single-card experience
+   ReachFly Voice Setup V2 â€” guided single-card experience
    ========================================================================== */
 
 .rf-voice-setup-shell {
@@ -50312,7 +50312,7 @@ td b {
   }
 }
 /* =========================================================
-   ReachFly Marketing Hero — compact first-screen override
+   ReachFly Marketing Hero â€” compact first-screen override
    Paste at the VERY END of styles.css
    ========================================================= */
 
@@ -50642,7 +50642,7 @@ td b {
   }
 }
 /* =========================================================
-   ReachFly Marketing V2 — Autonomous Sales Operator
+   ReachFly Marketing V2 â€” Autonomous Sales Operator
    Append AFTER the existing marketing styles.
    ========================================================= */
 
@@ -51003,7 +51003,7 @@ td b {
 }
 
 .cu-voice-compare-card li::before {
-  content: "✓";
+  content: "âœ“";
   position: absolute;
   left: 0;
   color: #a98cff;
@@ -51906,7 +51906,7 @@ td b {
 
 
 /* ========================================================================== 
-   ReachFly Voice Setup V2 — guided single-card experience
+   ReachFly Voice Setup V2 â€” guided single-card experience
    ========================================================================== */
 
 .rf-voice-setup-shell {
@@ -52598,7 +52598,7 @@ td b {
 
 
 /* =========================================================
-   ReachFly Voice Setup V4 — inbound / outbound / BYON
+   ReachFly Voice Setup V4 â€” inbound / outbound / BYON
    ========================================================= */
 
 .rf-voice-setup-progress.six {
@@ -55324,7 +55324,7 @@ td b {
       none !important;
   }
 }
-/* ReachFly Voice Agent sidebar subnav — append to global styles.css */
+/* ReachFly Voice Agent sidebar subnav â€” append to global styles.css */
 .sb-nav-tree { display:grid; gap:4px; }
 .sb-tree-chevron { margin-left:auto; color:rgba(229,220,255,.5); font-size:18px; line-height:1; transition:transform .16s ease,color .16s ease; }
 .sb-nav-tree.open .sb-tree-chevron { transform:rotate(90deg); color:#fff; }
@@ -55749,7 +55749,7 @@ td b {
 
 
 /* ========================================================================== 
-   ReachFly Voice Setup V2 — guided single-card experience
+   ReachFly Voice Setup V2 â€” guided single-card experience
    ========================================================================== */
 
 .rf-voice-setup-shell {
@@ -56441,7 +56441,7 @@ td b {
 
 
 /* =========================================================
-   ReachFly Voice Setup V4 — inbound / outbound / BYON
+   ReachFly Voice Setup V4 â€” inbound / outbound / BYON
    ========================================================= */
 
 .rf-voice-setup-progress.six {
@@ -57859,7 +57859,7 @@ td b {
 
 
 /* ========================================================================== 
-   ReachFly Voice Setup V2 — guided single-card experience
+   ReachFly Voice Setup V2 â€” guided single-card experience
    ========================================================================== */
 
 .rf-voice-setup-shell {
@@ -58551,7 +58551,7 @@ td b {
 
 
 /* =========================================================
-   ReachFly Voice Setup V4 — inbound / outbound / BYON
+   ReachFly Voice Setup V4 â€” inbound / outbound / BYON
    ========================================================= */
 
 .rf-voice-setup-progress.six {
@@ -59555,7 +59555,7 @@ td b {
     grid-column: auto;
   }
 }
-/* ReachFly Voice Agent sidebar subnav — append to global styles.css */
+/* ReachFly Voice Agent sidebar subnav â€” append to global styles.css */
 .sb-nav-tree { display:grid; gap:4px; }
 .sb-tree-chevron { margin-left:auto; color:rgba(229,220,255,.5); font-size:18px; line-height:1; transition:transform .16s ease,color .16s ease; }
 .sb-nav-tree.open .sb-tree-chevron { transform:rotate(90deg); color:#fff; }
@@ -61190,7 +61190,7 @@ button.sb-subitem.active {
   }
 }
 /* ==========================================================================
-   ReachFly Voice — Lead Queue Guided Workflow
+   ReachFly Voice â€” Lead Queue Guided Workflow
    Premium UI Override V5.5
    --------------------------------------------------------------------------
    Use as the complete replacement for the previous
@@ -61415,7 +61415,7 @@ button.sb-subitem.active {
 
 
 /* ==========================================================================
-   2. WORKFLOW PROGRESS — CONNECTED STEPPER
+   2. WORKFLOW PROGRESS â€” CONNECTED STEPPER
    ========================================================================== */
 
 .rf-agent-page .rf-lead-flow-progress {
@@ -62692,7 +62692,7 @@ button.sb-subitem.active {
 
 
 /* ==========================================================================
-   15. RESPONSIVE — LARGE TABLET
+   15. RESPONSIVE â€” LARGE TABLET
    ========================================================================== */
 
 @media (max-width: 1180px) {
@@ -62719,7 +62719,7 @@ button.sb-subitem.active {
 
 
 /* ==========================================================================
-   16. RESPONSIVE — TABLET
+   16. RESPONSIVE â€” TABLET
    ========================================================================== */
 
 @media (max-width: 900px) {
@@ -62778,7 +62778,7 @@ button.sb-subitem.active {
 
 
 /* ==========================================================================
-   17. RESPONSIVE — MOBILE
+   17. RESPONSIVE â€” MOBILE
    ========================================================================== */
 
 @media (max-width: 720px) {
@@ -62938,7 +62938,7 @@ button.sb-subitem.active {
 
 
 /* ==========================================================================
-   18. RESPONSIVE — SMALL MOBILE
+   18. RESPONSIVE â€” SMALL MOBILE
    ========================================================================== */
 
 @media (max-width: 460px) {
@@ -63026,7 +63026,7 @@ button.sb-subitem.active {
   }
 }
 /* ========================================================================== 
-   ReachFly Voice Agent sidebar — nested section navigation V5.4
+   ReachFly Voice Agent sidebar â€” nested section navigation V5.4
    Imported by AppShell.jsx from src/voice-agent-sidebar-tree.css
    ========================================================================== */
 
@@ -63198,7 +63198,7 @@ button.sb-subitem.active {
   }
 }
 /* ========================================================================== 
-   ReachFly Voice Agent sidebar — root + nested section navigation V5.5
+   ReachFly Voice Agent sidebar â€” root + nested section navigation V5.5
    Imported by AppShell.jsx from src/voice-agent-sidebar-tree.css
    ========================================================================== */
 
@@ -63372,7 +63372,7 @@ button.sb-subitem.active {
 
 
 /* ========================================================================== 
-   Voice Operations — top-priority root navigation V5.5
+   Voice Operations â€” top-priority root navigation V5.5
    ========================================================================== */
 
 .sb-section-voice-operations {
@@ -63480,7 +63480,7 @@ button.sb-subitem.active {
     margin-right: 1px;
   }
 }
-/* ReachFly V6 — CodeSync owner Dashboard */
+/* ReachFly V6 â€” CodeSync owner Dashboard */
 .cs-admin-page,
 .cs-admin-page *,
 .cs-admin-page *::before,
@@ -63808,7 +63808,7 @@ main a[href="/app/launch-campaign"] {
   border-radius: 50%;
   background: rgba(111,66,245,.055);
 }
-/* ReachFly V6 — AI Workforce command-center UI */
+/* ReachFly V6 â€” AI Workforce command-center UI */
 :root {
   --rf6-ink: #171222;
   --rf6-muted: #756d82;
@@ -63920,7 +63920,7 @@ main a[href="/app/launch-campaign"] {
 .rf-v6-alert.success { border: 1px solid #cceedd; color: #08734b; background: #f1fff8; }
 
 .rf-v6-check-list { display: grid; gap: 9px; margin: 20px 0; color: #4d405b; font-size: 11px; font-weight: 700; }
-.rf-v6-check-list.subdued span::before { content: "•"; color: var(--rf6-purple); margin-right: 8px; }
+.rf-v6-check-list.subdued span::before { content: "â€¢"; color: var(--rf6-purple); margin-right: 8px; }
 .rf-v6-provider-logo { width: 48px; height: 48px; flex: 0 0 48px; display: grid; place-items: center; border-radius: 15px; font-size: 20px; font-weight: 900; }
 .rf-v6-provider-logo.google { border: 1px solid #ebe7f1; color: #4285f4; background: #fff; box-shadow: 0 8px 22px rgba(49,39,70,.07); }
 .rf-v6-provider-logo.small { width: 38px; height: 38px; flex-basis: 38px; border-radius: 12px; font-size: 16px; }
@@ -64094,7 +64094,7 @@ main a[href="/app/launch-campaign"] {
 .rf-v6-channel > b { color: var(--rf6-purple); font-size: 12px; }
 .rf-v6-flow-line { display: grid; grid-template-columns: repeat(4,1fr); gap: 7px; margin-top: 16px; }
 .rf-v6-flow-line > div { position: relative; display: grid; gap: 2px; padding: 12px 8px; border-radius: 12px; text-align: center; background: #f8f6fb; }
-.rf-v6-flow-line > div:not(:last-child)::after { content: "→"; position: absolute; top: 50%; right: -8px; z-index: 2; transform: translateY(-50%); color: #b7adbf; font-size: 10px; }
+.rf-v6-flow-line > div:not(:last-child)::after { content: "â†’"; position: absolute; top: 50%; right: -8px; z-index: 2; transform: translateY(-50%); color: #b7adbf; font-size: 10px; }
 .rf-v6-flow-line strong { color: var(--rf6-purple-dark); font-size: 17px; }
 .rf-v6-flow-line span { color: var(--rf6-muted); font-size: 8px; text-transform: none; letter-spacing: 0; }
 .rf-v6-quick-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 7px; margin-top: 12px; }
@@ -64268,7 +64268,7 @@ main a[href="/app/launch-campaign"] {
 }
 
 /* ========================================================================== */
-/* V6 readability pass — keep the futuristic treatment without tiny UI text  */
+/* V6 readability pass â€” keep the futuristic treatment without tiny UI text  */
 /* ========================================================================== */
 .rf-v6-panel-head span,
 .rf-v6-section-head span { font-size: 10.5px; }
@@ -64333,7 +64333,7 @@ main a[href="/app/launch-campaign"] {
 .rf-v6-lead-control-bar small { font-size: 10px; }
 .rf-v6-lead-control-bar > a { font-size: 10.5px; }
 /* ========================================================================== 
-   ReachFly Voice Agent sidebar — root + nested section navigation V5.5
+   ReachFly Voice Agent sidebar â€” root + nested section navigation V5.5
    Imported by AppShell.jsx from src/voice-agent-sidebar-tree.css
    ========================================================================== */
 
@@ -64507,7 +64507,7 @@ main a[href="/app/launch-campaign"] {
 
 
 /* ========================================================================== 
-   Voice Operations — top-priority root navigation V5.5
+   Voice Operations â€” top-priority root navigation V5.5
    ========================================================================== */
 
 .sb-section-voice-operations {
@@ -64616,7 +64616,7 @@ main a[href="/app/launch-campaign"] {
   }
 }
 /* ==========================================================================
-   ReachFly Voice — Lead Queue Guided Workflow
+   ReachFly Voice â€” Lead Queue Guided Workflow
    Premium UI Override V5.5
    --------------------------------------------------------------------------
    Use as the complete replacement for the previous
@@ -64841,7 +64841,7 @@ main a[href="/app/launch-campaign"] {
 
 
 /* ==========================================================================
-   2. WORKFLOW PROGRESS — CONNECTED STEPPER
+   2. WORKFLOW PROGRESS â€” CONNECTED STEPPER
    ========================================================================== */
 
 .rf-agent-page .rf-lead-flow-progress {
@@ -66118,7 +66118,7 @@ main a[href="/app/launch-campaign"] {
 
 
 /* ==========================================================================
-   15. RESPONSIVE — LARGE TABLET
+   15. RESPONSIVE â€” LARGE TABLET
    ========================================================================== */
 
 @media (max-width: 1180px) {
@@ -66145,7 +66145,7 @@ main a[href="/app/launch-campaign"] {
 
 
 /* ==========================================================================
-   16. RESPONSIVE — TABLET
+   16. RESPONSIVE â€” TABLET
    ========================================================================== */
 
 @media (max-width: 900px) {
@@ -66204,7 +66204,7 @@ main a[href="/app/launch-campaign"] {
 
 
 /* ==========================================================================
-   17. RESPONSIVE — MOBILE
+   17. RESPONSIVE â€” MOBILE
    ========================================================================== */
 
 @media (max-width: 720px) {
@@ -66364,7 +66364,7 @@ main a[href="/app/launch-campaign"] {
 
 
 /* ==========================================================================
-   18. RESPONSIVE — SMALL MOBILE
+   18. RESPONSIVE â€” SMALL MOBILE
    ========================================================================== */
 
 @media (max-width: 460px) {
@@ -66453,7 +66453,7 @@ main a[href="/app/launch-campaign"] {
 }
 
 /* ==========================================================================
-   REACHFLY VOICE SETUP — COMPACT PROFESSIONAL UX OVERRIDE
+   REACHFLY VOICE SETUP â€” COMPACT PROFESSIONAL UX OVERRIDE
    Add this at the VERY END of styles.css
    ========================================================================== */
 
@@ -67550,7 +67550,7 @@ main a[href="/app/launch-campaign"] {
 
 
 /* ==========================================================================
-   12. PREVIOUS / NEXT — ALWAYS ACCESSIBLE
+   12. PREVIOUS / NEXT â€” ALWAYS ACCESSIBLE
    ========================================================================== */
 
 .rf-agent-page .rf-voice-setup-nav {
@@ -67666,7 +67666,7 @@ main a[href="/app/launch-campaign"] {
 
 
 /* ==========================================================================
-   13. DESKTOP — GIVE THE VOICE STEP EVEN BETTER USE OF SPACE
+   13. DESKTOP â€” GIVE THE VOICE STEP EVEN BETTER USE OF SPACE
    ========================================================================== */
 
 @media (min-width: 1180px) {
@@ -68351,7 +68351,7 @@ main a[href="/app/launch-campaign"] {
   }
 }
 /* ==========================================================================
-   REACHFLY VOICE STUDIO — DESIGNER RESET V3
+   REACHFLY VOICE STUDIO â€” DESIGNER RESET V3
    --------------------------------------------------------------------------
    ADD THIS AT THE ABSOLUTE END OF styles.css
 
@@ -68368,7 +68368,7 @@ main a[href="/app/launch-campaign"] {
 
 
 /* ==========================================================================
-   1. VOICE PAGE — BETTER LIGHT ENVIRONMENT
+   1. VOICE PAGE â€” BETTER LIGHT ENVIRONMENT
    ========================================================================== */
 
 .rf-agent-page {
@@ -68416,7 +68416,7 @@ main a[href="/app/launch-campaign"] {
 
 
 /* ==========================================================================
-   2. PAGE HEADER — CLEANER, STRONGER
+   2. PAGE HEADER â€” CLEANER, STRONGER
    ========================================================================== */
 
 .rf-agent-page .rf-agent-header {
@@ -68446,7 +68446,7 @@ main a[href="/app/launch-campaign"] {
 
 
 /* ==========================================================================
-   3. TOP METRICS — LESS BORING WHITE BOXES
+   3. TOP METRICS â€” LESS BORING WHITE BOXES
    ========================================================================== */
 
 .rf-agent-page .rf-agent-metrics {
@@ -68619,7 +68619,7 @@ main a[href="/app/launch-campaign"] {
 
 
 /* ==========================================================================
-   6. CRITICAL FIX — REMOVE THE BAD GLOBAL WIZARD HEIGHT
+   6. CRITICAL FIX â€” REMOVE THE BAD GLOBAL WIZARD HEIGHT
    ========================================================================== */
 
 .rf-agent-page .rf-voice-setup-shell {
@@ -68673,7 +68673,7 @@ main a[href="/app/launch-campaign"] {
 
 
 /* ==========================================================================
-   7. WIZARD HERO — MORE PERSONALITY
+   7. WIZARD HERO â€” MORE PERSONALITY
    ========================================================================== */
 
 .rf-agent-page .rf-voice-setup-hero {
@@ -68756,7 +68756,7 @@ main a[href="/app/launch-campaign"] {
 
 
 /* ==========================================================================
-   8. CALL CREDIT — TURN IT INTO A REAL PRODUCT ELEMENT
+   8. CALL CREDIT â€” TURN IT INTO A REAL PRODUCT ELEMENT
    ========================================================================== */
 
 .rf-agent-page .rf-voice-credit-orb {
@@ -68810,7 +68810,7 @@ main a[href="/app/launch-campaign"] {
 
 
 /* ==========================================================================
-   9. SIX STEPS — CLEAN JOURNEY BAR
+   9. SIX STEPS â€” CLEAN JOURNEY BAR
    ========================================================================== */
 
 .rf-agent-page .rf-voice-setup-progress.six,
@@ -68918,7 +68918,7 @@ button.done > span {
 
 
 /* ==========================================================================
-   10. STEP CARD — REMOVE INTERNAL PAGE SCROLL
+   10. STEP CARD â€” REMOVE INTERNAL PAGE SCROLL
    ========================================================================== */
 
 .rf-agent-page .rf-voice-setup-stage {
@@ -69012,7 +69012,7 @@ button.done > span {
 
 
 /* ==========================================================================
-   12. CRITICAL FIX — THE PANE DOES NOT SCROLL ANYMORE
+   12. CRITICAL FIX â€” THE PANE DOES NOT SCROLL ANYMORE
    ========================================================================== */
 
 .rf-agent-page .rf-voice-setup-pane {
@@ -69166,7 +69166,7 @@ input {
 
 
 /* ==========================================================================
-   15. SELECTED VOICE — FEATURED ARTIST
+   15. SELECTED VOICE â€” FEATURED ARTIST
    ========================================================================== */
 
 .rf-agent-page .rf-selected-voice-summary {
@@ -69451,7 +69451,7 @@ select {
 
 
 /* ==========================================================================
-   20. VOICE CARDS — ARTIST COLLECTION
+   20. VOICE CARDS â€” ARTIST COLLECTION
    ========================================================================== */
 
 .rf-agent-page .rf-voice-card {
@@ -69732,7 +69732,7 @@ span:nth-child(n + 3) {
 
 
 /* ==========================================================================
-   22. RIGHT SIDE — LANGUAGE STUDIO
+   22. RIGHT SIDE â€” LANGUAGE STUDIO
    ========================================================================== */
 
 .rf-agent-page .rf-voice-language-panel {
@@ -69857,7 +69857,7 @@ span:nth-child(n + 3) {
 
 
 /* ==========================================================================
-   24. LANGUAGE CHOICES — NO UGLY HORIZONTAL SCROLL
+   24. LANGUAGE CHOICES â€” NO UGLY HORIZONTAL SCROLL
    ========================================================================== */
 
 .rf-agent-page .rf-v6-language-chips {
@@ -69933,7 +69933,7 @@ span:nth-child(n + 3) {
 
 
 /* ==========================================================================
-   25. LANGUAGE OVERRIDES — NATURAL HEIGHT, NO NESTED SCROLL
+   25. LANGUAGE OVERRIDES â€” NATURAL HEIGHT, NO NESTED SCROLL
    ========================================================================== */
 
 .rf-agent-page .rf-v6-language-overrides {
@@ -70008,7 +70008,7 @@ span:nth-child(n + 3) {
 
 
 /* ==========================================================================
-   26. SUMMARY — SMALL CONTEXT CARD ON RIGHT
+   26. SUMMARY â€” SMALL CONTEXT CARD ON RIGHT
    ========================================================================== */
 
 @media (min-width: 1050px) {
@@ -70075,7 +70075,7 @@ span:nth-child(n + 3) {
 
 
 /* ==========================================================================
-   27. PREVIOUS / NEXT — PROMINENT, CALM, EASY
+   27. PREVIOUS / NEXT â€” PROMINENT, CALM, EASY
    ========================================================================== */
 
 .rf-agent-page .rf-voice-setup-nav {
@@ -70523,7 +70523,7 @@ span:nth-child(n + 3) {
   }
 }
 
-/* ==========================================================================\n   REACHFLY AI WORKFORCE — GENERATED VOICE ART / COMPACT VOICE PICKER\n   Append after your existing rf-v6 styles.\n   ========================================================================== */
+/* ==========================================================================\n   REACHFLY AI WORKFORCE â€” GENERATED VOICE ART / COMPACT VOICE PICKER\n   Append after your existing rf-v6 styles.\n   ========================================================================== */
 
 .rf-v6-agent-top {
   grid-template-columns: auto minmax(0, 1fr) auto !important;
@@ -70944,7 +70944,7 @@ span:nth-child(n + 3) {
   }
 }
 /* ==========================================================================
-   REACHFLY VOICE AGENT — ARTIST CARDS + BALANCED AGENT STEP
+   REACHFLY VOICE AGENT â€” ARTIST CARDS + BALANCED AGENT STEP
    ADD THIS AT THE ABSOLUTE END OF styles.css
    ========================================================================== */
 
@@ -71035,7 +71035,7 @@ span:nth-child(n + 3) {
 }
 
 
-/* Old CSS capped this around 185–245px, which caused the dead whitespace. */
+/* Old CSS capped this around 185â€“245px, which caused the dead whitespace. */
 
 @media (min-width: 1050px) {
 
@@ -71580,7 +71580,7 @@ span:nth-child(n + 3) {
 
 
 /* ==========================================================================
-   8. LANGUAGE PANEL — CLEANER / LESS DENSE
+   8. LANGUAGE PANEL â€” CLEANER / LESS DENSE
    ========================================================================== */
 
 .rf-agent-page .rf-voice-language-panel {
@@ -71718,7 +71718,7 @@ label {
   }
 }
 /* ============================================================================
-   ReachFly Voice Agent v5.5 — Artist portraits + full Agent & Voice details
+   ReachFly Voice Agent v5.5 â€” Artist portraits + full Agent & Voice details
    This file is imported AFTER styles.css by TelnyxAIAgentPage.v55.jsx.
    ============================================================================ */
 
@@ -72284,12 +72284,12 @@ label {
 
 
 /* ==========================================================================
-   REACHFLY.AI STITCH V7 DESIGN SYSTEM — MIGRATION LAYER
+   REACHFLY.AI STITCH V7 DESIGN SYSTEM â€” MIGRATION LAYER
    Appended 2026-08-18. Preserve legacy selectors above while screens migrate.
    ========================================================================== */
 
 /*
- * ReachFly.AI — Next UI foundation
+ * ReachFly.AI â€” Next UI foundation
  * --------------------------------
  * Canonical implementation layer for the Stitch "ReachFly.AI Core" system.
  *
@@ -74013,7 +74013,7 @@ textarea.rf7-field-control {
   }
 }
 /* ==========================================================================
-   ReachFly Motion Experience V9 — APPEND-ONLY CSS
+   ReachFly Motion Experience V9 â€” APPEND-ONLY CSS
    --------------------------------------------------------------------------
    Usage: append this entire file at the VERY END of web/src/styles.css.
    Scope: marketing page + auth shell + login + signup only.
@@ -74022,7 +74022,7 @@ textarea.rf7-field-control {
    visual/background/layout/interaction layer those components expect.
    ========================================================================== */
 
-/* ============================== MARKETING V9 — cinematic background, navigation, story sections, product preview, responsive states ============================== */
+/* ============================== MARKETING V9 â€” cinematic background, navigation, story sections, product preview, responsive states ============================== */
 .rf-marketing-v8{
         --rfm-bg:#f8f9fb;
         --rfm-card:#ffffff;
@@ -74209,7 +74209,7 @@ textarea.rf7-field-control {
 
 
       /* ------------------------------------------------------------------ */
-      /* V9 immersive motion layer — Austin Werner-inspired storytelling     */
+      /* V9 immersive motion layer â€” Austin Werner-inspired storytelling     */
       /* ------------------------------------------------------------------ */
       .rf-marketing-v8{
         position:relative;
@@ -74266,7 +74266,7 @@ textarea.rf7-field-control {
         .rf-marketing-v8 *::after{animation:none!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
       }
 
-/* ============================== AUTH SHARED V9 — animated auth environment and shared shell ============================== */
+/* ============================== AUTH SHARED V9 â€” animated auth environment and shared shell ============================== */
 .rf-auth-page{
         --rfa-bg:#f8f9fa;
         --rfa-card:#fff;
@@ -75222,7 +75222,7 @@ textarea.rf7-field-control {
         }
       }
 
-/* ============================== LOGIN V9 — login-specific form, preview, trust and interaction states ============================== */
+/* ============================== LOGIN V9 â€” login-specific form, preview, trust and interaction states ============================== */
 :root{
         --rfl-bg:#f8f9fa;
         --rfl-card:#ffffff;
@@ -76284,7 +76284,7 @@ textarea.rf7-field-control {
         }
       }
 
-/* ============================== SIGNUP V9 — signup wizard, progress, workspace cards, security step ============================== */
+/* ============================== SIGNUP V9 â€” signup wizard, progress, workspace cards, security step ============================== */
 .rf-signup-v7{
         --rfsu-text:#191c1d;
         --rfsu-text2:#464554;
@@ -77076,7 +77076,7 @@ textarea.rf7-field-control {
 /* Append this entire file AFTER your existing web/src/styles.css. */
 
 /* ==========================================================
-   ReachFly Marketing V10 — cinematic / real 3D art direction
+   ReachFly Marketing V10 â€” cinematic / real 3D art direction
    ========================================================== */
 .rf-marketing-v8{
   --rfm-ink:#07090f;
@@ -77198,7 +77198,7 @@ textarea.rf7-field-control {
 }
 @media(prefers-reduced-motion:reduce){.rfm-hero-3d{opacity:.32}.rfm-audience-marquee-track{transform:none!important}.rfm-product-preview,.rfm-hero-preview-wrap{transform:none!important}}
 
-/* ReachFly V11 — isolated futuristic marketing + auth layer.
+/* ReachFly V11 â€” isolated futuristic marketing + auth layer.
    Safe to append at the END of web/src/styles.css.
    V11 uses new rf11-* namespaces so old V8/V9/V10 overrides do not collide. */
 
@@ -77208,7 +77208,7 @@ textarea.rf7-field-control {
 .rf11-marketing .rf11m-btn.primary,.rf11-auth-page .rf11-auth-submit{background:linear-gradient(135deg,#6c5cff,#8a4dff 56%,#5b84ff)!important;color:#fff!important}
 @media(max-width:760px){.rf11-marketing,.rf11-auth-page{background-attachment:scroll!important}}
 @media(prefers-reduced-motion:reduce){.rf11-marketing *,.rf11-auth-page *{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important}}
-/* ReachFly V11 — isolated futuristic marketing + auth layer.
+/* ReachFly V11 â€” isolated futuristic marketing + auth layer.
    Safe to append at the END of web/src/styles.css.
    V11 uses new rf11-* namespaces so old V8/V9/V10 overrides do not collide. */
 
@@ -77221,7 +77221,7 @@ textarea.rf7-field-control {
 /* ReachFly V12 final clarity/contrast layer. Append LAST in styles.css. */
 
 
-/* ReachFly V12 — Marketing clarity + contrast lock */
+/* ReachFly V12 â€” Marketing clarity + contrast lock */
 .rf11-marketing{
   --v12-bg:#050711;--v12-surface:#0b1020;--v12-surface-2:#11172a;
   --v12-line:rgba(166,177,255,.18);--v12-line-strong:rgba(166,177,255,.30);
@@ -77283,7 +77283,7 @@ textarea.rf7-field-control {
 @media(prefers-reduced-motion:reduce){.rf11m-problem-grid article:hover,.rf11m-usecase-grid>article:hover,.rf11m-agent-grid article:hover,.rf11m-price-card:hover{transform:none!important}}
 
 
-/* ReachFly V12 — Authentication visual system */
+/* ReachFly V12 â€” Authentication visual system */
 .rf11-auth-page{--v12a-bg:#050711;--v12a-panel:#0a0f1f;--v12a-card:#0e1427;--v12a-line:rgba(172,182,255,.17);--v12a-text:#f8f9ff;--v12a-body:#c1c7dc;--v12a-muted:#929bb6;--v12a-primary:#7868ff;--v12a-cyan:#59d7ff;color:var(--v12a-text)!important;background-color:var(--v12a-bg)!important;background-image:linear-gradient(180deg,rgba(4,6,15,.20),rgba(4,6,15,.72)),url('/visuals/reachfly-auth-horizon.svg')!important;background-size:cover!important;background-position:center!important}
 .rf11-auth-page::before{content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle at 14% 12%,rgba(91,83,255,.18),transparent 25%),radial-gradient(circle at 86% 74%,rgba(157,69,255,.14),transparent 26%);mix-blend-mode:screen}
 .rf11-auth-shell{width:min(1320px,calc(100vw - 64px))!important;min-height:min(790px,calc(100svh - 64px))!important;border-color:rgba(183,191,255,.18)!important;background:rgba(5,8,17,.88)!important;box-shadow:0 60px 160px rgba(0,0,0,.58),inset 0 1px 0 rgba(255,255,255,.07)!important}
@@ -77308,12 +77308,12 @@ textarea.rf7-field-control {
 @media(max-width:640px){.rf11-auth-shell{width:100%!important}.rf11-auth-card-head h2{font-size:34px!important}.rf11-login-field-label,.rf11-signup-field>span{font-size:11px!important}}
 
 
-/* ReachFly V12 — Login clarity */
+/* ReachFly V12 â€” Login clarity */
 .rf11-login-card-eyebrow{margin-bottom:9px!important}.rf11-login-google-zone{margin-top:22px!important}.rf11-auth-email-form{gap:16px!important}.rf11-login-auth-alert{color:#ffc8c8!important;background:rgba(162,45,68,.14)!important;border-color:rgba(255,113,133,.22)!important}.rf11-login-auth-alert>span{color:#ff91a2!important;background:rgba(255,255,255,.055)!important}.rf11-login-auth-alert p{font-size:10px!important;line-height:1.45!important}.rf11-login-auth-alert strong{font-size:11px!important}.rf11-login-auth-alert a{color:#c6bfff!important;font-size:10px!important}
 .rf11-login-mobile-brand-copy{color:#f8f9ff!important}.rf11-login-mobile-brand-copy p{color:#aeb6ce!important}
 
 
-/* ReachFly V12 — Signup clarity */
+/* ReachFly V12 â€” Signup clarity */
 .rf11-signup-v7{--rf11-signup-text:#f8f9ff!important;--rf11-signup-text2:#b6bdd3!important;--rf11-signup-muted:#8f98b2!important;--rf11-signup-line:rgba(171,181,255,.16)!important;--rf11-signup-primary:#7868ff!important;--rf11-signup-primary-soft:rgba(120,104,255,.14)!important;color:#f7f8ff!important}
 .rf11-signup-progress{margin-bottom:30px!important}.rf11-signup-progress-segment{color:#7f89a4!important;font-size:9px!important}.rf11-signup-progress-segment.active{color:#c4c0ff!important}.rf11-signup-progress-segment>span{background:rgba(255,255,255,.055)!important;border-color:rgba(255,255,255,.10)!important;color:#a1aac2!important}.rf11-signup-progress-segment.active>span{color:#fff!important;background:#7868ff!important;border-color:#7868ff!important}
 .rf11-signup-step-panel{color:#f7f8ff!important}
@@ -77324,78 +77324,3 @@ textarea.rf7-field-control {
 .rf11-signup-password-strength{color:#aab2c9!important}.rf11-signup-password-strength span{background:rgba(255,255,255,.08)!important}.rf11-signup-password-toggle{color:#d7d3ff!important;background:rgba(120,104,255,.14)!important}
 .rf11-signup-privacy-note p,.rf11-signup-security-note p{font-size:10px!important}
 @media(max-width:720px){.rf11-signup-workspace-grid,.rf11-signup-details-grid{grid-template-columns:1fr!important}.rf11-signup-workspace-card{min-height:0!important}.rf11-signup-single-action .rf11-auth-submit{width:100%!important}.rf11-signup-form-actions{display:grid!important;grid-template-columns:1fr!important}}
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
-
-@layer theme, base, components, utilities;
-@import "tailwindcss/theme.css" layer(theme);
-@import "tailwindcss/utilities.css" layer(utilities);
-
-@theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
-}
-
-.animate-blink {
-  animation: blink 1s step-end infinite;
-}
-
-.rf13-hero-shell,
-.rf13-hero-shell *,
-.rf13-hero-shell *::before,
-.rf13-hero-shell *::after {
-  box-sizing: border-box;
-}
-
-.rf13-hero-shell button,
-.rf13-hero-shell input,
-.rf13-hero-shell textarea,
-.rf13-hero-shell select {
-  font: inherit;
-}
-
-.rf13-hero-shell a {
-  color: inherit;
-  text-decoration-thickness: from-font;
-}
-
-.rf13-hero-shell video {
-  display: block;
-  max-width: none;
-}
-
-@media (min-width: 1024px) {
-  .rf13-hero-shell {
-    min-height: 100svh;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-blink {
-    animation: none;
-    opacity: 1;
-  }
-
-  .rf13-hero-shell *,
-  .rf13-hero-shell *::before,
-  .rf13-hero-shell *::after {
-    scroll-behavior: auto !important;
-    transition-duration: 0.01ms !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-  }
-}
-
-.rf13-nav {
-  transition: background-color .25s ease, box-shadow .25s ease, backdrop-filter .25s ease;
-}
-
-.rf13-nav-past {
-  background: rgba(255,255,255,.88) !important;
-  box-shadow: 0 12px 38px rgba(17,24,39,.08);
-  backdrop-filter: blur(18px) saturate(145%);
-  -webkit-backdrop-filter: blur(18px) saturate(145%);
-}
