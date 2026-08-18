@@ -77208,3 +77208,119 @@ textarea.rf7-field-control {
 .rf11-marketing .rf11m-btn.primary,.rf11-auth-page .rf11-auth-submit{background:linear-gradient(135deg,#6c5cff,#8a4dff 56%,#5b84ff)!important;color:#fff!important}
 @media(max-width:760px){.rf11-marketing,.rf11-auth-page{background-attachment:scroll!important}}
 @media(prefers-reduced-motion:reduce){.rf11-marketing *,.rf11-auth-page *{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important}}
+/* ReachFly V11 — isolated futuristic marketing + auth layer.
+   Safe to append at the END of web/src/styles.css.
+   V11 uses new rf11-* namespaces so old V8/V9/V10 overrides do not collide. */
+
+.rf11-marketing{background:#050712 url('/visuals/reachfly-neural-space.svg') center top/cover fixed no-repeat!important;color:#f7f8ff!important}
+.rf11-auth-page{background:#050712 url('/visuals/reachfly-auth-horizon.svg') center/cover fixed no-repeat!important;color:#f7f8ff!important}
+.rf11-marketing .rf11m-nav,.rf11-auth-page .rf11-auth-shell{backdrop-filter:blur(24px) saturate(140%)!important;-webkit-backdrop-filter:blur(24px) saturate(140%)!important}
+.rf11-marketing .rf11m-btn.primary,.rf11-auth-page .rf11-auth-submit{background:linear-gradient(135deg,#6c5cff,#8a4dff 56%,#5b84ff)!important;color:#fff!important}
+@media(max-width:760px){.rf11-marketing,.rf11-auth-page{background-attachment:scroll!important}}
+@media(prefers-reduced-motion:reduce){.rf11-marketing *,.rf11-auth-page *{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important}}
+/* ReachFly V12 final clarity/contrast layer. Append LAST in styles.css. */
+
+
+/* ReachFly V12 — Marketing clarity + contrast lock */
+.rf11-marketing{
+  --v12-bg:#050711;--v12-surface:#0b1020;--v12-surface-2:#11172a;
+  --v12-line:rgba(166,177,255,.18);--v12-line-strong:rgba(166,177,255,.30);
+  --v12-text:#f8f9ff;--v12-body:#c0c6dc;--v12-muted:#9099b3;
+  --v12-indigo:#7868ff;--v12-violet:#aa62ff;--v12-cyan:#59d7ff;
+  color:var(--v12-text)!important;
+  background-color:var(--v12-bg)!important;
+  background-image:url('/visuals/reachfly-neural-space.svg')!important;
+  background-size:cover!important;background-position:center top!important;background-attachment:fixed!important;
+}
+.rf11-marketing::after{content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;background:linear-gradient(180deg,rgba(4,6,15,.08),rgba(4,6,15,.62) 45%,rgba(4,6,15,.9));}
+.rf11-marketing,.rf11-marketing button,.rf11-marketing input,.rf11-marketing textarea,.rf11-marketing select{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important}
+.rf11m-section,.rf11m-trusted-section,.rf11m-final{position:relative;z-index:2}
+.rf11m-section-head{max-width:880px!important;gap:14px!important;margin-bottom:44px!important}
+.rf11m-eyebrow{font-size:11px!important;line-height:1!important;letter-spacing:.13em!important;color:#aeb5ff!important;background:transparent!important;border:0!important;padding:0!important}
+.rf11m-section-head h2,.rf11m-trust-head h2,.rf11m-voice-copy h2,.rf11m-final h2{color:var(--v12-text)!important;text-shadow:0 1px 0 rgba(0,0,0,.2)}
+.rf11m-section-head p,.rf11m-trust-head p,.rf11m-voice-copy p,.rf11m-final p{color:var(--v12-body)!important;font-size:15px!important;line-height:1.72!important}
+.rf11m-hero-copy>p{color:#c3c9df!important}
+.rf11m-proof span{color:#c5cbe0!important}
+.rf11m-trusted-section{background:linear-gradient(145deg,rgba(14,19,37,.92),rgba(8,11,23,.88))!important;border:1px solid var(--v12-line)!important;box-shadow:0 32px 90px rgba(0,0,0,.34),inset 0 1px 0 rgba(255,255,255,.055)!important}
+.rf11m-trusted-copy strong{color:#fff!important;font-size:18px!important}.rf11m-trusted-copy p{color:var(--v12-body)!important;font-size:13px!important;line-height:1.6!important}
+.rf11m-audience-marquee b,.rf11m-audience-pills span,.rf11m-customer-logo{color:#dfe4f7!important;background:rgba(255,255,255,.055)!important;border-color:rgba(172,181,255,.14)!important}
+.rf11m-problem-grid article,.rf11m-agent-grid article,.rf11m-trust-grid article,.rf11m-usecase-grid>article,.rf11m-price-card,.rf11m-faq-list details{
+  color:var(--v12-text)!important;background:linear-gradient(145deg,rgba(19,25,46,.94),rgba(9,13,27,.94))!important;
+  border:1px solid var(--v12-line)!important;box-shadow:0 22px 64px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.045)!important;
+}
+.rf11m-problem-grid article strong,.rf11m-agent-grid article strong,.rf11m-trust-grid article strong,.rf11m-usecase-grid article strong,.rf11m-price-card strong,.rf11m-faq-list summary{color:#fff!important}
+.rf11m-problem-grid article p,.rf11m-agent-grid article p,.rf11m-trust-grid article p,.rf11m-usecase-grid article p,.rf11m-usecase-grid li,.rf11m-price-card>p,.rf11m-price-card li,.rf11m-faq-list details p{color:#adb5cf!important;font-size:12px!important;line-height:1.65!important}
+.rf11m-problem-grid article strong,.rf11m-usecase-grid article strong{font-size:18px!important;line-height:1.25!important}
+.rf11m-problem-grid article>span,.rf11m-agent-grid article>span,.rf11m-trust-grid article>span,.rf11m-price-card>header span{color:#b8b2ff!important;background:rgba(119,102,255,.13)!important;border:1px solid rgba(151,141,255,.16)!important}
+.rf11m-bridge-callout,.rf11m-agent-linkage,.rf11m-trust-seal,.rf11m-trust-note{color:var(--v12-text)!important;background:linear-gradient(135deg,rgba(117,91,255,.13),rgba(70,206,255,.055))!important;border:1px solid var(--v12-line)!important}
+.rf11m-bridge-callout h3,.rf11m-agent-linkage strong,.rf11m-trust-seal strong{color:#fff!important}.rf11m-bridge-callout p,.rf11m-agent-linkage p,.rf11m-trust-seal span,.rf11m-trust-note p{color:#aeb6ce!important}
+.rf11m-bridge-flow b{color:#e7eaff!important;background:rgba(255,255,255,.055)!important;border-color:rgba(255,255,255,.10)!important}
+.rf11m-stack-fragmented,.rf11m-stack-reachfly{color:var(--v12-text)!important;background:linear-gradient(145deg,rgba(16,21,40,.95),rgba(8,12,25,.96))!important;border:1px solid var(--v12-line)!important;box-shadow:0 32px 80px rgba(0,0,0,.32)!important}
+.rf11m-stack-reachfly header strong,.rf11m-stack-result strong,.rf11m-stack-path b{color:#fff!important}.rf11m-stack-reachfly header small{color:#aeb5ff!important}
+.rf11m-mini-logo,.rf11m-stack-path>span>i,.rf11m-stack-result{background:rgba(255,255,255,.055)!important;border-color:rgba(255,255,255,.10)!important}.rf11m-stack-result span{color:#9fa8c2!important}
+.rf11m-journey>article{color:var(--v12-text)!important;background:linear-gradient(135deg,rgba(14,19,37,.96),rgba(7,11,23,.97))!important;border:1px solid var(--v12-line)!important}
+.rf11m-journey-copy h3{color:#fff!important;font-size:clamp(30px,3.4vw,48px)!important}.rf11m-journey-copy p{color:#b4bdd4!important;font-size:14px!important;line-height:1.72!important}.rf11m-journey-copy em{color:#c0c6d9!important;background:rgba(255,255,255,.045)!important;border-color:rgba(255,255,255,.10)!important}
+.rf11m-journey-index{color:#919bba!important}.rf11m-journey-index b{color:#fff!important}
+.rf11m-journey-visual{color:#e9ecfa!important;background:linear-gradient(145deg,rgba(255,255,255,.065),rgba(255,255,255,.025))!important;border-color:rgba(255,255,255,.105)!important}
+.rf11m-market-visual,.rf11m-context-visual,.rf11m-call-visual,.rf11m-outcome-visual,.rf11m-email-visual,.rf11m-pipeline-visual{color:#eef1ff!important}
+.rf11m-voice-chapter{background:linear-gradient(120deg,rgba(5,8,20,.98),rgba(11,16,34,.98) 52%,rgba(24,13,44,.97))!important}
+.rf11m-voice-copy li,.rf11m-voice-points li{color:#c0c7dc!important;font-size:13px!important;line-height:1.55!important}
+.rf11m-voice-demo-wrap,.rf11m-voice-preview,.rf11m-voice-context-card,.rf11m-transcript{color:#edf0ff!important;background:rgba(11,16,31,.92)!important;border-color:rgba(164,174,255,.16)!important}
+.rf11m-trust-chapter{background:linear-gradient(180deg,rgba(8,11,23,.80),rgba(15,12,34,.78),rgba(7,10,20,.9))!important}
+.rf11m-pricing-section,.rf11m-faq-section{background:linear-gradient(145deg,rgba(11,15,29,.92),rgba(8,11,23,.94))!important;border-color:var(--v12-line)!important}
+.rf11m-price-card{min-height:420px!important}.rf11m-price-card>header strong{font-size:18px!important}.rf11m-price-card li{font-size:12px!important}.rf11m-price-badge{color:#d9d6ff!important;background:rgba(118,101,255,.14)!important}
+.rf11m-faq-list summary{font-size:14px!important;line-height:1.45!important}.rf11m-faq-list summary i{background:rgba(118,101,255,.14)!important;color:#bdb7ff!important}
+.rf11m-final{background:linear-gradient(125deg,rgba(24,29,59,.96),rgba(7,10,21,.98) 55%,rgba(37,18,61,.95))!important;border-color:rgba(176,184,255,.18)!important}
+.rf11m-final-path{color:#a1aac2!important}
+.rf11m-footer{color:#aab1c5!important}.rf11m-footer a{color:#c6cbe0!important}.rf11m-footer a:hover{color:#fff!important}
+.rf11m-btn{min-height:46px!important;font-size:12px!important}.rf11m-btn.primary{color:#fff!important}.rf11m-btn.ghost,.rf11m-btn.secondary{color:#e9ecff!important;background:rgba(255,255,255,.055)!important}
+/* explicit light UI islands: only the simulated product dashboard stays light */
+.rf11m-product-body>main,.rf11m-product-body>main *{color:#1d2130}.rf11m-product-body>main small,.rf11m-product-body>main p{color:#73798a}.rf11m-product-body>main button{color:#fff!important}
+/* animated futuristic depth without sacrificing legibility */
+.rf11m-problem-grid article,.rf11m-usecase-grid>article,.rf11m-agent-grid article,.rf11m-price-card{transform-style:preserve-3d;will-change:transform}
+.rf11m-problem-grid article:hover,.rf11m-usecase-grid>article:hover,.rf11m-agent-grid article:hover,.rf11m-price-card:hover{transform:perspective(900px) translateY(-8px) rotateX(1.5deg)!important;border-color:var(--v12-line-strong)!important;box-shadow:0 34px 90px rgba(0,0,0,.32),0 0 42px rgba(104,87,255,.08)!important}
+@media(max-width:900px){.rf11-marketing{background-attachment:scroll!important}.rf11m-section-head p,.rf11m-trust-head p,.rf11m-voice-copy p{font-size:14px!important}.rf11m-problem-grid article p,.rf11m-usecase-grid article p,.rf11m-price-card p,.rf11m-faq-list details p{font-size:12px!important}}
+@media(prefers-reduced-motion:reduce){.rf11m-problem-grid article:hover,.rf11m-usecase-grid>article:hover,.rf11m-agent-grid article:hover,.rf11m-price-card:hover{transform:none!important}}
+
+
+/* ReachFly V12 — Authentication visual system */
+.rf11-auth-page{--v12a-bg:#050711;--v12a-panel:#0a0f1f;--v12a-card:#0e1427;--v12a-line:rgba(172,182,255,.17);--v12a-text:#f8f9ff;--v12a-body:#c1c7dc;--v12a-muted:#929bb6;--v12a-primary:#7868ff;--v12a-cyan:#59d7ff;color:var(--v12a-text)!important;background-color:var(--v12a-bg)!important;background-image:linear-gradient(180deg,rgba(4,6,15,.20),rgba(4,6,15,.72)),url('/visuals/reachfly-auth-horizon.svg')!important;background-size:cover!important;background-position:center!important}
+.rf11-auth-page::before{content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle at 14% 12%,rgba(91,83,255,.18),transparent 25%),radial-gradient(circle at 86% 74%,rgba(157,69,255,.14),transparent 26%);mix-blend-mode:screen}
+.rf11-auth-shell{width:min(1320px,calc(100vw - 64px))!important;min-height:min(790px,calc(100svh - 64px))!important;border-color:rgba(183,191,255,.18)!important;background:rgba(5,8,17,.88)!important;box-shadow:0 60px 160px rgba(0,0,0,.58),inset 0 1px 0 rgba(255,255,255,.07)!important}
+.rf11-auth-hero{background:linear-gradient(145deg,rgba(8,12,25,.94),rgba(6,9,19,.86))!important}.rf11-auth-hero-shade{background:linear-gradient(90deg,rgba(5,8,17,.94),rgba(6,9,18,.69) 54%,rgba(6,9,18,.08) 90%),linear-gradient(0deg,rgba(5,8,17,.76),transparent 46%)!important}
+.rf11-auth-copy h1{font-size:clamp(48px,4.15vw,70px)!important;line-height:.97!important}.rf11-auth-copy p{color:var(--v12a-body)!important;font-size:15px!important;line-height:1.7!important}
+.rf11-auth-signals article{background:rgba(255,255,255,.052)!important;border-color:rgba(173,182,255,.13)!important}.rf11-auth-signals strong{font-size:12px!important}.rf11-auth-signals small{font-size:10px!important;color:#a6aec6!important}
+.rf11-auth-panel{background:linear-gradient(150deg,rgba(13,18,35,.96),rgba(6,9,19,.96))!important}.rf11-auth-card{max-width:610px!important;color:var(--v12a-text)!important}
+.rf11-auth-card-head h2{color:#fff!important;font-size:clamp(36px,3vw,48px)!important;line-height:1.02!important}.rf11-auth-card-head p{max-width:520px!important;color:var(--v12a-body)!important;font-size:14px!important;line-height:1.65!important}
+.rf11-login-card-eyebrow,.rf11-signup-card-eyebrow{color:#aeb5ff!important;font-size:10px!important;line-height:1.2!important;letter-spacing:.11em!important}
+.rf11-login-field-label,.rf11-signup-field>span{color:#d8dcef!important;font-size:11px!important;line-height:1.2!important}
+.rf11-auth-input.rf11-login-field>div,.rf11-signup-field>div{min-height:52px!important;background:rgba(255,255,255,.055)!important;border:1px solid var(--v12a-line)!important;border-radius:13px!important;color:#9ca5bd!important;box-shadow:inset 0 1px rgba(255,255,255,.025)!important}
+.rf11-auth-input.rf11-login-field>div:focus-within,.rf11-signup-field>div:focus-within{background:rgba(255,255,255,.075)!important;border-color:rgba(128,113,255,.70)!important;box-shadow:0 0 0 4px rgba(120,104,255,.10),0 0 34px rgba(99,82,255,.07)!important}
+.rf11-auth-input.rf11-login-field input,.rf11-signup-field input{height:50px!important;color:#f8f9ff!important;font-size:13px!important}.rf11-auth-input.rf11-login-field input::placeholder,.rf11-signup-field input::placeholder{color:#707a94!important}
+.rf11-auth-divider{min-height:48px!important}.rf11-auth-divider::before{background:rgba(255,255,255,.10)!important}.rf11-auth-divider span,.rf11-auth-divider>span{color:#8790aa!important;background:#0a0f1f!important;font-size:9px!important;padding-inline:12px!important}
+.rf11-login-google-zone{min-height:48px!important;padding:2px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07)}
+.rf-google-auth-button{min-height:46px!important;border-radius:10px!important}.rf11-login-google-loading{color:#1d2230!important;background:#fff!important}
+.rf11-login-remember{color:#c0c6da!important}.rf11-login-remember b{font-size:10px!important}.rf11-login-remember>span{background:rgba(255,255,255,.055)!important;border-color:rgba(180,188,255,.22)!important}
+.rf11-auth-login-options>a{font-size:10px!important;color:#b5b0ff!important}.rf11-login-password-toggle{min-width:44px!important;height:30px!important;color:#d6d2ff!important;background:rgba(120,104,255,.14)!important;font-size:9px!important}
+.rf11-auth-submit{min-height:54px!important;border-radius:13px!important;font-size:12px!important;color:#fff!important;background:linear-gradient(135deg,#7564ff,#8b55ff 55%,#5f86ff)!important;border:1px solid rgba(255,255,255,.11)!important;box-shadow:0 15px 38px rgba(104,82,255,.28)!important}.rf11-auth-submit:disabled{opacity:.48!important;color:#d7d9e6!important;background:linear-gradient(135deg,#4a427d,#51458a)!important;box-shadow:none!important}
+.rf11-login-trust-row{color:#919ab2!important;margin-top:20px!important}.rf11-login-trust-row span{font-size:9px!important}.rf11-auth-footer{font-size:11px!important;color:#929bb4!important}.rf11-auth-footer a{color:#bbb6ff!important}
+@media(max-width:1020px){.rf11-auth-shell{width:min(760px,calc(100vw - 32px))!important}.rf11-auth-card{max-width:620px!important}.rf11-auth-panel{padding:42px 34px!important}}
+@media(max-width:640px){.rf11-auth-shell{width:100%!important}.rf11-auth-card-head h2{font-size:34px!important}.rf11-login-field-label,.rf11-signup-field>span{font-size:11px!important}}
+
+
+/* ReachFly V12 — Login clarity */
+.rf11-login-card-eyebrow{margin-bottom:9px!important}.rf11-login-google-zone{margin-top:22px!important}.rf11-auth-email-form{gap:16px!important}.rf11-login-auth-alert{color:#ffc8c8!important;background:rgba(162,45,68,.14)!important;border-color:rgba(255,113,133,.22)!important}.rf11-login-auth-alert>span{color:#ff91a2!important;background:rgba(255,255,255,.055)!important}.rf11-login-auth-alert p{font-size:10px!important;line-height:1.45!important}.rf11-login-auth-alert strong{font-size:11px!important}.rf11-login-auth-alert a{color:#c6bfff!important;font-size:10px!important}
+.rf11-login-mobile-brand-copy{color:#f8f9ff!important}.rf11-login-mobile-brand-copy p{color:#aeb6ce!important}
+
+
+/* ReachFly V12 — Signup clarity */
+.rf11-signup-v7{--rf11-signup-text:#f8f9ff!important;--rf11-signup-text2:#b6bdd3!important;--rf11-signup-muted:#8f98b2!important;--rf11-signup-line:rgba(171,181,255,.16)!important;--rf11-signup-primary:#7868ff!important;--rf11-signup-primary-soft:rgba(120,104,255,.14)!important;color:#f7f8ff!important}
+.rf11-signup-progress{margin-bottom:30px!important}.rf11-signup-progress-segment{color:#7f89a4!important;font-size:9px!important}.rf11-signup-progress-segment.active{color:#c4c0ff!important}.rf11-signup-progress-segment>span{background:rgba(255,255,255,.055)!important;border-color:rgba(255,255,255,.10)!important;color:#a1aac2!important}.rf11-signup-progress-segment.active>span{color:#fff!important;background:#7868ff!important;border-color:#7868ff!important}
+.rf11-signup-step-panel{color:#f7f8ff!important}
+.rf11-signup-workspace-grid{gap:14px!important}.rf11-signup-workspace-card{min-height:250px!important;padding:20px!important;color:#f7f8ff!important;background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.025))!important;border:1px solid rgba(172,182,255,.16)!important;border-radius:16px!important;box-shadow:inset 0 1px rgba(255,255,255,.035)!important}.rf11-signup-workspace-card:hover{border-color:rgba(137,123,255,.52)!important;background:linear-gradient(145deg,rgba(120,104,255,.11),rgba(255,255,255,.035))!important;box-shadow:0 20px 46px rgba(0,0,0,.24)!important}.rf11-signup-workspace-card.active{background:linear-gradient(145deg,rgba(120,104,255,.18),rgba(74,205,255,.055))!important;border-color:#8778ff!important;box-shadow:0 0 0 1px rgba(135,120,255,.28),0 22px 54px rgba(60,45,160,.19)!important}
+.rf11-signup-workspace-card>header>span{color:#c2bdff!important;background:rgba(120,104,255,.14)!important;border:1px solid rgba(149,138,255,.17)!important}.rf11-signup-workspace-card>div strong{color:#fff!important;font-size:14px!important;line-height:1.3!important}.rf11-signup-workspace-card>div p{color:#b3bad0!important;font-size:11px!important;line-height:1.55!important}.rf11-signup-workspace-card ul{border-color:rgba(255,255,255,.085)!important}.rf11-signup-workspace-card li{color:#a9b1c7!important;font-size:10px!important;line-height:1.4!important}
+.rf11-signup-info-note,.rf11-signup-security-note,.rf11-signup-privacy-note,.rf11-signup-selected-workspace,.rf11-signup-account-summary{color:#d9dcf2!important;background:linear-gradient(135deg,rgba(120,104,255,.11),rgba(82,210,255,.04))!important;border:1px solid rgba(164,174,255,.14)!important;border-radius:12px!important}.rf11-signup-info-note>span,.rf11-signup-security-note>span,.rf11-signup-selected-workspace>span,.rf11-signup-account-summary>span{color:#c2bdff!important;background:rgba(255,255,255,.055)!important}.rf11-signup-info-note strong,.rf11-signup-security-note strong,.rf11-signup-selected-workspace strong,.rf11-signup-account-summary strong{color:#f3f4ff!important}.rf11-signup-info-note p,.rf11-signup-security-note p,.rf11-signup-privacy-note p,.rf11-signup-account-summary p{color:#aeb6ce!important;font-size:10px!important;line-height:1.5!important}.rf11-signup-selected-workspace small,.rf11-signup-account-summary small{color:#8f99b6!important}.rf11-signup-selected-workspace>button{color:#d6d1ff!important;background:rgba(255,255,255,.055)!important;border-color:rgba(255,255,255,.10)!important}
+.rf11-signup-form-actions .rf11-auth-back-btn,.rf11-auth-back-btn{min-height:48px!important;color:#d6daea!important;background:rgba(255,255,255,.045)!important;border:1px solid rgba(255,255,255,.10)!important;border-radius:12px!important}
+.rf11-signup-password-strength{color:#aab2c9!important}.rf11-signup-password-strength span{background:rgba(255,255,255,.08)!important}.rf11-signup-password-toggle{color:#d7d3ff!important;background:rgba(120,104,255,.14)!important}
+.rf11-signup-privacy-note p,.rf11-signup-security-note p{font-size:10px!important}
+@media(max-width:720px){.rf11-signup-workspace-grid,.rf11-signup-details-grid{grid-template-columns:1fr!important}.rf11-signup-workspace-card{min-height:0!important}.rf11-signup-single-action .rf11-auth-submit{width:100%!important}.rf11-signup-form-actions{display:grid!important;grid-template-columns:1fr!important}}

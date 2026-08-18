@@ -543,6 +543,7 @@ export default function Marketing() {
     <>
       <MarketingStyles />
       <MarketingV11Overrides />
+      <MarketingV12ClarityStyles />
 
       <main className="rf11-marketing" ref={rootRef}>
         <motion.div className="rf11m-scroll-progress" style={{ scaleX: progressScale }} aria-hidden="true" />
@@ -2157,4 +2158,70 @@ function MarketingV11Overrides() {
       @media(prefers-reduced-motion:reduce){.rf11-marketing{background-attachment:scroll!important}.rf11-marketing *{scroll-behavior:auto!important}}
     `}</style>
   );
+}
+
+
+function MarketingV12ClarityStyles() {
+  return <style>{`
+/* ReachFly V12 — Marketing clarity + contrast lock */
+.rf11-marketing{
+  --v12-bg:#050711;--v12-surface:#0b1020;--v12-surface-2:#11172a;
+  --v12-line:rgba(166,177,255,.18);--v12-line-strong:rgba(166,177,255,.30);
+  --v12-text:#f8f9ff;--v12-body:#c0c6dc;--v12-muted:#9099b3;
+  --v12-indigo:#7868ff;--v12-violet:#aa62ff;--v12-cyan:#59d7ff;
+  color:var(--v12-text)!important;
+  background-color:var(--v12-bg)!important;
+  background-image:url('/visuals/reachfly-neural-space.svg')!important;
+  background-size:cover!important;background-position:center top!important;background-attachment:fixed!important;
+}
+.rf11-marketing::after{content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;background:linear-gradient(180deg,rgba(4,6,15,.08),rgba(4,6,15,.62) 45%,rgba(4,6,15,.9));}
+.rf11-marketing,.rf11-marketing button,.rf11-marketing input,.rf11-marketing textarea,.rf11-marketing select{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important}
+.rf11m-section,.rf11m-trusted-section,.rf11m-final{position:relative;z-index:2}
+.rf11m-section-head{max-width:880px!important;gap:14px!important;margin-bottom:44px!important}
+.rf11m-eyebrow{font-size:11px!important;line-height:1!important;letter-spacing:.13em!important;color:#aeb5ff!important;background:transparent!important;border:0!important;padding:0!important}
+.rf11m-section-head h2,.rf11m-trust-head h2,.rf11m-voice-copy h2,.rf11m-final h2{color:var(--v12-text)!important;text-shadow:0 1px 0 rgba(0,0,0,.2)}
+.rf11m-section-head p,.rf11m-trust-head p,.rf11m-voice-copy p,.rf11m-final p{color:var(--v12-body)!important;font-size:15px!important;line-height:1.72!important}
+.rf11m-hero-copy>p{color:#c3c9df!important}
+.rf11m-proof span{color:#c5cbe0!important}
+.rf11m-trusted-section{background:linear-gradient(145deg,rgba(14,19,37,.92),rgba(8,11,23,.88))!important;border:1px solid var(--v12-line)!important;box-shadow:0 32px 90px rgba(0,0,0,.34),inset 0 1px 0 rgba(255,255,255,.055)!important}
+.rf11m-trusted-copy strong{color:#fff!important;font-size:18px!important}.rf11m-trusted-copy p{color:var(--v12-body)!important;font-size:13px!important;line-height:1.6!important}
+.rf11m-audience-marquee b,.rf11m-audience-pills span,.rf11m-customer-logo{color:#dfe4f7!important;background:rgba(255,255,255,.055)!important;border-color:rgba(172,181,255,.14)!important}
+.rf11m-problem-grid article,.rf11m-agent-grid article,.rf11m-trust-grid article,.rf11m-usecase-grid>article,.rf11m-price-card,.rf11m-faq-list details{
+  color:var(--v12-text)!important;background:linear-gradient(145deg,rgba(19,25,46,.94),rgba(9,13,27,.94))!important;
+  border:1px solid var(--v12-line)!important;box-shadow:0 22px 64px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.045)!important;
+}
+.rf11m-problem-grid article strong,.rf11m-agent-grid article strong,.rf11m-trust-grid article strong,.rf11m-usecase-grid article strong,.rf11m-price-card strong,.rf11m-faq-list summary{color:#fff!important}
+.rf11m-problem-grid article p,.rf11m-agent-grid article p,.rf11m-trust-grid article p,.rf11m-usecase-grid article p,.rf11m-usecase-grid li,.rf11m-price-card>p,.rf11m-price-card li,.rf11m-faq-list details p{color:#adb5cf!important;font-size:12px!important;line-height:1.65!important}
+.rf11m-problem-grid article strong,.rf11m-usecase-grid article strong{font-size:18px!important;line-height:1.25!important}
+.rf11m-problem-grid article>span,.rf11m-agent-grid article>span,.rf11m-trust-grid article>span,.rf11m-price-card>header span{color:#b8b2ff!important;background:rgba(119,102,255,.13)!important;border:1px solid rgba(151,141,255,.16)!important}
+.rf11m-bridge-callout,.rf11m-agent-linkage,.rf11m-trust-seal,.rf11m-trust-note{color:var(--v12-text)!important;background:linear-gradient(135deg,rgba(117,91,255,.13),rgba(70,206,255,.055))!important;border:1px solid var(--v12-line)!important}
+.rf11m-bridge-callout h3,.rf11m-agent-linkage strong,.rf11m-trust-seal strong{color:#fff!important}.rf11m-bridge-callout p,.rf11m-agent-linkage p,.rf11m-trust-seal span,.rf11m-trust-note p{color:#aeb6ce!important}
+.rf11m-bridge-flow b{color:#e7eaff!important;background:rgba(255,255,255,.055)!important;border-color:rgba(255,255,255,.10)!important}
+.rf11m-stack-fragmented,.rf11m-stack-reachfly{color:var(--v12-text)!important;background:linear-gradient(145deg,rgba(16,21,40,.95),rgba(8,12,25,.96))!important;border:1px solid var(--v12-line)!important;box-shadow:0 32px 80px rgba(0,0,0,.32)!important}
+.rf11m-stack-reachfly header strong,.rf11m-stack-result strong,.rf11m-stack-path b{color:#fff!important}.rf11m-stack-reachfly header small{color:#aeb5ff!important}
+.rf11m-mini-logo,.rf11m-stack-path>span>i,.rf11m-stack-result{background:rgba(255,255,255,.055)!important;border-color:rgba(255,255,255,.10)!important}.rf11m-stack-result span{color:#9fa8c2!important}
+.rf11m-journey>article{color:var(--v12-text)!important;background:linear-gradient(135deg,rgba(14,19,37,.96),rgba(7,11,23,.97))!important;border:1px solid var(--v12-line)!important}
+.rf11m-journey-copy h3{color:#fff!important;font-size:clamp(30px,3.4vw,48px)!important}.rf11m-journey-copy p{color:#b4bdd4!important;font-size:14px!important;line-height:1.72!important}.rf11m-journey-copy em{color:#c0c6d9!important;background:rgba(255,255,255,.045)!important;border-color:rgba(255,255,255,.10)!important}
+.rf11m-journey-index{color:#919bba!important}.rf11m-journey-index b{color:#fff!important}
+.rf11m-journey-visual{color:#e9ecfa!important;background:linear-gradient(145deg,rgba(255,255,255,.065),rgba(255,255,255,.025))!important;border-color:rgba(255,255,255,.105)!important}
+.rf11m-market-visual,.rf11m-context-visual,.rf11m-call-visual,.rf11m-outcome-visual,.rf11m-email-visual,.rf11m-pipeline-visual{color:#eef1ff!important}
+.rf11m-voice-chapter{background:linear-gradient(120deg,rgba(5,8,20,.98),rgba(11,16,34,.98) 52%,rgba(24,13,44,.97))!important}
+.rf11m-voice-copy li,.rf11m-voice-points li{color:#c0c7dc!important;font-size:13px!important;line-height:1.55!important}
+.rf11m-voice-demo-wrap,.rf11m-voice-preview,.rf11m-voice-context-card,.rf11m-transcript{color:#edf0ff!important;background:rgba(11,16,31,.92)!important;border-color:rgba(164,174,255,.16)!important}
+.rf11m-trust-chapter{background:linear-gradient(180deg,rgba(8,11,23,.80),rgba(15,12,34,.78),rgba(7,10,20,.9))!important}
+.rf11m-pricing-section,.rf11m-faq-section{background:linear-gradient(145deg,rgba(11,15,29,.92),rgba(8,11,23,.94))!important;border-color:var(--v12-line)!important}
+.rf11m-price-card{min-height:420px!important}.rf11m-price-card>header strong{font-size:18px!important}.rf11m-price-card li{font-size:12px!important}.rf11m-price-badge{color:#d9d6ff!important;background:rgba(118,101,255,.14)!important}
+.rf11m-faq-list summary{font-size:14px!important;line-height:1.45!important}.rf11m-faq-list summary i{background:rgba(118,101,255,.14)!important;color:#bdb7ff!important}
+.rf11m-final{background:linear-gradient(125deg,rgba(24,29,59,.96),rgba(7,10,21,.98) 55%,rgba(37,18,61,.95))!important;border-color:rgba(176,184,255,.18)!important}
+.rf11m-final-path{color:#a1aac2!important}
+.rf11m-footer{color:#aab1c5!important}.rf11m-footer a{color:#c6cbe0!important}.rf11m-footer a:hover{color:#fff!important}
+.rf11m-btn{min-height:46px!important;font-size:12px!important}.rf11m-btn.primary{color:#fff!important}.rf11m-btn.ghost,.rf11m-btn.secondary{color:#e9ecff!important;background:rgba(255,255,255,.055)!important}
+/* explicit light UI islands: only the simulated product dashboard stays light */
+.rf11m-product-body>main,.rf11m-product-body>main *{color:#1d2130}.rf11m-product-body>main small,.rf11m-product-body>main p{color:#73798a}.rf11m-product-body>main button{color:#fff!important}
+/* animated futuristic depth without sacrificing legibility */
+.rf11m-problem-grid article,.rf11m-usecase-grid>article,.rf11m-agent-grid article,.rf11m-price-card{transform-style:preserve-3d;will-change:transform}
+.rf11m-problem-grid article:hover,.rf11m-usecase-grid>article:hover,.rf11m-agent-grid article:hover,.rf11m-price-card:hover{transform:perspective(900px) translateY(-8px) rotateX(1.5deg)!important;border-color:var(--v12-line-strong)!important;box-shadow:0 34px 90px rgba(0,0,0,.32),0 0 42px rgba(104,87,255,.08)!important}
+@media(max-width:900px){.rf11-marketing{background-attachment:scroll!important}.rf11m-section-head p,.rf11m-trust-head p,.rf11m-voice-copy p{font-size:14px!important}.rf11m-problem-grid article p,.rf11m-usecase-grid article p,.rf11m-price-card p,.rf11m-faq-list details p{font-size:12px!important}}
+@media(prefers-reduced-motion:reduce){.rf11m-problem-grid article:hover,.rf11m-usecase-grid>article:hover,.rf11m-agent-grid article:hover,.rf11m-price-card:hover{transform:none!important}}
+`}</style>;
 }

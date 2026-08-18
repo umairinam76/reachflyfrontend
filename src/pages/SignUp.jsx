@@ -228,6 +228,7 @@ export default function Signup() {
   return (
     <>
       <SignupStyles />
+      <SignupV12ClarityStyles />
 
       <AuthLayout
         eyebrow="Create account"
@@ -1832,4 +1833,21 @@ function SignupStyles() {
       }
     `}</style>
   );
+}
+
+
+function SignupV12ClarityStyles() {
+  return <style>{`
+/* ReachFly V12 — Signup clarity */
+.rf11-signup-v7{--rf11-signup-text:#f8f9ff!important;--rf11-signup-text2:#b6bdd3!important;--rf11-signup-muted:#8f98b2!important;--rf11-signup-line:rgba(171,181,255,.16)!important;--rf11-signup-primary:#7868ff!important;--rf11-signup-primary-soft:rgba(120,104,255,.14)!important;color:#f7f8ff!important}
+.rf11-signup-progress{margin-bottom:30px!important}.rf11-signup-progress-segment{color:#7f89a4!important;font-size:9px!important}.rf11-signup-progress-segment.active{color:#c4c0ff!important}.rf11-signup-progress-segment>span{background:rgba(255,255,255,.055)!important;border-color:rgba(255,255,255,.10)!important;color:#a1aac2!important}.rf11-signup-progress-segment.active>span{color:#fff!important;background:#7868ff!important;border-color:#7868ff!important}
+.rf11-signup-step-panel{color:#f7f8ff!important}
+.rf11-signup-workspace-grid{gap:14px!important}.rf11-signup-workspace-card{min-height:250px!important;padding:20px!important;color:#f7f8ff!important;background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.025))!important;border:1px solid rgba(172,182,255,.16)!important;border-radius:16px!important;box-shadow:inset 0 1px rgba(255,255,255,.035)!important}.rf11-signup-workspace-card:hover{border-color:rgba(137,123,255,.52)!important;background:linear-gradient(145deg,rgba(120,104,255,.11),rgba(255,255,255,.035))!important;box-shadow:0 20px 46px rgba(0,0,0,.24)!important}.rf11-signup-workspace-card.active{background:linear-gradient(145deg,rgba(120,104,255,.18),rgba(74,205,255,.055))!important;border-color:#8778ff!important;box-shadow:0 0 0 1px rgba(135,120,255,.28),0 22px 54px rgba(60,45,160,.19)!important}
+.rf11-signup-workspace-card>header>span{color:#c2bdff!important;background:rgba(120,104,255,.14)!important;border:1px solid rgba(149,138,255,.17)!important}.rf11-signup-workspace-card>div strong{color:#fff!important;font-size:14px!important;line-height:1.3!important}.rf11-signup-workspace-card>div p{color:#b3bad0!important;font-size:11px!important;line-height:1.55!important}.rf11-signup-workspace-card ul{border-color:rgba(255,255,255,.085)!important}.rf11-signup-workspace-card li{color:#a9b1c7!important;font-size:10px!important;line-height:1.4!important}
+.rf11-signup-info-note,.rf11-signup-security-note,.rf11-signup-privacy-note,.rf11-signup-selected-workspace,.rf11-signup-account-summary{color:#d9dcf2!important;background:linear-gradient(135deg,rgba(120,104,255,.11),rgba(82,210,255,.04))!important;border:1px solid rgba(164,174,255,.14)!important;border-radius:12px!important}.rf11-signup-info-note>span,.rf11-signup-security-note>span,.rf11-signup-selected-workspace>span,.rf11-signup-account-summary>span{color:#c2bdff!important;background:rgba(255,255,255,.055)!important}.rf11-signup-info-note strong,.rf11-signup-security-note strong,.rf11-signup-selected-workspace strong,.rf11-signup-account-summary strong{color:#f3f4ff!important}.rf11-signup-info-note p,.rf11-signup-security-note p,.rf11-signup-privacy-note p,.rf11-signup-account-summary p{color:#aeb6ce!important;font-size:10px!important;line-height:1.5!important}.rf11-signup-selected-workspace small,.rf11-signup-account-summary small{color:#8f99b6!important}.rf11-signup-selected-workspace>button{color:#d6d1ff!important;background:rgba(255,255,255,.055)!important;border-color:rgba(255,255,255,.10)!important}
+.rf11-signup-form-actions .rf11-auth-back-btn,.rf11-auth-back-btn{min-height:48px!important;color:#d6daea!important;background:rgba(255,255,255,.045)!important;border:1px solid rgba(255,255,255,.10)!important;border-radius:12px!important}
+.rf11-signup-password-strength{color:#aab2c9!important}.rf11-signup-password-strength span{background:rgba(255,255,255,.08)!important}.rf11-signup-password-toggle{color:#d7d3ff!important;background:rgba(120,104,255,.14)!important}
+.rf11-signup-privacy-note p,.rf11-signup-security-note p{font-size:10px!important}
+@media(max-width:720px){.rf11-signup-workspace-grid,.rf11-signup-details-grid{grid-template-columns:1fr!important}.rf11-signup-workspace-card{min-height:0!important}.rf11-signup-single-action .rf11-auth-submit{width:100%!important}.rf11-signup-form-actions{display:grid!important;grid-template-columns:1fr!important}}
+`}</style>;
 }

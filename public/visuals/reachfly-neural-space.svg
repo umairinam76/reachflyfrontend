@@ -1,0 +1,34 @@
+<svg width="1920" height="1200" viewBox="0 0 1920 1200" fill="none" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <linearGradient id="bg" x1="140" y1="60" x2="1740" y2="1160" gradientUnits="userSpaceOnUse">
+    <stop stop-color="#050712"/><stop offset=".44" stop-color="#090C18"/><stop offset="1" stop-color="#060812"/>
+  </linearGradient>
+  <radialGradient id="a" cx="0" cy="0" r="1" gradientTransform="translate(340 250) rotate(35) scale(670 520)">
+    <stop stop-color="#5948FF" stop-opacity=".48"/><stop offset="1" stop-color="#5948FF" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="b" cx="0" cy="0" r="1" gradientTransform="translate(1580 700) rotate(145) scale(720 560)">
+    <stop stop-color="#9A42FF" stop-opacity=".30"/><stop offset="1" stop-color="#9A42FF" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="c" cx="0" cy="0" r="1" gradientTransform="translate(1180 190) scale(470 330)">
+    <stop stop-color="#34C9FF" stop-opacity=".18"/><stop offset="1" stop-color="#34C9FF" stop-opacity="0"/>
+  </radialGradient>
+  <filter id="blur"><feGaussianBlur stdDeviation="36"/></filter>
+  <filter id="noise"><feTurbulence type="fractalNoise" baseFrequency=".78" numOctaves="3" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="table" tableValues="0 .055"/></feComponentTransfer></filter>
+  <linearGradient id="line" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#7A70FF" stop-opacity=".18"/><stop offset=".5" stop-color="#62D8FF" stop-opacity=".06"/><stop offset="1" stop-color="#E960FF" stop-opacity=".12"/></linearGradient>
+</defs>
+<rect width="1920" height="1200" fill="url(#bg)"/>
+<rect width="1920" height="1200" fill="url(#a)"/>
+<rect width="1920" height="1200" fill="url(#b)"/>
+<rect width="1920" height="1200" fill="url(#c)"/>
+<g opacity=".55" filter="url(#blur)"><ellipse cx="950" cy="620" rx="560" ry="170" fill="#2632A8" fill-opacity=".12"/></g>
+<g stroke="url(#line)" stroke-width="1">
+  <path d="M-80 870C240 650 470 630 770 760C1100 902 1320 876 1980 530"/>
+  <path d="M-120 970C240 760 530 720 830 820C1190 940 1460 880 2010 620"/>
+  <path d="M240 0C420 270 620 330 920 350C1230 372 1510 270 1760 20"/>
+  <path d="M90 1100C450 900 660 910 950 1000C1270 1096 1530 1040 1870 860"/>
+</g>
+<g fill="#A9A5FF">
+  <circle cx="250" cy="460" r="2.2" opacity=".58"/><circle cx="520" cy="190" r="1.7" opacity=".34"/><circle cx="820" cy="680" r="1.8" opacity=".46"/><circle cx="1220" cy="370" r="2" opacity=".38"/><circle cx="1530" cy="810" r="2.1" opacity=".5"/><circle cx="1730" cy="270" r="1.6" opacity=".38"/>
+</g>
+<rect width="1920" height="1200" filter="url(#noise)" opacity=".7"/>
+</svg>

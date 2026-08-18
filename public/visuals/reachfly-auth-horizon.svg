@@ -1,0 +1,13 @@
+<svg width="1600" height="1200" viewBox="0 0 1600 1200" fill="none" xmlns="http://www.w3.org/2000/svg">
+<defs>
+ <linearGradient id="bg" x1="120" y1="80" x2="1500" y2="1150" gradientUnits="userSpaceOnUse"><stop stop-color="#060915"/><stop offset=".55" stop-color="#0A0D19"/><stop offset="1" stop-color="#070711"/></linearGradient>
+ <radialGradient id="g1" cx="0" cy="0" r="1" gradientTransform="translate(260 270) rotate(35) scale(650 540)"><stop stop-color="#5448F4" stop-opacity=".54"/><stop offset="1" stop-color="#5448F4" stop-opacity="0"/></radialGradient>
+ <radialGradient id="g2" cx="0" cy="0" r="1" gradientTransform="translate(1320 980) rotate(205) scale(700 520)"><stop stop-color="#A23DFF" stop-opacity=".30"/><stop offset="1" stop-color="#A23DFF" stop-opacity="0"/></radialGradient>
+ <radialGradient id="g3" cx="0" cy="0" r="1" gradientTransform="translate(1080 260) scale(420 320)"><stop stop-color="#39C7FF" stop-opacity=".17"/><stop offset="1" stop-color="#39C7FF" stop-opacity="0"/></radialGradient>
+ <filter id="noise"><feTurbulence type="fractalNoise" baseFrequency=".74" numOctaves="4" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="table" tableValues="0 .05"/></feComponentTransfer></filter>
+</defs>
+<rect width="1600" height="1200" fill="url(#bg)"/><rect width="1600" height="1200" fill="url(#g1)"/><rect width="1600" height="1200" fill="url(#g2)"/><rect width="1600" height="1200" fill="url(#g3)"/>
+<g opacity=".18" stroke="#A4A8FF"><circle cx="800" cy="640" r="220"/><circle cx="800" cy="640" r="330"/><circle cx="800" cy="640" r="455"/></g>
+<g opacity=".11" stroke="#E7E9FF"><path d="M0 250H1600M0 500H1600M0 750H1600M0 1000H1600"/><path d="M280 0V1200M560 0V1200M840 0V1200M1120 0V1200M1400 0V1200"/></g>
+<rect width="1600" height="1200" filter="url(#noise)"/>
+</svg>

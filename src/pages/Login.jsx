@@ -162,6 +162,7 @@ export default function Login() {
   return (
     <>
       <LoginStyles />
+      <LoginV12ClarityStyles />
 
       <AuthLayout
         eyebrow="Welcome back"
@@ -1640,4 +1641,13 @@ function LoginStyles() {
       }
     `}</style>
   );
+}
+
+
+function LoginV12ClarityStyles() {
+  return <style>{`
+/* ReachFly V12 — Login clarity */
+.rf11-login-card-eyebrow{margin-bottom:9px!important}.rf11-login-google-zone{margin-top:22px!important}.rf11-auth-email-form{gap:16px!important}.rf11-login-auth-alert{color:#ffc8c8!important;background:rgba(162,45,68,.14)!important;border-color:rgba(255,113,133,.22)!important}.rf11-login-auth-alert>span{color:#ff91a2!important;background:rgba(255,255,255,.055)!important}.rf11-login-auth-alert p{font-size:10px!important;line-height:1.45!important}.rf11-login-auth-alert strong{font-size:11px!important}.rf11-login-auth-alert a{color:#c6bfff!important;font-size:10px!important}
+.rf11-login-mobile-brand-copy{color:#f8f9ff!important}.rf11-login-mobile-brand-copy p{color:#aeb6ce!important}
+`}</style>;
 }

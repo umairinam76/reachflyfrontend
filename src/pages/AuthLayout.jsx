@@ -20,6 +20,7 @@ export default function AuthLayout({ eyebrow, title, text, children, footer }) {
   return (
     <>
       <AuthLayoutV11Styles />
+      <AuthV12ClarityStyles />
       <motion.main className="rf11-auth-page" initial={reduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: reduceMotion ? 0 : .38 }}>
         <div className="rf11-auth-bg" aria-hidden="true"><i/><i/><i/></div>
         <motion.section className="rf11-auth-shell" initial={reduceMotion ? false : { opacity: 0, y: 18, scale: .985 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: reduceMotion ? 0 : .62, ease: [.2,.8,.2,1] }}>
@@ -54,13 +55,37 @@ export default function AuthLayout({ eyebrow, title, text, children, footer }) {
 
 function AuthScene(){
   const group=useRef(null);
-  useFrame(({clock,pointer})=>{if(!group.current)return;group.current.rotation.y=clock.elapsedTime*.08+pointer.x*.16;group.current.rotation.x=pointer.y*.08;group.current.position.y=Math.sin(clock.elapsedTime*.55)*.08;});
-  return <group ref={group} position={[1.15,.25,0]}>
-    <ambientLight intensity={1.2}/><pointLight position={[2,2,3]} intensity={18} color="#7367ff"/><pointLight position={[-2,-1,2]} intensity={10} color="#44d7ff"/>
-    <Float speed={1.4} rotationIntensity={.5} floatIntensity={.65}><mesh><icosahedronGeometry args={[1.05,2]}/><meshPhysicalMaterial color="#5d55ff" metalness={.45} roughness={.18} transparent opacity={.36} transmission={.28} thickness={1.2}/></mesh></Float>
-    <mesh rotation={[1.15,.25,.4]}><torusGeometry args={[1.62,.018,16,160]}/><meshBasicMaterial color="#8e86ff" transparent opacity={.44}/></mesh>
-    <mesh rotation={[.55,-.65,1.1]}><torusGeometry args={[2.0,.012,16,160]}/><meshBasicMaterial color="#53d5ff" transparent opacity={.24}/></mesh>
-    <ThreeSparkles count={45} scale={[5,4,3]} size={1.4} speed={.28} color="#cbc8ff" opacity={.6}/>
+  useFrame(({clock,pointer})=>{
+    if(!group.current)return;
+    const t=clock.elapsedTime;
+    group.current.rotation.y=t*.085+pointer.x*.20;
+    group.current.rotation.x=pointer.y*.10+Math.sin(t*.35)*.035;
+    group.current.position.y=Math.sin(t*.5)*.07;
+  });
+  const nodes=[[-1.5,.5,.2],[1.35,.72,-.2],[.62,-1.28,.18],[-.9,-1.05,-.35]];
+  return <group ref={group} position={[1.1,.2,0]}>
+    <ambientLight intensity={1.05}/>
+    <pointLight position={[2.5,2.6,3.8]} intensity={22} color="#7567ff"/>
+    <pointLight position={[-2.8,-1.4,2.4]} intensity={12} color="#55d7ff"/>
+    <Float speed={1.25} rotationIntensity={.42} floatIntensity={.55}>
+      <mesh>
+        <icosahedronGeometry args={[1.02,3]}/>
+        <meshPhysicalMaterial color="#665bff" metalness={.55} roughness={.12} transparent opacity={.34} transmission={.35} thickness={1.4}/>
+      </mesh>
+      <mesh scale={1.075}>
+        <icosahedronGeometry args={[1.02,2]}/>
+        <meshBasicMaterial color="#a9a3ff" wireframe transparent opacity={.16}/>
+      </mesh>
+      <mesh scale={.31}>
+        <sphereGeometry args={[1,40,40]}/>
+        <meshBasicMaterial color="#86e6ff" transparent opacity={.92}/>
+      </mesh>
+    </Float>
+    <mesh rotation={[1.15,.25,.4]}><torusGeometry args={[1.62,.017,16,180]}/><meshBasicMaterial color="#9188ff" transparent opacity={.48}/></mesh>
+    <mesh rotation={[.55,-.65,1.1]}><torusGeometry args={[2.0,.011,16,180]}/><meshBasicMaterial color="#55d7ff" transparent opacity={.30}/></mesh>
+    <mesh rotation={[.2,.9,.35]}><torusGeometry args={[2.28,.008,12,180]}/><meshBasicMaterial color="#b665ff" transparent opacity={.16}/></mesh>
+    {nodes.map((position,index)=><Float key={index} speed={1.1+index*.13} floatIntensity={.5}><mesh position={position}><sphereGeometry args={[.07,24,24]}/><meshBasicMaterial color={index%2 ? '#59d7ff' : '#9f8cff'}/></mesh></Float>)}
+    <ThreeSparkles count={70} scale={[5.4,4.4,3.4]} size={1.3} speed={.24} color="#d4d0ff" opacity={.62}/>
   </group>;
 }
 
@@ -86,3 +111,32 @@ function AuthLayoutV11Styles(){return <style>{`
   @media(max-width:640px){.rf11-auth-page{padding:0!important;background-attachment:scroll!important}.rf11-auth-shell{width:100%!important;min-height:100svh!important;border:0!important;border-radius:0!important}.rf11-auth-hero{min-height:220px!important;padding:22px 20px!important}.rf11-auth-secure-pill{display:none}.rf11-auth-copy{margin-top:40px!important}.rf11-auth-copy h1{font-size:34px!important}.rf11-auth-three{opacity:.55}.rf11-auth-panel{padding:30px 20px 36px!important}.rf11-auth-card .rf11-auth-card-head h2{font-size:32px!important}}
   @media(prefers-reduced-motion:reduce){.rf11-auth-bg i{animation:none!important}.rf11-auth-page *{scroll-behavior:auto!important}}
 `}</style>}
+
+
+function AuthV12ClarityStyles() {
+  return <style>{`
+/* ReachFly V12 — Authentication visual system */
+.rf11-auth-page{--v12a-bg:#050711;--v12a-panel:#0a0f1f;--v12a-card:#0e1427;--v12a-line:rgba(172,182,255,.17);--v12a-text:#f8f9ff;--v12a-body:#c1c7dc;--v12a-muted:#929bb6;--v12a-primary:#7868ff;--v12a-cyan:#59d7ff;color:var(--v12a-text)!important;background-color:var(--v12a-bg)!important;background-image:linear-gradient(180deg,rgba(4,6,15,.20),rgba(4,6,15,.72)),url('/visuals/reachfly-auth-horizon.svg')!important;background-size:cover!important;background-position:center!important}
+.rf11-auth-page::before{content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle at 14% 12%,rgba(91,83,255,.18),transparent 25%),radial-gradient(circle at 86% 74%,rgba(157,69,255,.14),transparent 26%);mix-blend-mode:screen}
+.rf11-auth-shell{width:min(1320px,calc(100vw - 64px))!important;min-height:min(790px,calc(100svh - 64px))!important;border-color:rgba(183,191,255,.18)!important;background:rgba(5,8,17,.88)!important;box-shadow:0 60px 160px rgba(0,0,0,.58),inset 0 1px 0 rgba(255,255,255,.07)!important}
+.rf11-auth-hero{background:linear-gradient(145deg,rgba(8,12,25,.94),rgba(6,9,19,.86))!important}.rf11-auth-hero-shade{background:linear-gradient(90deg,rgba(5,8,17,.94),rgba(6,9,18,.69) 54%,rgba(6,9,18,.08) 90%),linear-gradient(0deg,rgba(5,8,17,.76),transparent 46%)!important}
+.rf11-auth-copy h1{font-size:clamp(48px,4.15vw,70px)!important;line-height:.97!important}.rf11-auth-copy p{color:var(--v12a-body)!important;font-size:15px!important;line-height:1.7!important}
+.rf11-auth-signals article{background:rgba(255,255,255,.052)!important;border-color:rgba(173,182,255,.13)!important}.rf11-auth-signals strong{font-size:12px!important}.rf11-auth-signals small{font-size:10px!important;color:#a6aec6!important}
+.rf11-auth-panel{background:linear-gradient(150deg,rgba(13,18,35,.96),rgba(6,9,19,.96))!important}.rf11-auth-card{max-width:610px!important;color:var(--v12a-text)!important}
+.rf11-auth-card-head h2{color:#fff!important;font-size:clamp(36px,3vw,48px)!important;line-height:1.02!important}.rf11-auth-card-head p{max-width:520px!important;color:var(--v12a-body)!important;font-size:14px!important;line-height:1.65!important}
+.rf11-login-card-eyebrow,.rf11-signup-card-eyebrow{color:#aeb5ff!important;font-size:10px!important;line-height:1.2!important;letter-spacing:.11em!important}
+.rf11-login-field-label,.rf11-signup-field>span{color:#d8dcef!important;font-size:11px!important;line-height:1.2!important}
+.rf11-auth-input.rf11-login-field>div,.rf11-signup-field>div{min-height:52px!important;background:rgba(255,255,255,.055)!important;border:1px solid var(--v12a-line)!important;border-radius:13px!important;color:#9ca5bd!important;box-shadow:inset 0 1px rgba(255,255,255,.025)!important}
+.rf11-auth-input.rf11-login-field>div:focus-within,.rf11-signup-field>div:focus-within{background:rgba(255,255,255,.075)!important;border-color:rgba(128,113,255,.70)!important;box-shadow:0 0 0 4px rgba(120,104,255,.10),0 0 34px rgba(99,82,255,.07)!important}
+.rf11-auth-input.rf11-login-field input,.rf11-signup-field input{height:50px!important;color:#f8f9ff!important;font-size:13px!important}.rf11-auth-input.rf11-login-field input::placeholder,.rf11-signup-field input::placeholder{color:#707a94!important}
+.rf11-auth-divider{min-height:48px!important}.rf11-auth-divider::before{background:rgba(255,255,255,.10)!important}.rf11-auth-divider span,.rf11-auth-divider>span{color:#8790aa!important;background:#0a0f1f!important;font-size:9px!important;padding-inline:12px!important}
+.rf11-login-google-zone{min-height:48px!important;padding:2px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07)}
+.rf-google-auth-button{min-height:46px!important;border-radius:10px!important}.rf11-login-google-loading{color:#1d2230!important;background:#fff!important}
+.rf11-login-remember{color:#c0c6da!important}.rf11-login-remember b{font-size:10px!important}.rf11-login-remember>span{background:rgba(255,255,255,.055)!important;border-color:rgba(180,188,255,.22)!important}
+.rf11-auth-login-options>a{font-size:10px!important;color:#b5b0ff!important}.rf11-login-password-toggle{min-width:44px!important;height:30px!important;color:#d6d2ff!important;background:rgba(120,104,255,.14)!important;font-size:9px!important}
+.rf11-auth-submit{min-height:54px!important;border-radius:13px!important;font-size:12px!important;color:#fff!important;background:linear-gradient(135deg,#7564ff,#8b55ff 55%,#5f86ff)!important;border:1px solid rgba(255,255,255,.11)!important;box-shadow:0 15px 38px rgba(104,82,255,.28)!important}.rf11-auth-submit:disabled{opacity:.48!important;color:#d7d9e6!important;background:linear-gradient(135deg,#4a427d,#51458a)!important;box-shadow:none!important}
+.rf11-login-trust-row{color:#919ab2!important;margin-top:20px!important}.rf11-login-trust-row span{font-size:9px!important}.rf11-auth-footer{font-size:11px!important;color:#929bb4!important}.rf11-auth-footer a{color:#bbb6ff!important}
+@media(max-width:1020px){.rf11-auth-shell{width:min(760px,calc(100vw - 32px))!important}.rf11-auth-card{max-width:620px!important}.rf11-auth-panel{padding:42px 34px!important}}
+@media(max-width:640px){.rf11-auth-shell{width:100%!important}.rf11-auth-card-head h2{font-size:34px!important}.rf11-login-field-label,.rf11-signup-field>span{font-size:11px!important}}
+`}</style>;
+}
