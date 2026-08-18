@@ -1521,17 +1521,684 @@ export const BLOG_POSTS = [
   }
 ];
 
+export const BLOG_CATEGORIES = Object.freeze(
+  Array.from(
+    BLOG_POSTS.reduce(
+      (
+        map,
+        post
+      ) => {
+        const category =
+          String(
+            post?.category ||
+              "Uncategorized"
+          ).trim() ||
+          "Uncategorized";
 
-export function getBlogPost(slug) {
-  return BLOG_POSTS.find((post) => post.slug === slug) || null;
+        map.set(
+          category,
+          (
+            map.get(
+              category
+            ) ||
+            0
+          ) +
+            1
+        );
+
+        return map;
+      },
+      new Map()
+    ).entries()
+  )
+    .map(
+      (
+        [
+          name,
+          count,
+        ]
+      ) => ({
+        name,
+        count,
+      })
+    )
+    .sort(
+      (
+        a,
+        b
+      ) =>
+        b.count -
+          a.count ||
+        a.name.localeCompare(
+          b.name
+        )
+    )
+);
+
+const BLOG_POST_BY_SLUG =
+  new Map(
+    BLOG_POSTS.map(
+      (
+        post
+      ) => [
+        post.slug,
+        post,
+      ]
+    )
+  );
+
+export function getBlogPost(
+  slug
+) {
+  const key =
+    normalizeSlug(
+      slug
+    );
+
+  if (!key) {
+    return null;
+  }
+
+  return (
+    BLOG_POST_BY_SLUG.get(
+      key
+    ) ||
+    null
+  );
 }
 
-export function getRelatedPosts(post, limit = 3) {
+export function getRelatedPosts(
+  post,
+  limit = 3
+) {
+  if (
+    !post?.slug
+  ) {
+    return [];
+  }
+
+  const requested =
+    clamp(
+      Number(
+        limit
+      ) ||
+        3,
+      1,
+      12
+    );
+
   return BLOG_POSTS
-    .filter((candidate) => candidate.slug !== post.slug)
-    .sort((a, b) => {
-      const categoryScore = Number(b.category === post.category) - Number(a.category === post.category);
-      return categoryScore || a.title.localeCompare(b.title);
-    })
-    .slice(0, limit);
+    .filter(
+      (
+        candidate
+      ) =>
+        candidate.slug !==
+        post.slug
+    )
+    .map(
+      (
+        candidate
+      ) => ({
+        candidate,
+        score:
+          relatedScore(
+            post,
+            candidate
+          ),
+      })
+    )
+    .sort(
+      (
+        a,
+        b
+      ) =>
+        b.score -
+          a.score ||
+        compareDateDesc(
+          a.candidate.updatedAt,
+          b.candidate.updatedAt
+        ) ||
+        a.candidate.title.localeCompare(
+          b.candidate.title
+        )
+    )
+    .slice(
+      0,
+      requested
+    )
+    .map(
+      (
+        item
+      ) =>
+        item.candidate
+    );
+}
+
+export function searchBlogPosts(
+  query,
+  {
+    category = "All",
+    limit,
+  } = {}
+) {
+  const terms =
+    normalizeSearchText(
+      query
+    )
+      .split(/\s+/)
+      .filter(
+        Boolean
+      );
+
+  const selectedCategory =
+    String(
+      category ||
+        "All"
+    ).trim();
+
+  const matching =
+    BLOG_POSTS
+      .filter(
+        (
+          post
+        ) =>
+          selectedCategory ===
+            "All" ||
+          post.category ===
+            selectedCategory
+      )
+      .map(
+        (
+          post
+        ) => ({
+          post,
+          score:
+            searchScore(
+              post,
+              terms
+            ),
+        })
+      )
+      .filter(
+        (
+          item
+        ) =>
+          !terms.length ||
+          item.score >
+            0
+      )
+      .sort(
+        (
+          a,
+          b
+        ) =>
+          b.score -
+            a.score ||
+          compareDateDesc(
+            a.post.updatedAt,
+            b.post.updatedAt
+          ) ||
+          a.post.title.localeCompare(
+            b.post.title
+          )
+      );
+
+  const result =
+    matching.map(
+      (
+        item
+      ) =>
+        item.post
+    );
+
+  if (
+    !Number.isFinite(
+      Number(
+        limit
+      )
+    )
+  ) {
+    return result;
+  }
+
+  return result.slice(
+    0,
+    clamp(
+      Number(
+        limit
+      ),
+      1,
+      BLOG_POSTS.length
+    )
+  );
+}
+
+export function getFeaturedBlogPosts(
+  limit = 4
+) {
+  const requested =
+    clamp(
+      Number(
+        limit
+      ) ||
+        4,
+      1,
+      12
+    );
+
+  return [
+    ...BLOG_POSTS,
+  ]
+    .sort(
+      (
+        a,
+        b
+      ) =>
+        compareDateDesc(
+          a.updatedAt,
+          b.updatedAt
+        ) ||
+        compareDateDesc(
+          a.publishedAt,
+          b.publishedAt
+        ) ||
+        a.title.localeCompare(
+          b.title
+        )
+    )
+    .slice(
+      0,
+      requested
+    );
+}
+
+export function validateBlogCatalog() {
+  const errors =
+    [];
+
+  const slugs =
+    new Set();
+
+  BLOG_POSTS.forEach(
+    (
+      post,
+      index
+    ) => {
+      if (
+        !post ||
+        typeof post !==
+          "object"
+      ) {
+        errors.push(
+          `Post ${index + 1} is not an object.`
+        );
+
+        return;
+      }
+
+      const slug =
+        normalizeSlug(
+          post.slug
+        );
+
+      if (!slug) {
+        errors.push(
+          `Post ${index + 1} is missing a valid slug.`
+        );
+      } else if (
+        slugs.has(
+          slug
+        )
+      ) {
+        errors.push(
+          `Duplicate blog slug: ${slug}`
+        );
+      } else {
+        slugs.add(
+          slug
+        );
+      }
+
+      if (
+        !String(
+          post.title ||
+            ""
+        ).trim()
+      ) {
+        errors.push(
+          `Post ${slug || index + 1} is missing a title.`
+        );
+      }
+
+      if (
+        !String(
+          post.description ||
+            ""
+        ).trim()
+      ) {
+        errors.push(
+          `Post ${slug || index + 1} is missing a description.`
+        );
+      }
+
+      if (
+        !Array.isArray(
+          post.sections
+        ) ||
+        !post.sections.length
+      ) {
+        errors.push(
+          `Post ${slug || index + 1} has no sections.`
+        );
+      }
+
+      if (
+        !Array.isArray(
+          post.faqs
+        )
+      ) {
+        errors.push(
+          `Post ${slug || index + 1} has invalid FAQs.`
+        );
+      }
+    }
+  );
+
+  return {
+    valid:
+      errors.length ===
+      0,
+    postCount:
+      BLOG_POSTS.length,
+    uniqueSlugCount:
+      slugs.size,
+    errors,
+  };
+}
+
+function relatedScore(
+  source,
+  candidate
+) {
+  let score =
+    0;
+
+  if (
+    source.category ===
+    candidate.category
+  ) {
+    score +=
+      12;
+  }
+
+  if (
+    source.intent ===
+    candidate.intent
+  ) {
+    score +=
+      4;
+  }
+
+  const sourceTerms =
+    keywordSet(
+      [
+        source.title,
+        source.description,
+        source.category,
+      ].join(" ")
+    );
+
+  const candidateTerms =
+    keywordSet(
+      [
+        candidate.title,
+        candidate.description,
+        candidate.category,
+      ].join(" ")
+    );
+
+  sourceTerms.forEach(
+    (
+      term
+    ) => {
+      if (
+        candidateTerms.has(
+          term
+        )
+      ) {
+        score +=
+          1;
+      }
+    }
+  );
+
+  return score;
+}
+
+function searchScore(
+  post,
+  terms
+) {
+  if (
+    !terms.length
+  ) {
+    return 1;
+  }
+
+  const title =
+    normalizeSearchText(
+      post.title
+    );
+
+  const category =
+    normalizeSearchText(
+      post.category
+    );
+
+  const intent =
+    normalizeSearchText(
+      post.intent
+    );
+
+  const description =
+    normalizeSearchText(
+      post.description
+    );
+
+  const sections =
+    normalizeSearchText(
+      Array.isArray(
+        post.sections
+      )
+        ? post.sections
+            .map(
+              (
+                section
+              ) =>
+                `${section.heading || ""} ${section.body || ""}`
+            )
+            .join(" ")
+        : ""
+    );
+
+  let score =
+    0;
+
+  terms.forEach(
+    (
+      term
+    ) => {
+      if (
+        title.includes(
+          term
+        )
+      ) {
+        score +=
+          8;
+      }
+
+      if (
+        category.includes(
+          term
+        )
+      ) {
+        score +=
+          5;
+      }
+
+      if (
+        intent.includes(
+          term
+        )
+      ) {
+        score +=
+          3;
+      }
+
+      if (
+        description.includes(
+          term
+        )
+      ) {
+        score +=
+          3;
+      }
+
+      if (
+        sections.includes(
+          term
+        )
+      ) {
+        score +=
+          1;
+      }
+    }
+  );
+
+  return score;
+}
+
+function keywordSet(
+  value
+) {
+  return new Set(
+    normalizeSearchText(
+      value
+    )
+      .split(/\s+/)
+      .filter(
+        (
+          term
+        ) =>
+          term.length >=
+            4 &&
+          !BLOG_STOP_WORDS.has(
+            term
+          )
+      )
+  );
+}
+
+const BLOG_STOP_WORDS =
+  new Set([
+    "about",
+    "after",
+    "before",
+    "from",
+    "into",
+    "that",
+    "their",
+    "there",
+    "these",
+    "this",
+    "those",
+    "with",
+    "your",
+    "sales",
+    "reachfly",
+  ]);
+
+function normalizeSearchText(
+  value
+) {
+  return String(
+    value ||
+      ""
+  )
+    .toLowerCase()
+    .normalize(
+      "NFKD"
+    )
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .replace(
+      /[^a-z0-9]+/g,
+      " "
+    )
+    .trim();
+}
+
+function normalizeSlug(
+  value
+) {
+  return String(
+    value ||
+      ""
+  )
+    .trim()
+    .toLowerCase()
+    .replace(
+      /^\/+|\/+$/g,
+      ""
+    );
+}
+
+function compareDateDesc(
+  a,
+  b
+) {
+  const aTime =
+    Date.parse(
+      a ||
+        ""
+    );
+
+  const bTime =
+    Date.parse(
+      b ||
+        ""
+    );
+
+  const safeA =
+    Number.isFinite(
+      aTime
+    )
+      ? aTime
+      : 0;
+
+  const safeB =
+    Number.isFinite(
+      bTime
+    )
+      ? bTime
+      : 0;
+
+  return safeB -
+    safeA;
+}
+
+function clamp(
+  value,
+  min,
+  max
+) {
+  return Math.max(
+    min,
+    Math.min(
+      max,
+      value
+    )
+  );
 }
