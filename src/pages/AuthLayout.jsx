@@ -10,7 +10,7 @@ import {
   Phone,
   Workflow,
 } from "../components/icons";
-import "../auth-v15.css";
+import "../styles.css";
 
 const SIGNALS = [
   { icon: Target, label: "Discover", text: "Find the right market" },
