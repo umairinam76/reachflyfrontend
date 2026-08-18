@@ -335,7 +335,7 @@ export default function CampaignTeamAssignment({
             assignableCount
         );
 
-      setMessage(
+      const successMessage =
         `${updated} lead${
           updated === 1
             ? ""
@@ -346,16 +346,34 @@ export default function CampaignTeamAssignment({
           selected.length === 1
             ? ""
             : "s"
-        } using round robin.`
+        } using round robin.`;
+
+      setMessage(
+        successMessage
+      );
+
+      notifyCampaignAssignment(
+        "success",
+        "Leads distributed",
+        successMessage
       );
 
       await onAssigned?.(
         result
       );
     } catch (requestError) {
-      setError(
+      const message =
         requestError?.message ||
-          "The leads could not be assigned."
+        "The leads could not be assigned.";
+
+      setError(
+        message
+      );
+
+      notifyCampaignAssignment(
+        "error",
+        "Lead distribution failed",
+        message
       );
     } finally {
       setSaving(false);
@@ -367,7 +385,8 @@ export default function CampaignTeamAssignment({
   }
 
   return (
-    <section className="cardish rf-campaign-assignment mt24">
+    <section className="cardish rf-campaign-assignment rf-campaign-assignment-v7 mt24">
+      <CampaignTeamAssignmentV7Styles />
       <div className="section-title-row">
         <div>
           <span className="eyebrow">
@@ -390,9 +409,8 @@ export default function CampaignTeamAssignment({
 
       {!canAssign ? (
         <div className="error-banner">
-          Your manager account does not have the
-          assign_leads permission. Rerun the AH Growth
-          seed and sign in again.
+          Your manager account does not currently have lead-assignment access.
+          Ask a workspace administrator to enable this permission, then sign in again.
         </div>
       ) : null}
 
@@ -724,4 +742,383 @@ function getInitials(
     )
     .join("") ||
     "C";
+}
+
+
+function notifyCampaignAssignment(
+  type,
+  title,
+  message
+) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const bridge =
+    window.reachflyToast;
+
+  if (
+    bridge &&
+    typeof bridge[type] === "function"
+  ) {
+    bridge[type](title, message);
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent(
+      "reachfly:toast",
+      {
+        detail: {
+          type,
+          title,
+          message,
+        },
+      }
+    )
+  );
+}
+
+function CampaignTeamAssignmentV7Styles() {
+  return (
+    <style>{`
+      .rf-campaign-assignment-v7{
+        --rfca-text:#191c1d;
+        --rfca-text2:#4d4c59;
+        --rfca-muted:#777784;
+        --rfca-line:#e2e4e7;
+        --rfca-primary:#4648d4;
+        --rfca-primary-dark:#393bbb;
+        --rfca-primary-soft:#e8e9ff;
+        --rfca-green:#087a51;
+        --rfca-green-soft:#e4f7ee;
+        --rfca-red:#ba1a1a;
+        --rfca-red-soft:#ffedeb;
+        --rfca-ease:cubic-bezier(.2,.8,.2,1);
+        display:grid;
+        gap:10px;
+        padding:14px!important;
+        color:var(--rfca-text);
+        background:
+          radial-gradient(circle at 94% 5%,rgba(70,72,212,.055),transparent 31%),
+          #fff!important;
+        border:1px solid #dedffa!important;
+        border-radius:12px!important;
+        box-shadow:0 1px 3px rgba(25,28,29,.025)!important;
+      }
+
+      .rf-campaign-assignment-v7 *,
+      .rf-campaign-assignment-v7 *::before,
+      .rf-campaign-assignment-v7 *::after{
+        box-sizing:border-box;
+      }
+
+      @keyframes rfcaIn{
+        from{opacity:0;transform:translateY(-4px)}
+        to{opacity:1;transform:none}
+      }
+
+      .rf-campaign-assignment-v7 .section-title-row{
+        min-height:68px;
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:14px;
+        padding-bottom:10px;
+        border-bottom:1px solid #eff0f1;
+      }
+
+      .rf-campaign-assignment-v7 .section-title-row > div{
+        min-width:0;
+      }
+
+      .rf-campaign-assignment-v7 .section-title-row > svg{
+        width:38px;
+        height:38px;
+        padding:9px;
+        color:var(--rfca-primary);
+        background:var(--rfca-primary-soft);
+        border-radius:9px;
+      }
+
+      .rf-campaign-assignment-v7 .eyebrow{
+        display:block;
+        margin-bottom:3px;
+        color:var(--rfca-primary);
+        font-size:5.7px;
+        font-weight:800;
+        letter-spacing:.08em;
+        text-transform:uppercase;
+      }
+
+      .rf-campaign-assignment-v7 h2{
+        margin:0;
+        font:600 15px/20px Geist,Inter,sans-serif;
+        letter-spacing:-.015em;
+      }
+
+      .rf-campaign-assignment-v7 .section-title-row p{
+        margin:4px 0 0;
+        color:var(--rfca-text2);
+        font-size:6.3px;
+        line-height:10px;
+      }
+
+      .rf-campaign-assignment-v7 .error-banner,
+      .rf-campaign-assignment-v7 .success-banner{
+        padding:10px 11px;
+        margin:0;
+        border:1px solid;
+        border-radius:8px;
+        font-size:6.4px;
+        line-height:10px;
+        animation:rfcaIn .16s var(--rfca-ease);
+      }
+
+      .rf-campaign-assignment-v7 .error-banner{
+        color:#7c1d1d;
+        background:var(--rfca-red-soft);
+        border-color:#ffd0cc;
+      }
+
+      .rf-campaign-assignment-v7 .success-banner{
+        color:#086846;
+        background:var(--rfca-green-soft);
+        border-color:#caeadb;
+      }
+
+      .rf-campaign-assignment-v7 .flex{
+        display:flex;
+      }
+
+      .rf-campaign-assignment-v7 .flex-between{
+        justify-content:space-between;
+      }
+
+      .rf-campaign-assignment-v7 .flex-gap{
+        gap:7px;
+      }
+
+      .rf-campaign-assignment-v7 .btn{
+        min-height:37px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        gap:6px;
+        padding:7px 9px;
+        color:var(--rfca-text);
+        background:#fff;
+        border:1px solid var(--rfca-line);
+        border-radius:8px;
+        cursor:pointer;
+        font:700 6.3px/1 Inter,sans-serif;
+        transition:.14s var(--rfca-ease);
+      }
+
+      .rf-campaign-assignment-v7 .btn:hover:not(:disabled){
+        transform:translateY(-1px);
+      }
+
+      .rf-campaign-assignment-v7 .btn:disabled{
+        opacity:.45;
+        cursor:not-allowed;
+      }
+
+      .rf-campaign-assignment-v7 .btn.primary{
+        color:#fff;
+        background:var(--rfca-primary);
+        border-color:var(--rfca-primary);
+        box-shadow:0 6px 14px rgba(70,72,212,.12);
+      }
+
+      .rf-campaign-assignment-v7 .btn.primary:hover:not(:disabled){
+        background:var(--rfca-primary-dark);
+      }
+
+      .rf-campaign-assignment-v7 .btn.small{
+        min-height:31px;
+        padding:5px 7px;
+        font-size:5.6px;
+      }
+
+      .rf-campaign-assignment-v7 .rf-assignee-picker{
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:7px;
+      }
+
+      .rf-campaign-assignment-v7 .rf-assignee-picker > label{
+        min-width:0;
+        min-height:70px;
+        display:grid;
+        grid-template-columns:15px 36px minmax(0,1fr);
+        align-items:center;
+        gap:8px;
+        padding:9px;
+        background:#f7f8f9;
+        border:1px solid transparent;
+        border-radius:9px;
+        cursor:pointer;
+        transition:.13s var(--rfca-ease);
+      }
+
+      .rf-campaign-assignment-v7 .rf-assignee-picker > label:hover{
+        border-color:#d9daf7;
+      }
+
+      .rf-campaign-assignment-v7 .rf-assignee-picker > label.selected{
+        background:var(--rfca-primary-soft);
+        border-color:#d4d5ff;
+      }
+
+      .rf-campaign-assignment-v7 .rf-assignee-picker input{
+        width:15px;
+        height:15px;
+        margin:0;
+        accent-color:var(--rfca-primary);
+      }
+
+      .rf-campaign-assignment-v7 .rf-assignee-avatar{
+        width:36px;
+        height:36px;
+        display:grid;
+        place-items:center;
+        overflow:hidden;
+        color:#fff;
+        background:var(--rfca-primary);
+        border-radius:9px;
+        font-size:7px;
+        font-weight:800;
+      }
+
+      .rf-campaign-assignment-v7 .rf-assignee-avatar img{
+        width:100%;
+        height:100%;
+        object-fit:cover;
+      }
+
+      .rf-campaign-assignment-v7 .rf-assignee-picker > label > span:last-child{
+        min-width:0;
+        display:grid;
+      }
+
+      .rf-campaign-assignment-v7 .rf-assignee-picker b{
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font-size:6.4px;
+      }
+
+      .rf-campaign-assignment-v7 .rf-assignee-picker small{
+        margin-top:2px;
+        overflow:hidden;
+        color:var(--rfca-muted);
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font-size:5.2px;
+      }
+
+      .rf-campaign-assignment-v7 .rf-assignment-option{
+        min-height:47px;
+        display:flex;
+        align-items:center;
+        gap:8px;
+        padding:9px 10px;
+        color:var(--rfca-text2);
+        background:#f7f8f9;
+        border:1px solid var(--rfca-line);
+        border-radius:8px;
+        font-size:6px;
+        line-height:10px;
+      }
+
+      .rf-campaign-assignment-v7 .rf-assignment-option input{
+        width:15px;
+        height:15px;
+        flex:0 0 15px;
+        margin:0;
+        accent-color:var(--rfca-primary);
+      }
+
+      .rf-campaign-assignment-v7 .text-muted{
+        color:var(--rfca-muted)!important;
+        font-size:5.7px;
+        line-height:9px;
+      }
+
+      .rf-campaign-assignment-v7 .safe-note-v54{
+        padding:10px 11px;
+        color:var(--rfca-text2);
+        background:#f7f8f9;
+        border:1px dashed #d7d9dd;
+        border-radius:8px;
+        font-size:6.2px;
+        line-height:10px;
+      }
+
+      .rf-campaign-assignment-v7 .safe-note-v54 a{
+        color:var(--rfca-primary);
+        font-weight:750;
+        text-decoration:none;
+      }
+
+      .rf-campaign-assignment-v7 .skeleton-list{
+        display:grid;
+        gap:7px;
+      }
+
+      .rf-campaign-assignment-v7 .skeleton-list i{
+        height:66px;
+        display:block;
+        background:linear-gradient(90deg,#eceef0,#f8f9fa,#eceef0);
+        background-size:200% 100%;
+        border-radius:9px;
+      }
+
+      .rf-campaign-assignment-v7 .mb12{
+        margin-bottom:0!important;
+      }
+
+      .rf-campaign-assignment-v7 .mt16{
+        margin-top:0!important;
+      }
+
+      @media(max-width:980px){
+        .rf-campaign-assignment-v7 .rf-assignee-picker{
+          grid-template-columns:1fr 1fr;
+        }
+      }
+
+      @media(max-width:620px){
+        .rf-campaign-assignment-v7 .rf-assignee-picker{
+          grid-template-columns:1fr;
+        }
+
+        .rf-campaign-assignment-v7 .flex-between{
+          align-items:flex-start;
+          flex-direction:column;
+          gap:7px;
+        }
+
+        .rf-campaign-assignment-v7 .flex.mt16{
+          align-items:stretch;
+          flex-direction:column;
+        }
+
+        .rf-campaign-assignment-v7 .flex.mt16 .btn{
+          width:100%;
+        }
+      }
+
+      @media(prefers-reduced-motion:reduce){
+        .rf-campaign-assignment-v7,
+        .rf-campaign-assignment-v7 *,
+        .rf-campaign-assignment-v7 *::before,
+        .rf-campaign-assignment-v7 *::after{
+          animation:none!important;
+          transition-duration:.01ms!important;
+        }
+      }
+    `}</style>
+  );
 }
