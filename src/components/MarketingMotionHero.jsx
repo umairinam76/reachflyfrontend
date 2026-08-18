@@ -341,7 +341,7 @@ export default function MarketingMotionHero() {
   const [services, setServices] = useState([]);
 
   const { displayed, done } = useTypewriter(
-    "Our AI Agents, turn the right businesses\ninto real conversations.",
+    "Our AI Agents, turn the right businesses\ninto real conversations for you.",
     38,
     500
   );
