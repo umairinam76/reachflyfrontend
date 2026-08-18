@@ -16,6 +16,8 @@
     "@dicebear/core": "^10.6.0",
     "@dicebear/styles": "^10.5.0",
     "@gsap/react": "^2.1.2",
+    "@react-three/drei": "latest",
+    "@react-three/fiber": "latest",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
     "@vitejs/plugin-react": "latest",
@@ -46,6 +48,7 @@
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
     "tesseract.js": "^7.0.0",
+    "three": "latest",
     "vite": "latest",
     "whatsapp-web.js": "latest",
     "xlsx": "^0.18.5"

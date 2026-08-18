@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, useReducedMotion, useScroll, useSpring, useTransform } from "framer-motion";
 import gsap from "gsap";
@@ -6,6 +6,8 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
 import Lenis from "lenis";
 import "lenis/dist/lenis.css";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { Float, Sparkles as ThreeSparkles } from "@react-three/drei";
 import BrandLogo from "../components/BrandLogo";
 import {
   ArrowRight,
@@ -271,6 +273,7 @@ const FAQ = [
 export default function Marketing() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const rootRef = useRef(null);
+  const sceneProgressRef = useRef(0);
   const reduceMotion = useReducedMotion();
   const { scrollYProgress } = useScroll();
   const progressScale = useSpring(scrollYProgress, { stiffness: 110, damping: 24, mass: 0.25 });
@@ -307,6 +310,15 @@ export default function Marketing() {
 
       const mm = gsap.matchMedia();
 
+      ScrollTrigger.create({
+        trigger: rootRef.current,
+        start: "top top",
+        end: "bottom bottom",
+        onUpdate: (self) => {
+          sceneProgressRef.current = self.progress;
+        },
+      });
+
       mm.add("(min-width: 901px)", () => {
         const heroTimeline = gsap.timeline({ defaults: { ease: "power3.out" } });
 
@@ -330,6 +342,55 @@ export default function Marketing() {
             },
             "-=0.7"
           );
+
+        const heroScene = gsap.timeline({
+          scrollTrigger: {
+            trigger: ".rfm-hero",
+            start: "top top",
+            end: "+=85%",
+            scrub: 1,
+            pin: true,
+            anticipatePin: 1,
+          },
+        });
+
+        heroScene
+          .to(".rfm-hero-copy", { yPercent: -10, opacity: 0.32, ease: "none" }, 0)
+          .to(".rfm-hero-preview-wrap", {
+            xPercent: -8,
+            yPercent: -8,
+            scale: 1.08,
+            rotateY: 7,
+            rotateX: -3,
+            ease: "none",
+          }, 0)
+          .to(".rfm-hero-3d", { scale: 1.22, opacity: 1, ease: "none" }, 0)
+          .to(".rfm-scroll-cue", { opacity: 0, y: 18, ease: "none" }, 0);
+
+        let removeHeroPointer = () => {};
+        const hero = rootRef.current?.querySelector(".rfm-hero");
+        const previewWrap = rootRef.current?.querySelector(".rfm-hero-preview-wrap");
+        if (hero && previewWrap) {
+          const rotateYTo = gsap.quickTo(previewWrap, "--rfm-pointer-ry", { duration: 0.55, ease: "power3.out" });
+          const rotateXTo = gsap.quickTo(previewWrap, "--rfm-pointer-rx", { duration: 0.55, ease: "power3.out" });
+          const onPointerMove = (event) => {
+            const rect = hero.getBoundingClientRect();
+            const nx = ((event.clientX - rect.left) / rect.width - 0.5) * 2;
+            const ny = ((event.clientY - rect.top) / rect.height - 0.5) * 2;
+            rotateYTo(nx * 4.5);
+            rotateXTo(ny * -3.2);
+          };
+          const onPointerLeave = () => {
+            rotateYTo(0);
+            rotateXTo(0);
+          };
+          hero.addEventListener("pointermove", onPointerMove);
+          hero.addEventListener("pointerleave", onPointerLeave);
+          removeHeroPointer = () => {
+            hero.removeEventListener("pointermove", onPointerMove);
+            hero.removeEventListener("pointerleave", onPointerLeave);
+          };
+        }
 
         gsap.to(".rfm-product-preview", {
           yPercent: -5,
@@ -356,6 +417,52 @@ export default function Marketing() {
           ease: "none",
           scrollTrigger: { trigger: ".rfm-hero", start: "top top", end: "bottom top", scrub: 1.2 },
         });
+
+        const stackTimeline = gsap.timeline({
+          scrollTrigger: {
+            trigger: ".rfm-stack-section",
+            start: "top top",
+            end: "+=115%",
+            scrub: 1,
+            pin: true,
+            anticipatePin: 1,
+          },
+        });
+
+        stackTimeline
+          .fromTo(".rfm-stack-fragmented > div > span",
+            { x: 0, y: 0, rotate: 0, opacity: 1 },
+            {
+              x: (index) => (index % 2 ? 110 : -110),
+              y: (index) => (index - 3.5) * 12,
+              rotate: (index) => (index % 2 ? 7 : -7),
+              opacity: 0.08,
+              stagger: 0.025,
+              ease: "none",
+            }, 0)
+          .fromTo(".rfm-stack-reachfly",
+            { scale: 0.86, rotateY: -8, opacity: 0.42 },
+            { scale: 1.04, rotateY: 0, opacity: 1, ease: "none" }, 0.05)
+          .fromTo(".rfm-stack-path > span",
+            { y: 24, opacity: 0 },
+            { y: 0, opacity: 1, stagger: 0.055, ease: "none" }, 0.28);
+
+        const usecaseTrack = rootRef.current?.querySelector(".rfm-usecase-grid");
+        if (usecaseTrack) {
+          gsap.to(usecaseTrack, {
+            x: () => -Math.max(0, usecaseTrack.scrollWidth - window.innerWidth + 120),
+            ease: "none",
+            scrollTrigger: {
+              trigger: ".rfm-usecase-section",
+              start: "top top",
+              end: () => `+=${Math.max(window.innerWidth, usecaseTrack.scrollWidth * 0.72)}`,
+              pin: true,
+              scrub: 1,
+              invalidateOnRefresh: true,
+              anticipatePin: 1,
+            },
+          });
+        }
 
         gsap.utils.toArray(".rfm-journey > article").forEach((card, index) => {
           gsap.fromTo(
@@ -393,6 +500,7 @@ export default function Marketing() {
             );
           }
         });
+        return removeHeroPointer;
       });
 
       gsap.utils
@@ -562,6 +670,9 @@ export default function Marketing() {
         ) : null}
 
         <section className="rfm-hero">
+          <div className="rfm-hero-3d" aria-hidden="true">
+            <ReachFlyThreeScene progressRef={sceneProgressRef} reduceMotion={reduceMotion} />
+          </div>
           <div className="rfm-hero-grid" />
           <div className="rfm-hero-glow rfm-hero-glow-one" />
           <div className="rfm-hero-glow rfm-hero-glow-two" />
@@ -616,6 +727,30 @@ export default function Marketing() {
 
           <div className="rfm-hero-preview-wrap">
             <ProductPreview />
+            <motion.div
+              className="rfm-float-signal signal-a"
+              animate={reduceMotion ? undefined : { y: [0, -14, 0], rotate: [-1, 1.5, -1] }}
+              transition={{ duration: 5.2, repeat: Infinity, ease: "easeInOut" }}
+              aria-hidden="true"
+            >
+              <span><Brain size={14} /></span><div><small>Context ready</small><strong>39 prospects</strong></div>
+            </motion.div>
+            <motion.div
+              className="rfm-float-signal signal-b"
+              animate={reduceMotion ? undefined : { y: [0, 12, 0], x: [0, -6, 0] }}
+              transition={{ duration: 6.4, repeat: Infinity, ease: "easeInOut" }}
+              aria-hidden="true"
+            >
+              <span><Phone size={14} /></span><div><small>AI Voice</small><strong>Conversation live</strong></div>
+            </motion.div>
+            <motion.div
+              className="rfm-float-signal signal-c"
+              animate={reduceMotion ? undefined : { y: [0, -9, 0], rotate: [1, -1, 1] }}
+              transition={{ duration: 5.8, repeat: Infinity, ease: "easeInOut" }}
+              aria-hidden="true"
+            >
+              <span><Calendar size={14} /></span><div><small>Outcome</small><strong>Meeting booked</strong></div>
+            </motion.div>
             <span className="rfm-preview-caption">Illustrative ReachFly workspace preview</span>
           </div>
 
@@ -644,10 +779,16 @@ export default function Marketing() {
               ))}
             </div>
           ) : (
-            <div className="rfm-audience-pills">
-              {AUDIENCE_LABELS.map((label) => (
-                <span key={label}>{label}</span>
-              ))}
+            <div className="rfm-audience-marquee" aria-label="Teams ReachFly is built for">
+              <motion.div
+                className="rfm-audience-marquee-track"
+                animate={reduceMotion ? undefined : { x: ["0%", "-50%"] }}
+                transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
+              >
+                {[...AUDIENCE_LABELS, ...AUDIENCE_LABELS, ...AUDIENCE_LABELS, ...AUDIENCE_LABELS].map((label, index) => (
+                  <span key={`${label}-${index}`}>{label}<i /></span>
+                ))}
+              </motion.div>
             </div>
           )}
         </section>
@@ -1298,6 +1439,104 @@ function JourneyVisual({ step }) {
   );
 }
 
+
+function ReachFlyThreeScene({ progressRef, reduceMotion }) {
+  return (
+    <Canvas
+      dpr={[1, 1.5]}
+      camera={{ position: [0, 0, 7.2], fov: 42 }}
+      gl={{ alpha: true, antialias: true, powerPreference: "high-performance" }}
+    >
+      <ambientLight intensity={0.5} />
+      <pointLight position={[4, 3, 5]} intensity={8} color="#7779ff" />
+      <pointLight position={[-5, -2, 2]} intensity={5} color="#9c4dff" />
+      <spotLight position={[0, 6, 4]} intensity={7} angle={0.42} penumbra={0.9} color="#ffffff" />
+      <SalesConstellation progressRef={progressRef} reduceMotion={reduceMotion} />
+      <ThreeSparkles count={110} scale={[12, 8, 6]} size={1.7} speed={0.22} opacity={0.45} color="#a7a8ff" />
+    </Canvas>
+  );
+}
+
+function SalesConstellation({ progressRef, reduceMotion }) {
+  const groupRef = useRef(null);
+  const coreRef = useRef(null);
+  const nodePositions = useMemo(
+    () => [
+      [-2.5, 1.55, 0.1],
+      [2.65, 1.2, -0.2],
+      [-2.9, -1.15, -0.4],
+      [2.4, -1.55, 0.25],
+      [0.1, 2.55, -0.6],
+      [0.45, -2.5, -0.15],
+    ],
+    []
+  );
+
+  useFrame((state, delta) => {
+    if (!groupRef.current || !coreRef.current) return;
+    const progress = progressRef?.current || 0;
+    const pointerX = state.pointer.x;
+    const pointerY = state.pointer.y;
+    const targetRY = progress * Math.PI * 1.35 + pointerX * 0.12;
+    const targetRX = -0.18 + Math.sin(progress * Math.PI) * 0.22 + pointerY * 0.06;
+    const lerp = Math.min(1, delta * 2.4);
+    groupRef.current.rotation.y += (targetRY - groupRef.current.rotation.y) * lerp;
+    groupRef.current.rotation.x += (targetRX - groupRef.current.rotation.x) * lerp;
+    groupRef.current.position.y += ((progress - 0.5) * -0.7 - groupRef.current.position.y) * Math.min(1, delta * 1.6);
+    if (!reduceMotion) {
+      coreRef.current.rotation.x += delta * 0.11;
+      coreRef.current.rotation.y += delta * 0.16;
+    }
+  });
+
+  return (
+    <group ref={groupRef} rotation={[-0.16, -0.55, 0.08]}>
+      <Float speed={reduceMotion ? 0 : 1.15} rotationIntensity={reduceMotion ? 0 : 0.32} floatIntensity={reduceMotion ? 0 : 0.55}>
+        <mesh ref={coreRef} scale={1.4}>
+          <icosahedronGeometry args={[1.25, 2]} />
+          <meshPhysicalMaterial
+            color="#5558ef"
+            emissive="#282aa8"
+            emissiveIntensity={0.85}
+            roughness={0.18}
+            metalness={0.45}
+            transmission={0.18}
+            thickness={1.2}
+            transparent
+            opacity={0.78}
+          />
+        </mesh>
+        <mesh scale={1.78} rotation={[Math.PI / 2.8, 0.2, 0.5]}>
+          <torusGeometry args={[1.45, 0.012, 12, 160]} />
+          <meshBasicMaterial color="#8f91ff" transparent opacity={0.52} />
+        </mesh>
+        <mesh scale={2.12} rotation={[0.25, Math.PI / 2.7, -0.35]}>
+          <torusGeometry args={[1.45, 0.008, 10, 160]} />
+          <meshBasicMaterial color="#a85cff" transparent opacity={0.34} />
+        </mesh>
+      </Float>
+
+      {nodePositions.map((position, index) => (
+        <group key={index} position={position}>
+          <mesh>
+            <sphereGeometry args={[0.09, 18, 18]} />
+            <meshStandardMaterial
+              color={index % 2 ? "#b16cff" : "#8c8eff"}
+              emissive={index % 2 ? "#7a32ce" : "#5558ef"}
+              emissiveIntensity={2.4}
+              roughness={0.15}
+            />
+          </mesh>
+          <mesh scale={2.1}>
+            <sphereGeometry args={[0.09, 12, 12]} />
+            <meshBasicMaterial color="#8d8fff" transparent opacity={0.12} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
 function ProductPreview() {
   return (
     <motion.div
@@ -1704,6 +1943,131 @@ function MarketingStyles() {
         .rf-marketing-v8 *::before,
         .rf-marketing-v8 *::after{animation:none!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
       }
+
+
+      /* ==========================================================
+         ReachFly Marketing V10 — cinematic / real 3D art direction
+         ========================================================== */
+      .rf-marketing-v8{
+        --rfm-ink:#07090f;
+        --rfm-ink2:#0c0f18;
+        --rfm-glass:rgba(16,19,31,.68);
+        --rfm-glass-line:rgba(255,255,255,.10);
+        background:
+          radial-gradient(circle at 15% 8%,rgba(83,86,235,.18),transparent 24%),
+          radial-gradient(circle at 84% 18%,rgba(146,66,255,.15),transparent 25%),
+          linear-gradient(180deg,#07090f 0%,#0a0c13 42%,#07090f 100%);
+      }
+      .rfm-atmosphere{opacity:.8;filter:saturate(1.1)}
+      .rfm-atmosphere-grid{background-size:72px 72px;opacity:.18;mask-image:linear-gradient(to bottom,#000,transparent 82%)}
+      .rfm-nav{background:rgba(7,9,15,.58)!important;border-color:rgba(255,255,255,.075)!important;box-shadow:0 14px 42px rgba(0,0,0,.18);backdrop-filter:blur(22px) saturate(1.4)}
+
+      .rfm-hero{
+        min-height:100svh;
+        padding-top:90px;
+        overflow:hidden;
+        isolation:isolate;
+        perspective:1800px;
+        background:transparent!important;
+      }
+      .rfm-hero::after{
+        content:"";position:absolute;inset:auto 0 0;height:28%;pointer-events:none;z-index:0;
+        background:linear-gradient(to bottom,transparent,#07090f 88%);
+      }
+      .rfm-hero-3d{position:absolute;inset:-7% -8% -8% 36%;z-index:0;opacity:.86;pointer-events:none;filter:saturate(1.18) contrast(1.03);transition:opacity .4s ease}
+      .rfm-hero-3d canvas{width:100%!important;height:100%!important}
+      .rfm-hero-grid{opacity:.16!important;background-size:74px 74px!important;transform:perspective(900px) rotateX(68deg) scale(1.55)!important;transform-origin:center 82%!important}
+      .rfm-hero-copy{position:relative;z-index:3;max-width:650px;padding-top:3vh}
+      .rfm-kicker{background:rgba(255,255,255,.055)!important;border:1px solid rgba(255,255,255,.11)!important;box-shadow:inset 0 1px rgba(255,255,255,.08);backdrop-filter:blur(14px)}
+      .rfm-hero-copy h1{max-width:720px;font-size:clamp(54px,6.3vw,102px)!important;line-height:.91!important;letter-spacing:-.064em!important;text-wrap:balance}
+      .rfm-hero-copy h1 em{font-style:normal;color:transparent!important;background:linear-gradient(105deg,#fff 0%,#b9baff 38%,#8f76ff 68%,#df91ff 100%);background-clip:text;-webkit-background-clip:text;filter:drop-shadow(0 10px 34px rgba(103,87,255,.16))}
+      .rfm-hero-copy>p{max-width:610px!important;font-size:clamp(14px,1.2vw,18px)!important;line-height:1.72!important;color:rgba(239,241,247,.66)!important}
+      .rfm-btn.primary{position:relative;overflow:hidden;box-shadow:0 12px 38px rgba(89,83,238,.28),inset 0 1px rgba(255,255,255,.26)}
+      .rfm-btn.primary::before{content:"";position:absolute;inset:-80% -20%;background:linear-gradient(105deg,transparent 34%,rgba(255,255,255,.32) 49%,transparent 64%);transform:translateX(-70%) rotate(8deg);transition:transform .7s cubic-bezier(.2,.8,.2,1)}
+      .rfm-btn.primary:hover::before{transform:translateX(70%) rotate(8deg)}
+      .rfm-proof{border-color:rgba(255,255,255,.08)!important;color:rgba(232,234,242,.62)!important}
+
+      .rfm-hero-preview-wrap{
+        --rfm-pointer-rx:0;--rfm-pointer-ry:0;
+        position:relative;z-index:4;perspective:1600px;transform-style:preserve-3d;
+        transform:rotateX(calc(var(--rfm-pointer-rx) * 1deg)) rotateY(calc(var(--rfm-pointer-ry) * 1deg));
+        transition:filter .35s ease;
+      }
+      .rfm-product-preview{
+        position:relative!important;overflow:visible!important;transform-style:preserve-3d!important;
+        border:1px solid rgba(255,255,255,.16)!important;background:rgba(245,246,250,.96)!important;
+        box-shadow:0 70px 160px rgba(0,0,0,.58),0 24px 60px rgba(19,20,45,.38),0 0 0 1px rgba(123,125,255,.11)!important;
+      }
+      .rfm-product-preview::before,.rfm-product-preview::after{content:"";position:absolute;pointer-events:none;border-radius:inherit}
+      .rfm-product-preview::before{inset:10px -18px -18px 18px;z-index:-1;background:linear-gradient(145deg,rgba(91,94,239,.28),rgba(123,64,224,.05));transform:translateZ(-55px);filter:blur(.2px)}
+      .rfm-product-preview::after{inset:-1px;background:linear-gradient(115deg,rgba(255,255,255,.42),transparent 18%,transparent 72%,rgba(111,86,255,.16));mix-blend-mode:screen;opacity:.62}
+      .rfm-product-body{transform-style:preserve-3d}.rfm-product-body>aside{transform:translateZ(18px)}.rfm-product-body>main{transform:translateZ(30px)}
+      .rfm-float-signal{position:absolute;z-index:8;display:flex;align-items:center;gap:9px;min-width:150px;padding:10px 12px;color:#f7f8ff;background:rgba(15,18,30,.76);border:1px solid rgba(255,255,255,.12);border-radius:13px;box-shadow:0 18px 42px rgba(0,0,0,.34);backdrop-filter:blur(18px) saturate(1.35);transform-style:preserve-3d}
+      .rfm-float-signal>span{width:29px;height:29px;display:grid;place-items:center;color:#c7c8ff;background:rgba(95,98,238,.22);border:1px solid rgba(143,145,255,.22);border-radius:9px}
+      .rfm-float-signal>div{display:grid;gap:1px}.rfm-float-signal small{font-size:7px;color:#9196a8;text-transform:uppercase;letter-spacing:.08em}.rfm-float-signal strong{font-size:9px;font-weight:750;white-space:nowrap}
+      .signal-a{right:-54px;top:14%;transform:translateZ(82px)}.signal-b{left:-58px;bottom:23%;transform:translateZ(100px)}.signal-c{right:-34px;bottom:-12px;transform:translateZ(68px)}
+      .rfm-scroll-cue{z-index:6!important}
+
+      .rfm-trusted-section{position:relative;z-index:4;background:rgba(7,9,15,.72)!important;border-color:rgba(255,255,255,.07)!important;overflow:hidden;backdrop-filter:blur(18px)}
+      .rfm-trusted-copy strong{color:#f4f5fb!important}.rfm-trusted-copy>span{color:#8f91ff!important}
+      .rfm-audience-marquee{min-width:0;overflow:hidden;mask-image:linear-gradient(to right,transparent,#000 8%,#000 92%,transparent)}
+      .rfm-audience-marquee-track{display:flex;width:max-content;align-items:center;gap:30px;will-change:transform}
+      .rfm-audience-marquee span{display:flex;align-items:center;gap:30px;color:#b7bac7;font-size:11px;font-weight:720;white-space:nowrap;text-transform:uppercase;letter-spacing:.12em}
+      .rfm-audience-marquee i{width:5px;height:5px;border-radius:50%;background:#6568ef;box-shadow:0 0 18px #7a7cff}
+
+      .rfm-problem-section{position:relative;color:#f7f7fb;background:transparent!important;padding-top:130px!important;padding-bottom:120px!important}
+      .rfm-problem-section::before{content:"CONTEXT";position:absolute;top:50px;left:50%;transform:translateX(-50%);font:800 clamp(82px,15vw,230px)/1 Geist,Inter,sans-serif;letter-spacing:-.08em;color:rgba(255,255,255,.018);pointer-events:none}
+      .rfm-problem-section .rfm-section-head h2,.rfm-problem-section .rfm-section-head p{color:inherit!important}.rfm-problem-section .rfm-section-head p{color:rgba(236,238,245,.58)!important}
+      .rfm-problem-grid{gap:0!important;border-block:1px solid rgba(255,255,255,.09);background:transparent!important}
+      .rfm-problem-grid>article{min-height:260px!important;padding:36px 28px!important;background:transparent!important;border:0!important;border-right:1px solid rgba(255,255,255,.08)!important;border-radius:0!important;box-shadow:none!important;transform-style:preserve-3d}
+      .rfm-problem-grid>article:last-child{border-right:0!important}.rfm-problem-grid>article>span{background:rgba(95,98,238,.14)!important;border:1px solid rgba(133,136,255,.18)!important}.rfm-problem-grid strong{color:#f7f8fb!important;font-size:17px!important}.rfm-problem-grid p{color:rgba(228,231,239,.52)!important;font-size:10px!important;line-height:1.75!important}
+      .rfm-problem-grid>article:hover{background:linear-gradient(180deg,rgba(90,92,235,.075),rgba(255,255,255,.015))!important;transform:translateY(-8px) rotateX(2deg)!important}
+      .rfm-bridge-callout{color:#eef0f8!important;background:linear-gradient(130deg,rgba(85,88,236,.14),rgba(124,65,218,.06))!important;border:1px solid rgba(255,255,255,.1)!important;box-shadow:inset 0 1px rgba(255,255,255,.06),0 30px 80px rgba(0,0,0,.18)!important;backdrop-filter:blur(16px)}
+      .rfm-bridge-callout h3{color:#fff!important}.rfm-bridge-flow b{color:#e8e9f5!important}
+
+      .rfm-stack-section{min-height:100svh!important;display:grid;align-items:center;background:radial-gradient(circle at 72% 42%,rgba(91,93,239,.18),transparent 30%),linear-gradient(180deg,#10131a,#0c0f15)!important;perspective:1600px;overflow:hidden}
+      .rfm-stack-inner{padding-block:84px!important}.rfm-stack-compare{transform-style:preserve-3d}.rfm-stack-fragmented,.rfm-stack-reachfly{min-height:430px!important;border-color:rgba(255,255,255,.08)!important;box-shadow:0 35px 90px rgba(0,0,0,.25)!important;backdrop-filter:blur(20px)}
+      .rfm-stack-fragmented{background:rgba(255,255,255,.035)!important}.rfm-stack-reachfly{background:linear-gradient(145deg,rgba(255,255,255,.97),rgba(237,238,255,.94))!important;transform-style:preserve-3d}
+      .rfm-stack-reachfly>*{transform:translateZ(25px)}
+
+      .rfm-journey-section{padding-top:130px!important;background:linear-gradient(180deg,#080a10,#0c0f17)!important;color:#f5f6fb}
+      .rfm-journey-section .rfm-section-head h2{color:#fff!important}.rfm-journey-section .rfm-section-head p{color:rgba(234,236,243,.56)!important}
+      .rfm-journey>article{min-height:610px!important;overflow:hidden!important;color:#f7f8fb!important;background:linear-gradient(140deg,rgba(21,25,37,.94),rgba(13,16,26,.88))!important;border:1px solid rgba(255,255,255,.09)!important;border-radius:30px!important;box-shadow:0 38px 90px rgba(0,0,0,.32)!important;backdrop-filter:blur(24px);transform-style:preserve-3d}
+      .rfm-journey>article::before{content:attr(style);display:none}
+      .rfm-journey>article::after{content:"";position:absolute;width:460px;height:460px;right:-140px;top:-160px;border-radius:50%;background:radial-gradient(circle,rgba(90,92,238,.17),transparent 68%);pointer-events:none}
+      .rfm-journey-copy h3{color:#fff!important;font-size:clamp(27px,3vw,44px)!important;line-height:1.03!important;letter-spacing:-.045em!important}.rfm-journey-copy p{color:rgba(232,234,241,.58)!important;font-size:11px!important;line-height:1.85!important}.rfm-journey-copy em{color:#aeb1c1!important;border-color:rgba(255,255,255,.08)!important;background:rgba(255,255,255,.04)!important}
+      .rfm-journey-index>span{font-size:56px!important;color:rgba(255,255,255,.10)!important}.rfm-journey-index>i{background:rgba(91,94,239,.18)!important;border:1px solid rgba(131,134,255,.22)!important}
+      .rfm-journey-visual{background:linear-gradient(145deg,rgba(246,247,251,.97),rgba(232,234,244,.94))!important;border-color:rgba(255,255,255,.25)!important;box-shadow:0 32px 70px rgba(0,0,0,.34)!important;transform-style:preserve-3d}.rfm-journey-visual>*{transform:translateZ(18px)}
+
+      .rfm-usecase-section{overflow:hidden!important;background:linear-gradient(180deg,#0b0e15,#07090f)!important;border-color:rgba(255,255,255,.07)!important;color:#f5f6fb}
+      .rfm-usecase-section>.rfm-section{width:100%!important;max-width:none!important;padding:100px max(32px,calc((100vw - 1240px)/2)) 88px!important;overflow:visible!important}
+      .rfm-usecase-section .rfm-section-head{max-width:760px}.rfm-usecase-section .rfm-section-head h2{color:#fff!important}.rfm-usecase-section .rfm-section-head p{color:rgba(232,234,242,.56)!important}
+      .rfm-usecase-grid{display:flex!important;width:max-content!important;gap:18px!important;transform-style:preserve-3d;will-change:transform}
+      .rfm-usecase-grid>article,.rfm-usecase-grid>article.featured,.rfm-usecase-grid>article:nth-child(2){width:min(440px,72vw)!important;min-height:480px!important;flex:0 0 auto!important;color:#f7f8fb!important;background:linear-gradient(145deg,rgba(24,28,42,.92),rgba(13,16,26,.88))!important;border:1px solid rgba(255,255,255,.09)!important;border-radius:24px!important;box-shadow:0 35px 85px rgba(0,0,0,.24)!important;backdrop-filter:blur(18px);transform-style:preserve-3d}
+      .rfm-usecase-grid>article:nth-child(2n){background:linear-gradient(145deg,rgba(52,48,91,.78),rgba(16,18,31,.9))!important}.rfm-usecase-grid h3{font-size:30px!important;line-height:1.05!important}.rfm-usecase-grid p,.rfm-usecase-grid li{color:rgba(229,231,239,.58)!important}.rfm-usecase-grid header>span{transform:translateZ(30px);box-shadow:0 10px 32px rgba(70,72,212,.15)}
+      .rfm-usecase-grid>article:hover{transform:translateY(-14px) rotateX(2deg) rotateY(-2deg)!important;border-color:rgba(132,134,255,.30)!important;box-shadow:0 48px 110px rgba(0,0,0,.38)!important}
+
+      .rfm-voice-chapter{background:radial-gradient(circle at 78% 35%,rgba(79,82,229,.2),transparent 32%),linear-gradient(180deg,#090b12,#11141c)!important}
+      .rfm-voice-demo-wrap{perspective:1400px}.rfm-voice-demo{transform:rotateY(-4deg) rotateX(2deg);transform-style:preserve-3d;box-shadow:0 48px 100px rgba(0,0,0,.38)!important}.rfm-voice-demo>*{transform:translateZ(20px)}
+      .rfm-agent-section,.rfm-trust-section{background:transparent!important;color:#f6f7fb}.rfm-agent-section .rfm-section-head h2,.rfm-trust-section .rfm-section-head h2{color:#fff!important}.rfm-agent-section .rfm-section-head p,.rfm-trust-section .rfm-section-head p{color:rgba(232,234,241,.55)!important}
+      .rfm-agent-grid>article,.rfm-trust-grid>article{color:#f3f4fa!important;background:rgba(18,22,34,.72)!important;border-color:rgba(255,255,255,.08)!important;box-shadow:0 22px 60px rgba(0,0,0,.18)!important;backdrop-filter:blur(18px)}
+      .rfm-agent-grid>article p,.rfm-trust-grid>article p{color:rgba(228,230,238,.52)!important}
+
+      .rfm-pricing-section,.rfm-faq{position:relative;z-index:3;background:#f2f3f7!important;border-radius:34px!important;margin:24px auto!important;width:min(100% - 34px,1320px)!important;box-shadow:0 42px 100px rgba(0,0,0,.28)!important}
+      .rfm-pricing-section .rfm-section,.rfm-faq{padding-inline:clamp(24px,5vw,70px)!important}
+      .rfm-final{border:1px solid rgba(255,255,255,.1)!important;background:radial-gradient(circle at 80% 30%,rgba(104,75,255,.24),transparent 28%),linear-gradient(135deg,#11141e,#090b12)!important;box-shadow:0 44px 110px rgba(0,0,0,.38)!important}
+
+      @media(max-width:1100px){
+        .rfm-hero-3d{inset:-5% -20% 2% 28%;opacity:.55}.signal-a{right:-12px}.signal-b{left:-8px}.signal-c{right:8px}
+      }
+      @media(max-width:900px){
+        .rfm-hero{min-height:auto!important}.rfm-hero-3d{inset:3% -40% 38% 12%;opacity:.42}.rfm-hero-copy h1{font-size:clamp(46px,12vw,72px)!important}.rfm-hero-preview-wrap{transform:none!important}.rfm-float-signal{display:none}.rfm-problem-grid{grid-template-columns:1fr 1fr!important}.rfm-problem-grid>article{border-bottom:1px solid rgba(255,255,255,.08)!important}.rfm-usecase-grid{display:grid!important;width:auto!important;transform:none!important}.rfm-usecase-grid>article,.rfm-usecase-grid>article.featured,.rfm-usecase-grid>article:nth-child(2){width:auto!important;min-height:auto!important}.rfm-pricing-section,.rfm-faq{width:calc(100% - 20px)!important;border-radius:24px!important}
+      }
+      @media(max-width:620px){
+        .rfm-hero-3d{inset:2% -60% 48% -8%;opacity:.3}.rfm-problem-grid{grid-template-columns:1fr!important}.rfm-problem-grid>article{border-right:0!important}.rfm-journey>article{min-height:auto!important;border-radius:20px!important}.rfm-usecase-section>.rfm-section{padding-inline:18px!important}
+      }
+      @media(prefers-reduced-motion:reduce){.rfm-hero-3d{opacity:.32}.rfm-audience-marquee-track{transform:none!important}.rfm-product-preview,.rfm-hero-preview-wrap{transform:none!important}}
+
     `}</style>
   );
 }
