@@ -112,7 +112,7 @@ const empty = {
   accountId: "",
   label: "",
   provider: "gmail",
-  fromName: "ReachFly.Ai",
+  fromName: "ReachFlyAI",
   fromEmail: "",
   replyTo: "",
 
@@ -808,7 +808,7 @@ export default function EmailSetup() {
           form.fromEmail ||
           form.label ||
           "this email account"
-        } from ReachFly.AI?`
+        } from ReachFlyAI?`
       );
 
     if (

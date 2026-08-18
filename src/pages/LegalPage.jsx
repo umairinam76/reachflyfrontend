@@ -16,7 +16,7 @@ const LEGAL_CONTENT = {
     description:
       "Launch information for the ReachFly Terms of Service. Final production terms must be reviewed and approved for the business, markets, telephony practices, privacy obligations, and billing model actually used.",
     intro:
-      "These terms govern use of ReachFly.AI. The production version should describe the actual agreement between ReachFly and its customers, including the services offered, permitted use, billing, telephony responsibilities, AI-assisted features, suspension, termination, and liability terms.",
+      "These terms govern use of ReachFlyAI. The production version should describe the actual agreement between ReachFly and its customers, including the services offered, permitted use, billing, telephony responsibilities, AI-assisted features, suspension, termination, and liability terms.",
     noticeTitle: "Production legal review is still required",
     notice:
       "This page remains intentionally labeled as launch information rather than fabricated legal advice. Replace the placeholder sections with counsel-reviewed terms before accepting production customers.",
@@ -60,7 +60,7 @@ const LEGAL_CONTENT = {
     description:
       "Launch information for the ReachFly Privacy Policy. Final production privacy terms must reflect the actual data collected, processors used, retention periods, lawful bases, security controls, and regional rights.",
     intro:
-      "ReachFly.AI processes workspace, account, lead, communication, usage, billing, and product-operation data to provide the service. The production privacy policy must reflect the systems and processors actually used in the live environment.",
+      "ReachFlyAI processes workspace, account, lead, communication, usage, billing, and product-operation data to provide the service. The production privacy policy must reflect the systems and processors actually used in the live environment.",
     noticeTitle: "Publish the real data map before production",
     notice:
       "This is a transparent launch placeholder, not a fabricated privacy policy. Final copy should be based on an accurate data inventory and reviewed for the regions where ReachFly and its customers operate.",
@@ -100,7 +100,7 @@ const LEGAL_CONTENT = {
 
   contact: {
     eyebrow: "Support",
-    title: "Contact ReachFly.AI",
+    title: "Contact ReachFlyAI",
     description:
       "ReachFly product, account, billing, privacy, and compliance contact information.",
     intro:
@@ -143,7 +143,7 @@ export default function LegalPage({
         : "/terms";
 
   useSEO({
-    title: `${item.title} | ReachFly.AI`,
+    title: `${item.title} | ReachFlyAI`,
     description:
       item.description,
     path,

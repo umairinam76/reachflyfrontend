@@ -91,7 +91,7 @@ const blogIndexHtml =
   renderDocument({
     baseHtml,
     title:
-      "ReachFly.Ai Blog | AI Sales, Lead Generation & Outreach Guides",
+      "ReachFlyAI Blog | AI Sales, Lead Generation & Outreach Guides",
     description:
       "Practical ReachFly guides for AI sales automation, lead generation, CRM workflows, website audits, calling, outreach and sales operations.",
     canonical:
@@ -104,14 +104,14 @@ const blogIndexHtml =
       "@type":
         "CollectionPage",
       name:
-        "ReachFly.Ai Blog",
+        "ReachFlyAI Blog",
       url:
         `${SITE}/blog`,
       publisher: {
         "@type":
           "Organization",
         name:
-          "ReachFly.Ai",
+          "ReachFlyAI",
         url:
           SITE,
       },
@@ -134,7 +134,7 @@ for (
     renderDocument({
       baseHtml,
       title:
-        `${post.title} | ReachFly.Ai`,
+        `${post.title} | ReachFlyAI`,
       description:
         post.description,
       canonical,
@@ -160,13 +160,13 @@ for (
           "@type":
             "Organization",
           name:
-            "ReachFly.Ai",
+            "ReachFlyAI",
         },
         publisher: {
           "@type":
             "Organization",
           name:
-            "ReachFly.Ai",
+            "ReachFlyAI",
           url:
             SITE,
         },
@@ -201,7 +201,7 @@ function renderDocument({
     `<meta data-reachfly-prerender="true" name="description" content="${escapeAttribute(description)}">`,
     `<meta data-reachfly-prerender="true" name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">`,
     `<meta data-reachfly-prerender="true" property="og:type" content="article">`,
-    `<meta data-reachfly-prerender="true" property="og:site_name" content="ReachFly.Ai">`,
+    `<meta data-reachfly-prerender="true" property="og:site_name" content="ReachFlyAI">`,
     `<meta data-reachfly-prerender="true" property="og:title" content="${escapeAttribute(title)}">`,
     `<meta data-reachfly-prerender="true" property="og:description" content="${escapeAttribute(description)}">`,
     `<meta data-reachfly-prerender="true" property="og:url" content="${escapeAttribute(canonical)}">`,
@@ -260,7 +260,7 @@ function renderBlogIndex() {
   return `
     <main class="rf-prerender-blog-shell">
       <header>
-        <a href="/">ReachFly.Ai</a>
+        <a href="/">ReachFlyAI</a>
         <p>AI sales resources</p>
         <h1>Practical guides for modern sales teams</h1>
         <p>Evidence-led articles about lead generation, sales automation, CRM workflows, calling, website audits and outbound operations.</p>
@@ -294,7 +294,7 @@ function renderBlogPost(post) {
 
   return `
     <main class="rf-prerender-blog-shell rf-prerender-blog-article">
-      <nav aria-label="Breadcrumb"><a href="/">ReachFly.Ai</a> / <a href="/blog">Blog</a> / ${escapeHtml(post.category)}</nav>
+      <nav aria-label="Breadcrumb"><a href="/">ReachFlyAI</a> / <a href="/blog">Blog</a> / ${escapeHtml(post.category)}</nav>
       <article>
         <header>
           <p>${escapeHtml(post.category)} · ${escapeHtml(post.intent)}</p>

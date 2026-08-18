@@ -35,11 +35,11 @@ export default function Brand({
       <BrandLogo
         size={compact ? 34 : 40}
         className="rf-brand-v7__logo"
-        alt="ReachFly.Ai"
+        alt="ReachFlyAI"
       />
 
       <span className="rf-brand-v7__copy">
-        <b>ReachFly.Ai</b>
+        <b>ReachFlyAI</b>
 
         {subtitle ? (
           <small>{subtitle}</small>

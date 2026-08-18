@@ -5,7 +5,7 @@ import {
 export default function BrandLogo({
   size = 42,
   className = "",
-  alt = "ReachFly.Ai",
+  alt = "ReachFlyAI",
   title = "",
 }) {
   const [

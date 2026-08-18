@@ -6348,7 +6348,7 @@ function MiniAuditReport({
         {report.header?.brandLine ||
           `${String(
             brand.name ||
-              "ReachFly.Ai"
+              "ReachFlyAI"
           ).toUpperCase()} · MINI AUDIT REPORT`}
       </div>
 

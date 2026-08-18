@@ -47,7 +47,7 @@ const FAQ = [
 const PAGES = {
   "ai-marketing": {
     path: "/ai-marketing-software",
-    title: "AI Marketing Software for Lead Generation — ReachFly.AI",
+    title: "AI Marketing Software for Lead Generation — ReachFlyAI",
     description:
       "ReachFly helps sales and growth teams discover leads, add website intelligence, run AI Voice conversations, follow up, and manage pipeline activity in one workspace.",
     h1: "AI marketing software that keeps discovery, conversations, and follow-up connected.",
@@ -64,7 +64,7 @@ const PAGES = {
 
   "lead-generation": {
     path: "/ai-lead-generation-crm",
-    title: "AI Lead Generation CRM for Sales Teams — ReachFly.AI",
+    title: "AI Lead Generation CRM for Sales Teams — ReachFlyAI",
     description:
       "Use ReachFly to discover business leads, organize prospect context, connect outreach, and track sales activity in one AI-assisted CRM.",
     h1: "AI lead generation CRM for teams that need more than another contact list.",
@@ -81,7 +81,7 @@ const PAGES = {
 
   "website-audit": {
     path: "/website-audit-outreach-tool",
-    title: "Website Audit Outreach Tool — ReachFly.AI",
+    title: "Website Audit Outreach Tool — ReachFlyAI",
     description:
       "Use ReachFly website intelligence to identify practical digital opportunities and carry that context into outreach, calling, and follow-up.",
     h1: "Turn website intelligence into better sales conversations.",
@@ -98,7 +98,7 @@ const PAGES = {
 
   autoreach: {
     path: "/auto-reach-crm",
-    title: "Auto-Reach CRM for Follow-Up Workflows — ReachFly.AI",
+    title: "Auto-Reach CRM for Follow-Up Workflows — ReachFlyAI",
     description:
       "ReachFly connects lead context, email follow-up, calling, campaign activity, and pipeline actions inside one sales workspace.",
     h1: "Auto-reach CRM for coordinated follow-up across the sales workflow.",
@@ -115,7 +115,7 @@ const PAGES = {
 
   "local-leads": {
     path: "/local-lead-generation-tool",
-    title: "Local Lead Generation Tool for Service Businesses — ReachFly.AI",
+    title: "Local Lead Generation Tool for Service Businesses — ReachFlyAI",
     description:
       "Discover local business opportunities by niche and location, keep prospect context organized, and move leads into outreach workflows with ReachFly.",
     h1: "Local lead generation for teams selling into real business markets.",
@@ -132,7 +132,7 @@ const PAGES = {
 
   "lead-scraping": {
     path: "/lead-scraping-software",
-    title: "Lead Scraping Software for Outreach Workflows — ReachFly.AI",
+    title: "Lead Scraping Software for Outreach Workflows — ReachFlyAI",
     description:
       "Use ReachFly to discover business leads, organize source context, avoid disconnected lists, and move useful prospects into audits, outreach, AI calling, and CRM activity.",
     h1: "Lead discovery software connected to the work that happens after the list.",
@@ -237,7 +237,7 @@ export default function SeoLanding({
       "@graph": [
         {
           "@type": "SoftwareApplication",
-          name: "ReachFly.AI",
+          name: "ReachFlyAI",
           applicationCategory: "BusinessApplication",
           operatingSystem: "Web",
           description: page.description,

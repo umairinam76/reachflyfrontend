@@ -71,7 +71,7 @@ export function useSEO({
     upsertMeta(
       "property",
       "og:site_name",
-      "ReachFly.AI"
+      "ReachFlyAI"
     );
 
     upsertMeta(

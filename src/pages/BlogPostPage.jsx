@@ -87,7 +87,7 @@ export default function BlogPostPage() {
         `${SITE_URL}/blog/${post.slug}`;
 
       const title =
-        `${post.title} | ReachFly.AI`;
+        `${post.title} | ReachFlyAI`;
 
       document.title =
         title;
@@ -159,13 +159,13 @@ export default function BlogPostPage() {
                 "@type":
                   "Organization",
                 name:
-                  "ReachFly.AI",
+                  "ReachFlyAI",
               },
               publisher: {
                 "@type":
                   "Organization",
                 name:
-                  "ReachFly.AI",
+                  "ReachFlyAI",
                 url:
                   SITE_URL,
               },

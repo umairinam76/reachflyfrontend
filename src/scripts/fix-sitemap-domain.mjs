@@ -57,7 +57,7 @@ function findDefaultSitemap() {
 
 function validate(value) {
   const issues = [];
-  if (/https?:\/\/(?:www\.)?reachfly\.ai(?=\/|<|\s|$)/i.test(value)) issues.push("a reachfly.ai URL remains");
+  if (/https?:\/\/(?:www\.)?reachfly\.ai(?=\/|<|\s|$)/i.test(value)) issues.push("a reachflyai URL remains");
   if (/http:\/\/(?:www\.)?reachflyai\.com(?=\/|<|\s|$)/i.test(value)) issues.push("an insecure ReachFly URL remains");
   if (/https:\/\/reachflyai\.com(?=\/|<|\s|$)/i.test(value)) issues.push("a non-www canonical ReachFly URL remains");
   return issues;

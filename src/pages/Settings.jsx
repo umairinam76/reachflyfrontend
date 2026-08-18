@@ -46,7 +46,7 @@ import {
 
 const DEFAULTS = {
   workspaceName:
-    "ReachFly.Ai Growth Workspace",
+    "ReachFlyAI Growth Workspace",
   defaultRadiusKm:
     10,
   defaultLeadLimit:
@@ -1424,7 +1424,7 @@ function GeneralSettings({
             maxLength={
               120
             }
-            placeholder="ReachFly.Ai Growth Workspace"
+            placeholder="ReachFlyAi Growth Workspace"
             icon={
               <Building2 size={13} />
             }
