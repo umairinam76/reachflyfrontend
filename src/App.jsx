@@ -58,11 +58,6 @@ import WhatsAppSetup from "./pages/WhatsAppSetup";
 import ReachFlyAI from "./pages/ReachFlyAI";
 import Analytics from "./pages/Analytics";
 import Contacts from "./pages/Contacts";
-import Companies from "./pages/Companies";
-import WebsiteAudits from "./pages/WebsiteAudits";
-import CallsPage from "./pages/CallsPage";
-import PhoneNumbersPage from "./pages/PhoneNumbersPage";
-import MeetingsPage from "./pages/MeetingsPage";
 import Inbox from "./pages/Inbox";
 import InboxDetail from "./pages/InboxDetails";
 import Territories from "./pages/Territories";
@@ -263,22 +258,8 @@ function AppRoutes() {
               path="audits"
               element={
                 <ManagerOnlyRoute>
-                  <WebsiteAudits />
+                  <ReachFlyAI />
                 </ManagerOnlyRoute>
-              }
-            />
-
-            <Route
-              path="website-audits"
-              element={
-                <PreserveSearchRedirect to="/app/audits" />
-              }
-            />
-
-            <Route
-              path="ai-audits"
-              element={
-                <PreserveSearchRedirect to="/app/audits" />
               }
             />
 
@@ -286,7 +267,10 @@ function AppRoutes() {
               path="campaigns"
               element={
                 <ManagerOnlyRoute>
-                  <CampaignList status="active" />
+                  <Navigate
+                    to="/app/campaigns/active"
+                    replace
+                  />
                 </ManagerOnlyRoute>
               }
             />
@@ -300,7 +284,10 @@ function AppRoutes() {
               path="phone-numbers"
               element={
                 <VoiceAgentRoute>
-                  <PhoneNumbersPage />
+                  <Navigate
+                    to="/app/voice-agent?tab=setup&view=my-numbers"
+                    replace
+                  />
                 </VoiceAgentRoute>
               }
             />
@@ -309,7 +296,10 @@ function AppRoutes() {
               path="meetings"
               element={
                 <VoiceAgentRoute>
-                  <MeetingsPage />
+                  <Navigate
+                    to="/app/voice-agent?tab=meetings&view=upcoming"
+                    replace
+                  />
                 </VoiceAgentRoute>
               }
             />
@@ -344,7 +334,10 @@ function AppRoutes() {
               path="launch-campaign"
               element={
                 <ManagerOnlyRoute>
-                  <Builder />
+                  <Navigate
+                    to="/app/builder"
+                    replace
+                  />
                 </ManagerOnlyRoute>
               }
             />
@@ -700,15 +693,6 @@ function AppRoutes() {
               }
             />
 
-            <Route
-              path="companies"
-              element={
-                <ManagerOnlyRoute>
-                  <Companies />
-                </ManagerOnlyRoute>
-              }
-            />
-
             {/*
              * Inbox
              *
@@ -915,7 +899,12 @@ function CallsRoute() {
   }
 
   if (["owner", "admin", "manager"].includes(role) || accountType === "individual") {
-    return <CallsPage />;
+    return (
+      <Navigate
+        to="/app/voice-agent?tab=calls&view=call-history"
+        replace
+      />
+    );
   }
 
   return (
