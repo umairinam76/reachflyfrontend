@@ -166,15 +166,7 @@ export default function LegalPage({
               <BrandLogo size={37} />
             </span>
 
-            <div>
-              <strong>
-                ReachFly
-              </strong>
-
-              <small>
-                Sales OS
-              </small>
-            </div>
+           
           </Link>
 
           <nav>
@@ -434,15 +426,6 @@ export default function LegalPage({
               <BrandLogo size={34} />
             </span>
 
-            <div>
-              <strong>
-                ReachFly
-              </strong>
-
-              <small>
-                Sales OS
-              </small>
-            </div>
           </Link>
 
           <p>

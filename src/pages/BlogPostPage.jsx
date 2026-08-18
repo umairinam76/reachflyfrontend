@@ -230,16 +230,6 @@ export default function BlogPostPage() {
             <span>
               <BrandLogo size={36} />
             </span>
-
-            <div>
-              <strong>
-                ReachFly
-              </strong>
-
-              <small>
-                Sales OS
-              </small>
-            </div>
           </Link>
 
           <nav>
@@ -632,15 +622,7 @@ export default function BlogPostPage() {
               <BrandLogo size={34} />
             </span>
 
-            <div>
-              <strong>
-                ReachFly
-              </strong>
-
-              <small>
-                Sales OS
-              </small>
-            </div>
+         
           </Link>
 
           <p>

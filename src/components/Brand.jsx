@@ -38,13 +38,7 @@ export default function Brand({
         alt="ReachFlyAI"
       />
 
-      <span className="rf-brand-v7__copy">
-        <b>ReachFlyAI</b>
 
-        {subtitle ? (
-          <small>{subtitle}</small>
-        ) : null}
-      </span>
     </div>
   );
 }

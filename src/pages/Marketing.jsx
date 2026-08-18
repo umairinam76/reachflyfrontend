@@ -749,8 +749,7 @@ function Navbar({ open, setOpen }) {
       <header className={`rf14-nav ${lightText && !open ? "is-light" : "is-dark"}`}>
         <Link to="/" className="rf14-brand" aria-label="ReachFly home">
           <BrandLogo size={34} />
-          <strong>ReachFly</strong>
-          <small>AI</small>
+        
         </Link>
 
         <nav className="rf14-nav-links" aria-label="Landing navigation">
@@ -1240,10 +1239,6 @@ function Footer() {
       <div className="rf14-section-width rf14-footer-inner">
         <Link to="/" className="rf14-footer-brand">
           <BrandLogo size={34} />
-          <span>
-            <strong>ReachFly</strong>
-            <small>AI sales workspace</small>
-          </span>
         </Link>
 
         <p>

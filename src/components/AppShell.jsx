@@ -994,7 +994,7 @@ export default function AppShell() {
               </span>
 
               <span className="rf7-brand-copy">
-                <strong>ReachFlyAI</strong>
+                {/* <strong>ReachFlyAI</strong> */}
                 <small>Sales operating system</small>
               </span>
             </Link>
