@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import Lenis from "lenis";
 import "lenis/dist/lenis.css";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import {
   ArrowRight,
   Brain,
@@ -23,7 +25,7 @@ import {
 } from "lucide-react";
 import BrandLogo from "../components/BrandLogo";
 import { useSEO } from "../seo";
-import "../styles.css";
+import "../marketing-tailwind.css";
 
 const VIDEO_URL =
   "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260601_110537_3a579fa0-7bbc-4d94-9d25-0e816c7840f5.mp4";
@@ -164,7 +166,7 @@ function useLenis() {
   }, []);
 }
 
-function BackgroundVideo() {
+function BackgroundVideo({ layerRef }) {
   const videoRef = useRef(null);
   const previousX = useRef(null);
   const targetTime = useRef(0);
@@ -289,7 +291,7 @@ function BackgroundVideo() {
   }, []);
 
   return (
-    <div className="rf14-video-layer" aria-hidden="true">
+    <div ref={layerRef} className="rf14-video-layer" aria-hidden="true">
       <video
         ref={videoRef}
         className="rf14-video"
@@ -303,6 +305,397 @@ function BackgroundVideo() {
       <div className="rf14-video-edge-wash" />
       <div className="rf14-video-grain" />
     </div>
+  );
+}
+
+
+function useCharacterScrollMotion(layerRef) {
+  useEffect(() => {
+    const layer = layerRef.current;
+    if (!layer || typeof window === "undefined") return undefined;
+
+    gsap.registerPlugin(ScrollTrigger);
+
+    const hero = document.querySelector(".rf14-hero");
+    const workflow = document.querySelector(".rf14-workflow-section");
+    const leftWash = layer.querySelector(".rf14-video-left-wash");
+    const edgeWash = layer.querySelector(".rf14-video-edge-wash");
+
+    if (!hero || !workflow) return undefined;
+
+    const mm = gsap.matchMedia();
+
+    mm.add(
+      "(min-width: 1024px) and (prefers-reduced-motion: no-preference)",
+      () => {
+        gsap.set(layer, {
+          xPercent: 0,
+          yPercent: 0,
+          scale: 1,
+          opacity: 1,
+          filter: "saturate(1) contrast(1)",
+          transformOrigin: "78% 50%",
+          force3D: true,
+        });
+
+        const heroTimeline = gsap.timeline({
+          scrollTrigger: {
+            trigger: hero,
+            start: "top top",
+            end: "bottom top",
+            scrub: 1.15,
+            invalidateOnRefresh: true,
+          },
+        });
+
+        heroTimeline.to(layer, {
+          xPercent: 7,
+          yPercent: -1.5,
+          scale: 0.9,
+          ease: "none",
+          force3D: true,
+        });
+
+        const sectionTimeline = gsap.timeline({
+          scrollTrigger: {
+            trigger: workflow,
+            start: "top 96%",
+            end: "top 18%",
+            scrub: 1.2,
+            invalidateOnRefresh: true,
+            onEnter: () => layer.classList.add("is-section-background"),
+            onEnterBack: () => layer.classList.add("is-section-background"),
+            onLeaveBack: () => layer.classList.remove("is-section-background"),
+          },
+        });
+
+        sectionTimeline
+          .to(
+            layer,
+            {
+              xPercent: 21,
+              yPercent: 6,
+              scale: 0.67,
+              opacity: 0.31,
+              filter: "saturate(.72) contrast(.94)",
+              ease: "power2.inOut",
+              force3D: true,
+            },
+            0
+          )
+          .to(
+            leftWash,
+            {
+              opacity: 0,
+              ease: "power2.inOut",
+            },
+            0
+          )
+          .to(
+            edgeWash,
+            {
+              opacity: 0.08,
+              ease: "power2.inOut",
+            },
+            0
+          );
+
+        gsap.to(layer, {
+          opacity: 0,
+          yPercent: 10,
+          scale: 0.61,
+          ease: "none",
+          scrollTrigger: {
+            trigger: workflow,
+            start: "62% center",
+            end: "bottom 22%",
+            scrub: 1.05,
+            invalidateOnRefresh: true,
+            onLeave: () => layer.classList.remove("is-section-background"),
+            onEnterBack: () => layer.classList.add("is-section-background"),
+          },
+        });
+
+        return () => {
+          layer.classList.remove("is-section-background");
+        };
+      }
+    );
+
+    mm.add("(max-width: 1023px)", () => {
+      gsap.set(layer, {
+        clearProps: "transform,opacity,filter",
+      });
+      layer.classList.remove("is-section-background");
+    });
+
+    const refreshId = window.requestAnimationFrame(() => ScrollTrigger.refresh());
+
+    return () => {
+      window.cancelAnimationFrame(refreshId);
+      mm.revert();
+    };
+  }, [layerRef]);
+}
+
+function CharacterMotionStyles() {
+  return (
+    <style>{`
+      /*
+       * ReachFly V14.1 — single-file character motion refinement.
+       * This intentionally lives in Marketing.jsx so no CSS file needs changing.
+       */
+      .rf14-page{
+        position:relative;
+        isolation:isolate;
+      }
+
+      .rf14-video-layer{
+        position:fixed!important;
+        inset:0!important;
+        z-index:0!important;
+        width:100vw!important;
+        height:100svh!important;
+        overflow:hidden!important;
+        pointer-events:none!important;
+        will-change:transform,opacity,filter;
+        transform-origin:78% 50%;
+      }
+
+      .rf14-video{
+        width:100%!important;
+        height:100%!important;
+        object-fit:cover!important;
+        object-position:80% 49%!important;
+        transform:translate3d(8.5%,0,0) scale(.84)!important;
+        transform-origin:78% 50%!important;
+        will-change:transform;
+        background:#f7f7f4!important;
+      }
+
+      .rf14-video-left-wash{
+        background:
+          linear-gradient(
+            90deg,
+            rgba(255,255,255,1) 0%,
+            rgba(255,255,255,.995) 28%,
+            rgba(255,255,255,.97) 40%,
+            rgba(255,255,255,.78) 50%,
+            rgba(255,255,255,.30) 60%,
+            rgba(255,255,255,0) 72%
+          )!important;
+      }
+
+      .rf14-video-edge-wash{
+        background:
+          radial-gradient(circle at 12% 50%,rgba(255,255,255,.72),transparent 42%),
+          linear-gradient(180deg,rgba(255,255,255,.06),transparent 58%,rgba(255,255,255,.14))!important;
+      }
+
+      .rf14-video-layer.is-section-background .rf14-video{
+        mix-blend-mode:multiply;
+      }
+
+      .rf14-video-layer.is-section-background .rf14-video-grain{
+        opacity:.025!important;
+      }
+
+      .rf14-hero{
+        position:relative!important;
+        z-index:1!important;
+        background:transparent!important;
+        min-height:96svh!important;
+      }
+
+      .rf14-hero::before{
+        content:"";
+        position:absolute;
+        inset:0;
+        z-index:-1;
+        pointer-events:none;
+        background:
+          linear-gradient(90deg,rgba(255,255,255,.28),rgba(255,255,255,0) 62%);
+      }
+
+      .rf14-hero-inner{
+        width:min(1260px,calc(100% - 72px))!important;
+        padding-top:112px!important;
+        padding-bottom:76px!important;
+      }
+
+      .rf14-hero-copy{
+        width:min(585px,41vw)!important;
+        max-width:585px!important;
+        position:relative;
+        z-index:4;
+      }
+
+      .rf14-hero h1{
+        max-width:585px!important;
+        font-size:clamp(50px,5.15vw,78px)!important;
+      }
+
+      .rf14-hero-subtitle{
+        max-width:545px!important;
+      }
+
+      .rf14-scroll-cue{
+        z-index:5!important;
+      }
+
+      .rf14-audience-strip{
+        position:relative;
+        z-index:3;
+        background:rgba(255,255,255,.97)!important;
+        backdrop-filter:blur(12px);
+        -webkit-backdrop-filter:blur(12px);
+      }
+
+      .rf14-workflow-section{
+        position:relative;
+        z-index:1;
+        isolation:isolate;
+        background:
+          linear-gradient(
+            90deg,
+            rgba(243,246,241,.985) 0%,
+            rgba(243,246,241,.97) 38%,
+            rgba(243,246,241,.86) 63%,
+            rgba(243,246,241,.76) 100%
+          )!important;
+        overflow:hidden;
+      }
+
+      .rf14-workflow-section::before{
+        content:"";
+        position:absolute;
+        inset:0;
+        z-index:-1;
+        pointer-events:none;
+        background:
+          linear-gradient(180deg,rgba(255,255,255,.34),transparent 28%,rgba(255,255,255,.22)),
+          radial-gradient(circle at 86% 36%,rgba(111,102,255,.055),transparent 30%);
+      }
+
+      .rf14-workflow-section .rf14-section-width{
+        position:relative;
+        z-index:2;
+      }
+
+      .rf14-workflow-section .rf14-section-head{
+        max-width:720px!important;
+      }
+
+      .rf14-workflow-grid{
+        background:rgba(246,248,245,.70);
+        backdrop-filter:blur(7px);
+        -webkit-backdrop-filter:blur(7px);
+      }
+
+      .rf14-workflow-card{
+        background:rgba(246,248,245,.46)!important;
+      }
+
+      .rf14-workflow-card:hover{
+        background:rgba(255,255,255,.82)!important;
+      }
+
+      .rf14-voice-section,
+      .rf14-usecase-section,
+      .rf14-trust-section,
+      .rf14-final-wrap,
+      .rf14-footer{
+        position:relative;
+        z-index:4;
+      }
+
+      @media (min-width:1024px) and (max-width:1240px){
+        .rf14-hero-inner{
+          width:min(1180px,calc(100% - 56px))!important;
+        }
+
+        .rf14-hero-copy{
+          width:min(545px,44vw)!important;
+        }
+
+        .rf14-video{
+          object-position:82% 48%!important;
+          transform:translate3d(10%,0,0) scale(.80)!important;
+        }
+      }
+
+      @media (max-width:1023px){
+        .rf14-video-layer{
+          position:absolute!important;
+          top:0!important;
+          bottom:auto!important;
+          height:100svh!important;
+        }
+
+        .rf14-video{
+          object-position:70% 46%!important;
+          transform:translate3d(16%,1%,0) scale(.78)!important;
+        }
+
+        .rf14-video-left-wash{
+          background:
+            linear-gradient(
+              90deg,
+              rgba(255,255,255,.99) 0%,
+              rgba(255,255,255,.96) 42%,
+              rgba(255,255,255,.58) 62%,
+              rgba(255,255,255,.08) 82%
+            )!important;
+        }
+
+        .rf14-hero-inner{
+          width:min(100% - 40px,760px)!important;
+        }
+
+        .rf14-hero-copy{
+          width:min(590px,76vw)!important;
+          max-width:590px!important;
+        }
+
+        .rf14-workflow-section{
+          background:var(--rf14-soft)!important;
+        }
+
+        .rf14-workflow-grid{
+          backdrop-filter:none;
+          -webkit-backdrop-filter:none;
+        }
+      }
+
+      @media (max-width:680px){
+        .rf14-video{
+          object-position:66% 36%!important;
+          transform:translate3d(24%,4%,0) scale(.68)!important;
+          opacity:.70;
+        }
+
+        .rf14-video-left-wash{
+          background:
+            linear-gradient(
+              180deg,
+              rgba(255,255,255,.98) 0%,
+              rgba(255,255,255,.92) 48%,
+              rgba(255,255,255,.50) 70%,
+              rgba(255,255,255,.12) 100%
+            )!important;
+        }
+
+        .rf14-hero-copy{
+          width:100%!important;
+        }
+      }
+
+      @media (prefers-reduced-motion:reduce){
+        .rf14-video-layer{
+          transform:none!important;
+        }
+      }
+    `}</style>
   );
 }
 
@@ -458,7 +851,7 @@ function Reveal({ children, className = "", delay = 0 }) {
 function Hero() {
   const [services, setServices] = useState([]);
   const { displayed, done } = useTypewriter(
-    "Our AI Agents, turn the right businesses\ninto real conversations for you",
+    "turn the right businesses\ninto real conversations.",
     38,
     500
   );
@@ -481,8 +874,6 @@ function Hero() {
 
   return (
     <section className="rf14-hero">
-      <BackgroundVideo />
-
       <div className="rf14-hero-inner">
         <motion.div
           className="rf14-hero-copy"
@@ -492,7 +883,7 @@ function Hero() {
         >
           <span className="rf14-kicker">
             <Sparkles size={14} />
-            V3 Calling agents are live
+            AI sales workspace · from market to meeting
           </span>
 
           <h1>
@@ -873,10 +1264,13 @@ function Footer() {
 
 export default function Marketing() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const characterLayerRef = useRef(null);
+
   useLenis();
+  useCharacterScrollMotion(characterLayerRef);
 
   useSEO({
-    title: "ReachFlyAI — AI Sales Workspace from Prospect to Conversation",
+    title: "ReachFly.AI — AI Sales Workspace from Prospect to Conversation",
     description:
       "Discover focused business prospects, add useful context, run AI Voice conversations, coordinate follow-up, and keep meetings and pipeline connected with ReachFly.",
     path: "/",
@@ -884,6 +1278,8 @@ export default function Marketing() {
 
   return (
     <main className="rf14-page">
+      <CharacterMotionStyles />
+      <BackgroundVideo layerRef={characterLayerRef} />
       <Navbar open={menuOpen} setOpen={setMenuOpen} />
       <Hero />
       <AudienceStrip />
