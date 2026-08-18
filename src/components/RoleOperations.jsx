@@ -5,7 +5,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "../api";
 import {
@@ -692,16 +692,36 @@ export default function RoleOperations() {
           </p>
         </div>
 
-        <button
-          className="btn primary"
-          type="button"
-          onClick={() => load()}
-          disabled={loading}
-        >
-          {loading
-            ? "Refreshing…"
-            : "Refresh"}
-        </button>
+        <div className="role-ops-hero__actions">
+          {canManage ? (
+            <>
+              <Link
+                className="btn light"
+                to="/app/sales-operations"
+              >
+                Sales operations
+              </Link>
+
+              <Link
+                className="btn light"
+                to="/app/team-performance"
+              >
+                Team performance
+              </Link>
+            </>
+          ) : null}
+
+          <button
+            className="btn primary"
+            type="button"
+            onClick={() => load()}
+            disabled={loading}
+          >
+            {loading
+              ? "Refreshing…"
+              : "Refresh"}
+          </button>
+        </div>
       </header>
 
       {error ? (
@@ -2983,6 +3003,19 @@ function RoleOperationsV7Styles() {
         line-height:18px;
       }
 
+      .rf-role-operations-v7 .role-ops-hero__actions{
+        display:flex;
+        flex-wrap:wrap;
+        align-items:center;
+        justify-content:flex-end;
+        gap:7px;
+      }
+
+      .rf-role-operations-v7 .role-ops-hero__actions .btn{
+        text-decoration:none;
+        white-space:nowrap;
+      }
+
       .rf-role-operations-v7 .btn{
         min-height:39px;
         display:inline-flex;
@@ -3728,7 +3761,13 @@ function RoleOperationsV7Styles() {
           flex-direction:column;
         }
 
-        .rf-role-operations-v7 .role-ops-hero > .btn{
+        .rf-role-operations-v7 .role-ops-hero__actions{
+          display:grid;
+          grid-template-columns:1fr;
+          width:100%;
+        }
+
+        .rf-role-operations-v7 .role-ops-hero__actions .btn{
           width:100%;
         }
 

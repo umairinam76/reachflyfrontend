@@ -46,6 +46,7 @@ import {
   Settings,
   Sparkles,
   Target,
+  TrendingUp,
   UserRound,
   Users,
   Workflow,
@@ -81,10 +82,11 @@ const TOAST_EVENT = "reachfly:toast";
  *
  * Goals:
  * - Match the Stitch ReachFly.AI shell/navigation system.
- * - Preserve existing route and role behavior while exposing canonical V7 routes.
+ * - Preserve existing route and role behavior while pages are migrated one by one.
  * - Keep all current backend/API behavior untouched.
  * - Provide global quick-create, command palette, notifications, responsive mobile nav,
  *   and a reusable animated success/error/warning/info toast channel.
+ * - Surface canonical Sales Operations and Team Performance routes in workspace navigation.
  */
 export default function AppShell() {
   const location = useLocation();
@@ -466,32 +468,23 @@ export default function AppShell() {
         items: [
           {
             label: isCaller ? "My Leads" : "Leads",
-            to: isCaller ? "/app/my-leads" : "/app/leads",
+            to: isCaller ? "/app/my-leads" : "/app/builder",
             icon: Target,
             matchPrefixes: isCaller
               ? ["/app/my-leads"]
-              : [
-                  "/app/leads",
-                  "/app/lead-discovery",
-                  "/app/builder",
-                  "/app/launch-campaign",
-                ],
+              : ["/app/builder", "/app/launch-campaign"],
             visible: isCaller || canManageCampaigns,
           },
           {
             label: "AI Audits",
-            to: "/app/audits",
+            to: "/app/ai",
             icon: Sparkles,
-            matchPrefixes: [
-              "/app/audits",
-              "/app/website-audits",
-              "/app/ai-audits",
-            ],
+            matchPrefix: "/app/ai",
             visible: canManageWorkspace,
           },
           {
             label: "Campaigns",
-            to: "/app/campaigns",
+            to: "/app/campaigns/active",
             icon: Rocket,
             count: counters.activeCampaigns,
             matchPrefix: "/app/campaigns",
@@ -527,11 +520,13 @@ export default function AppShell() {
           },
           {
             label: "Dialer",
-            to: "/app/dialer",
+            to: isCaller
+              ? "/app/call-workspace"
+              : "/app/voice-agent?tab=leads&view=dialer",
             icon: Phone,
             matchPrefixes: isCaller
-              ? ["/app/dialer", "/app/call-workspace"]
-              : ["/app/dialer"],
+              ? ["/app/call-workspace"]
+              : ["/app/voice-agent"],
             matchQuery: isCaller
               ? null
               : { tab: "leads", view: ["dialer", "quick-lead", null] },
@@ -545,30 +540,23 @@ export default function AppShell() {
         items: [
           {
             label: "Voice Agents",
-            to: "/app/voice-agents",
+            to: "/app/agents",
             icon: Bot,
-            matchPrefixes: ["/app/voice-agents", "/app/agents"],
-            matchQuery: { tab: null, view: null },
-            queryPathPrefix: "/app/voice-agent",
+            matchPrefix: "/app/agents",
             visible: canUseVoiceAgent,
           },
           {
             label: "Calls",
-            to: "/app/calls",
+            to: "/app/voice-agent?tab=calls&view=call-history",
             icon: Phone,
-            matchPrefixes: ["/app/calls"],
-            matchQuery: {
-              tab: "calls",
-              view: ["call-history", "active-calls", null],
-            },
+            matchQuery: { tab: "calls", view: ["call-history", "active-calls", null] },
             queryPathPrefix: "/app/voice-agent",
             visible: canUseVoiceAgent,
           },
           {
             label: "Phone Numbers",
-            to: "/app/phone-numbers",
+            to: "/app/voice-agent?tab=setup&view=my-numbers",
             icon: Building2,
-            matchPrefixes: ["/app/phone-numbers"],
             matchQuery: {
               tab: ["setup", null],
               view: ["my-numbers", "buy-numbers", "connect-number"],
@@ -590,13 +578,6 @@ export default function AppShell() {
             visible: canViewContacts,
           },
           {
-            label: "Companies",
-            to: "/app/companies",
-            icon: Building2,
-            matchPrefixes: ["/app/companies", "/app/accounts", "/app/company"],
-            visible: canViewContacts,
-          },
-          {
             label: "Pipeline",
             to: "/app/pipeline",
             icon: GitBranch,
@@ -605,13 +586,9 @@ export default function AppShell() {
           },
           {
             label: "Meetings",
-            to: "/app/meetings",
+            to: "/app/voice-agent?tab=meetings&view=upcoming",
             icon: Calendar,
-            matchPrefixes: ["/app/meetings"],
-            matchQuery: {
-              tab: "meetings",
-              view: ["upcoming", "meeting-history", null],
-            },
+            matchQuery: { tab: "meetings", view: ["upcoming", "meeting-history", null] },
             queryPathPrefix: "/app/voice-agent",
             visible: canUseVoiceAgent,
           },
@@ -630,6 +607,20 @@ export default function AppShell() {
             visible: true,
           },
           {
+            label: "Sales Operations",
+            to: "/app/sales-operations",
+            icon: BarChart3,
+            matchPrefixes: ["/app/sales-operations", "/app/sales"],
+            visible: canManageWorkspace,
+          },
+          {
+            label: "Team Performance",
+            to: "/app/team-performance",
+            icon: TrendingUp,
+            matchPrefixes: ["/app/team-performance", "/app/team/performance"],
+            visible: canManageWorkspace,
+          },
+          {
             label: "Billing",
             to: "/app/billing",
             icon: BarChart3,
@@ -638,9 +629,9 @@ export default function AppShell() {
           },
           {
             label: "Integrations",
-            to: "/app/integrations",
+            to: "/app/connections",
             icon: Zap,
-            matchPrefixes: ["/app/integrations", "/app/connections"],
+            matchPrefix: "/app/connections",
             visible: canManageWorkspace,
           },
           {
@@ -728,14 +719,14 @@ export default function AppShell() {
           label: "Find Leads",
           description: "Discover prospects and build a list",
           icon: Target,
-          to: isCaller ? "/app/my-leads" : "/app/leads",
+          to: isCaller ? "/app/my-leads" : "/app/builder",
           visible: isCaller || canManageCampaigns,
         },
         {
           label: "Create Campaign",
           description: "Launch a new outreach workflow",
           icon: Rocket,
-          to: "/app/leads",
+          to: "/app/builder",
           visible: canManageCampaigns,
         },
         {
@@ -763,7 +754,7 @@ export default function AppShell() {
           label: "Schedule Meeting",
           description: "Open meeting operations",
           icon: Calendar,
-          to: "/app/meetings",
+          to: "/app/voice-agent?tab=meetings&view=upcoming",
           visible: canUseVoiceAgent,
         },
       ].filter((item) => item.visible !== false),
@@ -877,11 +868,9 @@ export default function AppShell() {
         },
         {
           label: "Leads",
-          to: isCaller ? "/app/my-leads" : "/app/leads",
+          to: isCaller ? "/app/my-leads" : "/app/builder",
           icon: Target,
-          matchPrefixes: isCaller
-            ? ["/app/my-leads"]
-            : ["/app/leads", "/app/lead-discovery", "/app/builder"],
+          matchPrefixes: isCaller ? ["/app/my-leads"] : ["/app/builder"],
           visible: isCaller || canManageCampaigns,
         },
         {
@@ -894,17 +883,11 @@ export default function AppShell() {
         },
         {
           label: "Voice",
-          to: canUseVoiceAgent ? "/app/voice-agents" : "/app/dialer",
+          to: canUseVoiceAgent ? "/app/agents" : "/app/call-workspace",
           icon: Bot,
           matchPrefixes: canUseVoiceAgent
-            ? [
-                "/app/voice-agents",
-                "/app/agents",
-                "/app/voice-agent",
-                "/app/calls",
-                "/app/phone-numbers",
-              ]
-            : ["/app/dialer", "/app/call-workspace"],
+            ? ["/app/agents", "/app/voice-agent"]
+            : ["/app/call-workspace"],
           visible: canUseVoiceAgent || isCaller,
         },
         {
@@ -938,43 +921,6 @@ export default function AppShell() {
 
     if (isCaller && !canManageWorkspace) {
       navigate(`/app/my-leads?search=${encodeURIComponent(value)}`);
-      return;
-    }
-
-    const explicitCompanySearch = value.match(
-      /^(?:company|companies|account|accounts)\s*:\s*(.+)$/i
-    );
-    const explicitContactSearch = value.match(
-      /^(?:contact|contacts|person|people)\s*:\s*(.+)$/i
-    );
-
-    if (canViewContacts && explicitCompanySearch?.[1]?.trim()) {
-      navigate(
-        `/app/companies?search=${encodeURIComponent(
-          explicitCompanySearch[1].trim()
-        )}`
-      );
-      return;
-    }
-
-    if (canViewContacts && explicitContactSearch?.[1]?.trim()) {
-      navigate(
-        `/app/contacts?search=${encodeURIComponent(
-          explicitContactSearch[1].trim()
-        )}`
-      );
-      return;
-    }
-
-    if (
-      canViewContacts &&
-      [
-        "/app/companies",
-        "/app/accounts",
-        "/app/company",
-      ].some((prefix) => location.pathname.startsWith(prefix))
-    ) {
-      navigate(`/app/companies?search=${encodeURIComponent(value)}`);
       return;
     }
 
@@ -1693,9 +1639,7 @@ function isNavActive({ item, pathname, search }) {
       }
     );
 
-    if (pathname.startsWith(queryPathPrefix) && matchesQuery) {
-      return true;
-    }
+    return pathname.startsWith(queryPathPrefix) && matchesQuery;
   }
 
   if (
@@ -1729,7 +1673,7 @@ function buildBreadcrumbs(pathname, search) {
   if (pathname.startsWith("/app/voice-agent")) {
     if (tab === "calls") {
       return [
-        { label: "AI Voice", to: "/app/voice-agents" },
+        { label: "AI Voice", to: "/app/agents" },
         { label: view === "active-calls" ? "Live Calls" : "Calls" },
       ];
     }
@@ -1750,7 +1694,7 @@ function buildBreadcrumbs(pathname, search) {
 
     if (["my-numbers", "buy-numbers", "connect-number"].includes(view)) {
       return [
-        { label: "AI Voice", to: "/app/voice-agents" },
+        { label: "AI Voice", to: "/app/agents" },
         { label: "Phone Numbers" },
       ];
     }
@@ -1764,33 +1708,22 @@ function buildBreadcrumbs(pathname, search) {
   const routeMap = [
     ["/app/platform-admin", ["Home", "Platform Admin"]],
     ["/app/dashboard", ["Home", "Dashboard"]],
-    ["/app/leads", ["Growth", "Leads"]],
-    ["/app/lead-discovery", ["Growth", "Leads"]],
     ["/app/builder", ["Growth", "Leads"]],
     ["/app/my-leads", ["Growth", "My Leads"]],
-    ["/app/audits", ["Growth", "AI Audits"]],
-    ["/app/website-audits", ["Growth", "AI Audits"]],
-    ["/app/ai-audits", ["Growth", "AI Audits"]],
-    ["/app/ai", ["Growth", "ReachFly AI"]],
     ["/app/campaigns", ["Growth", "Campaigns"]],
+    ["/app/ai", ["Growth", "AI Audits"]],
     ["/app/inbox", ["Communication", "Inbox"]],
     ["/app/email", ["Communication", "Email"]],
     ["/app/whatsapp", ["Communication", "WhatsApp"]],
-    ["/app/dialer", ["Communication", "Dialer"]],
     ["/app/call-workspace", ["Communication", "Dialer"]],
-    ["/app/voice-agents", ["AI Voice", "Voice Agents"]],
     ["/app/agents", ["AI Voice", "Voice Agents"]],
-    ["/app/calls", ["AI Voice", "Calls"]],
-    ["/app/phone-numbers", ["AI Voice", "Phone Numbers"]],
     ["/app/contacts", ["CRM", "Contacts"]],
-    ["/app/companies", ["CRM", "Companies"]],
-    ["/app/accounts", ["CRM", "Companies"]],
-    ["/app/company", ["CRM", "Companies"]],
     ["/app/pipeline", ["CRM", "Pipeline"]],
-    ["/app/meetings", ["CRM", "Meetings"]],
+    ["/app/sales-operations", ["Workspace", "Sales Operations"]],
+    ["/app/team-performance", ["Workspace", "Team Performance"]],
+    ["/app/team/performance", ["Workspace", "Team Performance"]],
     ["/app/role-operations", ["Workspace", "Team"]],
     ["/app/billing", ["Workspace", "Billing"]],
-    ["/app/integrations", ["Workspace", "Integrations"]],
     ["/app/connections", ["Workspace", "Integrations"]],
     ["/app/settings", ["Workspace", "Settings"]],
     ["/app/analytics", ["More", "Analytics"]],
@@ -1815,9 +1748,9 @@ function buildBreadcrumbs(pathname, search) {
 function resolveBreadcrumbRoot(label) {
   const map = {
     Home: "/app/dashboard",
-    Growth: "/app/leads",
+    Growth: "/app/builder",
     Communication: "/app/inbox",
-    "AI Voice": "/app/voice-agents",
+    "AI Voice": "/app/agents",
     CRM: "/app/contacts",
     Workspace: "/app/role-operations?tab=team",
     Account: "/app/profile-settings",

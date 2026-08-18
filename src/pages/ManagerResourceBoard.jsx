@@ -956,11 +956,25 @@ export default function ManagerResourceBoard() {
             Team resource board
           </h1>
           <p>
-            Assign leads and tasks, manage caller capacity, connect approved channels, and monitor team progress from one operational board.
+            Assign leads and tasks, manage caller capacity, connect approved channels, and monitor team progress from one operational board. Use the performance and sales views for deeper reporting.
           </p>
         </div>
 
         <div className="rf-resource-board-header__actions">
+          <Link
+            to="/app/team-performance"
+            className="btn light"
+          >
+            Team performance
+          </Link>
+
+          <Link
+            to="/app/sales-operations"
+            className="btn light"
+          >
+            Sales operations
+          </Link>
+
           <Link
             to="/app/email"
             className="btn light"
