@@ -77324,3 +77324,192 @@ textarea.rf7-field-control {
 .rf11-signup-password-strength{color:#aab2c9!important}.rf11-signup-password-strength span{background:rgba(255,255,255,.08)!important}.rf11-signup-password-toggle{color:#d7d3ff!important;background:rgba(120,104,255,.14)!important}
 .rf11-signup-privacy-note p,.rf11-signup-security-note p{font-size:10px!important}
 @media(max-width:720px){.rf11-signup-workspace-grid,.rf11-signup-details-grid{grid-template-columns:1fr!important}.rf11-signup-workspace-card{min-height:0!important}.rf11-signup-single-action .rf11-auth-submit{width:100%!important}.rf11-signup-form-actions{display:grid!important;grid-template-columns:1fr!important}}
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.animate-blink {
+  animation: blink 1s step-end infinite;
+}
+
+.rf13-hero-shell,
+.rf13-hero-shell *,
+.rf13-hero-shell *::before,
+.rf13-hero-shell *::after {
+  box-sizing: border-box;
+}
+
+.rf13-hero-shell {
+  width: 100%;
+  min-height: 100svh;
+  isolation: isolate;
+}
+
+.rf13-hero-shell button,
+.rf13-hero-shell input,
+.rf13-hero-shell textarea,
+.rf13-hero-shell select {
+  font: inherit;
+}
+
+.rf13-hero-shell video {
+  display: block;
+  max-width: none;
+}
+
+.rf13-video-bg {
+  width: 100%;
+  height: 100%;
+}
+
+.rf13-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 72% 50%;
+  transform: scale(1.005);
+}
+
+.rf13-video-wash {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255,255,255,.985) 0%,
+      rgba(255,255,255,.965) 20%,
+      rgba(255,255,255,.91) 35%,
+      rgba(255,255,255,.68) 48%,
+      rgba(255,255,255,.20) 63%,
+      rgba(255,255,255,.035) 76%,
+      transparent 88%
+    );
+}
+
+.rf13-video-bottom {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.05) 0%, transparent 48%, rgba(255,255,255,.16) 100%),
+    radial-gradient(circle at 19% 50%, rgba(255,255,255,.82), transparent 42%);
+}
+
+.rf13-content {
+  position: relative;
+}
+
+.rf13-copy {
+  position: relative;
+  z-index: 2;
+}
+
+.rf13-nav {
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  transition: color .25s ease, opacity .25s ease;
+}
+
+.rf13-nav-dark {
+  color: #111827;
+}
+
+.rf13-nav-light {
+  color: #ffffff;
+  text-shadow: 0 1px 18px rgba(0,0,0,.34);
+}
+
+.rf13-nav-dark .rf13-burger-line {
+  background: #111827;
+}
+
+.rf13-nav-light .rf13-burger-line {
+  background: #ffffff;
+}
+
+.rf13-nav-cta {
+  border-color: currentColor;
+  background: rgba(255,255,255,.16);
+  color: inherit;
+}
+
+.rf13-nav-dark .rf13-nav-cta {
+  background: rgba(255,255,255,.56);
+  border-color: rgba(17,24,39,.16);
+}
+
+.rf13-nav-light .rf13-nav-cta {
+  background: rgba(4,8,20,.14);
+  border-color: rgba(255,255,255,.34);
+}
+
+@media (max-width: 1023px) {
+  .rf13-video {
+    object-position: 70% 50%;
+  }
+
+  .rf13-video-wash {
+    background:
+      linear-gradient(
+        90deg,
+        rgba(255,255,255,.97) 0%,
+        rgba(255,255,255,.92) 40%,
+        rgba(255,255,255,.72) 62%,
+        rgba(255,255,255,.30) 82%,
+        rgba(255,255,255,.16) 100%
+      );
+  }
+
+  .rf13-video-bottom {
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.15), transparent 52%, rgba(255,255,255,.38)),
+      radial-gradient(circle at 20% 43%, rgba(255,255,255,.70), transparent 58%);
+  }
+}
+
+@media (max-width: 639px) {
+  .rf13-video {
+    object-position: 72% center;
+    transform: scale(1.03);
+  }
+
+  .rf13-video-wash {
+    background:
+      linear-gradient(
+        90deg,
+        rgba(255,255,255,.965) 0%,
+        rgba(255,255,255,.91) 50%,
+        rgba(255,255,255,.70) 76%,
+        rgba(255,255,255,.52) 100%
+      );
+  }
+
+  .rf13-video-bottom {
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.12), transparent 42%, rgba(255,255,255,.46)),
+      radial-gradient(circle at 10% 35%, rgba(255,255,255,.72), transparent 62%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-blink {
+    animation: none;
+    opacity: 1;
+  }
+
+  .rf13-hero-shell *,
+  .rf13-hero-shell *::before,
+  .rf13-hero-shell *::after {
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

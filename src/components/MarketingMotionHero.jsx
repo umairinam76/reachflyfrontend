@@ -18,8 +18,10 @@ export function useTypewriter(text, speed = 38, startDelay = 600) {
     setDone(false);
 
     let intervalId;
+
     const delayId = window.setTimeout(() => {
       let index = 0;
+
       intervalId = window.setInterval(() => {
         index += 1;
         setDisplayed(text.slice(0, index));
@@ -40,7 +42,7 @@ export function useTypewriter(text, speed = 38, startDelay = 600) {
   return { displayed, done };
 }
 
-function ScrubbedBackgroundVideo() {
+function BackgroundVideo() {
   const videoRef = useRef(null);
   const previousXRef = useRef(null);
   const targetTimeRef = useRef(0);
@@ -52,27 +54,49 @@ function ScrubbedBackgroundVideo() {
 
     const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
-    const syncTargetToVideo = () => {
-      if (Number.isFinite(video.currentTime)) {
-        targetTimeRef.current = video.currentTime;
+    const syncTarget = () => {
+      if (!Number.isFinite(video.duration) || video.duration <= 0) return;
+
+      if (window.innerWidth >= 1024 && video.currentTime === 0) {
+        targetTimeRef.current = Math.min(video.duration * 0.16, video.duration);
+        try {
+          video.currentTime = targetTimeRef.current;
+        } catch {
+          targetTimeRef.current = 0;
+        }
+      } else {
+        targetTimeRef.current = Number.isFinite(video.currentTime)
+          ? video.currentTime
+          : 0;
       }
     };
 
     const seekToTarget = () => {
       if (!Number.isFinite(video.duration) || video.duration <= 0) return;
-      const next = clamp(targetTimeRef.current, 0, video.duration);
-      if (Math.abs(video.currentTime - next) < 0.015) {
+
+      const nextTime = clamp(targetTimeRef.current, 0, video.duration);
+
+      if (Math.abs(video.currentTime - nextTime) < 0.012) {
         seekingRef.current = false;
         return;
       }
 
       seekingRef.current = true;
-      video.currentTime = next;
+
+      try {
+        video.currentTime = nextTime;
+      } catch {
+        seekingRef.current = false;
+      }
     };
 
     const handleSeeked = () => {
       seekingRef.current = false;
-      if (Math.abs(video.currentTime - targetTimeRef.current) > 0.02) {
+
+      if (
+        window.innerWidth >= 1024 &&
+        Math.abs(video.currentTime - targetTimeRef.current) > 0.018
+      ) {
         seekToTarget();
       }
     };
@@ -87,35 +111,41 @@ function ScrubbedBackgroundVideo() {
 
       if (previousXRef.current === null) {
         previousXRef.current = event.clientX;
-        targetTimeRef.current = video.currentTime || 0;
+        targetTimeRef.current = video.currentTime || targetTimeRef.current || 0;
         return;
       }
 
       const delta = event.clientX - previousXRef.current;
       previousXRef.current = event.clientX;
 
-      const timeDelta = (delta / window.innerWidth) * 0.8 * video.duration;
-      targetTimeRef.current = clamp(targetTimeRef.current + timeDelta, 0, video.duration);
+      const timeDelta =
+        (delta / Math.max(window.innerWidth, 1)) * 0.8 * video.duration;
 
-      if (!seekingRef.current) {
-        seekToTarget();
-      }
+      targetTimeRef.current = clamp(
+        targetTimeRef.current + timeDelta,
+        0,
+        video.duration
+      );
+
+      if (!seekingRef.current) seekToTarget();
     };
 
-    const resetPreviousX = () => {
+    const resetPointer = () => {
       previousXRef.current = null;
     };
 
-    video.addEventListener("loadedmetadata", syncTargetToVideo);
+    video.addEventListener("loadedmetadata", syncTarget);
     video.addEventListener("seeked", handleSeeked);
     window.addEventListener("mousemove", handleMouseMove, { passive: true });
-    window.addEventListener("blur", resetPreviousX);
+    window.addEventListener("mouseleave", resetPointer, { passive: true });
+    window.addEventListener("blur", resetPointer);
 
     return () => {
-      video.removeEventListener("loadedmetadata", syncTargetToVideo);
+      video.removeEventListener("loadedmetadata", syncTarget);
       video.removeEventListener("seeked", handleSeeked);
       window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("blur", resetPreviousX);
+      window.removeEventListener("mouseleave", resetPointer);
+      window.removeEventListener("blur", resetPointer);
     };
   }, []);
 
@@ -125,11 +155,10 @@ function ScrubbedBackgroundVideo() {
 
     const configurePlayback = () => {
       if (window.innerWidth < 1024) {
+        previousXRef.current = null;
         video.autoplay = true;
         video.loop = true;
-        video.play().catch(() => {
-          // Mobile browsers may defer playback until enough media is buffered.
-        });
+        video.play().catch(() => {});
       } else {
         video.autoplay = false;
         video.loop = false;
@@ -138,6 +167,7 @@ function ScrubbedBackgroundVideo() {
     };
 
     configurePlayback();
+
     video.addEventListener("canplay", configurePlayback);
     window.addEventListener("resize", configurePlayback, { passive: true });
 
@@ -148,20 +178,20 @@ function ScrubbedBackgroundVideo() {
   }, []);
 
   return (
-    <div className="order-last lg:order-none relative lg:absolute lg:inset-0 lg:z-0 overflow-hidden pointer-events-none w-full aspect-square md:aspect-video lg:aspect-auto lg:h-full bg-neutral-50 lg:bg-transparent">
+    <div className="rf13-video-bg absolute inset-0 z-0 overflow-hidden pointer-events-none bg-white">
       <video
         ref={videoRef}
         muted
         playsInline
         preload="auto"
-        className="w-full h-full object-cover object-right lg:object-right-bottom"
+        className="rf13-video absolute inset-0 h-full w-full object-cover"
         aria-hidden="true"
       >
         <source src={VIDEO_URL} type="video/mp4" />
       </video>
 
-      <div className="absolute inset-0 hidden lg:block bg-gradient-to-r from-white via-white/80 to-white/5" />
-      <div className="absolute inset-0 hidden lg:block bg-[radial-gradient(circle_at_28%_48%,rgba(255,255,255,.88),rgba(255,255,255,.22)_44%,transparent_70%)]" />
+      <div className="rf13-video-wash absolute inset-0" aria-hidden="true" />
+      <div className="rf13-video-bottom absolute inset-0" aria-hidden="true" />
     </div>
   );
 }
@@ -174,58 +204,78 @@ function HeroNavbar({ isMobileMenuOpen, setIsMobileMenuOpen, isPastHero }) {
     ["#pricing", "Pricing"],
   ];
 
+  const navTone = isPastHero ? "rf13-nav-light" : "rf13-nav-dark";
+
   return (
     <>
-      <header className={`fixed top-0 inset-x-0 z-10 px-5 sm:px-8 py-4 sm:py-5 flex flex-row justify-between items-center bg-transparent rf13-nav ${isPastHero ? "rf13-nav-past" : ""}`}>
-        <Link to="/" className="flex flex-row items-center gap-3" aria-label="ReachFly home">
+      <header
+        className={`rf13-nav ${navTone} fixed top-0 inset-x-0 z-50 px-5 sm:px-8 lg:px-10 py-4 sm:py-5 flex items-center justify-between bg-transparent`}
+      >
+        <Link
+          to="/"
+          className="rf13-brand flex items-center gap-2.5 sm:gap-3"
+          aria-label="ReachFly home"
+        >
           <BrandLogo size={34} />
-          <span className="text-[21px] sm:text-[26px] tracking-tight text-black font-medium select-none">
-            ReachFly<sup className="text-[9px] sm:text-[10px] ml-0.5">AI</sup>
-          </span>
-          <span className="text-[25px] sm:text-[30px] text-black select-none tracking-[-0.02em] font-medium leading-none mb-1" aria-hidden="true">
-            &#10033;
+          <span className="text-[20px] sm:text-[24px] tracking-[-0.035em] font-semibold select-none">
+            ReachFly
+            <sup className="text-[8px] sm:text-[9px] ml-1 tracking-normal font-semibold">
+              AI
+            </sup>
           </span>
         </Link>
 
-        <nav className="hidden md:flex flex-row items-center text-[23px] text-black absolute left-1/2 -translate-x-1/2" aria-label="Landing page navigation">
+        <nav
+          className="hidden md:flex items-center gap-1 absolute left-1/2 -translate-x-1/2 text-[15px] lg:text-[16px] font-medium"
+          aria-label="Landing page navigation"
+        >
           {navItems.map(([href, label], index) => (
             <span key={href} className="flex items-center">
-              <a href={href} className="hover:opacity-60 transition-opacity">
+              <a href={href} className="px-2 hover:opacity-55 transition-opacity">
                 {label}
               </a>
               {index < navItems.length - 1 ? (
-                <span className="opacity-40">,&nbsp;</span>
+                <span className="opacity-30">·</span>
               ) : null}
             </span>
           ))}
         </nav>
 
-        <Link
-          to="/signup"
-          className="hidden md:inline text-[23px] text-black underline underline-offset-2 hover:opacity-60 transition-opacity"
-        >
-          Get started
-        </Link>
+        <div className="hidden md:flex items-center gap-4">
+          <Link
+            to="/login"
+            className="text-[15px] lg:text-[16px] font-medium hover:opacity-55 transition-opacity"
+          >
+            Sign in
+          </Link>
+          <Link
+            to="/signup"
+            className="rf13-nav-cta inline-flex items-center gap-2 rounded-full border px-4 py-2 text-[14px] lg:text-[15px] font-semibold transition-all"
+          >
+            Get started
+            <ArrowRight size={15} />
+          </Link>
+        </div>
 
         <button
           type="button"
           aria-label={isMobileMenuOpen ? "Close navigation" : "Open navigation"}
           aria-expanded={isMobileMenuOpen}
           onClick={() => setIsMobileMenuOpen((current) => !current)}
-          className="md:hidden relative z-20 flex h-8 w-8 flex-col items-center justify-center gap-[5px]"
+          className="md:hidden relative z-[70] flex h-9 w-9 flex-col items-center justify-center gap-[5px]"
         >
           <span
-            className={`w-6 h-[2px] bg-black transition-all duration-300 ${
+            className={`rf13-burger-line w-6 h-[2px] transition-all duration-300 ${
               isMobileMenuOpen ? "rotate-45 translate-y-[7px]" : ""
             }`}
           />
           <span
-            className={`w-6 h-[2px] bg-black transition-all duration-300 ${
+            className={`rf13-burger-line w-6 h-[2px] transition-all duration-300 ${
               isMobileMenuOpen ? "opacity-0" : "opacity-100"
             }`}
           />
           <span
-            className={`w-6 h-[2px] bg-black transition-all duration-300 ${
+            className={`rf13-burger-line w-6 h-[2px] transition-all duration-300 ${
               isMobileMenuOpen ? "-rotate-45 -translate-y-[7px]" : ""
             }`}
           />
@@ -233,41 +283,50 @@ function HeroNavbar({ isMobileMenuOpen, setIsMobileMenuOpen, isPastHero }) {
       </header>
 
       <div
-        className={`md:hidden fixed inset-0 z-[9] bg-white/95 backdrop-blur-sm transition-opacity duration-300 ${
-          isMobileMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        className={`md:hidden fixed inset-0 z-40 bg-white/95 backdrop-blur-xl transition-opacity duration-300 ${
+          isMobileMenuOpen
+            ? "opacity-100 pointer-events-auto"
+            : "opacity-0 pointer-events-none"
         }`}
       >
-        <nav className="h-full px-6 pt-28 pb-10 flex flex-col justify-between" aria-label="Mobile landing page navigation">
-          <div className="flex flex-col gap-5 text-4xl tracking-tight text-black">
+        <nav
+          className="h-full px-6 pt-28 pb-10 flex flex-col justify-between"
+          aria-label="Mobile landing page navigation"
+        >
+          <div className="flex flex-col gap-5 text-[38px] leading-[1.06] tracking-[-0.04em] text-black">
             {navItems.map(([href, label], index) => (
               <motion.a
                 key={href}
                 href={href}
                 onClick={() => setIsMobileMenuOpen(false)}
                 initial={false}
-                animate={isMobileMenuOpen ? { opacity: 1, x: 0 } : { opacity: 0, x: -16 }}
-                transition={{ delay: isMobileMenuOpen ? index * 0.04 : 0 }}
+                animate={
+                  isMobileMenuOpen
+                    ? { opacity: 1, x: 0 }
+                    : { opacity: 0, x: -18 }
+                }
+                transition={{ delay: isMobileMenuOpen ? index * 0.045 : 0 }}
               >
                 {label}
               </motion.a>
             ))}
           </div>
 
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3">
             <Link
               to="/login"
               onClick={() => setIsMobileMenuOpen(false)}
-              className="text-lg text-black underline underline-offset-4"
+              className="text-base text-black underline underline-offset-4"
             >
               Sign in
             </Link>
             <Link
               to="/signup"
               onClick={() => setIsMobileMenuOpen(false)}
-              className="inline-flex items-center justify-between rounded-full bg-[#1C2E1E] px-5 py-4 text-white text-lg"
+              className="inline-flex items-center justify-between rounded-full bg-[#1C2E1E] px-5 py-4 text-white text-base font-semibold"
             >
               Create workspace
-              <ArrowRight size={19} />
+              <ArrowRight size={18} />
             </Link>
           </div>
         </nav>
@@ -280,15 +339,16 @@ export default function MarketingMotionHero() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isPastHero, setIsPastHero] = useState(false);
   const [services, setServices] = useState([]);
+
   const { displayed, done } = useTypewriter(
     "turn the right businesses\ninto real conversations.",
     38,
-    600
+    500
   );
 
   useEffect(() => {
     const updateHeader = () => {
-      setIsPastHero(window.scrollY > Math.max(520, window.innerHeight * 0.82));
+      setIsPastHero(window.scrollY > Math.max(520, window.innerHeight * 0.86));
     };
 
     updateHeader();
@@ -312,6 +372,7 @@ export default function MarketingMotionHero() {
     };
 
     window.addEventListener("keydown", handleEscape);
+
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleEscape);
@@ -331,34 +392,34 @@ export default function MarketingMotionHero() {
     : "/signup";
 
   return (
-    <section className="rf13-hero-shell relative bg-white text-neutral-900 font-sans selection:bg-[#EAECE9] selection:text-[#1C2E1E] antialiased overflow-x-hidden flex flex-col lg:block lg:min-h-screen">
+    <section className="rf13-hero-shell relative isolate min-h-[100svh] overflow-hidden bg-white text-neutral-900 font-sans selection:bg-[#EAECE9] selection:text-[#1C2E1E] antialiased">
+      <BackgroundVideo />
+
       <HeroNavbar
         isMobileMenuOpen={isMobileMenuOpen}
         setIsMobileMenuOpen={setIsMobileMenuOpen}
         isPastHero={isPastHero}
       />
 
-      <ScrubbedBackgroundVideo />
-
-      <div className="relative z-10 flex flex-col order-first lg:order-none w-full bg-white lg:bg-transparent pb-8 lg:pb-0 lg:min-h-screen">
+      <div className="relative z-10 min-h-[100svh] w-full">
         <main
           id="spade-hero"
-          className="w-full max-w-7xl mx-auto px-6 py-12 flex-1 flex flex-col justify-center pt-28 sm:pt-32 lg:pt-28"
+          className="rf13-content mx-auto flex min-h-[100svh] w-full max-w-[1440px] items-center px-5 sm:px-8 lg:px-10 xl:px-14 pt-28 pb-14 sm:pt-32 sm:pb-16"
         >
-          <div className="w-full max-w-3xl lg:max-w-[720px]">
+          <div className="rf13-copy w-full max-w-[660px] xl:max-w-[700px]">
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 22 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
+              transition={{ duration: 0.62, ease: [0.22, 1, 0.36, 1] }}
             >
-              <div className="inline-flex items-center gap-2 rounded-full border border-black/8 bg-white/70 px-3 py-1.5 text-xs font-medium tracking-[0.08em] uppercase text-[#4D5B4E] backdrop-blur-md mb-6">
-                ReachFly · Prospect to conversation
+              <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/58 px-3.5 py-2 text-[11px] sm:text-xs font-semibold uppercase tracking-[0.09em] text-[#39463A] backdrop-blur-xl shadow-[0_10px_35px_rgba(36,49,37,.06)]">
+                ReachFly · From prospect to conversation
               </div>
 
-              <h1 className="text-5xl md:text-6xl lg:text-[76px] font-normal tracking-tight text-black leading-[1.08] mb-8 select-none w-full whitespace-pre-wrap">
+              <h1 className="mb-7 w-full whitespace-pre-wrap select-none text-[45px] sm:text-[58px] md:text-[67px] lg:text-[72px] xl:text-[78px] font-normal tracking-[-0.055em] text-black leading-[0.98]">
                 {displayed}
                 {!done ? (
-                  <span className="inline-block w-[2px] h-[1.1em] bg-black align-middle ml-[2px] animate-blink" />
+                  <span className="inline-block w-[2px] h-[1em] bg-black align-[-0.08em] ml-[3px] animate-blink" />
                 ) : null}
               </h1>
             </motion.div>
@@ -366,24 +427,33 @@ export default function MarketingMotionHero() {
             <motion.div
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.1 }}
+              transition={{ duration: 0.6, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
             >
-              <p className="text-lg md:text-xl text-[#5A635A] leading-relaxed font-normal mb-14 max-w-2xl">
-                ReachFly finds focused prospects, adds business context, and helps your team start better conversations. <br />
-                Select where you want to begin and we&apos;ll take you straight into the right workflow.
+              <p className="mb-9 max-w-[610px] text-[16px] sm:text-[18px] leading-[1.65] font-normal text-[#4F5D50]">
+                Discover focused businesses, understand why they may care, and move
+                from first signal to AI Voice, follow-up, meetings, and pipeline in
+                one connected sales workspace.
               </p>
             </motion.div>
 
             <motion.div
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.18 }}
-              className="max-w-3xl"
+              transition={{ duration: 0.6, delay: 0.18, ease: [0.22, 1, 0.36, 1] }}
+              className="max-w-[640px]"
             >
-              <h2 className="text-2xl font-medium tracking-tight mb-2">What do you want to improve?</h2>
-              <p className="opacity-85 text-[#738273] mb-8">Select all that apply</p>
+              <div className="mb-5 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h2 className="text-[20px] sm:text-[22px] font-semibold tracking-[-0.025em] text-[#172419]">
+                    What do you want to improve?
+                  </h2>
+                  <p className="mt-1 text-[13px] sm:text-sm text-[#6A776B]">
+                    Select all that apply
+                  </p>
+                </div>
+              </div>
 
-              <div className="flex flex-wrap gap-3 sm:gap-4">
+              <div className="flex flex-wrap gap-2.5 sm:gap-3">
                 {SERVICE_OPTIONS.map((service) => {
                   const active = services.includes(service);
 
@@ -394,22 +464,22 @@ export default function MarketingMotionHero() {
                       onClick={() => toggleService(service)}
                       whileHover={{ y: -2 }}
                       whileTap={{ scale: 0.97 }}
-                      className={`min-h-12 rounded-full px-5 sm:px-6 py-3 inline-flex items-center gap-2.5 text-sm sm:text-base font-medium transition-colors ${
+                      className={`min-h-11 rounded-full px-4 sm:px-5 py-2.5 inline-flex items-center gap-2 text-[13px] sm:text-sm font-semibold backdrop-blur-xl transition-[background-color,color,border-color,box-shadow] ${
                         active
-                          ? "bg-[#1C2E1E] text-white shadow-md shadow-emerald-950/5 transform"
-                          : "bg-white text-[#1C2E1E] border border-[#F1F3F1] hover:bg-[#F1F3F1]/55"
+                          ? "bg-[#1C2E1E] text-white border border-[#1C2E1E] shadow-[0_12px_28px_rgba(28,46,30,.14)]"
+                          : "bg-white/72 text-[#1C2E1E] border border-white/75 shadow-[0_10px_30px_rgba(33,48,35,.055)] hover:bg-white/90"
                       }`}
                     >
                       <AnimatePresence initial={false}>
                         {active ? (
                           <motion.span
-                            initial={{ opacity: 0, scale: 0.4, width: 0 }}
+                            initial={{ opacity: 0, scale: 0.45, width: 0 }}
                             animate={{ opacity: 1, scale: 1, width: "auto" }}
-                            exit={{ opacity: 0, scale: 0.4, width: 0 }}
-                            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                            exit={{ opacity: 0, scale: 0.45, width: 0 }}
+                            transition={{ type: "spring", stiffness: 320, damping: 22 }}
                             className="inline-flex"
                           >
-                            <Check size={17} strokeWidth={2.4} />
+                            <Check size={15} strokeWidth={2.5} />
                           </motion.span>
                         ) : null}
                       </AnimatePresence>
@@ -419,34 +489,34 @@ export default function MarketingMotionHero() {
                 })}
               </div>
 
-              <div className="mt-5 min-h-[74px]">
+              <div className="mt-4 min-h-[68px]">
                 <AnimatePresence mode="wait" initial={false}>
                   {services.length === 0 ? (
                     <motion.p
                       key="empty"
                       initial={{ opacity: 0 }}
-                      animate={{ opacity: 0.5 }}
+                      animate={{ opacity: 0.48 }}
                       exit={{ opacity: 0 }}
-                      className="italic text-xs text-[#1C2E1E] py-4"
+                      className="py-3 text-xs italic text-[#2B3C2D]"
                     >
-                      Please click to select services above.
+                      Select a workflow above to continue.
                     </motion.p>
                   ) : (
                     <motion.div
                       key="active"
-                      initial={{ opacity: 0, height: 0, y: 5 }}
+                      initial={{ opacity: 0, height: 0, y: 6 }}
                       animate={{ opacity: 1, height: "auto", y: 0 }}
                       exit={{ opacity: 0, height: 0, y: -5 }}
                       transition={{ type: "spring", stiffness: 260, damping: 26 }}
                       className="overflow-hidden"
                     >
-                      <div className="bg-[#FAFBF9] border border-[#EEF1ED] rounded-2xl px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between shadow-sm">
-                        <p className="text-sm text-[#324334]">
-                          Ready to inquire about: <strong>{services.join(", ")}</strong>
+                      <div className="flex flex-col gap-3 rounded-2xl border border-white/75 bg-white/74 px-4 py-3.5 shadow-[0_14px_38px_rgba(36,49,37,.07)] backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                        <p className="text-[13px] sm:text-sm text-[#324334]">
+                          Ready to explore: <strong>{services.join(", ")}</strong>
                         </p>
                         <Link
                           to={inquiryTarget}
-                          className="inline-flex shrink-0 items-center gap-1.5 text-[#4D6D47] uppercase text-xs font-semibold tracking-[0.08em] hover:opacity-60 transition-opacity"
+                          className="inline-flex shrink-0 items-center gap-1.5 text-[#466642] uppercase text-xs font-bold tracking-[0.08em] hover:opacity-60 transition-opacity"
                         >
                           Let&apos;s Go
                           <ArrowRight size={14} />
@@ -455,6 +525,22 @@ export default function MarketingMotionHero() {
                     </motion.div>
                   )}
                 </AnimatePresence>
+              </div>
+
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <Link
+                  to="/signup"
+                  className="inline-flex items-center gap-2 rounded-full bg-[#1C2E1E] px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_40px_rgba(28,46,30,.16)] transition-transform hover:-translate-y-0.5"
+                >
+                  Create workspace
+                  <ArrowRight size={16} />
+                </Link>
+                <a
+                  href="#why"
+                  className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/56 px-5 py-3 text-sm font-semibold text-[#1C2E1E] backdrop-blur-xl transition-colors hover:bg-white/82"
+                >
+                  See how it works
+                </a>
               </div>
             </motion.div>
           </div>
