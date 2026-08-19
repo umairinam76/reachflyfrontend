@@ -601,10 +601,7 @@ export default function BlogIndexPage() {
 
           </Link>
 
-          <p>
-            Practical guidance for lead discovery, AI sales, outreach, and
-            connected revenue operations.
-          </p>
+         
 
           <nav>
             <Link to="/">
