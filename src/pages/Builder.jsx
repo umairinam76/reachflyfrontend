@@ -1122,8 +1122,12 @@ export default function Builder() {
         const members =
           normalizedMembers.filter(
             (member) =>
-              member.role ===
-                "caller" &&
+              [
+                "owner",
+                "admin",
+                "manager",
+                "caller",
+              ].includes(member.role) &&
               member.active !==
                 false &&
               member.isActive !==
@@ -1153,8 +1157,10 @@ export default function Builder() {
           0
         ) {
           setAssignmentError(
-            "The team API returned no active caller accounts for this workspace."
+            "The team API returned no active assignment-capable team members for this workspace."
           );
+        } else {
+          setAssignmentError("");
         }
       } else {
 
@@ -1164,7 +1170,7 @@ export default function Builder() {
         setAssignmentError(
           teamResult.reason
             ?.message ||
-            "Caller resources could not be loaded."
+            "Team assignment resources could not be loaded."
         );
       }
 
@@ -1682,7 +1688,7 @@ async function assignLeadsToCaller() {
 
   if (!selectedCallerId) {
     setAssignmentError(
-      "Select a caller before assigning leads."
+      "Select a team member before assigning leads."
     );
     return;
   }
@@ -1737,14 +1743,14 @@ async function assignLeadsToCaller() {
       caller?.name ||
       caller?.fullName ||
       caller?.email ||
-      "the selected caller";
+      "the selected team member";
 
     setAssignmentMessage(
       `${updated} lead${
         updated === 1
           ? ""
           : "s"
-      } assigned to ${callerName}. They will appear on that caller's My Leads page.`
+      } assigned to ${callerName}. They will appear in that team member's assigned lead queue.`
     );
 
     const assignedKeys =
@@ -2365,7 +2371,7 @@ if (showingResults) {
     <Step
       eyebrow="Click 4 of 4"
       title="Ready to build your market?"
-      text="Review lead discovery and outreach readiness. Generated leads can then be assigned to callers or launched through AI Voice from the results screen."
+      text="Review lead discovery and outreach readiness. Generated leads can then be assigned to an active workspace team member or launched through AI Voice from the results screen."
     >
       <div className="sentence-card">
         <span className="sentence-card-eyebrow">Campaign summary</span>
@@ -4992,10 +4998,10 @@ function LiveLeadResultsPage({
           <section className="live-assignment-panel rf7-operational-card">
             <div className="live-assignment-header">
               <div>
-                <span className="eyebrow">Assign to a caller</span>
-                <h2>Move leads into human calling.</h2>
+                <span className="eyebrow">Assign to a team member</span>
+                <h2>Move leads into the team calling queue.</h2>
                 <p>
-                  Pick a caller and the exact number of generated leads to assign.
+                  Pick an active owner, admin, manager, or caller and the exact number of generated leads to assign.
                 </p>
               </div>
               <Users />
@@ -5015,15 +5021,15 @@ function LiveLeadResultsPage({
 
             <div className="live-assignment-form">
               <label className="field">
-                <span>Caller resource</span>
+                <span>Assignee</span>
                 <select
                   value={selectedCallerId}
                   onChange={(event) => onSelectCaller(event.target.value)}
                 >
-                  <option value="">Select caller</option>
+                  <option value="">Select team member</option>
                   {callers.map((caller) => (
                     <option key={caller.id} value={caller.id}>
-                      {caller.name || caller.fullName || caller.email || "Caller"}
+                      {caller.name || caller.fullName || caller.email || "Team member"}
                       {caller.email ? ` — ${caller.email}` : ""}
                     </option>
                   ))}
@@ -5052,7 +5058,7 @@ function LiveLeadResultsPage({
 
             {!callers.length ? (
               <div className="safe-note-v54">
-                No active caller accounts were found.
+                No active assignment-capable team members were found.
               </div>
             ) : null}
 
@@ -5085,7 +5091,7 @@ function LiveLeadResultsPage({
               onClick={onAssign}
             >
               <Users />
-              {assignmentSaving ? "Assigning…" : "Assign leads to caller"}
+              {assignmentSaving ? "Assigning…" : "Assign leads"}
             </button>
           </section>
 
@@ -6348,7 +6354,7 @@ function MiniAuditReport({
         {report.header?.brandLine ||
           `${String(
             brand.name ||
-              "ReachFlyAI"
+              "ReachFly.Ai"
           ).toUpperCase()} · MINI AUDIT REPORT`}
       </div>
 
@@ -7112,15 +7118,20 @@ function normalizeTeamMember(
         ? sourceUser.permissions
         : [];
 
+  const normalizedRawRole =
+    normalizeWorkspaceRole(rawRole);
+
   const inferredRole =
-    permissions.includes(
-      "make_calls"
-    ) ||
-    permissions.includes(
-      "view_assigned_leads"
-    )
-      ? "caller"
-      : rawRole;
+    rawRole
+      ? normalizedRawRole
+      : permissions.includes(
+            "make_calls"
+          ) ||
+          permissions.includes(
+            "view_assigned_leads"
+          )
+        ? "caller"
+        : rawRole;
 
   const role =
     normalizeWorkspaceRole(

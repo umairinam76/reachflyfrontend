@@ -16,6 +16,7 @@ import {
 
 import { api } from "../api";
 import { useAuth } from "../auth/AuthContext";
+import { apiRequest } from "../lib/workspace-platform-client.js";
 
 import BrandLogo from "./BrandLogo";
 import "../styles.css";
@@ -46,7 +47,6 @@ import {
   Settings,
   Sparkles,
   Target,
-  TrendingUp,
   UserRound,
   Users,
   Workflow,
@@ -86,7 +86,6 @@ const TOAST_EVENT = "reachfly:toast";
  * - Keep all current backend/API behavior untouched.
  * - Provide global quick-create, command palette, notifications, responsive mobile nav,
  *   and a reusable animated success/error/warning/info toast channel.
- * - Surface canonical Sales Operations and Team Performance routes in workspace navigation.
  */
 export default function AppShell() {
   const location = useLocation();
@@ -111,6 +110,8 @@ export default function AppShell() {
   const [commandQuery, setCommandQuery] = useState("");
   const [searchValue, setSearchValue] = useState("");
   const [counters, setCounters] = useState(DEFAULT_COUNTERS);
+  const [creditData, setCreditData] = useState(null);
+  const [creditLoading, setCreditLoading] = useState(false);
   const [toasts, setToasts] = useState([]);
 
   const role = useMemo(
@@ -205,6 +206,11 @@ export default function AppShell() {
         user?.avatarUrl || user?.profileImage || user?.photoUrl || "",
     };
   }, [user, role]);
+
+  const creditWallet = creditData?.wallet || null;
+  const creditBalance = Number(creditWallet?.balance ?? 0);
+  const creditReserved = Number(creditWallet?.reserved ?? 0);
+  const creditConsumed = Number(creditWallet?.totalConsumed ?? 0);
 
   const showToast = useCallback((input = {}) => {
     const normalized = normalizeToast(input);
@@ -391,6 +397,59 @@ export default function AppShell() {
     role,
     user?.id,
   ]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setCreditData(null);
+      setCreditLoading(false);
+      return undefined;
+    }
+
+    let alive = true;
+    let requestInFlight = false;
+
+    async function loadCredits() {
+      if (requestInFlight) return;
+      requestInFlight = true;
+      if (alive) setCreditLoading(true);
+
+      try {
+        const response = await apiRequest("/billing/credits", {
+          timeoutMs: 15_000,
+        });
+
+        if (alive) {
+          setCreditData(response || null);
+        }
+      } catch {
+        // Keep the last known balance visible during a temporary billing/API failure.
+      } finally {
+        requestInFlight = false;
+        if (alive) setCreditLoading(false);
+      }
+    }
+
+    function handleFocus() {
+      void loadCredits();
+    }
+
+    function handleCreditsChanged() {
+      void loadCredits();
+    }
+
+    void loadCredits();
+
+    const timer = window.setInterval(loadCredits, 10_000);
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("reachfly:credits-changed", handleCreditsChanged);
+
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("reachfly:credits-changed", handleCreditsChanged);
+    };
+  }, [user?.id, user?.workspaceId]);
 
   useEffect(() => {
     setSidebarOpen(false);
@@ -605,20 +664,6 @@ export default function AppShell() {
             matchQuery: canManageWorkspace ? { tab: ["team", null] } : null,
             queryPathPrefix: "/app/role-operations",
             visible: true,
-          },
-          {
-            label: "Sales Operations",
-            to: "/app/sales-operations",
-            icon: BarChart3,
-            matchPrefixes: ["/app/sales-operations", "/app/sales"],
-            visible: canManageWorkspace,
-          },
-          {
-            label: "Team Performance",
-            to: "/app/team-performance",
-            icon: TrendingUp,
-            matchPrefixes: ["/app/team-performance", "/app/team/performance"],
-            visible: canManageWorkspace,
           },
           {
             label: "Billing",
@@ -994,7 +1039,7 @@ export default function AppShell() {
               </span>
 
               <span className="rf7-brand-copy">
-                {/* <strong>ReachFlyAI</strong> */}
+                <strong>ReachFly.AI</strong>
                 <small>Sales operating system</small>
               </span>
             </Link>
@@ -1172,6 +1217,26 @@ export default function AppShell() {
             </div>
 
             <div className="rf7-topbar-end">
+              <Link
+                className="rf7-credit-pill-v7"
+                to="/app/billing"
+                title={`ReachFly credits · ${creditBalance.toLocaleString()} available${
+                  creditReserved ? ` · ${creditReserved.toLocaleString()} reserved` : ""
+                }`}
+                aria-label={`${creditBalance.toLocaleString()} ReachFly credits available`}
+              >
+                <span className="rf7-credit-icon-v7" aria-hidden="true">
+                  <Zap size={15} />
+                </span>
+                <span className="rf7-credit-copy-v7">
+                  <strong>{creditLoading && !creditWallet ? "…" : creditBalance.toLocaleString()}</strong>
+                  <small>Credits</small>
+                </span>
+                <span className="rf7-credit-usage-v7" aria-hidden="true">
+                  {creditConsumed > 0 ? `${creditConsumed.toLocaleString()} used` : "Live"}
+                </span>
+              </Link>
+
               <div className="rf7-topbar-popover-anchor-v7" ref={quickCreateRef}>
                 <button
                   className="rf7-create-btn"
@@ -1535,6 +1600,13 @@ function ShellMotionStyles() {
       .rf7-profile-logout-v7:hover{color:#ffb4ab;background:rgba(255,180,171,.08)}
       .rf7-topbar-popover-anchor-v7{position:relative;display:flex;align-items:center}
       .rf7-topbar-popover-anchor-v7 .rf7-quick-create{top:47px;right:0}
+      .rf7-credit-pill-v7{min-height:38px;display:flex;align-items:center;gap:8px;padding:4px 9px 4px 5px;color:var(--rf7-text);background:linear-gradient(135deg,#f7f6ff,#fff);border:1px solid #dfdefd;border-radius:11px;text-decoration:none;box-shadow:0 3px 12px rgba(70,72,212,.08);transition:transform 150ms var(--rf7-ease),box-shadow 150ms var(--rf7-ease),border-color 150ms var(--rf7-ease)}
+      .rf7-credit-pill-v7:hover{transform:translateY(-1px);border-color:#c7c7ff;box-shadow:0 7px 18px rgba(70,72,212,.13)}
+      .rf7-credit-icon-v7{width:29px;height:29px;display:grid;place-items:center;flex:0 0 29px;color:#fff;background:linear-gradient(145deg,#6063ee,#7b46de);border-radius:9px;box-shadow:0 5px 11px rgba(96,99,238,.22)}
+      .rf7-credit-copy-v7{display:grid;gap:0;min-width:45px}
+      .rf7-credit-copy-v7 strong{font-family:Geist,Inter,sans-serif;color:var(--rf7-text);font-size:11px;line-height:14px;font-variant-numeric:tabular-nums}
+      .rf7-credit-copy-v7 small{color:var(--rf7-text-muted);font-size:8px;line-height:10px}
+      .rf7-credit-usage-v7{padding:3px 6px;color:#4f4fc9;background:#ececff;border-radius:999px;font-size:7px;font-weight:700;white-space:nowrap}
       .rf7-search-command-v7{appearance:none;display:inline-flex;padding:0;background:transparent;border:0;cursor:pointer}
       .rf7-popover-enter-v7{animation:rf7PopoverIn 180ms var(--rf7-ease)}
       @keyframes rf7PopoverIn{from{opacity:0;transform:translateY(-5px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
@@ -1611,7 +1683,7 @@ function ShellMotionStyles() {
       .rf7-mobile-nav-link-v7.active .rf7-mobile-nav-icon-v7{background:var(--rf7-primary-soft)}
       .rf7-mobile-nav-icon-v7 em{position:absolute;top:-4px;right:-7px;min-width:15px;height:15px;display:grid;place-items:center;padding:0 3px;color:#fff;background:#e43e46;border:2px solid #fff;border-radius:999px;font-size:7px;font-style:normal}
       @media(max-width:900px){.rf7-sidebar-close-v7{display:inline-grid}.rf7-topbar-profile-copy-v7{display:none}.rf7-topbar-profile-v7>svg{display:none}}
-      @media(max-width:640px){.rf7-topbar-profile-v7{display:none}.rf7-topbar-end{gap:4px}.rf7-topbar .rf7-topbar-icon{width:34px;height:34px;flex-basis:34px}.rf7-notifications-popover-v7{position:fixed;top:62px;right:8px}.rf7-toast-stack-v7{top:67px;right:10px;width:calc(100vw - 20px)}.rf7-mobile-bottom-nav{position:fixed;z-index:75;right:0;bottom:0;left:0;height:62px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:center;padding:4px 7px calc(4px + env(safe-area-inset-bottom));background:rgba(255,255,255,.96);border-top:1px solid var(--rf7-outline);box-shadow:0 -8px 24px rgba(20,24,31,.06);backdrop-filter:blur(14px)}}
+      @media(max-width:640px){.rf7-topbar-profile-v7{display:none}.rf7-credit-usage-v7,.rf7-credit-copy-v7 small{display:none}.rf7-credit-pill-v7{padding-right:6px;gap:5px}.rf7-topbar-end{gap:4px}.rf7-topbar .rf7-topbar-icon{width:34px;height:34px;flex-basis:34px}.rf7-notifications-popover-v7{position:fixed;top:62px;right:8px}.rf7-toast-stack-v7{top:67px;right:10px;width:calc(100vw - 20px)}.rf7-mobile-bottom-nav{position:fixed;z-index:75;right:0;bottom:0;left:0;height:62px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:center;padding:4px 7px calc(4px + env(safe-area-inset-bottom));background:rgba(255,255,255,.96);border-top:1px solid var(--rf7-outline);box-shadow:0 -8px 24px rgba(20,24,31,.06);backdrop-filter:blur(14px)}}
       @media(prefers-reduced-motion:reduce){.rf7-popover-enter-v7,.rf7-toast-v7,.rf7-toast-progress-v7{animation:none!important}.rf7-command-item-v7,.rf7-notification-item-v7{transition:none!important}}
     `}</style>
   );
@@ -1719,9 +1791,6 @@ function buildBreadcrumbs(pathname, search) {
     ["/app/agents", ["AI Voice", "Voice Agents"]],
     ["/app/contacts", ["CRM", "Contacts"]],
     ["/app/pipeline", ["CRM", "Pipeline"]],
-    ["/app/sales-operations", ["Workspace", "Sales Operations"]],
-    ["/app/team-performance", ["Workspace", "Team Performance"]],
-    ["/app/team/performance", ["Workspace", "Team Performance"]],
     ["/app/role-operations", ["Workspace", "Team"]],
     ["/app/billing", ["Workspace", "Billing"]],
     ["/app/connections", ["Workspace", "Integrations"]],
