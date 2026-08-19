@@ -1265,7 +1265,7 @@ export default function Marketing() {
   useCharacterScrollMotion(characterLayerRef);
 
   useSEO({
-    title: "ReachFly.AI — AI Sales Workspace from Prospect to Conversation",
+    title: "ReachFlyAI — AI Sales Workspace from Prospect to Conversation",
     description:
       "Discover focused business prospects, add useful context, run AI Voice conversations, coordinate follow-up, and keep meetings and pipeline connected with ReachFly.",
     path: "/",
