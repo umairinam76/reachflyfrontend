@@ -79290,7 +79290,7 @@ textarea.rf7-field-control {
   color:var(--csa-text);background:transparent;
   font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
 }
-.cs-admin-v7*,.cs-admin-v7*::before,.cs-admin-v7*::after{box-sizing:border-box}
+.cs-admin-v7,.cs-admin-v7::before,.cs-admin-v7::after{box-sizing:border-box}
 .cs-admin-v7 button{font:inherit;transition:.14s var(--csa-ease)}
 .cs-admin-v7 button:hover:not(:disabled){transform:translateY(-1px)}
 .cs-admin-v7 button:disabled{opacity:.48;cursor:not-allowed}
