@@ -79332,3 +79332,553 @@ textarea.rf7-field-control {
 @media(max-width:720px){.cs-admin-v7{padding:18px 12px 80px}.cs-admin-v7 .cs-admin-hero{align-items:flex-start;flex-direction:column}.cs-admin-v7 .cs-admin-hero h1{font-size:34px}.cs-admin-v7 .cs-admin-hero>button{width:100%}.cs-admin-v7 .cs-admin-tabs{top:61px;margin-left:-12px;margin-right:-12px;border-left:0;border-right:0;border-radius:0}.cs-admin-v7 .cs-inline-fields{grid-template-columns:1fr}}
 @media(max-width:430px){.cs-admin-v7 .cs-metric-grid{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.cs-admin-v7,.cs-admin-v7,.cs-admin-v7::before,.cs-admin-v7::after{animation:none!important;transition-duration:.01ms!important}}
+/* ========================================================================
+   ReachFly Leads + Live Credits UI Patch
+   2026-08-19
+
+   Append this file to apps/web/src/styles.css, or import it after styles.css.
+   Designed for the updated Builder.jsx + AppShell.jsx package.
+   ======================================================================== */
+
+/* ------------------------------------------------------------------------
+   Global Leads page rhythm
+   ------------------------------------------------------------------------ */
+.rf7-leads-page {
+  width: 100%;
+  max-width: 1680px;
+  margin: 0 auto;
+  padding-bottom: 28px;
+  color: var(--rf7-text, #191c1d);
+}
+
+.rf7-leads-head {
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.rf7-leads-head h1 {
+  letter-spacing: -0.025em;
+}
+
+.rf7-lead-tabs {
+  margin-bottom: 16px;
+}
+
+/* ------------------------------------------------------------------------
+   Lead results table
+   ------------------------------------------------------------------------ */
+.rf7-leads-table-card {
+  overflow: hidden;
+  border: 1px solid #e7e8ec !important;
+  border-radius: 16px !important;
+  background: #fff;
+  box-shadow: 0 8px 30px rgba(24, 28, 45, 0.055) !important;
+}
+
+.rf7-leads-toolbar {
+  min-height: 58px;
+  padding: 10px 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #fdfdff 100%);
+}
+
+.rf7-leads-search {
+  height: 38px;
+  border: 1px solid #e6e7ec;
+  background: #f7f8fa;
+}
+
+.rf7-leads-search:focus-within {
+  border-color: rgba(70, 72, 212, 0.42);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(70, 72, 212, 0.08);
+}
+
+.rf7-leads-table-scroll {
+  max-height: min(68vh, 980px);
+  scrollbar-gutter: stable;
+}
+
+.rf7-leads-table {
+  min-width: 980px;
+}
+
+.rf7-leads-table th {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  height: 44px !important;
+  padding: 0 14px !important;
+  border-bottom: 1px solid #e7e8ec;
+  background: #f6f7f9 !important;
+  color: #555664 !important;
+  font-size: 10px !important;
+  letter-spacing: 0.06em;
+}
+
+.rf7-leads-table tbody tr {
+  height: 68px !important;
+  border-bottom-color: #eff0f2 !important;
+}
+
+.rf7-leads-table tbody tr:hover {
+  background: #fafaff !important;
+}
+
+.rf7-leads-table tbody tr.selected {
+  background: #f7f7ff !important;
+  box-shadow: inset 3px 0 0 #6063ee;
+}
+
+.rf7-leads-table td {
+  padding: 9px 14px !important;
+}
+
+.rf7-company-avatar {
+  width: 38px !important;
+  height: 38px !important;
+  flex-basis: 38px !important;
+  border-radius: 10px !important;
+}
+
+.rf7-company-copy strong {
+  font-size: 13px !important;
+  line-height: 18px !important;
+}
+
+.rf7-company-copy a,
+.rf7-company-copy > span,
+.rf7-contact-cell small,
+.rf7-table-muted {
+  font-size: 10px !important;
+}
+
+.rf7-quality-track {
+  width: 72px !important;
+  height: 6px !important;
+}
+
+.rf7-status-pill {
+  min-height: 23px !important;
+  padding: 2px 8px !important;
+  font-size: 10px !important;
+}
+
+.rf7-leads-table-footer {
+  min-height: 50px !important;
+  padding: 0 14px !important;
+  background: #fbfbfc !important;
+}
+
+/* ------------------------------------------------------------------------
+   Search/discovery state
+   ------------------------------------------------------------------------ */
+.rf7-discovery-progress {
+  border-color: #e4e5ea !important;
+  border-radius: 14px !important;
+  box-shadow: 0 5px 18px rgba(24, 28, 45, 0.04);
+}
+
+.rf7-discovery-progress.error {
+  border-color: rgba(186, 26, 26, 0.18) !important;
+  background: #fff8f7 !important;
+}
+
+.rf7-discovery-track {
+  height: 4px !important;
+}
+
+/* ------------------------------------------------------------------------
+   Lower operations area: assignment + AI Voice
+   ------------------------------------------------------------------------ */
+.rf7-lead-ops-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 18px !important;
+  margin-top: 20px !important;
+}
+
+.rf7-operational-card,
+.rf7-lead-ops-grid > .ai-voice-launch-panel {
+  min-width: 0;
+  min-height: 100%;
+  margin: 0 !important;
+  padding: 22px !important;
+  overflow: hidden;
+  border: 1px solid #e5e6eb !important;
+  border-radius: 16px !important;
+  background:
+    linear-gradient(180deg, rgba(250, 250, 255, 0.62) 0%, #fff 72px) !important;
+  box-shadow: 0 12px 34px rgba(22, 26, 44, 0.06) !important;
+}
+
+.rf7-operational-card .live-assignment-header,
+.rf7-lead-ops-grid > .ai-voice-launch-panel .live-assignment-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 17px !important;
+  padding-bottom: 14px !important;
+  border-bottom: 1px solid #eff0f3;
+}
+
+.rf7-operational-card .live-assignment-header > svg,
+.rf7-lead-ops-grid > .ai-voice-launch-panel .live-lead-detail-symbol {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 38px;
+  padding: 9px;
+  border-radius: 11px;
+  color: #595be0;
+  background: #efefff;
+}
+
+.rf7-operational-card .live-assignment-header .eyebrow,
+.rf7-lead-ops-grid > .ai-voice-launch-panel .live-assignment-header .eyebrow {
+  display: inline-flex;
+  margin: 0;
+  color: #5b5dd8;
+  font-size: 9px;
+  line-height: 13px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rf7-operational-card .live-assignment-header h2,
+.rf7-lead-ops-grid > .ai-voice-launch-panel .live-assignment-header h2 {
+  margin: 5px 0 5px !important;
+  color: #20212a;
+  font-family: Geist, Inter, sans-serif;
+  font-size: 18px !important;
+  line-height: 25px !important;
+  letter-spacing: -0.015em;
+  font-weight: 650;
+}
+
+.rf7-operational-card .live-assignment-header p,
+.rf7-lead-ops-grid > .ai-voice-launch-panel .live-assignment-header p {
+  max-width: 560px;
+  margin: 0 !important;
+  color: #676877 !important;
+  font-size: 12px !important;
+  line-height: 18px !important;
+}
+
+.rf7-operational-card .live-assignment-form,
+.rf7-lead-ops-grid > .ai-voice-launch-panel .live-assignment-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 0.48fr);
+  gap: 14px !important;
+  align-items: start;
+}
+
+.rf7-operational-card .field,
+.rf7-lead-ops-grid > .ai-voice-launch-panel .field {
+  min-width: 0;
+}
+
+.rf7-operational-card .field > span,
+.rf7-lead-ops-grid > .ai-voice-launch-panel .field > span {
+  display: block;
+  margin-bottom: 6px;
+  color: #4f5060;
+  font-size: 10px;
+  line-height: 14px;
+  font-weight: 700;
+}
+
+.rf7-operational-card .field input,
+.rf7-operational-card .field select,
+.rf7-lead-ops-grid > .ai-voice-launch-panel .field input,
+.rf7-lead-ops-grid > .ai-voice-launch-panel .field select {
+  width: 100%;
+  min-height: 44px !important;
+  padding: 0 12px;
+  border: 1px solid #dfe1e7 !important;
+  border-radius: 10px !important;
+  outline: none;
+  color: #252630;
+  background: #fff !important;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    background 150ms ease;
+}
+
+.rf7-operational-card .field input:focus,
+.rf7-operational-card .field select:focus,
+.rf7-lead-ops-grid > .ai-voice-launch-panel .field input:focus,
+.rf7-lead-ops-grid > .ai-voice-launch-panel .field select:focus {
+  border-color: rgba(70, 72, 212, 0.5) !important;
+  box-shadow: 0 0 0 3px rgba(70, 72, 212, 0.08);
+}
+
+.rf7-operational-card .field small,
+.rf7-lead-ops-grid > .ai-voice-launch-panel .field small {
+  display: block;
+  margin-top: 5px;
+  color: #8a8b97;
+  font-size: 9px;
+  line-height: 13px;
+}
+
+.rf7-operational-card .live-assignment-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 14px 0;
+  padding: 10px 12px;
+  border: 1px solid #ececf5;
+  border-radius: 10px;
+  color: #626372;
+  background: #fafaff;
+  font-size: 10px;
+}
+
+.rf7-operational-card .live-assignment-summary b {
+  color: #4a4cc9;
+  font-size: 12px;
+}
+
+.rf7-operational-card .btn.primary,
+.rf7-lead-ops-grid > .ai-voice-launch-panel .btn.primary {
+  min-height: 42px !important;
+  padding: 0 16px;
+  border-radius: 10px !important;
+  background: linear-gradient(135deg, #5f61e9, #5557da) !important;
+  box-shadow: 0 7px 18px rgba(70, 72, 212, 0.16) !important;
+}
+
+.rf7-operational-card .btn.primary:hover:not(:disabled),
+.rf7-lead-ops-grid > .ai-voice-launch-panel .btn.primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(70, 72, 212, 0.22) !important;
+}
+
+.rf7-operational-card .safe-note-v54,
+.rf7-lead-ops-grid > .ai-voice-launch-panel .safe-note-v54 {
+  padding: 10px 12px;
+  border: 1px solid #e9e8ff;
+  border-radius: 10px !important;
+  color: #5354b8;
+  background: #f6f5ff;
+  font-size: 10px;
+  line-height: 15px;
+}
+
+.rf7-operational-card .option-card,
+.rf7-lead-ops-grid > .ai-voice-launch-panel .option-card {
+  margin-top: 14px;
+  border: 1px solid #e7e8ed;
+  border-radius: 11px;
+  background: #fbfbfc;
+}
+
+/* ------------------------------------------------------------------------
+   Operational alerts
+   ------------------------------------------------------------------------ */
+.rf7-inline-alert,
+.rf7-operational-card .error-banner,
+.rf7-operational-card .success-banner,
+.rf7-lead-ops-grid > .ai-voice-launch-panel .error-banner,
+.rf7-lead-ops-grid > .ai-voice-launch-panel .success-banner {
+  margin-bottom: 14px;
+  padding: 10px 12px !important;
+  border-radius: 10px !important;
+  font-size: 10px;
+  line-height: 15px;
+}
+
+.rf7-inline-alert.error,
+.rf7-operational-card .error-banner,
+.rf7-lead-ops-grid > .ai-voice-launch-panel .error-banner {
+  border: 1px solid rgba(186, 26, 26, 0.16) !important;
+  color: #93000a !important;
+  background: #fff3f1 !important;
+}
+
+.rf7-inline-alert.success,
+.rf7-operational-card .success-banner,
+.rf7-lead-ops-grid > .ai-voice-launch-panel .success-banner {
+  border: 1px solid rgba(15, 138, 85, 0.16) !important;
+  color: #0f6b46 !important;
+  background: #edf9f3 !important;
+}
+
+/* ------------------------------------------------------------------------
+   Live ReachFly credit indicator in global top bar
+   ------------------------------------------------------------------------ */
+.rf7-credit-pill-v7 {
+  min-height: 38px !important;
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 9px 4px 5px !important;
+  color: var(--rf7-text, #191c1d) !important;
+  background: linear-gradient(135deg, #f7f6ff 0%, #ffffff 100%) !important;
+  border: 1px solid #dfdefd !important;
+  border-radius: 11px !important;
+  text-decoration: none !important;
+  box-shadow: 0 3px 12px rgba(70, 72, 212, 0.08) !important;
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease,
+    border-color 150ms ease,
+    background 150ms ease;
+}
+
+.rf7-credit-pill-v7:hover {
+  transform: translateY(-1px);
+  border-color: #c7c7ff !important;
+  background: linear-gradient(135deg, #f1f0ff 0%, #ffffff 100%) !important;
+  box-shadow: 0 7px 18px rgba(70, 72, 212, 0.13) !important;
+}
+
+.rf7-credit-icon-v7 {
+  width: 29px !important;
+  height: 29px !important;
+  display: grid !important;
+  place-items: center;
+  flex: 0 0 29px;
+  color: #fff !important;
+  background: linear-gradient(145deg, #6063ee, #7b46de) !important;
+  border-radius: 9px !important;
+  box-shadow: 0 5px 11px rgba(96, 99, 238, 0.22);
+}
+
+.rf7-credit-icon-v7 svg {
+  width: 15px;
+  height: 15px;
+}
+
+.rf7-credit-copy-v7 {
+  min-width: 46px;
+  display: grid !important;
+  gap: 0;
+}
+
+.rf7-credit-copy-v7 strong {
+  color: var(--rf7-text, #191c1d) !important;
+  font-family: Geist, Inter, sans-serif;
+  font-size: 11px !important;
+  line-height: 14px !important;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.rf7-credit-copy-v7 small {
+  color: var(--rf7-text-muted, #7b7c8a) !important;
+  font-size: 8px !important;
+  line-height: 10px !important;
+}
+
+.rf7-credit-usage-v7 {
+  padding: 3px 6px !important;
+  color: #4f4fc9 !important;
+  background: #ececff !important;
+  border-radius: 999px !important;
+  font-size: 7px !important;
+  line-height: 11px;
+  font-weight: 750 !important;
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------------
+   Responsive
+   ------------------------------------------------------------------------ */
+@media (max-width: 1180px) {
+  .rf7-lead-ops-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .rf7-leads-page {
+    padding-bottom: 18px;
+  }
+
+  .rf7-leads-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .rf7-leads-head-actions {
+    justify-content: flex-end;
+  }
+
+  .rf7-operational-card .live-assignment-form,
+  .rf7-lead-ops-grid > .ai-voice-launch-panel .live-assignment-form {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .rf7-leads-table-scroll {
+    max-height: none;
+  }
+
+  .rf7-leads-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .rf7-leads-search {
+    width: 100% !important;
+  }
+
+  .rf7-operational-card,
+  .rf7-lead-ops-grid > .ai-voice-launch-panel {
+    padding: 17px !important;
+    border-radius: 14px !important;
+  }
+
+  .rf7-operational-card .live-assignment-header,
+  .rf7-lead-ops-grid > .ai-voice-launch-panel .live-assignment-header {
+    gap: 10px;
+  }
+
+  .rf7-operational-card .live-assignment-header h2,
+  .rf7-lead-ops-grid > .ai-voice-launch-panel .live-assignment-header h2 {
+    font-size: 16px !important;
+    line-height: 22px !important;
+  }
+
+  .rf7-credit-usage-v7,
+  .rf7-credit-copy-v7 small {
+    display: none !important;
+  }
+
+  .rf7-credit-pill-v7 {
+    gap: 5px !important;
+    padding-right: 6px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .rf7-credit-copy-v7 {
+    min-width: 34px;
+  }
+
+  .rf7-credit-copy-v7 strong {
+    font-size: 10px !important;
+  }
+
+  .rf7-operational-card .live-assignment-summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rf7-credit-pill-v7,
+  .rf7-operational-card .btn,
+  .rf7-lead-ops-grid > .ai-voice-launch-panel .btn,
+  .rf7-leads-table tbody tr {
+    transition: none !important;
+  }
+}
