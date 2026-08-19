@@ -95,10 +95,17 @@ const API_BASE_URL = /\/api$/i.test(
   ? NORMALIZED_API_BASE_URL
   : `${NORMALIZED_API_BASE_URL}/api`;
 
-const BUILDER_STORAGE_KEY = "reachfly.builder.state.v1";
+const BUILDER_STORAGE_KEY = "reachfly.builder.state.v2";
+const LEGACY_BUILDER_STORAGE_KEY = "reachfly.builder.state.v1";
 
 function readPersistedBuilderState() {
   try {
+    // Generated leads belong to one authenticated live search run.
+    // Never restore old lead results from browser storage.
+    localStorage.removeItem(
+      LEGACY_BUILDER_STORAGE_KEY
+    );
+
     const raw = localStorage.getItem(
       BUILDER_STORAGE_KEY
     );
@@ -111,7 +118,7 @@ function readPersistedBuilderState() {
 
     if (
       !parsed ||
-      parsed.version !== 1
+      parsed.version !== 2
     ) {
       localStorage.removeItem(
         BUILDER_STORAGE_KEY
@@ -141,16 +148,13 @@ function readPersistedBuilderState() {
               ...parsed.form,
             }
           : initial,
-      leadResult:
-        parsed.leadResult &&
-        typeof parsed.leadResult ===
-          "object"
-          ? parsed.leadResult
-          : null,
     };
   } catch {
     localStorage.removeItem(
       BUILDER_STORAGE_KEY
+    );
+    localStorage.removeItem(
+      LEGACY_BUILDER_STORAGE_KEY
     );
 
     return null;
@@ -159,15 +163,14 @@ function readPersistedBuilderState() {
 
 function writePersistedBuilderState(state) {
   try {
+    // Persist inputs only. Generated lead results must stay ephemeral.
     localStorage.setItem(
       BUILDER_STORAGE_KEY,
       JSON.stringify({
-        version: 1,
+        version: 2,
         savedAt: Date.now(),
         step: state.step,
         form: state.form,
-        leadResult:
-          state.leadResult,
       })
     );
   } catch {
@@ -704,13 +707,39 @@ function applyLeadStreamEvent(
   if (event.type === "complete") {
     const result =
       event.result || {};
+
+    const authoritativeRequested =
+      Math.max(
+        1,
+        Number(
+          result.requested ||
+            base.requested ||
+            requestedLimit
+        ) || requestedLimit
+      );
+
+    // The final server response owns the result set for this run.
+    // Never merge it with an earlier search or a previous streamed set.
     const leads =
       Array.isArray(result.leads)
         ? mergeLeadCollections(
             [],
             result.leads
+          ).slice(
+            0,
+            authoritativeRequested
           )
-        : base.leads || [];
+        : [];
+
+    const delivered = leads.length;
+    const shortfall = Math.max(
+      0,
+      authoritativeRequested -
+        delivered
+    );
+    const exact =
+      delivered ===
+      authoritativeRequested;
 
     return {
       ...base,
@@ -718,29 +747,18 @@ function applyLeadStreamEvent(
       leads,
       status:
         result.status ||
-        "completed",
+        (exact
+          ? "completed_exact"
+          : delivered
+            ? "completed_partial"
+            : "completed_empty"),
       streaming: false,
       percent: 100,
       requested:
-        Number(
-          result.requested ||
-            base.requested ||
-            requestedLimit
-        ),
-      delivered:
-        Number(
-          result.delivered ??
-            leads.length
-        ),
-      shortfall:
-        Number(
-          result.shortfall ??
-            Math.max(
-              0,
-              requestedLimit -
-                leads.length
-            )
-        ),
+        authoritativeRequested,
+      delivered,
+      shortfall,
+      exact,
       completedAt: Date.now(),
       error: "",
     };
@@ -837,6 +855,7 @@ export default function Builder() {
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const streamControllerRef = useRef(null);
+  const leadSearchRunRef = useRef(0);
 
   const builderBootstrapRef =
     useRef({
@@ -875,9 +894,7 @@ export default function Builder() {
   const [campaigns, setCampaigns] = useState([]);
   const [emailAccounts, setEmailAccounts] = useState([]);
   const [locationOpen, setLocationOpen] = useState(false);
-  const [leadResult, setLeadResult] = useState(
-    () => restoredState?.leadResult || null
-  );
+  const [leadResult, setLeadResult] = useState(null);
   const [leadSearch, setLeadSearch] = useState("");
   const [selectedLead, setSelectedLead] = useState(null);
   const [selectedCallLead, setSelectedCallLead] = useState(null);
@@ -1232,17 +1249,17 @@ export default function Builder() {
       writePersistedBuilderState({
         step,
         form,
-        leadResult,
       });
     }, 150);
 
     return () => {
       window.clearTimeout(saveTimer);
     };
-  }, [step, form, leadResult]);
+  }, [step, form]);
 
   useEffect(() => {
     if (!showingResults) {
+      leadSearchRunRef.current += 1;
       streamControllerRef.current?.abort();
       streamControllerRef.current = null;
     }
@@ -1250,6 +1267,7 @@ export default function Builder() {
 
   useEffect(() => {
   return () => {
+    leadSearchRunRef.current += 1;
     streamControllerRef.current?.abort();
   };
 }, []);
@@ -1495,18 +1513,35 @@ const set = (key, value) => {
 
     streamControllerRef.current?.abort();
 
+    // Every click creates a new authoritative search generation.
+    const searchRun =
+      leadSearchRunRef.current + 1;
+    leadSearchRunRef.current =
+      searchRun;
+
     const controller =
       new AbortController();
     streamControllerRef.current =
       controller;
 
-    const requestedLimit = Number(
-      form.limit || 100
+    const requestedLimit = Math.max(
+      1,
+      Math.min(
+        1000,
+        Number(form.limit || 100)
+      )
     );
 
     setSaving(true);
     setError("");
     setLeadSearch("");
+    setSelectedLead(null);
+    setSelectedCallLead(null);
+    setAssignmentCampaignId("");
+    setAssignmentMessage("");
+    setAssignmentError("");
+    setVoiceLaunchMessage("");
+    setVoiceLaunchError("");
     setLeadResult({
       status: "loading",
       streaming: true,
@@ -1518,6 +1553,7 @@ const set = (key, value) => {
         "Connecting to Google Places…",
       leads: [],
       startedAt: Date.now(),
+      clientRunId: searchRun,
       search: {
         niche: form.niche.trim(),
         location:
@@ -1549,13 +1585,32 @@ const set = (key, value) => {
           signal:
             controller.signal,
           onEvent: (event) => {
+            if (
+              leadSearchRunRef.current !==
+              searchRun
+            ) {
+              return;
+            }
+
             setLeadResult(
-              (current) =>
-                applyLeadStreamEvent(
-                  current,
-                  event,
-                  requestedLimit
-                )
+              (current) => {
+                if (
+                  current?.clientRunId !==
+                  searchRun
+                ) {
+                  return current;
+                }
+
+                return {
+                  ...applyLeadStreamEvent(
+                    current,
+                    event,
+                    requestedLimit
+                  ),
+                  clientRunId:
+                    searchRun,
+                };
+              }
             );
           },
         }
@@ -1568,8 +1623,17 @@ const set = (key, value) => {
         return;
       }
 
+      if (
+        leadSearchRunRef.current !==
+        searchRun
+      ) {
+        return;
+      }
+
       setLeadResult((current) => ({
         ...(current || {}),
+        clientRunId:
+          searchRun,
         status: "error",
         streaming: false,
         percent:
@@ -1597,7 +1661,12 @@ const set = (key, value) => {
           null;
       }
 
-      setSaving(false);
+      if (
+        leadSearchRunRef.current ===
+        searchRun
+      ) {
+        setSaving(false);
+      }
     }
   }
 
@@ -1991,6 +2060,7 @@ async function launchGeneratedLeadsWithVoice() {
 }
 
 function clearLeadResponse() {
+    leadSearchRunRef.current += 1;
     streamControllerRef.current?.abort();
     streamControllerRef.current = null;
     setLeadResult(null);
@@ -4454,6 +4524,227 @@ const BUILDER_V7_CSS = `
   .rf7-operational-card,.rf7-lead-ops-grid>.ai-voice-launch-panel,.rf7-lead-ops-grid>.live-assignment-panel{padding:16px!important}
 }
 
+
+/* ReachFly Leads V4: compact results + fresh-run status */
+.rf7-leads-page{max-width:1600px!important;padding-bottom:32px!important}
+.rf7-result-integrity{min-height:60px;display:flex;align-items:center;justify-content:space-between;gap:20px;margin:0 0 12px;padding:10px 14px;border:1px solid #dfe1e7;border-radius:12px;background:#fff;box-shadow:0 3px 12px rgba(20,24,31,.035)}
+.rf7-result-integrity.exact{border-color:rgba(24,133,92,.22);background:linear-gradient(180deg,#fbfffd,#f8fcfa)}
+.rf7-result-integrity.partial{border-color:rgba(185,116,12,.22);background:linear-gradient(180deg,#fffdfa,#fffaf3)}
+.rf7-result-integrity-copy{min-width:0;display:flex;align-items:center;gap:10px}
+.rf7-result-integrity-icon{width:30px;height:30px;flex:0 0 30px;display:grid;place-items:center;border-radius:9px;color:#fff;background:#19875e;font-size:13px;font-weight:800}
+.rf7-result-integrity.partial .rf7-result-integrity-icon{background:#b57510}
+.rf7-result-integrity-copy strong,.rf7-result-integrity-copy small{display:block}
+.rf7-result-integrity-copy strong{overflow:hidden;color:#25272e;font-size:12px;line-height:17px;font-weight:720;text-overflow:ellipsis;white-space:nowrap}
+.rf7-result-integrity-copy small{margin-top:2px;color:#777684;font-size:10px;line-height:15px}
+.rf7-result-integrity-metrics{flex:0 0 auto;display:flex;align-items:center;overflow:hidden;border:1px solid #e6e7ea;border-radius:9px;background:rgba(255,255,255,.82)}
+.rf7-result-integrity-metrics span{min-width:70px;display:grid;gap:0;padding:6px 10px;color:#858490;font-size:8px;font-weight:650;text-align:center;text-transform:uppercase;letter-spacing:.04em}
+.rf7-result-integrity-metrics span+span{border-left:1px solid #ececef}
+.rf7-result-integrity-metrics b{color:#272933;font-size:12px;line-height:16px;letter-spacing:0}
+.rf7-leads-table-card{min-height:0!important;height:auto!important;overflow:hidden!important}
+.rf7-leads-table-scroll{flex:none!important;height:clamp(430px,54vh,620px)!important;max-height:620px!important;min-height:360px!important;overflow:auto!important;overscroll-behavior:contain!important;scrollbar-gutter:stable!important}
+.rf7-leads-table thead{position:sticky!important;top:0!important;z-index:7!important}
+.rf7-leads-table th{height:38px!important;padding-top:7px!important;padding-bottom:7px!important;background:rgba(248,249,250,.98)!important}
+.rf7-leads-table tbody tr{height:56px!important}
+.rf7-leads-table td{padding-top:7px!important;padding-bottom:7px!important}
+.rf7-company-avatar{width:32px!important;height:32px!important;flex-basis:32px!important;border-radius:8px!important}
+.rf7-leads-table-footer{position:relative!important;min-height:42px!important}
+.rf7-next-actions{margin-top:14px!important;padding:14px!important;border-radius:14px!important}
+.rf7-next-actions-head{align-items:center!important;padding:0 2px 12px!important}
+.rf7-next-actions-head .eyebrow{padding:4px 8px!important}
+.rf7-next-actions-head h2{margin-top:4px!important;font-size:17px!important;line-height:22px!important}
+.rf7-next-actions-head p{margin-top:2px!important;font-size:10px!important;line-height:15px!important}
+.rf7-lead-ops-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;align-items:start!important;gap:12px!important}
+.rf7-lead-ops-grid>*,.rf7-operational-card,.rf7-lead-ops-grid>.live-assignment-panel,.rf7-lead-ops-grid>.ai-voice-launch-panel{align-self:start!important;height:auto!important;min-height:0!important;padding:16px!important}
+.rf7-lead-ops-grid .live-assignment-header{min-height:0!important;margin-bottom:12px!important}
+.rf7-lead-ops-grid .live-assignment-header h2{font-size:15px!important;line-height:20px!important}
+.rf7-lead-ops-grid .live-assignment-header p{font-size:10px!important;line-height:15px!important}
+.rf7-lead-ops-grid .live-assignment-form{grid-template-columns:minmax(0,1.35fr) minmax(115px,.65fr)!important;gap:10px!important}
+.rf7-lead-ops-grid .field select,.rf7-lead-ops-grid .field input[type="number"]{min-height:36px!important}
+.rf7-lead-ops-grid .option-card{padding:9px 10px!important}
+.rf7-lead-ops-grid .btn{min-height:34px!important}
+@media(max-width:1080px){.rf7-result-integrity{align-items:flex-start;flex-direction:column}.rf7-result-integrity-metrics{width:100%}.rf7-result-integrity-metrics span{flex:1}.rf7-lead-ops-grid{grid-template-columns:1fr!important}.rf7-leads-table-scroll{height:min(58vh,560px)!important}}
+@media(max-width:700px){.rf7-result-integrity-copy strong{white-space:normal}.rf7-result-integrity-metrics span{min-width:0;padding-inline:5px}.rf7-leads-table-scroll{height:56vh!important;min-height:320px!important}.rf7-lead-ops-grid .live-assignment-form{grid-template-columns:1fr!important}}
+
+
+/* ==========================================================
+   ReachFly Leads V5 — attractive compact lead cards
+   ========================================================== */
+.rf7-leads-table-scroll{
+  padding:0 9px 8px!important;
+  background:linear-gradient(180deg,#fafbfc 0%,#f7f8fb 100%)!important;
+}
+.rf7-leads-table{
+  border-collapse:separate!important;
+  border-spacing:0 7px!important;
+}
+.rf7-leads-table thead{
+  transform:translateY(-1px);
+}
+.rf7-leads-table thead th{
+  border-bottom:1px solid #e9eaf0!important;
+  background:rgba(248,249,252,.98)!important;
+}
+.rf7-lead-card-row{
+  height:64px!important;
+  border:0!important;
+  background:transparent!important;
+  cursor:pointer;
+  transition:transform 150ms ease,filter 150ms ease!important;
+}
+.rf7-lead-card-row td{
+  position:relative;
+  padding-top:8px!important;
+  padding-bottom:8px!important;
+  border-top:1px solid #e8e9ef;
+  border-bottom:1px solid #e8e9ef;
+  background:linear-gradient(180deg,#fff 0%,#fefeff 100%);
+  transition:background 150ms ease,border-color 150ms ease,box-shadow 150ms ease;
+}
+.rf7-lead-card-row td:first-child{
+  border-left:1px solid #e8e9ef;
+  border-radius:11px 0 0 11px;
+}
+.rf7-lead-card-row td:last-child{
+  border-right:1px solid #e8e9ef;
+  border-radius:0 11px 11px 0;
+}
+.rf7-lead-card-row:hover{
+  transform:translateY(-1px);
+}
+.rf7-lead-card-row:hover td{
+  border-color:#dadaea;
+  background:linear-gradient(180deg,#fff 0%,#fbfbff 100%);
+  box-shadow:0 8px 18px rgba(39,42,76,.055);
+}
+.rf7-lead-card-row.selected td{
+  border-top-color:rgba(70,72,212,.32)!important;
+  border-bottom-color:rgba(70,72,212,.32)!important;
+  background:linear-gradient(180deg,#fbfbff 0%,#f7f7ff 100%)!important;
+}
+.rf7-lead-card-row.selected td:first-child{
+  border-left:3px solid #5658dc!important;
+}
+.rf7-lead-card-row.selected td:last-child{
+  border-right-color:rgba(70,72,212,.32)!important;
+}
+.rf7-company-avatar{
+  width:36px!important;
+  height:36px!important;
+  flex-basis:36px!important;
+  border-radius:11px!important;
+  border:1px solid rgba(255,255,255,.7);
+  box-shadow:0 4px 10px rgba(40,42,70,.08);
+  font-size:11px!important;
+  font-weight:800!important;
+}
+.rf7-company-avatar.tone-0{background:linear-gradient(145deg,#eee7ff,#ddd1ff)!important}
+.rf7-company-avatar.tone-1{background:linear-gradient(145deg,#e6ecff,#d5defa)!important}
+.rf7-company-avatar.tone-2{background:linear-gradient(145deg,#ffe8e5,#ffd6d1)!important}
+.rf7-company-avatar.tone-3{background:linear-gradient(145deg,#ecebff,#dbd9ff)!important}
+.rf7-company-copy strong{
+  color:#242631!important;
+  font-size:13px!important;
+  line-height:17px!important;
+  font-weight:730!important;
+}
+.rf7-company-copy a,
+.rf7-company-copy>span{
+  margin-top:1px!important;
+  color:#747381!important;
+  font-size:9px!important;
+  line-height:13px!important;
+}
+.rf7-company-mini-tags{
+  display:flex;
+  align-items:center;
+  gap:4px;
+  margin-top:3px;
+}
+.rf7-company-mini-tags span{
+  max-width:120px;
+  overflow:hidden;
+  padding:2px 5px;
+  border:1px solid #e7e8ee;
+  border-radius:999px;
+  color:#777684;
+  background:#fafafd;
+  font-size:7px;
+  line-height:9px;
+  font-weight:700;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  text-transform:capitalize;
+}
+.rf7-company-mini-tags .has-contact{
+  color:#16714f;
+  border-color:rgba(22,113,79,.14);
+  background:#f3fbf7;
+}
+.rf7-location-badge{
+  display:inline-flex!important;
+  max-width:100%;
+  padding:4px 7px;
+  border:1px solid #ececf1;
+  border-radius:7px;
+  background:#fafafd;
+  color:#61616e!important;
+  font-size:9px!important;
+  line-height:12px!important;
+}
+.rf7-contact-cell span{
+  color:#3a3c47!important;
+  font-size:10px!important;
+  line-height:14px!important;
+  font-weight:680!important;
+}
+.rf7-contact-cell small{
+  margin-top:2px!important;
+  color:#777684!important;
+  font-size:9px!important;
+}
+.rf7-quality-cell{
+  gap:8px!important;
+}
+.rf7-quality-track{
+  height:5px!important;
+  overflow:hidden;
+  border-radius:999px!important;
+  background:#ececf3!important;
+}
+.rf7-quality-track span{
+  border-radius:999px!important;
+  box-shadow:0 0 8px rgba(75,77,221,.12);
+}
+.rf7-quality-cell b{
+  min-width:24px;
+  padding:2px 5px;
+  border:1px solid #e6e6ed;
+  border-radius:6px;
+  color:#484a59!important;
+  background:#fafafd;
+  font-size:9px!important;
+  text-align:center;
+}
+.rf7-status-pill{
+  padding:4px 7px!important;
+  border:1px solid rgba(86,88,220,.1);
+  box-shadow:0 2px 5px rgba(50,52,90,.035);
+  font-size:8px!important;
+}
+.rf7-row-actions button{
+  width:27px!important;
+  height:27px!important;
+  border-radius:8px!important;
+  transition:transform 140ms ease,background 140ms ease,border-color 140ms ease!important;
+}
+.rf7-row-actions button:hover:not(:disabled){
+  transform:translateY(-1px);
+}
+@media(max-width:900px){
+  .rf7-company-mini-tags{display:none}
+  .rf7-lead-card-row{height:58px!important}
+}
+
 @media (prefers-reduced-motion: reduce) {
   .rf7-leads-page *,
   .builder-page * {
@@ -4515,6 +4806,19 @@ function LiveLeadResultsPage({
   const previousStatusRef = useRef("");
 
   useEffect(() => {
+    setStatusFilter("all");
+    setOnlyEmail(false);
+    setOnlyPhone(false);
+    setOnlyWebsite(false);
+    setMinQuality(0);
+    setSelectedIds(new Set());
+    setDrawerLead(null);
+    queuedAuditWebsitesRef.current =
+      new Set();
+    previousStatusRef.current = "";
+  }, [result?.clientRunId, result?.startedAt]);
+
+  useEffect(() => {
     const pending = leads
       .filter((lead) => lead?.website)
       .filter((lead) => {
@@ -4566,7 +4870,7 @@ function LiveLeadResultsPage({
     }
 
     if (
-      ["complete", "completed", "success", "ready"].includes(status) &&
+      ["complete", "completed", "completed_exact", "completed_partial", "success", "ready"].includes(status) &&
       leads.length > 0
     ) {
       window.reachflyToast?.success?.(
@@ -4909,6 +5213,39 @@ function LiveLeadResultsPage({
           )
         )}
       </motion.div>
+
+      {!isLoading && !hasError ? (
+        <motion.section
+          className={`rf7-result-integrity ${result?.exact ? "exact" : "partial"}`}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <div className="rf7-result-integrity-copy">
+            <span className="rf7-result-integrity-icon" aria-hidden="true">
+              {result?.exact ? "✓" : "i"}
+            </span>
+            <div>
+              <strong>
+                {result?.exact
+                  ? `Fresh result set · exactly ${delivered.toLocaleString()} matching leads`
+                  : `Fresh result set · ${delivered.toLocaleString()} of ${requested.toLocaleString()} matching leads found`}
+              </strong>
+              <small>
+                {form.niche || "Target market"} · {form.location || "Selected location"}
+                {result?.exact
+                  ? " · No previous search results were reused."
+                  : ` · ${Math.max(0, requested - delivered).toLocaleString()} additional unique matches were not available inside the live Google search limits.`}
+              </small>
+            </div>
+          </div>
+
+          <div className="rf7-result-integrity-metrics">
+            <span><b>{requested.toLocaleString()}</b>Requested</span>
+            <span><b>{delivered.toLocaleString()}</b>Returned</span>
+            <span><b>{phoneCount.toLocaleString()}</b>Phones</span>
+          </div>
+        </motion.section>
+      ) : null}
 
       {isLoading || hasError ? (
         <motion.section
@@ -5319,7 +5656,7 @@ function LiveLeadTableRow({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -5 }}
       transition={{ duration: 0.18 }}
-      className={selected ? "selected" : ""}
+      className={`rf7-lead-card-row ${selected ? "selected" : ""}`}
       onClick={onOpen}
     >
       <td className="check" onClick={(event) => event.stopPropagation()}>
@@ -5357,12 +5694,20 @@ function LiveLeadTableRow({
                 No Website
               </span>
             )}
+          <div className="rf7-company-mini-tags">
+            {lead.category ? (
+              <span>{String(lead.category).replace(/_/g, " ")}</span>
+            ) : null}
+            {lead.phone ? (
+              <span className="has-contact">Phone</span>
+            ) : null}
+          </div>
           </div>
         </div>
       </td>
 
       <td>
-        <span className="rf7-table-muted">{location}</span>
+        <span className="rf7-table-muted rf7-location-badge">{location}</span>
       </td>
 
       <td>
