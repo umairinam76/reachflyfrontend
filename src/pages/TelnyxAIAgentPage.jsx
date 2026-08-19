@@ -3057,6 +3057,7 @@ function AgentSetup({
   const [verificationCode, setVerificationCode] = useState("");
   const [connectingExisting, setConnectingExisting] = useState(false);
   const [verifyingExisting, setVerifyingExisting] = useState(false);
+  const [unlinkingNumberId, setUnlinkingNumberId] = useState("");
 
   const normalizedMode = ["inbound", "outbound", "both"].includes(
     String(form.callingMode || "").toLowerCase()
@@ -3381,12 +3382,17 @@ function AgentSetup({
     const sandboxVerification = Boolean(
       existingPending?.testVerificationCode
     );
+    const requiresVerificationCode =
+      sandboxVerification ||
+      existingPending?.requiresVerificationCode === true ||
+      normalizeStatus(existingPending?.number?.verificationProvider) ===
+        "telnyx_verified_numbers";
 
     if (!numberId) {
       onError?.("Start existing-number verification first.");
       return;
     }
-    if (sandboxVerification && !verificationCode) {
+    if (requiresVerificationCode && !verificationCode) {
       onError?.("Enter the ownership verification code.");
       return;
     }
@@ -3402,7 +3408,7 @@ function AgentSetup({
         )}/verify`,
         {
           method: "POST",
-          body: sandboxVerification
+          body: requiresVerificationCode
             ? { code: verificationCode }
             : {},
           timeoutMs: 30_000,
@@ -3443,6 +3449,58 @@ function AgentSetup({
       );
     } finally {
       setVerifyingExisting(false);
+    }
+  }
+
+  async function unlinkExistingNumber(number) {
+    const id = String(number?.id || "").trim();
+    const phoneNumber = String(number?.phoneNumber || "").trim();
+    if (!id || !phoneNumber || unlinkingNumberId) return;
+
+    const confirmed = window.confirm(
+      `Unlink ${formatPhone(phoneNumber)} from ReachFly?\n\n` +
+        "This removes the connected existing number from this workspace, removes its Telnyx verified-number authorization, and removes its managed ElevenLabs phone-number route. It does not release a ReachFly-purchased carrier number."
+    );
+    if (!confirmed) return;
+
+    setUnlinkingNumberId(id);
+    onError?.("");
+    onSuccess?.("");
+
+    try {
+      await apiRequest(
+        `/voice-commerce/numbers/${encodeURIComponent(id)}`,
+        {
+          method: "DELETE",
+          timeoutMs: 30_000,
+        }
+      );
+
+      if (
+        normalizePhoneForUi(form.fromNumber) ===
+        normalizePhoneForUi(phoneNumber)
+      ) {
+        onChange("fromNumber", "");
+      }
+
+      const pendingId =
+        existingPending?.number?.id || existingPending?.id || "";
+      if (pendingId === id) {
+        setExistingPending(null);
+        setVerificationCode("");
+      }
+
+      await onRefresh?.();
+      onSuccess?.(
+        `${formatPhone(phoneNumber)} was unlinked from this workspace and disconnected from the managed Telnyx/ElevenLabs number route.`
+      );
+    } catch (requestError) {
+      onError?.(
+        requestError?.message ||
+          "The existing business number could not be unlinked."
+      );
+    } finally {
+      setUnlinkingNumberId("");
     }
   }
 
@@ -3850,18 +3908,45 @@ function AgentSetup({
                                           </span>
                                         </div>
 
-                                        <button
-                                          type="button"
-                                          className={isSelected ? "btn light" : "btn primary"}
-                                          disabled={!isActive || isSelected}
-                                          onClick={() => useOwnedNumber(number)}
+                                        <div
+                                          style={{
+                                            display: "flex",
+                                            gap: 8,
+                                            flexWrap: "wrap",
+                                            alignItems: "center",
+                                          }}
                                         >
-                                          {isSelected
-                                            ? "Selected"
-                                            : isActive
-                                              ? "Use this number"
-                                              : "Activation pending"}
-                                        </button>
+                                          <button
+                                            type="button"
+                                            className={isSelected ? "btn light" : "btn primary"}
+                                            disabled={!isActive || isSelected}
+                                            onClick={() => useOwnedNumber(number)}
+                                          >
+                                            {isSelected
+                                              ? "Selected"
+                                              : isActive
+                                                ? "Use this number"
+                                                : "Activation pending"}
+                                          </button>
+
+                                          {number.source === "existing_number" ? (
+                                            <button
+                                              type="button"
+                                              className="btn light"
+                                              disabled={
+                                                unlinkingNumberId === number.id ||
+                                                verifyingExisting
+                                              }
+                                              onClick={() =>
+                                                void unlinkExistingNumber(number)
+                                              }
+                                            >
+                                              {unlinkingNumberId === number.id
+                                                ? "Unlinking…"
+                                                : "Unlink number"}
+                                            </button>
+                                          ) : null}
+                                        </div>
                                       </article>
                                     );
                                   })}
@@ -4133,21 +4218,32 @@ function AgentSetup({
                                           "Complete ownership verification to activate this number."}
                                       </p>
 
-                                      {existingPending?.testVerificationCode ? (
+                                      {existingPending?.testVerificationCode ||
+                                      existingPending?.requiresVerificationCode === true ||
+                                      normalizeStatus(
+                                        existingPending?.number?.verificationProvider
+                                      ) === "telnyx_verified_numbers" ? (
                                         <div className="rf-voice-verification-code">
                                           <Field
-                                            label="Sandbox verification code"
-                                            value={verificationCode}
-                                            onChange={
-                                              setVerificationCode
+                                            label={
+                                              existingPending?.testVerificationCode
+                                                ? "Sandbox verification code"
+                                                : "Verification code"
                                             }
+                                            value={verificationCode}
+                                            onChange={setVerificationCode}
                                             placeholder="123456"
                                           />
+                                          {!existingPending?.testVerificationCode ? (
+                                            <small>
+                                              Enter the code delivered by the Telnyx ownership-verification call or SMS.
+                                            </small>
+                                          ) : null}
                                           <button
                                             type="button"
                                             className="btn primary"
                                             disabled={
-                                              verifyingExisting
+                                              verifyingExisting || !verificationCode.trim()
                                             }
                                             onClick={() =>
                                               void verifyExistingNumber()
@@ -4155,33 +4251,9 @@ function AgentSetup({
                                           >
                                             {verifyingExisting
                                               ? "Verifying…"
-                                              : "Confirm ownership"}
-                                          </button>
-                                        </div>
-                                      ) : [
-                                          "pending_verification",
-                                          "verifying",
-                                        ].includes(
-                                          normalizeStatus(
-                                            existingPending?.number?.status
-                                          )
-                                        ) ? (
-                                        <div className="rf-voice-production-verification">
-                                          <b>Answer the verification call and press 1</b>
-                                          <span>
-                                            ReachFly checks ownership before this number can be used as an AI calling identity.
-                                          </span>
-                                          <button
-                                            type="button"
-                                            className="btn primary"
-                                            disabled={verifyingExisting}
-                                            onClick={() =>
-                                              void verifyExistingNumber()
-                                            }
-                                          >
-                                            {verifyingExisting
-                                              ? "Checking…"
-                                              : "Check verification status"}
+                                              : existingPending?.testVerificationCode
+                                                ? "Confirm ownership"
+                                                : "Verify code"}
                                           </button>
                                         </div>
                                       ) : null}
