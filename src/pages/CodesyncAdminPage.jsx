@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiRequest } from "../lib/workspace-platform-client.js";
-import "../styles/codesync-admin-v8.css";
+import "../styles.css";
 
 const PLATFORM_OWNER_EMAIL = "owner@codesynclabs.com";
 
