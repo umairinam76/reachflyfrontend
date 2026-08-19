@@ -227,6 +227,9 @@ export default function Signup() {
 
   return (
     <>
+      <SignupStyles />
+      <SignupV12ClarityStyles />
+      <SignupContrastStyles />
 
       <AuthLayout
         eyebrow="Create account"
@@ -1849,3 +1852,55 @@ function SignupV12ClarityStyles() {
 @media(max-width:720px){.rf11-signup-workspace-grid,.rf11-signup-details-grid{grid-template-columns:1fr!important}.rf11-signup-workspace-card{min-height:0!important}.rf11-signup-single-action .rf11-auth-submit{width:100%!important}.rf11-signup-form-actions{display:grid!important;grid-template-columns:1fr!important}}
 `}</style>;
 }
+
+function SignupContrastStyles() {
+  return (
+    <style>{`
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-v7{color:#172019!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-card-head h2{color:#111814!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-card-head p{color:#556159!important;opacity:1!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-card-eyebrow{color:#536159!important;background:#eef3ee!important;border:1px solid #dce5dd!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-progress-segment>button{color:#69766d!important;opacity:1!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-progress-segment>button>span{color:#5e6b62!important;background:#edf1ed!important;border:1px solid #d9e0da!important;opacity:1!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-progress-segment>button>b{color:#69766d!important;font-weight:700!important;opacity:1!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-progress-segment>button.active,.rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-progress-segment>button.active>b{color:#6559e8!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-progress-segment>button.active>span{color:#fff!important;background:#6f63f6!important;border-color:#6f63f6!important;box-shadow:0 7px 18px rgba(111,99,246,.18)!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-progress-segment>i{background:#dce3dd!important}.rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-progress-segment>i.complete{background:#aaa2fb!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-v7 .rf11-signup-workspace-card{min-height:230px!important;color:#172019!important;background:#f9fbf9!important;border:1px solid #cfd8d0!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 7px 22px rgba(31,47,35,.035)!important;opacity:1!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-v7 .rf11-signup-workspace-card:hover{color:#172019!important;background:#f5f8f5!important;border-color:#aebcaf!important;box-shadow:0 12px 30px rgba(30,46,34,.065)!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-v7 .rf11-signup-workspace-card.active{color:#172019!important;background:linear-gradient(180deg,#fafaff 0%,#f5f4ff 100%)!important;border-color:#786cf4!important;box-shadow:0 0 0 2px rgba(120,108,244,.08),0 12px 30px rgba(67,55,170,.075)!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-v7 .rf11-signup-workspace-card>header>span{color:#6659eb!important;background:#efedff!important;border:1px solid #ddd9ff!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-v7 .rf11-signup-workspace-card.active>header>span{color:#fff!important;background:#6f63f6!important;border-color:#6f63f6!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-v7 .rf11-signup-workspace-card>header>i{color:#fff!important;background:#6f63f6!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-v7 .rf11-signup-workspace-card>div strong{color:#172019!important;font-size:14px!important;line-height:1.35!important;font-weight:700!important;opacity:1!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-v7 .rf11-signup-workspace-card>div p{color:#56635a!important;font-size:11px!important;line-height:1.55!important;opacity:1!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-v7 .rf11-signup-workspace-card ul{border-color:#dde4de!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-v7 .rf11-signup-workspace-card li{color:#657168!important;font-size:10px!important;line-height:1.45!important;opacity:1!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-v7 .rf11-signup-workspace-card li svg{color:#7669f3!important;opacity:1!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-info-note,.rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-security-note,.rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-privacy-note{color:#334139!important;background:#f3f6f2!important;border:1px solid #d8e0d9!important;opacity:1!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-info-note>span,.rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-security-note>span{color:#6358e4!important;background:#eceaff!important;border:1px solid #ddd9ff!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-info-note strong,.rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-security-note strong{color:#28352d!important;font-weight:700!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-info-note p,.rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-security-note p,.rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-privacy-note p{color:#5c685f!important;opacity:1!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-selected-workspace,.rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-account-summary{color:#26332a!important;background:#f4f6ff!important;border:1px solid #d8dcf3!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-selected-workspace small,.rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-account-summary small{color:#68746c!important;opacity:1!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-selected-workspace strong,.rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-account-summary strong{color:#28352d!important;opacity:1!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-field>span{color:#2b382f!important;font-weight:700!important;opacity:1!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-field>div{min-height:56px!important;color:#637067!important;background:#f6f8f5!important;border:1px solid #cbd5cc!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 5px 16px rgba(32,48,36,.03)!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-field>div:hover{background:#f3f6f2!important;border-color:#b8c6ba!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-field>div:focus-within{color:#31463a!important;background:#fff!important;border-color:#87998a!important;box-shadow:0 0 0 4px rgba(45,73,52,.075),0 10px 28px rgba(31,48,35,.05)!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-field>div>svg{color:#66746a!important;opacity:1!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-field input{color:#172019!important;background:transparent!important;caret-color:#1c2e1e!important;font-size:14px!important;font-weight:550!important;opacity:1!important;-webkit-text-fill-color:#172019!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-field input::placeholder{color:#748077!important;opacity:1!important;font-weight:500!important;-webkit-text-fill-color:#748077!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-field input:disabled{color:#66736a!important;-webkit-text-fill-color:#66736a!important;opacity:1!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-password-toggle{color:#304136!important;background:#edf2ed!important;border:1px solid #d3ddd5!important;opacity:1!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-auth-submit{color:#fff!important;background:#1c2e1e!important;border-color:#1c2e1e!important;opacity:1!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-auth-submit:disabled{color:#6f7b72!important;-webkit-text-fill-color:#6f7b72!important;background:#e7ece7!important;border-color:#d9e0da!important;box-shadow:none!important;opacity:1!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-auth-back-btn{color:#33443a!important;background:#f6f8f5!important;border-color:#ccd6ce!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-alert{color:#7c2d31!important;background:#fff4f4!important;border-color:#eccdce!important}.rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-alert strong{color:#672226!important}.rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-alert p{color:#7d3d40!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-submit-caption,.rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-password-strength span{color:#68756c!important;opacity:1!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-password-strength i{background:#d8dfd9!important}.rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-password-strength i.active{background:#6f63f6!important}
+      @media(max-width:720px){.rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-v7 .rf11-signup-workspace-card{min-height:0!important}.rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-field>div{min-height:54px!important}.rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-field input{font-size:15px!important}}
+    `}</style>
+  );
+}
+

@@ -161,6 +161,9 @@ export default function Login() {
 
   return (
     <>
+      <LoginStyles />
+      <LoginContrastStyles />
+      <LoginV12ClarityStyles />
 
       <AuthLayout
         eyebrow="Welcome back"
@@ -1649,3 +1652,35 @@ function LoginV12ClarityStyles() {
 .rf11-login-mobile-brand-copy{color:#f8f9ff!important}.rf11-login-mobile-brand-copy p{color:#aeb6ce!important}
 `}</style>;
 }
+
+function LoginContrastStyles() {
+  return (
+    <style>{`
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-auth-form.rf11-auth-form-v7{color:#172019!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-login-card-eyebrow{color:#506056!important;background:#eef3ee!important;border:1px solid #dce5dd!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-auth-card-head h2{color:#111814!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-auth-card-head p{color:#556159!important;opacity:1!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-auth-input.rf11-login-field .rf11-login-field-label{color:#2b382f!important;font-weight:700!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-auth-input.rf11-login-field>div{min-height:58px!important;color:#536159!important;background:#f6f8f5!important;border:1px solid #cbd5cc!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 5px 16px rgba(32,48,36,.035)!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-auth-input.rf11-login-field>div:hover{border-color:#b8c6ba!important;background:#f3f6f2!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-auth-input.rf11-login-field>div:focus-within{color:#31463a!important;background:#fff!important;border-color:#87998a!important;box-shadow:0 0 0 4px rgba(45,73,52,.075),0 10px 28px rgba(31,48,35,.055)!important;transform:none!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-auth-input.rf11-login-field>div>svg{color:#66746a!important;opacity:1!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-auth-input.rf11-login-field input{color:#172019!important;background:transparent!important;caret-color:#1c2e1e!important;font-size:14px!important;font-weight:550!important;opacity:1!important;-webkit-text-fill-color:#172019!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-auth-input.rf11-login-field input::placeholder{color:#748077!important;opacity:1!important;font-weight:500!important;-webkit-text-fill-color:#748077!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-login-password-toggle{min-width:58px!important;min-height:38px!important;color:#304136!important;background:#edf2ed!important;border:1px solid #d3ddd5!important;border-radius:11px!important;font-weight:700!important;opacity:1!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-login-password-toggle:hover{color:#172019!important;background:#e6ede7!important;border-color:#c5d1c7!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-auth-login-options,.rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-login-remember,.rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-login-remember b{color:#405046!important;opacity:1!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-auth-login-options>a{color:#233b2a!important;font-weight:700!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-auth-divider,.rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-auth-divider span{color:#66736a!important;opacity:1!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-auth-divider span{background:#fbfcfa!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-auth-divider:before,.rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-auth-divider:after{background:#d9e0da!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-auth-submit{color:#fff!important;background:#1c2e1e!important;border-color:#1c2e1e!important;opacity:1!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-login-trust-row,.rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-login-trust-row span{color:#647168!important;opacity:1!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-login-trust-row svg{color:#66786b!important;opacity:1!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-login-auth-alert{color:#7e2f32!important;background:#fff4f4!important;border-color:#eccdce!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-login-auth-alert strong{color:#672226!important}.rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-login-auth-alert p{color:#7d3d40!important}
+      @media(max-width:680px){.rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-auth-input.rf11-login-field>div{min-height:54px!important}.rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-auth-input.rf11-login-field input{font-size:15px!important}}
+    `}</style>
+  );
+}
+
