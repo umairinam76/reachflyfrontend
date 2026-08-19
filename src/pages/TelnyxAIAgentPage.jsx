@@ -3722,15 +3722,6 @@ function AgentSetup({
               )}
             </div>
 
-            <div className="rf-voice-wizard-note">
-              <b>ReachFly manages the carrier layer</b>
-              <span>
-                Customers do not need their own Telnyx or
-                ElevenLabs account. ReachFly can purchase and map
-                numbers to each workspace while using the managed
-                carrier/SIP infrastructure.
-              </span>
-            </div>
           </div>
         ) : null}
 
