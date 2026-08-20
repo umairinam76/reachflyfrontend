@@ -368,6 +368,16 @@ export default function PhoneNumbersPage() {
   async function buyNumber(item) {
     if (!quote?.quoteId || !item?.phoneNumber || buyingNumber) return;
 
+    if (commerce?.purchaseReadiness?.ready === false) {
+      const text = safeMessage(
+        commerce.purchaseReadiness.message ||
+          "Business-number checkout is not fully configured on the server."
+      );
+      setError(text);
+      notify("error", "Checkout configuration required", text);
+      return;
+    }
+
     setBuyingNumber(item.phoneNumber);
     setError("");
     setMessage("");
@@ -379,7 +389,7 @@ export default function PhoneNumbersPage() {
           quoteId: quote.quoteId,
           phoneNumber: item.phoneNumber,
           callingMode,
-          returnPath: "/app/phone-numbers?view=buy",
+          returnPath: "/app/voice-agent?tab=setup&view=buy-numbers",
         },
         timeoutMs: 30_000,
       });
@@ -975,6 +985,12 @@ function BuyPanel({
             <Shield size={12} />
             Only a workspace owner or administrator can purchase a business number.
           </div>
+        ) : commerce?.purchaseReadiness?.ready === false ? (
+          <div className="permission">
+            <Shield size={12} />
+            {commerce.purchaseReadiness.message ||
+              "Business-number checkout needs server configuration before payment can start."}
+          </div>
         ) : null}
       </section>
 
@@ -999,7 +1015,10 @@ function BuyPanel({
               <button
                 type="button"
                 className="btn primary compact"
-                disabled={Boolean(buyingNumber)}
+                disabled={
+                  Boolean(buyingNumber) ||
+                  commerce?.purchaseReadiness?.ready === false
+                }
                 onClick={() => onBuy(item)}
               >
                 {buyingNumber === item.phoneNumber ? (

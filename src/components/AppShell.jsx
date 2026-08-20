@@ -542,16 +542,30 @@ export default function AppShell() {
               ? "/app/my-leads"
               : "/app/leads?view=discover",
             icon: Target,
-            matchPrefixes: isCaller
-              ? ["/app/my-leads"]
-              : [
-                  "/app/leads",
-                  "/app/builder",
-                  "/app/launch-campaign",
-                  "/app/campaigns/external-leads",
-                ],
+            ...(isCaller
+              ? { matchPrefixes: ["/app/my-leads"] }
+              : {
+                  matchQuery: { view: ["discover", "results", null] },
+                  queryPathPrefix: "/app/leads",
+                }),
             visible: isCaller || canManageCampaigns,
             creditGated: !isCaller,
+          },
+          {
+            label: "All Leads",
+            to: "/app/leads?view=all",
+            icon: Users,
+            matchQuery: { view: "all" },
+            queryPathPrefix: "/app/leads",
+            visible: !isCaller && canManageCampaigns,
+          },
+          {
+            label: "External Leads",
+            to: "/app/leads?view=external",
+            icon: Building2,
+            matchQuery: { view: "external" },
+            queryPathPrefix: "/app/leads",
+            visible: !isCaller && canManageCampaigns,
           },
           {
             label: "AI Audits",
@@ -1883,6 +1897,21 @@ function buildBreadcrumbs(pathname, search) {
     ];
   }
 
+  if (pathname.startsWith("/app/leads")) {
+    if (view === "all") {
+      return [
+        { label: "Growth", to: "/app/leads?view=discover" },
+        { label: "All Leads" },
+      ];
+    }
+    if (view === "external") {
+      return [
+        { label: "Growth", to: "/app/leads?view=discover" },
+        { label: "External Leads" },
+      ];
+    }
+  }
+
   const routeMap = [
     ["/app/platform-admin", ["Home", "Platform Admin"]],
     ["/app/dashboard", ["Home", "Dashboard"]],
@@ -1946,7 +1975,7 @@ function getCreditGate(location) {
     );
 
   if (pathname.startsWith("/app/leads")) {
-    if (params.get("view") === "external") {
+    if (["external", "all", "results"].includes(params.get("view"))) {
       return null;
     }
 

@@ -2224,6 +2224,14 @@ function VoiceCommerceOnboarding({
   async function buyNumber(item) {
     if (!quote?.quoteId || !item?.phoneNumber || buyingNumber) return;
 
+    if (commerce?.purchaseReadiness?.ready === false) {
+      onError?.(
+        commerce.purchaseReadiness.message ||
+          "Business-number checkout is not fully configured on the server."
+      );
+      return;
+    }
+
     setBuyingNumber(item.phoneNumber);
     onError?.("");
     onSuccess?.("");
@@ -2236,6 +2244,7 @@ function VoiceCommerceOnboarding({
           body: {
             quoteId: quote.quoteId,
             phoneNumber: item.phoneNumber,
+            returnPath: "/app/voice-agent?onboarding=1&tab=setup&view=buy-numbers",
           },
           timeoutMs: 30_000,
         }
@@ -2439,6 +2448,11 @@ function VoiceCommerceOnboarding({
             <div className="rf-voice-inline-warning">
               Only the workspace owner or an administrator can purchase a number.
             </div>
+          ) : commerce?.purchaseReadiness?.ready === false ? (
+            <div className="rf-voice-inline-warning">
+              {commerce.purchaseReadiness.message ||
+                "Business-number checkout needs server configuration before payment can start."}
+            </div>
           ) : null}
 
           {quote?.items?.length ? (
@@ -2477,7 +2491,10 @@ function VoiceCommerceOnboarding({
                   <button
                     type="button"
                     className="btn primary"
-                    disabled={Boolean(buyingNumber)}
+                    disabled={
+                      Boolean(buyingNumber) ||
+                      commerce?.purchaseReadiness?.ready === false
+                    }
                     onClick={() => void buyNumber(item)}
                   >
                     {buyingNumber === item.phoneNumber

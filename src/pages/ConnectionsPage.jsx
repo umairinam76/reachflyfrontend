@@ -506,20 +506,17 @@ export default function ConnectionsPage() {
               : googleConnections,
             assignmentCounts
           ),
-          action: data?.googleConfigured === false
-            ? {
-                label: "Unavailable",
-                disabled: true,
-              }
-            : {
-                label: healthyGoogleConnections.length
-                  ? "Connect another"
-                  : googleConnections.length
-                    ? "Reconnect"
-                    : "Connect",
-                onClick: connectGoogle,
-                loading: busy === "google",
-              },
+          action: {
+            label: healthyGoogleConnections.length
+              ? "Connect another"
+              : googleConnections.length
+                ? "Reconnect"
+                : data?.googleConfigured === false
+                  ? "Connect / retry"
+                  : "Connect",
+            onClick: connectGoogle,
+            loading: busy === "google",
+          },
           settings: healthyGoogle || anyGoogle
             ? () => setMessage(
                 `Google Workspace is connected as ${(healthyGoogle || anyGoogle)?.accountEmail || "this account"}.`
@@ -544,16 +541,15 @@ export default function ConnectionsPage() {
                 onClick: () => runAction(googleEmailConnection, "email"),
                 loading: busy === `${googleEmailConnection.id}:email`,
               }
-            : data?.googleConfigured === false
-              ? {
-                  label: "Unavailable",
-                  disabled: true,
-                }
-              : {
-                  label: googleEmailConnection ? "Reconnect" : "Connect",
-                  onClick: connectGoogle,
-                  loading: busy === "google",
-                },
+            : {
+                label: googleEmailConnection
+                  ? "Reconnect"
+                  : data?.googleConfigured === false
+                    ? "Connect / retry"
+                    : "Connect",
+                onClick: connectGoogle,
+                loading: busy === "google",
+              },
           settings: googleEmailConnection
             ? () => setMessage(
                 `Gmail is available for ${googleEmailConnection.accountEmail || "this Google connection"}.`
@@ -578,16 +574,15 @@ export default function ConnectionsPage() {
                 onClick: () => runAction(googleCalendarConnection, "calendar"),
                 loading: busy === `${googleCalendarConnection.id}:calendar`,
               }
-            : data?.googleConfigured === false
-              ? {
-                  label: "Unavailable",
-                  disabled: true,
-                }
-              : {
-                  label: googleCalendarConnection ? "Reconnect" : "Connect",
-                  onClick: connectGoogle,
-                  loading: busy === "google",
-                },
+            : {
+                label: googleCalendarConnection
+                  ? "Reconnect"
+                  : data?.googleConfigured === false
+                    ? "Connect / retry"
+                    : "Connect",
+                onClick: connectGoogle,
+                loading: busy === "google",
+              },
           settings: googleCalendarConnection
             ? () => setMessage(
                 `Calendar booking is available for ${googleCalendarConnection.accountEmail || "this Google connection"}.`
@@ -1178,7 +1173,7 @@ export default function ConnectionsPage() {
                 <button
                   type="button"
                   className="rfi-btn primary"
-                  disabled={busy === "google" || data?.googleConfigured === false}
+                  disabled={busy === "google"}
                   onClick={() => void connectGoogle()}
                 >
                   {busy === "google" ? (

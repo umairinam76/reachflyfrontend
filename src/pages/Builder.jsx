@@ -876,9 +876,15 @@ export default function Builder() {
     "manager",
   ].includes(role);
 
+  const currentLeadView =
+    searchParams.get("view") ||
+    "discover";
+
   const showingResults =
-    searchParams.get("view") ===
-    "results";
+    currentLeadView === "results";
+
+  const showingAllLeads =
+    currentLeadView === "all";
 
   const [restoredState] = useState(() => readPersistedBuilderState());
 
@@ -895,6 +901,9 @@ export default function Builder() {
   const [emailAccounts, setEmailAccounts] = useState([]);
   const [locationOpen, setLocationOpen] = useState(false);
   const [leadResult, setLeadResult] = useState(null);
+  const [archivedLeadResult, setArchivedLeadResult] = useState(null);
+  const [archiveLoading, setArchiveLoading] = useState(false);
+  const [archiveReloadKey, setArchiveReloadKey] = useState(0);
   const [leadSearch, setLeadSearch] = useState("");
   const [selectedLead, setSelectedLead] = useState(null);
   const [selectedCallLead, setSelectedCallLead] = useState(null);
@@ -1256,6 +1265,158 @@ export default function Builder() {
       window.clearTimeout(saveTimer);
     };
   }, [step, form]);
+
+  useEffect(() => {
+    if (!showingAllLeads || !canManage) return undefined;
+
+    let cancelled = false;
+
+    async function loadArchivedLeads() {
+      setArchiveLoading(true);
+      setArchivedLeadResult({
+        status: "loading",
+        streaming: true,
+        requested: 0,
+        delivered: 0,
+        percent: 12,
+        message: "Loading your saved scraped leads…",
+        leads: [],
+        archive: true,
+      });
+
+      try {
+        const pageSize = 1000;
+        let offset = 0;
+        let total = 0;
+        const collected = [];
+
+        do {
+          const response = await apiRequest(
+            `/leads/scraped?limit=${pageSize}&offset=${offset}`,
+            { timeoutMs: 30_000 }
+          );
+          const page = Array.isArray(response?.leads)
+            ? response.leads
+            : Array.isArray(response?.items)
+              ? response.items
+              : [];
+          total = Number(response?.total ?? page.length);
+          collected.push(...page);
+          offset += page.length;
+          if (!page.length || response?.hasMore === false) break;
+        } while (offset < total);
+
+        if (cancelled) return;
+
+        setArchivedLeadResult({
+          status: "complete",
+          streaming: false,
+          exact: true,
+          requested: collected.length,
+          delivered: collected.length,
+          percent: 100,
+          message: collected.length
+            ? `${collected.length.toLocaleString()} saved scraped leads are available.`
+            : "No scraped leads have been saved yet.",
+          leads: collected,
+          archive: true,
+          total,
+        });
+      } catch (requestError) {
+        if (cancelled) return;
+        setArchivedLeadResult({
+          status: "error",
+          streaming: false,
+          requested: 0,
+          delivered: 0,
+          percent: 0,
+          error:
+            requestError?.message ||
+            "Saved leads could not be loaded.",
+          message:
+            requestError?.message ||
+            "Saved leads could not be loaded.",
+          leads: [],
+          archive: true,
+        });
+      } finally {
+        if (!cancelled) setArchiveLoading(false);
+      }
+    }
+
+    void loadArchivedLeads();
+    return () => {
+      cancelled = true;
+    };
+  }, [showingAllLeads, canManage, user?.workspaceId, user?.id, archiveReloadKey]);
+
+  useEffect(() => {
+    if (!showingResults || leadResult || !canManage) return undefined;
+
+    let cancelled = false;
+
+    async function restoreLatestSearch() {
+      setLeadResult({
+        status: "loading",
+        streaming: true,
+        requested: Number(form.limit || 100),
+        delivered: 0,
+        percent: 12,
+        message: "Restoring your latest saved lead search…",
+        leads: [],
+      });
+
+      try {
+        const response = await apiRequest(
+          "/leads/scraped?latest=1&limit=5000",
+          { timeoutMs: 30_000 }
+        );
+        if (cancelled) return;
+        const leads = Array.isArray(response?.leads)
+          ? response.leads
+          : Array.isArray(response?.items)
+            ? response.items
+            : [];
+
+        setLeadResult({
+          status: "complete",
+          streaming: false,
+          exact: true,
+          requested: leads.length,
+          delivered: leads.length,
+          percent: 100,
+          message: leads.length
+            ? "Latest lead search restored from your workspace archive."
+            : "No saved lead search is available yet.",
+          leads,
+          restored: true,
+          clientRunId: response?.latestRunId || "restored-latest",
+          startedAt: Date.now(),
+        });
+      } catch (requestError) {
+        if (cancelled) return;
+        setLeadResult({
+          status: "error",
+          streaming: false,
+          requested: Number(form.limit || 100),
+          delivered: 0,
+          percent: 0,
+          error:
+            requestError?.message ||
+            "The latest saved lead search could not be restored.",
+          message:
+            requestError?.message ||
+            "The latest saved lead search could not be restored.",
+          leads: [],
+        });
+      }
+    }
+
+    void restoreLatestSearch();
+    return () => {
+      cancelled = true;
+    };
+  }, [showingResults, canManage, user?.workspaceId, user?.id]);
 
   useEffect(() => {
     if (!showingResults) {
@@ -1751,11 +1912,15 @@ const set = (key, value) => {
 }
 
 async function assignLeadsToCaller() {
+  const sourceResult =
+    showingAllLeads
+      ? archivedLeadResult
+      : leadResult;
   const leads =
     Array.isArray(
-      leadResult?.leads
+      sourceResult?.leads
     )
-      ? leadResult.leads
+      ? sourceResult.leads
       : [];
 
   const requestedCount =
@@ -1859,7 +2024,7 @@ async function assignLeadsToCaller() {
           .filter(Boolean)
       );
 
-    setLeadResult(
+    const updateAssignedLeads =
       (current) => ({
         ...(current || {}),
         leads:
@@ -1869,23 +2034,23 @@ async function assignLeadsToCaller() {
           ).map(
             (lead) =>
               assignedKeys.has(
-                leadIdentity(
-                  lead
-                )
+                leadIdentity(lead)
               )
                 ? {
                     ...lead,
-                    assignedTo:
-                      selectedCallerId,
-                    assigneeId:
-                      selectedCallerId,
-                    assignedToName:
-                      callerName,
+                    assignedTo: selectedCallerId,
+                    assigneeId: selectedCallerId,
+                    assignedToName: callerName,
                   }
                 : lead
           ),
-      })
-    );
+      });
+
+    if (showingAllLeads) {
+      setArchivedLeadResult(updateAssignedLeads);
+    } else {
+      setLeadResult(updateAssignedLeads);
+    }
   } catch (
     requestError
   ) {
@@ -1899,8 +2064,9 @@ async function assignLeadsToCaller() {
 }
 
 async function launchGeneratedLeadsWithVoice() {
-  const leads = Array.isArray(leadResult?.leads)
-    ? leadResult.leads
+  const sourceResult = showingAllLeads ? archivedLeadResult : leadResult;
+  const leads = Array.isArray(sourceResult?.leads)
+    ? sourceResult.leads
     : [];
   const eligible = leads
     .filter((lead) => String(lead?.phone || "").trim())
@@ -2204,6 +2370,77 @@ if (!canManage) {
     </div>
   );
 }
+
+if (showingAllLeads) {
+    return (
+      <>
+        <LiveLeadResultsPage
+          result={archivedLeadResult}
+          form={form}
+          workspace={workspace}
+          search={leadSearch}
+          onSearch={setLeadSearch}
+          onBack={() => navigate("/app/leads?view=discover")}
+          onRetry={() => {
+            setArchivedLeadResult(null);
+            setArchiveReloadKey((value) => value + 1);
+          }}
+          onOpenAudit={setSelectedLead}
+          onCall={setSelectedCallLead}
+          callers={callers}
+          selectedCallerId={selectedCallerId}
+          onSelectCaller={setSelectedCallerId}
+          assignmentLeadCount={assignmentLeadCount}
+          onAssignmentLeadCountChange={setAssignmentLeadCount}
+          onAssign={assignLeadsToCaller}
+          assignmentSaving={assignmentSaving}
+          assignmentMessage={assignmentMessage}
+          assignmentError={assignmentError}
+          assignmentCampaignId={assignmentCampaignId}
+          voiceEnabled={form.voiceEnabled === true}
+          voiceReady={voiceReady}
+          voiceNumber={voiceNumber}
+          voiceLaunchCount={voiceLaunchCount}
+          onVoiceLaunchCount={setVoiceLaunchCount}
+          voiceLaunchConfirmed={voiceLaunchConfirmed}
+          onVoiceLaunchConfirmed={setVoiceLaunchConfirmed}
+          voiceLaunching={voiceLaunching}
+          voiceLaunchMessage={voiceLaunchMessage}
+          voiceLaunchError={voiceLaunchError}
+          aiCallBalance={aiCallBalance}
+          aiCallCreditsKnown={aiCallCreditsKnown}
+          onLaunchVoice={() => void launchGeneratedLeadsWithVoice()}
+          onOpenVoice={() => navigate("/app/voice-agent")}
+          onOpenBilling={() => navigate("/app/billing")}
+          onDownload={() => downloadLeads(archivedLeadResult?.leads || [])}
+          archiveMode
+          archiveLoading={archiveLoading}
+        />
+
+        <CallLeadDrawer
+          lead={selectedCallLead}
+          form={form}
+          workspace={workspace}
+          voiceWorkspace={voiceWorkspace}
+          billingData={billingData}
+          onOpenVoice={() => navigate("/app/voice-agent")}
+          onOpenBilling={() => navigate("/app/billing")}
+          onOpenAudit={() => {
+            setSelectedLead(selectedCallLead);
+            setSelectedCallLead(null);
+          }}
+          onClose={() => setSelectedCallLead(null)}
+        />
+
+        <LeadAuditDrawer
+          lead={selectedLead}
+          form={form}
+          workspace={workspace}
+          onClose={() => setSelectedLead(null)}
+        />
+      </>
+    );
+  }
 
 if (showingResults) {
     return (
@@ -4792,6 +5029,8 @@ function LiveLeadResultsPage({
   onLaunchVoice,
   onOpenVoice,
   onOpenBilling,
+  archiveMode = false,
+  archiveLoading = false,
 }) {
   const leads = Array.isArray(result?.leads) ? result.leads : [];
   const queuedAuditWebsitesRef = useRef(new Set());
@@ -4819,6 +5058,8 @@ function LiveLeadResultsPage({
   }, [result?.clientRunId, result?.startedAt]);
 
   useEffect(() => {
+    if (archiveMode) return undefined;
+
     const pending = leads
       .filter((lead) => lead?.website)
       .filter((lead) => {
@@ -4853,7 +5094,7 @@ function LiveLeadResultsPage({
     }, 700);
 
     return () => window.clearTimeout(timer);
-  }, [leads, form.niche, form.location, workspace?.title]);
+  }, [archiveMode, leads, form.niche, form.location, workspace?.title]);
 
   useEffect(() => {
     const status = String(result?.status || "").toLowerCase();
@@ -4870,6 +5111,7 @@ function LiveLeadResultsPage({
     }
 
     if (
+      !archiveMode &&
       ["complete", "completed", "completed_exact", "completed_partial", "success", "ready"].includes(status) &&
       leads.length > 0
     ) {
@@ -4880,7 +5122,7 @@ function LiveLeadResultsPage({
         } ready to review.`
       );
     }
-  }, [result?.status, result?.error, result?.message, leads.length]);
+  }, [archiveMode, result?.status, result?.error, result?.message, leads.length]);
 
   useEffect(() => {
     if (!assignmentMessage) return;
@@ -4990,7 +5232,9 @@ function LiveLeadResultsPage({
   const delivered = leads.length;
   const percent = Math.max(0, Math.min(100, Number(result?.percent || 0)));
   const isLoading =
-    result?.streaming === true || String(result?.status || "").toLowerCase() === "loading";
+    archiveLoading ||
+    result?.streaming === true ||
+    String(result?.status || "").toLowerCase() === "loading";
   const hasError = String(result?.status || "").toLowerCase() === "error";
   const emailCount = leads.filter((lead) => isDisplayableEmail(lead.email)).length;
   const phoneCount = leads.filter((lead) => lead.phone).length;
@@ -5078,8 +5322,12 @@ function LiveLeadResultsPage({
         transition={{ duration: 0.28 }}
       >
         <div>
-          <h1>Leads</h1>
-          <p>Manage and discover high-intent prospects.</p>
+          <h1>{archiveMode ? "All Leads" : "Leads"}</h1>
+          <p>
+            {archiveMode
+              ? "Every unique lead your workspace has scraped is saved here."
+              : "Manage and discover high-intent prospects."}
+          </p>
         </div>
 
         <div className="rf7-leads-head-actions">
@@ -5226,22 +5474,32 @@ function LiveLeadResultsPage({
             </span>
             <div>
               <strong>
-                {result?.exact
-                  ? `Fresh result set · exactly ${delivered.toLocaleString()} matching leads`
-                  : `Fresh result set · ${delivered.toLocaleString()} of ${requested.toLocaleString()} matching leads found`}
+                {archiveMode
+                  ? `Saved lead archive · ${delivered.toLocaleString()} unique leads`
+                  : result?.restored
+                    ? `Latest saved search restored · ${delivered.toLocaleString()} leads`
+                    : result?.exact
+                      ? `Fresh result set · exactly ${delivered.toLocaleString()} matching leads`
+                      : `Fresh result set · ${delivered.toLocaleString()} of ${requested.toLocaleString()} matching leads found`}
               </strong>
               <small>
-                {form.niche || "Target market"} · {form.location || "Selected location"}
-                {result?.exact
-                  ? " · No previous search results were reused."
-                  : ` · ${Math.max(0, requested - delivered).toLocaleString()} additional unique matches were not available inside the live Google search limits.`}
+                {archiveMode
+                  ? "Scraped results are stored server-side for this workspace, so navigation and refreshes do not remove them."
+                  : result?.restored
+                    ? "This result was restored from the server after the page was reopened."
+                    : <>
+                        {form.niche || "Target market"} · {form.location || "Selected location"}
+                        {result?.exact
+                          ? " · No previous search results were reused."
+                          : ` · ${Math.max(0, requested - delivered).toLocaleString()} additional unique matches were not available inside the live Google search limits.`}
+                      </>}
               </small>
             </div>
           </div>
 
           <div className="rf7-result-integrity-metrics">
-            <span><b>{requested.toLocaleString()}</b>Requested</span>
-            <span><b>{delivered.toLocaleString()}</b>Returned</span>
+            <span><b>{requested.toLocaleString()}</b>{archiveMode ? "Saved" : "Requested"}</span>
+            <span><b>{delivered.toLocaleString()}</b>{archiveMode ? "Visible" : "Returned"}</span>
             <span><b>{phoneCount.toLocaleString()}</b>Phones</span>
           </div>
         </motion.section>
