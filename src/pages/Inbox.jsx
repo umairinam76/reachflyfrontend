@@ -190,6 +190,11 @@ export default function Inbox() {
   ] = useState("");
 
   const [
+    connectedEmail,
+    setConnectedEmail,
+  ] = useState("");
+
+  const [
     detailError,
     setDetailError,
   ] = useState("");
@@ -225,6 +230,10 @@ export default function Inbox() {
               syncResult.items
             )
           ) {
+            if (syncResult.accountEmail) {
+              setConnectedEmail(String(syncResult.accountEmail));
+            }
+
             setItems(
               syncResult.items
             );
@@ -240,6 +249,10 @@ export default function Inbox() {
             }
 
             return;
+          }
+
+          if (syncResult?.accountEmail) {
+            setConnectedEmail(String(syncResult.accountEmail));
           }
 
           const inboxResult =
@@ -991,17 +1004,19 @@ export default function Inbox() {
             </h1>
 
             <p>
-              Campaign emails and connected replies, synced automatically.
+              {connectedEmail
+                ? `Connected to ${connectedEmail}. Gmail activity and campaign replies sync automatically.`
+                : "Campaign emails and connected replies, synced automatically from your workspace connection."}
             </p>
           </div>
 
           <div className="rfi-header-actions">
             <Link
               className="rfi-btn rfi-btn-secondary"
-              to="/app/email"
+              to="/app/connections"
             >
               <Mail size={15} />
-              Email settings
+              Integrations
             </Link>
 
             <button
@@ -2081,9 +2096,9 @@ function ReplyDock({
       <div className="rfi-reply-actions">
         <Link
           className="rfi-btn rfi-btn-secondary"
-          to="/app/email"
+          to="/app/connections"
         >
-          Email settings
+          Integrations
         </Link>
 
         {mailto ? (

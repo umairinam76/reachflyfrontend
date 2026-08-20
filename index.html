@@ -19,7 +19,9 @@
     />
 
     <link rel="canonical" href="https://www.reachflyai.com/" />
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" sizes="any" />
+    <link rel="icon" href="/reachfly-logo.png" type="image/png" sizes="512x512" />
+    <link rel="apple-touch-icon" href="/reachfly-logo.png" />
     <link rel="manifest" href="/site.webmanifest" />
 
     <meta name="theme-color" content="#7b42ff" />
@@ -36,6 +38,11 @@
       content="Find leads, add sales context, run AI Voice conversations, follow up, book meetings, and keep the next step connected inside ReachFly."
     />
     <meta property="og:url" content="https://www.reachflyai.com/" />
+    <meta
+      property="og:image"
+      content="https://www.reachflyai.com/reachfly-logo.png"
+    />
+    <meta property="og:image:alt" content="ReachFlyAI logo" />
 
     <meta name="twitter:card" content="summary" />
     <meta
@@ -45,6 +52,10 @@
     <meta
       name="twitter:description"
       content="Lead discovery, AI audits, AI Voice, email follow-up, meetings, CRM context, pipeline visibility, and team workflows in one sales workspace."
+    />
+    <meta
+      name="twitter:image"
+      content="https://www.reachflyai.com/reachfly-logo.png"
     />
 
     <script type="application/ld+json">
@@ -56,7 +67,12 @@
             "@id": "https://www.reachflyai.com/#organization",
             "name": "ReachFlyAI",
             "url": "https://www.reachflyai.com/",
-            "logo": "https://www.reachflyai.com/favicon.svg"
+            "logo": {
+              "@type": "ImageObject",
+              "url": "https://www.reachflyai.com/reachfly-logo.png",
+              "contentUrl": "https://www.reachflyai.com/reachfly-logo.png",
+              "caption": "ReachFlyAI logo"
+            }
           },
           {
             "@type": "WebSite",

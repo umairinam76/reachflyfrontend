@@ -1024,7 +1024,7 @@ function BuyPanel({
                 {buyingNumber === item.phoneNumber ? (
                   <RefreshCw size={12} className="spin" />
                 ) : null}
-                {buyingNumber === item.phoneNumber ? "Opening…" : "Choose"}
+                {buyingNumber === item.phoneNumber ? "Opening…" : "Buy"}
               </button>
             </article>
           ))}

@@ -2499,7 +2499,7 @@ function VoiceCommerceOnboarding({
                   >
                     {buyingNumber === item.phoneNumber
                       ? "Opening secure checkout…"
-                      : "Choose this number"}
+                      : "Buy"}
                   </button>
                 </article>
               ))}
@@ -3820,7 +3820,7 @@ function AgentSetup({
                   selectNumberPath("buy")
                 }
               >
-                <b>Buy number</b>
+                <b>Buy numbers</b>
                 <small>
                   Search inventory, pay securely and let ReachFly provision the number.
                 </small>
@@ -3837,7 +3837,7 @@ function AgentSetup({
                   selectNumberPath("existing")
                 }
               >
-                <b>Connect existing number</b>
+                <b>Connect existing numbers</b>
                 <small>
                   Use supported SIP/BYOC, forwarding or porting with ownership verification.
                 </small>
@@ -4086,7 +4086,7 @@ function AgentSetup({
                           {buyingNumber ===
                           item.phoneNumber
                             ? "Opening secure checkout…"
-                            : "Choose this number"}
+                            : "Buy"}
                         </button>
                       </article>
                     ))}
@@ -9568,6 +9568,207 @@ function VoiceWorkspaceV7Styles() {
         border-top-color:var(--rfv7-primary);
         border-radius:50%;
         animation:rfv7Spin 800ms linear infinite;
+      }
+
+      /* Business-number setup refinement */
+      .rf-agent-v7 .rf-voice-number-paths{
+        width:100%;
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:8px;
+        padding:6px;
+        margin:0 0 18px;
+        background:#f6f7f9;
+        border:1px solid #e3e5e9;
+        border-radius:14px;
+      }
+
+      .rf-agent-v7 .rf-voice-number-paths > button{
+        min-height:74px;
+        display:flex;
+        flex-direction:column;
+        align-items:flex-start;
+        justify-content:center;
+        gap:5px;
+        padding:12px 14px;
+        color:#4f535b;
+        background:transparent;
+        border:1px solid transparent;
+        border-radius:10px;
+        text-align:left;
+        cursor:pointer;
+        box-shadow:none;
+        transition:background .16s ease,border-color .16s ease,box-shadow .16s ease,color .16s ease;
+      }
+
+      .rf-agent-v7 .rf-voice-number-paths > button:hover{
+        background:#fff;
+        border-color:#dfe2e7;
+      }
+
+      .rf-agent-v7 .rf-voice-number-paths > button.selected{
+        color:#20232a;
+        background:#fff;
+        border-color:#cfd3dc;
+        box-shadow:0 4px 14px rgba(24,29,38,.07);
+      }
+
+      .rf-agent-v7 .rf-voice-number-paths > button.selected::before{
+        content:"";
+        width:28px;
+        height:3px;
+        margin-bottom:2px;
+        background:#5558d9;
+        border-radius:999px;
+      }
+
+      .rf-agent-v7 .rf-voice-number-paths b{
+        color:inherit;
+        font-size:13px;
+        line-height:18px;
+        font-weight:750;
+      }
+
+      .rf-agent-v7 .rf-voice-number-paths small{
+        color:#777b84;
+        font-size:10px;
+        line-height:15px;
+        font-weight:500;
+      }
+
+      .rf-agent-v7 .rf-voice-number-grid{
+        display:grid;
+        grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+        gap:12px;
+        margin-top:14px;
+      }
+
+      .rf-agent-v7 .rf-voice-number-card{
+        min-width:0;
+        min-height:0;
+        display:grid;
+        grid-template-columns:minmax(0,1fr) auto;
+        grid-template-areas:
+          "main price"
+          "main action";
+        align-items:center;
+        gap:12px 18px;
+        padding:16px;
+        background:#fff;
+        border:1px solid #e1e4e9;
+        border-radius:12px;
+        box-shadow:0 2px 8px rgba(28,34,44,.035);
+      }
+
+      .rf-agent-v7 .rf-voice-number-card:hover{
+        transform:none;
+        border-color:#cfd4dc;
+        box-shadow:0 6px 18px rgba(28,34,44,.06);
+      }
+
+      .rf-agent-v7 .rf-voice-number-card-main{
+        grid-area:main;
+        min-width:0;
+      }
+
+      .rf-agent-v7 .rf-voice-number-card-main h3{
+        margin:7px 0 3px;
+        color:#171a20;
+        font-size:18px;
+        line-height:24px;
+        letter-spacing:-.02em;
+      }
+
+      .rf-agent-v7 .rf-voice-number-card-main p{
+        margin:0;
+        color:#737780;
+        font-size:11px;
+        line-height:16px;
+      }
+
+      .rf-agent-v7 .rf-voice-number-badge{
+        display:inline-flex;
+        align-items:center;
+        min-height:22px;
+        padding:3px 8px;
+        color:#5558d9;
+        background:#f0f1ff;
+        border:1px solid #dfe1ff;
+        font-size:9px;
+        font-weight:750;
+      }
+
+      .rf-agent-v7 .rf-voice-number-price{
+        grid-area:price;
+        min-width:118px;
+        display:grid;
+        justify-items:end;
+        gap:2px;
+        text-align:right;
+      }
+
+      .rf-agent-v7 .rf-voice-number-price small,
+      .rf-agent-v7 .rf-voice-number-price span{
+        color:#858993;
+        font-size:9px;
+        line-height:14px;
+      }
+
+      .rf-agent-v7 .rf-voice-number-price b{
+        color:#20232a;
+        font-size:15px;
+        line-height:20px;
+      }
+
+      .rf-agent-v7 .rf-voice-number-card > .btn.primary{
+        grid-area:action;
+        min-width:92px;
+        min-height:36px;
+        justify-self:end;
+        padding:8px 16px;
+        color:#fff!important;
+        background:#5558d9!important;
+        border:1px solid #5558d9!important;
+        border-radius:8px!important;
+        box-shadow:0 4px 12px rgba(85,88,217,.18)!important;
+        font-size:11px!important;
+        font-weight:750!important;
+      }
+
+      .rf-agent-v7 .rf-voice-number-card > .btn.primary:hover:not(:disabled){
+        background:#474ac7!important;
+        border-color:#474ac7!important;
+      }
+
+      .rf-agent-v7 .rf-voice-number-card > .btn.primary:disabled{
+        opacity:.58;
+        cursor:not-allowed;
+      }
+
+      @media(max-width:760px){
+        .rf-agent-v7 .rf-voice-number-paths{
+          grid-template-columns:1fr;
+        }
+
+        .rf-agent-v7 .rf-voice-number-paths > button{
+          min-height:62px;
+        }
+
+        .rf-agent-v7 .rf-voice-number-card{
+          grid-template-columns:1fr;
+          grid-template-areas:"main" "price" "action";
+          align-items:start;
+        }
+
+        .rf-agent-v7 .rf-voice-number-price{
+          justify-items:start;
+          text-align:left;
+        }
+
+        .rf-agent-v7 .rf-voice-number-card > .btn.primary{
+          width:100%;
+          justify-self:stretch;
+        }
       }
 
       @media(max-width:1180px){

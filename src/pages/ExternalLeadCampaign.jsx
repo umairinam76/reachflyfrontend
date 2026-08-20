@@ -1673,8 +1673,8 @@ export default function ExternalLeadCampaign() {
                   <b>No sender email connected</b>
                   <small>Add an email account before launching this campaign.</small>
                 </div>
-                <Link className="btn small" to="/app/email">
-                  Add email
+                <Link className="btn small" to="/app/connections">
+                  Open integrations
                 </Link>
               </div>
             )}
@@ -3676,6 +3676,127 @@ function ExternalLeadCampaignV7Styles() {
 
       .rf-external-campaign-v7 .mt24{
         margin-top:12px!important;
+      }
+
+      /* ReachFly readability pass: this workflow previously used 5-9px text,
+         which made the import/mapping experience look visually scaled down. */
+      .rf-external-campaign-v7{
+        font-size:14px;
+      }
+
+      .rf-external-campaign-v7 .external-campaign-hero h1{
+        font-size:30px;
+        line-height:38px;
+      }
+
+      .rf-external-campaign-v7 .external-campaign-hero p,
+      .rf-external-campaign-v7 .external-card-head p,
+      .rf-external-campaign-v7 .external-message-head p,
+      .rf-external-campaign-v7 .external-records-head p,
+      .rf-external-campaign-v7 .external-source-card small,
+      .rf-external-campaign-v7 .external-upload-box small,
+      .rf-external-campaign-v7 .external-upload-box em,
+      .rf-external-campaign-v7 .external-warning p,
+      .rf-external-campaign-v7 .external-ai-context small,
+      .rf-external-campaign-v7 .external-preview-message p,
+      .rf-external-campaign-v7 .external-mapped-card-top small,
+      .rf-external-campaign-v7 .external-record-stat span,
+      .rf-external-campaign-v7 .external-summary-item span,
+      .rf-external-campaign-v7 .external-data-health span,
+      .rf-external-campaign-v7 .external-table-meta,
+      .rf-external-campaign-v7 .text-xs{
+        font-size:13px!important;
+        line-height:19px!important;
+      }
+
+      .rf-external-campaign-v7 .external-card h2,
+      .rf-external-campaign-v7 .external-card-head h2,
+      .rf-external-campaign-v7 .external-message-head h3,
+      .rf-external-campaign-v7 .external-records-head h3,
+      .rf-external-campaign-v7 .external-segment-panel h3{
+        font-size:18px;
+        line-height:25px;
+      }
+
+      .rf-external-campaign-v7 .external-source-card b,
+      .rf-external-campaign-v7 .external-upload-box b,
+      .rf-external-campaign-v7 .external-warning b,
+      .rf-external-campaign-v7 .external-ai-context b,
+      .rf-external-campaign-v7 .external-preview-message b,
+      .rf-external-campaign-v7 .external-mapped-card-top b,
+      .rf-external-campaign-v7 .external-mapped-fields b,
+      .rf-external-campaign-v7 .external-segment-card b{
+        font-size:14px!important;
+        line-height:20px;
+      }
+
+      .rf-external-campaign-v7 input,
+      .rf-external-campaign-v7 select,
+      .rf-external-campaign-v7 textarea{
+        min-height:42px;
+        padding:10px 12px;
+        font:400 14px/20px Inter,sans-serif;
+      }
+
+      .rf-external-campaign-v7 .field > span,
+      .rf-external-campaign-v7 .external-preview-table th,
+      .rf-external-campaign-v7 .external-preview-table td,
+      .rf-external-campaign-v7 .external-column-cloud > span,
+      .rf-external-campaign-v7 .external-variable-row button,
+      .rf-external-campaign-v7 .external-message-tabs button,
+      .rf-external-campaign-v7 .external-mapped-fields span,
+      .rf-external-campaign-v7 .external-sheet-pitch-stats,
+      .rf-external-campaign-v7 .external-segment-card small{
+        font-size:12px!important;
+        line-height:18px!important;
+      }
+
+      .rf-external-campaign-v7 .external-preview-table td{
+        font-size:13px!important;
+        line-height:19px!important;
+      }
+
+      .rf-external-campaign-v7 .btn,
+      .rf-external-campaign-v7 button{
+        font-size:13px;
+      }
+
+      .rf-external-campaign-v7 .external-step{
+        min-height:58px;
+      }
+
+      .rf-external-campaign-v7 .external-step b,
+      .rf-external-campaign-v7 .external-step strong,
+      .rf-external-campaign-v7 .external-step small{
+        font-size:12px!important;
+        line-height:17px!important;
+      }
+
+      .rf-external-campaign-v7 .external-source-card{
+        min-height:142px;
+        padding:18px;
+      }
+
+      .rf-external-campaign-v7 .external-card,
+      .rf-external-campaign-v7 .external-records-panel,
+      .rf-external-campaign-v7 .external-segment-panel,
+      .rf-external-campaign-v7 .external-message-composer{
+        padding:20px;
+        border-radius:14px;
+      }
+
+      .rf-external-campaign-v7 .external-record-stat,
+      .rf-external-campaign-v7 .external-summary-item,
+      .rf-external-campaign-v7 .external-data-health > div{
+        min-height:82px;
+        padding:12px;
+      }
+
+      .rf-external-campaign-v7 .external-record-stat strong,
+      .rf-external-campaign-v7 .external-summary-item b,
+      .rf-external-campaign-v7 .external-data-health b,
+      .rf-external-campaign-v7 .external-sheet-pitch-stats b{
+        font-size:18px!important;
       }
 
       @media(max-width:1080px){
