@@ -918,11 +918,18 @@ function LeadsRoute() {
         location.search
       );
 
+    const requestedView =
+      params.get("view") ||
+      "discover";
+
     const view =
-      params.get("view") ===
-      "external"
+      requestedView === "external"
         ? "external"
-        : "discover";
+        : requestedView === "all"
+          ? "all"
+          : requestedView === "results"
+            ? "results"
+            : "discover";
 
     return (
       <section className="rf-leads-workspace-v9">
@@ -981,13 +988,24 @@ function LeadsRoute() {
         >
           <Link
             className={
-              view === "discover"
+              ["discover", "results"].includes(view)
                 ? "active"
                 : ""
             }
             to="/app/leads?view=discover"
           >
             Find leads
+          </Link>
+
+          <Link
+            className={
+              view === "all"
+                ? "active"
+                : ""
+            }
+            to="/app/leads?view=all"
+          >
+            All leads
           </Link>
 
           <Link
