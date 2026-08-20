@@ -926,7 +926,6 @@ export default function ExternalLeadCampaign() {
       <ExternalLeadCampaignV7Styles />
       <div className="external-campaign-hero">
         <div>
-          <span className="eyebrow">External lead campaigns</span>
           <h1>Run campaigns from your own lead lists</h1>
           <p>
             Upload an Excel/CSV lead list, map email and phone fields, segment the
