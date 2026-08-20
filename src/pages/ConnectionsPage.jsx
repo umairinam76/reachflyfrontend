@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock3,
-  ExternalLink,
   Globe2,
   Mail,
   MessageCircle,
@@ -38,6 +37,52 @@ const FILTERS = [
   ["available", "Available"],
 ];
 
+const INLINE_EMAIL_PROVIDERS = {
+  gmail: {
+    label: "Gmail / Google",
+    smtpHost: "smtp.gmail.com",
+    smtpPort: 587,
+    smtpSecure: false,
+    imapHost: "imap.gmail.com",
+    imapPort: 993,
+    imapSecure: true,
+  },
+  outlook: {
+    label: "Microsoft / Outlook",
+    smtpHost: "smtp.office365.com",
+    smtpPort: 587,
+    smtpSecure: false,
+    imapHost: "outlook.office365.com",
+    imapPort: 993,
+    imapSecure: true,
+  },
+  custom: {
+    label: "Other provider",
+    smtpHost: "",
+    smtpPort: 587,
+    smtpSecure: false,
+    imapHost: "",
+    imapPort: 993,
+    imapSecure: true,
+  },
+};
+
+function createInlineEmailForm(provider = "gmail") {
+  const preset = INLINE_EMAIL_PROVIDERS[provider] || INLINE_EMAIL_PROVIDERS.gmail;
+  return {
+    provider,
+    fromName: "ReachFlyAI",
+    fromEmail: "",
+    password: "",
+    smtpHost: preset.smtpHost,
+    smtpPort: preset.smtpPort,
+    smtpSecure: preset.smtpSecure,
+    imapHost: preset.imapHost,
+    imapPort: preset.imapPort,
+    imapSecure: preset.imapSecure,
+  };
+}
+
 export default function ConnectionsPage() {
   const mountedRef = useRef(true);
 
@@ -51,6 +96,14 @@ export default function ConnectionsPage() {
   const [message, setMessage] = useState("");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
+  const [activeIntegration, setActiveIntegration] = useState("");
+  const [modalBusy, setModalBusy] = useState("");
+  const [modalError, setModalError] = useState("");
+  const [emailForm, setEmailForm] = useState(() => createInlineEmailForm("gmail"));
+  const [calendlyForm, setCalendlyForm] = useState({
+    accessToken: "",
+    eventUrl: "",
+  });
 
   const load = useCallback(
     async ({
@@ -215,6 +268,22 @@ export default function ConnectionsPage() {
         "google_connection"
       );
 
+    if (status && window.opener && window.opener !== window) {
+      try {
+        window.opener.postMessage(
+          {
+            type: "reachfly:google-connection",
+            status,
+            reason: params.get("reason") || "",
+          },
+          window.location.origin
+        );
+      } catch {}
+      clearGoogleCallbackQuery();
+      window.close();
+      return;
+    }
+
     if (status === "success") {
       const text =
         "Google Workspace connected successfully.";
@@ -264,6 +333,55 @@ export default function ConnectionsPage() {
       clearGoogleCallbackQuery();
     }
   }, [load]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const onMessage = (event) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type !== "reachfly:google-connection") return;
+
+      setBusy("");
+      if (event.data.status === "success") {
+        const text = "Google Workspace connected successfully.";
+        setMessage(text);
+        setError("");
+        notify("success", "Google Workspace connected", text);
+        void load({ silent: true });
+      } else {
+        const reason = safeMessage(event.data.reason || "");
+        const text = reason
+          ? `Google Workspace connection could not be completed (${reason}).`
+          : "Google Workspace connection could not be completed. Try again.";
+        setError(text);
+        notify("error", "Google connection failed", text);
+      }
+    };
+
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [load]);
+
+  useEffect(() => {
+    if (activeIntegration !== "whatsapp" || whatsapp?.ready) return undefined;
+
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const result = await callApi("whatsappStatus", { optional: true });
+        if (!cancelled && result) {
+          setWhatsapp(normalizeWhatsAppStatus(result));
+        }
+      } catch {}
+    };
+
+    void poll();
+    const timer = window.setInterval(poll, 4000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [activeIntegration, whatsapp?.ready]);
 
   const connections = useMemo(
     () => normalizeConnections(data),
@@ -492,10 +610,9 @@ export default function ConnectionsPage() {
             assignmentCounts,
             "email"
           ),
-          link: "/app/email",
           action: {
-            label: customEmailConnections.length ? "Manage" : "Set up",
-            to: "/app/email",
+            label: customEmailConnections.length ? "Connect another" : "Connect",
+            onClick: () => openIntegration("custom-email"),
           },
         },
         {
@@ -512,10 +629,9 @@ export default function ConnectionsPage() {
               : "Messaging connection",
           account: whatsapp?.phone || "",
           assigned: 0,
-          link: "/app/whatsapp",
           action: {
             label: whatsappState.key === "connected" ? "Manage" : "Connect",
-            to: "/app/whatsapp",
+            onClick: () => openIntegration("whatsapp"),
           },
         },
         {
@@ -533,18 +649,10 @@ export default function ConnectionsPage() {
             calendlyConnections,
             assignmentCounts
           ),
-          action: calendlyAny
-            ? {
-                label: "View connection",
-                onClick: () =>
-                  setMessage(
-                    `Calendly connection ${(calendlyHealthy || calendlyAny)?.displayName || "is available"}.`
-                  ),
-              }
-            : {
-                label: "Booking setup",
-                to: "/app/voice-agents",
-              },
+          action: {
+            label: calendlyAny ? "Reconnect" : "Connect",
+            onClick: () => openIntegration("calendly"),
+          },
         },
       ];
     },
@@ -601,75 +709,205 @@ export default function ConnectionsPage() {
     [agents.length, connectedConnections.length, integrationCards]
   );
 
-  async function connectGoogle() {
-    if (busy) {
+  function openIntegration(integrationId) {
+    setModalError("");
+
+    if (["google-workspace", "gmail", "google-calendar"].includes(integrationId)) {
+      void connectGoogle();
+      return;
+    }
+
+    if (integrationId === "calendly") {
+      const existing = calendlyConnections.find(isHealthyConnection) || calendlyConnections[0];
+      setCalendlyForm((current) => ({
+        accessToken: "",
+        eventUrl: firstString(existing?.calendlyEventUrl, existing?.schedulingUrl, current.eventUrl),
+      }));
+    }
+
+    setActiveIntegration(integrationId);
+  }
+
+  function closeIntegration() {
+    if (modalBusy) return;
+    setActiveIntegration("");
+    setModalError("");
+  }
+
+  function chooseInlineEmailProvider(provider) {
+    const next = createInlineEmailForm(provider);
+    setEmailForm((current) => ({
+      ...next,
+      fromName: current.fromName || next.fromName,
+      fromEmail: current.fromEmail,
+      password: current.password,
+    }));
+    setModalError("");
+  }
+
+  async function saveInlineEmail() {
+    if (modalBusy) return;
+    const fromEmail = String(emailForm.fromEmail || "").trim();
+    const password = String(emailForm.password || "").trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fromEmail)) {
+      setModalError("Enter a valid mailbox email address.");
+      return;
+    }
+    if (!password) {
+      setModalError("Enter the mailbox password or app password.");
+      return;
+    }
+    if (!emailForm.smtpHost || !emailForm.imapHost) {
+      setModalError("Enter both SMTP and IMAP server hosts.");
+      return;
+    }
+
+    const payload = {
+      accountId: "",
+      label: fromEmail,
+      provider: emailForm.provider,
+      fromName: String(emailForm.fromName || "ReachFlyAI").trim(),
+      fromEmail,
+      replyTo: fromEmail,
+      host: String(emailForm.smtpHost).trim(),
+      port: Number(emailForm.smtpPort || 587),
+      secure: Boolean(emailForm.smtpSecure),
+      username: fromEmail,
+      password,
+      incomingHost: String(emailForm.imapHost).trim(),
+      incomingPort: Number(emailForm.imapPort || 993),
+      incomingSecure: Boolean(emailForm.imapSecure),
+      incomingUsername: fromEmail,
+      incomingPassword: password,
+      sameIncomingCredentials: true,
+    };
+
+    try {
+      setModalBusy("email");
+      setModalError("");
+      await api.testEmailSettings(payload);
+      await api.testIncomingEmailSettings(payload);
+      await api.saveEmailSettings(payload);
+      const text = `${fromEmail} is connected for sending and inbox sync.`;
+      setMessage(text);
+      notify("success", "Email account connected", text);
+      setEmailForm(createInlineEmailForm(emailForm.provider));
+      setActiveIntegration("");
+      await load({ silent: true });
+    } catch (requestError) {
+      setModalError(safeMessage(requestError?.message || "Email account could not be connected."));
+    } finally {
+      setModalBusy("");
+    }
+  }
+
+  async function connectWhatsAppInline() {
+    if (modalBusy) return;
+    try {
+      setModalBusy("whatsapp");
+      setModalError("");
+      const result = await api.whatsappConnect();
+      const next = normalizeWhatsAppStatus(result);
+      setWhatsapp(next);
+      if (next.ready) {
+        notify("success", "WhatsApp connected", "Your WhatsApp session is ready.");
+      }
+    } catch (requestError) {
+      setModalError(safeMessage(requestError?.message || "WhatsApp linking could not start."));
+    } finally {
+      setModalBusy("");
+    }
+  }
+
+  async function disconnectWhatsAppInline() {
+    if (modalBusy) return;
+    try {
+      setModalBusy("whatsapp");
+      setModalError("");
+      const result = await api.whatsappLogout();
+      setWhatsapp(normalizeWhatsAppStatus(result));
+      notify("success", "WhatsApp disconnected", "The linked WhatsApp session was removed.");
+    } catch (requestError) {
+      setModalError(safeMessage(requestError?.message || "WhatsApp could not be disconnected."));
+    } finally {
+      setModalBusy("");
+    }
+  }
+
+  async function connectCalendlyInline() {
+    if (modalBusy) return;
+    const accessToken = String(calendlyForm.accessToken || "").trim();
+    const eventUrl = String(calendlyForm.eventUrl || "").trim();
+    if (!accessToken || !eventUrl) {
+      setModalError("Enter both the Calendly personal access token and event scheduling URL.");
       return;
     }
 
     try {
+      setModalBusy("calendly");
+      setModalError("");
+      await api.connectCalendly({ accessToken, eventUrl });
+      const text = "Calendly is connected to this workspace.";
+      setMessage(text);
+      notify("success", "Calendly connected", text);
+      setCalendlyForm({ accessToken: "", eventUrl });
+      setActiveIntegration("");
+      await load({ silent: true });
+    } catch (requestError) {
+      setModalError(safeMessage(requestError?.message || "Calendly could not be connected."));
+    } finally {
+      setModalBusy("");
+    }
+  }
+
+  async function connectGoogle() {
+    if (busy) return;
+
+    let popup = null;
+    try {
+      if (typeof window === "undefined") {
+        throw new Error("Google authorization requires a browser session.");
+      }
+
+      popup = window.open(
+        "about:blank",
+        "reachfly-google-oauth",
+        "popup=yes,width=560,height=720,resizable=yes,scrollbars=yes"
+      );
+      if (!popup) {
+        throw new Error("Allow pop-ups for ReachFly to connect Google without leaving this page.");
+      }
+
+      popup.document.title = "Connect Google Workspace";
       setBusy("google");
       setError("");
       setMessage("");
 
-      const response =
-        await callApi(
-          "startGoogleConnection",
-          {
-            args: [
-              {
-                returnTo:
-                  "/app/connections",
-              },
-            ],
-          }
-        );
-
-      const authorizationUrl =
-        String(
-          response
-            ?.authorizationUrl ||
-          response
-            ?.url ||
-          ""
-        ).trim();
-
-      if (
-        !/^https:\/\//i.test(
-          authorizationUrl
-        )
-      ) {
-        throw new Error(
-          "Google authorization could not be opened."
-        );
+      const response = await callApi("startGoogleConnection", {
+        args: [{ returnTo: "/app/connections" }],
+      });
+      const authorizationUrl = String(response?.authorizationUrl || response?.url || "").trim();
+      if (!/^https:\/\//i.test(authorizationUrl)) {
+        throw new Error("Google authorization could not be opened.");
       }
 
-      if (
-        typeof window ===
-        "undefined"
-      ) {
-        throw new Error(
-          "Google authorization requires a browser session."
-        );
-      }
+      popup.location.replace(authorizationUrl);
+      popup.focus();
 
-      window.location.assign(
-        authorizationUrl
-      );
+      const watch = window.setInterval(() => {
+        if (popup?.closed) {
+          window.clearInterval(watch);
+          if (mountedRef.current) setBusy("");
+        }
+      }, 500);
     } catch (requestError) {
-      const text =
-        safeMessage(
-          requestError?.message ||
-            "Google Workspace connection could not start."
-        );
-
+      try { popup?.close(); } catch {}
+      const text = safeMessage(
+        requestError?.message || "Google Workspace connection could not start."
+      );
       setError(text);
       setBusy("");
-
-      notify(
-        "error",
-        "Google connection unavailable",
-        text
-      );
+      notify("error", "Google connection unavailable", text);
     }
   }
 
@@ -884,6 +1122,7 @@ export default function ConnectionsPage() {
                 key={card.id}
                 card={card}
                 index={index}
+                onOpen={() => openIntegration(card.id)}
               />
             ))}
           </section>
@@ -947,9 +1186,13 @@ export default function ConnectionsPage() {
                   ) : null}
                   Connect Google
                 </button>
-                <Link className="rfi-btn secondary" to="/app/email">
-                  Advanced Email Setup
-                </Link>
+                <button
+                  type="button"
+                  className="rfi-btn secondary"
+                  onClick={() => openIntegration("custom-email")}
+                >
+                  Connect another mailbox
+                </button>
               </div>
             </div>
           ) : (
@@ -958,9 +1201,27 @@ export default function ConnectionsPage() {
               assignmentCounts={assignmentCounts}
               busy={busy}
               onAction={runAction}
+              onOpenIntegration={openIntegration}
             />
           )}
         </section>
+
+        <IntegrationModal
+          active={activeIntegration}
+          onClose={closeIntegration}
+          busy={modalBusy}
+          error={modalError}
+          emailForm={emailForm}
+          setEmailForm={setEmailForm}
+          chooseEmailProvider={chooseInlineEmailProvider}
+          onSaveEmail={saveInlineEmail}
+          whatsapp={whatsapp}
+          onConnectWhatsApp={connectWhatsAppInline}
+          onDisconnectWhatsApp={disconnectWhatsAppInline}
+          calendlyForm={calendlyForm}
+          setCalendlyForm={setCalendlyForm}
+          onConnectCalendly={connectCalendlyInline}
+        />
 
         <section className="rfi-security-note">
           <span>
@@ -988,12 +1249,22 @@ export default function ConnectionsPage() {
 function IntegrationCard({
   card,
   index,
+  onOpen,
 }) {
   return (
     <article
-      className="rfi-card"
+      className="rfi-card clickable"
       style={{
         "--rfi-index": index,
+      }}
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen?.();
+        }
       }}
     >
       <header>
@@ -1032,7 +1303,10 @@ function IntegrationCard({
               type="button"
               className="icon"
               aria-label={`View ${card.title} connection details`}
-              onClick={card.settings}
+              onClick={(event) => {
+                event.stopPropagation();
+                card.settings?.();
+              }}
             >
               <Settings size={14} />
             </button>
@@ -1042,6 +1316,7 @@ function IntegrationCard({
             <Link
               className="text"
               to={card.action.to}
+              onClick={(event) => event.stopPropagation()}
             >
               {card.action.label}
             </Link>
@@ -1050,7 +1325,10 @@ function IntegrationCard({
               type="button"
               className="text"
               disabled={card.action.disabled || card.action.loading}
-              onClick={() => card.action.onClick?.()}
+              onClick={(event) => {
+                event.stopPropagation();
+                card.action.onClick?.();
+              }}
             >
               {card.action.loading ? (
                 <RefreshCw size={11} className="spin" />
@@ -1061,6 +1339,334 @@ function IntegrationCard({
         </div>
       </footer>
     </article>
+  );
+}
+
+function IntegrationModal({
+  active,
+  onClose,
+  busy,
+  error,
+  emailForm,
+  setEmailForm,
+  chooseEmailProvider,
+  onSaveEmail,
+  whatsapp,
+  onConnectWhatsApp,
+  onDisconnectWhatsApp,
+  calendlyForm,
+  setCalendlyForm,
+  onConnectCalendly,
+}) {
+  if (!active) return null;
+
+  const whatsappQr = firstString(
+    whatsapp?.qr,
+    whatsapp?.qrCode,
+    whatsapp?.qrcode,
+    whatsapp?.qrDataUrl
+  );
+
+  const titles = {
+    "custom-email": ["Custom Email", "Connect a mailbox without leaving Integrations."],
+    whatsapp: ["WhatsApp Business", "Link a WhatsApp device directly from this page."],
+    calendly: ["Calendly", "Connect a workspace-specific Calendly account for live booking."],
+  };
+  const [title, subtitle] = titles[active] || ["Integration", "Connect this account to ReachFly."];
+
+  return (
+    <div
+      className="rfi-modal-backdrop"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose?.();
+      }}
+    >
+      <section
+        className="rfi-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${title} connection`}
+      >
+        <header className="rfi-modal-head">
+          <div>
+            <span className="rfi-eyebrow">Connect account</span>
+            <h2>{title}</h2>
+            <p>{subtitle}</p>
+          </div>
+          <button
+            type="button"
+            className="rfi-modal-close"
+            aria-label="Close integration dialog"
+            disabled={Boolean(busy)}
+            onClick={onClose}
+          >
+            <X size={16} />
+          </button>
+        </header>
+
+        {error ? (
+          <div className="rfi-modal-error" role="alert">
+            <X size={13} />
+            <span>{error}</span>
+          </div>
+        ) : null}
+
+        {active === "custom-email" ? (
+          <div className="rfi-modal-body">
+            <div className="rfi-provider-choice">
+              {Object.entries(INLINE_EMAIL_PROVIDERS).map(([key, provider]) => (
+                <button
+                  key={key}
+                  type="button"
+                  className={emailForm.provider === key ? "active" : ""}
+                  onClick={() => chooseEmailProvider(key)}
+                >
+                  {provider.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="rfi-form-grid two">
+              <InlineField
+                label="Sender name"
+                value={emailForm.fromName}
+                placeholder="ReachFlyAI"
+                onChange={(value) =>
+                  setEmailForm((current) => ({ ...current, fromName: value }))
+                }
+              />
+              <InlineField
+                label="Mailbox email"
+                value={emailForm.fromEmail}
+                type="email"
+                placeholder="you@company.com"
+                onChange={(value) =>
+                  setEmailForm((current) => ({ ...current, fromEmail: value }))
+                }
+              />
+            </div>
+
+            <InlineField
+              label={emailForm.provider === "gmail" ? "Google app password" : "Mailbox password / app password"}
+              value={emailForm.password}
+              type="password"
+              placeholder="Enter the credential used by SMTP and IMAP"
+              onChange={(value) =>
+                setEmailForm((current) => ({ ...current, password: value }))
+              }
+            />
+
+            <details className="rfi-advanced-email" open={emailForm.provider === "custom"}>
+              <summary>Server settings</summary>
+              <div className="rfi-form-grid two">
+                <InlineField
+                  label="SMTP host"
+                  value={emailForm.smtpHost}
+                  placeholder="smtp.example.com"
+                  onChange={(value) =>
+                    setEmailForm((current) => ({ ...current, smtpHost: value }))
+                  }
+                />
+                <InlineField
+                  label="SMTP port"
+                  value={emailForm.smtpPort}
+                  type="number"
+                  placeholder="587"
+                  onChange={(value) =>
+                    setEmailForm((current) => ({ ...current, smtpPort: value }))
+                  }
+                />
+                <InlineField
+                  label="IMAP host"
+                  value={emailForm.imapHost}
+                  placeholder="imap.example.com"
+                  onChange={(value) =>
+                    setEmailForm((current) => ({ ...current, imapHost: value }))
+                  }
+                />
+                <InlineField
+                  label="IMAP port"
+                  value={emailForm.imapPort}
+                  type="number"
+                  placeholder="993"
+                  onChange={(value) =>
+                    setEmailForm((current) => ({ ...current, imapPort: value }))
+                  }
+                />
+              </div>
+              <div className="rfi-toggle-line">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(emailForm.smtpSecure)}
+                    onChange={(event) =>
+                      setEmailForm((current) => ({ ...current, smtpSecure: event.target.checked }))
+                    }
+                  />
+                  SMTP uses TLS immediately
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(emailForm.imapSecure)}
+                    onChange={(event) =>
+                      setEmailForm((current) => ({ ...current, imapSecure: event.target.checked }))
+                    }
+                  />
+                  IMAP uses TLS
+                </label>
+              </div>
+            </details>
+
+            <div className="rfi-modal-note">
+              <Shield size={14} />
+              <span>
+                ReachFly verifies SMTP and IMAP before saving the account. Credentials stay on the server.
+              </span>
+            </div>
+          </div>
+        ) : null}
+
+        {active === "whatsapp" ? (
+          <div className="rfi-modal-body">
+            {whatsapp?.ready ? (
+              <div className="rfi-whatsapp-connected">
+                <span><CheckCircle2 size={24} /></span>
+                <div>
+                  <strong>WhatsApp is connected</strong>
+                  <p>{whatsapp.phone ? `Linked number: ${formatPhone(whatsapp.phone)}` : "The linked session is ready for messaging workflows."}</p>
+                </div>
+              </div>
+            ) : whatsappQr ? (
+              <div className="rfi-whatsapp-qr">
+                <img src={whatsappQr} alt="WhatsApp linking QR code" />
+                <div>
+                  <strong>Scan from WhatsApp</strong>
+                  <p>Open WhatsApp → Linked devices → Link a device, then scan this QR code.</p>
+                  <small>This dialog checks the connection automatically every few seconds.</small>
+                </div>
+              </div>
+            ) : (
+              <div className="rfi-whatsapp-empty">
+                <MessageCircle size={28} />
+                <strong>Generate a linking QR code</strong>
+                <p>No WhatsApp password is entered into ReachFly. Start linking, then scan the QR code from your phone.</p>
+              </div>
+            )}
+          </div>
+        ) : null}
+
+        {active === "calendly" ? (
+          <div className="rfi-modal-body">
+            <InlineField
+              label="Calendly personal access token"
+              value={calendlyForm.accessToken}
+              type="password"
+              placeholder="Paste the token from Calendly Integrations"
+              onChange={(value) =>
+                setCalendlyForm((current) => ({ ...current, accessToken: value }))
+              }
+            />
+            <InlineField
+              label="Event scheduling URL"
+              value={calendlyForm.eventUrl}
+              type="url"
+              placeholder="https://calendly.com/your-name/30min"
+              onChange={(value) =>
+                setCalendlyForm((current) => ({ ...current, eventUrl: value }))
+              }
+            />
+            <div className="rfi-modal-note">
+              <Shield size={14} />
+              <span>
+                The backend validates the token and confirms that this event link belongs to the connected Calendly account before saving it.
+              </span>
+            </div>
+          </div>
+        ) : null}
+
+        <footer className="rfi-modal-footer">
+          <button
+            type="button"
+            className="rfi-btn secondary"
+            disabled={Boolean(busy)}
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+
+          {active === "custom-email" ? (
+            <button
+              type="button"
+              className="rfi-btn primary"
+              disabled={Boolean(busy)}
+              onClick={() => void onSaveEmail()}
+            >
+              {busy === "email" ? <RefreshCw size={12} className="spin" /> : <Mail size={13} />}
+              {busy === "email" ? "Verifying…" : "Verify & connect"}
+            </button>
+          ) : null}
+
+          {active === "whatsapp" ? (
+            whatsapp?.ready ? (
+              <button
+                type="button"
+                className="rfi-btn danger"
+                disabled={Boolean(busy)}
+                onClick={() => void onDisconnectWhatsApp()}
+              >
+                {busy === "whatsapp" ? <RefreshCw size={12} className="spin" /> : null}
+                Disconnect
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="rfi-btn primary"
+                disabled={Boolean(busy)}
+                onClick={() => void onConnectWhatsApp()}
+              >
+                {busy === "whatsapp" ? <RefreshCw size={12} className="spin" /> : <MessageCircle size={13} />}
+                {whatsappQr ? "Generate new QR" : "Start linking"}
+              </button>
+            )
+          ) : null}
+
+          {active === "calendly" ? (
+            <button
+              type="button"
+              className="rfi-btn primary"
+              disabled={Boolean(busy)}
+              onClick={() => void onConnectCalendly()}
+            >
+              {busy === "calendly" ? <RefreshCw size={12} className="spin" /> : <Calendar size={13} />}
+              {busy === "calendly" ? "Connecting…" : "Connect Calendly"}
+            </button>
+          ) : null}
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function InlineField({
+  label,
+  value,
+  onChange,
+  placeholder = "",
+  type = "text",
+}) {
+  return (
+    <label className="rfi-inline-field">
+      <span>{label}</span>
+      <input
+        type={type}
+        value={value ?? ""}
+        placeholder={placeholder}
+        autoComplete={type === "password" ? "new-password" : undefined}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
   );
 }
 
@@ -1182,6 +1788,7 @@ function ConnectionTable({
   assignmentCounts,
   busy,
   onAction,
+  onOpenIntegration,
 }) {
   return (
     <>
@@ -1205,6 +1812,7 @@ function ConnectionTable({
                 busy={busy}
                 index={index}
                 onAction={onAction}
+                onOpenIntegration={onOpenIntegration}
               />
             ))}
           </tbody>
@@ -1220,6 +1828,7 @@ function ConnectionTable({
             busy={busy}
             index={index}
             onAction={onAction}
+            onOpenIntegration={onOpenIntegration}
           />
         ))}
       </div>
@@ -1233,6 +1842,7 @@ function ConnectionRow({
   busy,
   index,
   onAction,
+  onOpenIntegration,
 }) {
   const state = getProviderState({
     configured: true,
@@ -1266,6 +1876,7 @@ function ConnectionRow({
           connection={connection}
           busy={busy}
           onAction={onAction}
+          onOpenIntegration={onOpenIntegration}
         />
       </td>
     </tr>
@@ -1278,6 +1889,7 @@ function ConnectionMobileCard({
   busy,
   index,
   onAction,
+  onOpenIntegration,
 }) {
   const state = getProviderState({
     configured: true,
@@ -1311,6 +1923,7 @@ function ConnectionMobileCard({
         connection={connection}
         busy={busy}
         onAction={onAction}
+        onOpenIntegration={onOpenIntegration}
       />
     </article>
   );
@@ -1392,6 +2005,7 @@ function ConnectionActions({
   connection,
   busy,
   onAction,
+  onOpenIntegration,
 }) {
   const isBusy = Boolean(busy);
   const emailBusy = busy === `${connection.id}:email`;
@@ -1423,11 +2037,14 @@ function ConnectionActions({
       ) : null}
 
       {isCustomEmailConnection(connection) ? (
-        <Link to="/app/email">
-          Manage
-          <ExternalLink size={10} />
-        </Link>
-      ) : isGoogleConnection(connection) ? (
+        <button
+          type="button"
+          disabled={isBusy}
+          onClick={() => onOpenIntegration?.("custom-email")}
+        >
+          Add mailbox
+        </button>
+      ) : isGoogleConnection(connection) || isCalendlyConnection(connection) ? (
         <button
           type="button"
           className="danger"
@@ -3242,7 +3859,317 @@ function ConnectionsStyles() {
         }
       }
 
+      .rfi-card.clickable{
+        cursor:pointer;
+      }
+
+      .rfi-card.clickable:focus-visible{
+        outline:2px solid var(--rfi-primary);
+        outline-offset:3px;
+      }
+
+      .rfi-modal-backdrop{
+        position:fixed;
+        inset:0;
+        z-index:1200;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        padding:24px;
+        background:rgba(20,22,28,.46);
+        backdrop-filter:blur(3px);
+        animation:rfiPageIn 160ms var(--rfi-ease);
+      }
+
+      .rfi-modal{
+        width:min(640px,100%);
+        max-height:min(820px,calc(100vh - 48px));
+        overflow:auto;
+        border:1px solid var(--rfi-line);
+        border-radius:18px;
+        background:#fff;
+        box-shadow:0 24px 70px rgba(27,28,37,.22);
+      }
+
+      .rfi-modal-head{
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:20px;
+        padding:22px 24px 17px;
+        border-bottom:1px solid var(--rfi-line);
+      }
+
+      .rfi-modal-head h2{
+        margin:3px 0 5px;
+        font-size:20px;
+        line-height:26px;
+      }
+
+      .rfi-modal-head p{
+        margin:0;
+        max-width:500px;
+        color:var(--rfi-muted);
+        font-size:10px;
+        line-height:16px;
+      }
+
+      .rfi-modal-close{
+        width:34px;
+        height:34px;
+        flex:0 0 auto;
+        display:grid;
+        place-items:center;
+        border:1px solid var(--rfi-line);
+        border-radius:10px;
+        background:#fff;
+        color:var(--rfi-text2);
+        cursor:pointer;
+      }
+
+      .rfi-modal-error{
+        display:flex;
+        align-items:flex-start;
+        gap:9px;
+        margin:16px 24px 0;
+        padding:10px 12px;
+        border:1px solid #ffc8c3;
+        border-radius:10px;
+        background:var(--rfi-danger-soft);
+        color:var(--rfi-danger);
+        font-size:9px;
+        line-height:14px;
+      }
+
+      .rfi-modal-body{
+        display:grid;
+        gap:15px;
+        padding:20px 24px;
+      }
+
+      .rfi-provider-choice{
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:8px;
+      }
+
+      .rfi-provider-choice button{
+        min-height:40px;
+        border:1px solid var(--rfi-line);
+        border-radius:10px;
+        background:#fff;
+        color:var(--rfi-text2);
+        font:inherit;
+        font-size:9px;
+        font-weight:700;
+        cursor:pointer;
+      }
+
+      .rfi-provider-choice button.active{
+        border-color:#a9aaf7;
+        background:var(--rfi-primary-soft);
+        color:var(--rfi-primary-dark);
+      }
+
+      .rfi-form-grid{
+        display:grid;
+        gap:12px;
+      }
+
+      .rfi-form-grid.two{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+
+      .rfi-inline-field{
+        display:grid;
+        gap:6px;
+      }
+
+      .rfi-inline-field > span{
+        color:var(--rfi-text2);
+        font-size:8px;
+        font-weight:750;
+        letter-spacing:.01em;
+      }
+
+      .rfi-inline-field input{
+        width:100%;
+        min-height:41px;
+        padding:0 12px;
+        border:1px solid var(--rfi-line);
+        border-radius:10px;
+        outline:none;
+        background:#fff;
+        color:var(--rfi-text);
+        font:inherit;
+        font-size:10px;
+      }
+
+      .rfi-inline-field input:focus{
+        border-color:#aaaaf2;
+        box-shadow:0 0 0 3px rgba(70,72,212,.09);
+      }
+
+      .rfi-advanced-email{
+        padding:12px;
+        border:1px solid var(--rfi-line);
+        border-radius:11px;
+        background:#fafafb;
+      }
+
+      .rfi-advanced-email summary{
+        color:var(--rfi-text2);
+        font-size:9px;
+        font-weight:750;
+        cursor:pointer;
+      }
+
+      .rfi-advanced-email[open] summary{
+        margin-bottom:12px;
+      }
+
+      .rfi-toggle-line{
+        display:flex;
+        flex-wrap:wrap;
+        gap:12px 18px;
+        margin-top:12px;
+        color:var(--rfi-muted);
+        font-size:8px;
+      }
+
+      .rfi-toggle-line label{
+        display:flex;
+        align-items:center;
+        gap:6px;
+      }
+
+      .rfi-modal-note{
+        display:flex;
+        align-items:flex-start;
+        gap:9px;
+        padding:10px 12px;
+        border-radius:10px;
+        background:#f6f7f8;
+        color:var(--rfi-muted);
+        font-size:8px;
+        line-height:14px;
+      }
+
+      .rfi-whatsapp-empty,
+      .rfi-whatsapp-connected{
+        display:flex;
+        align-items:flex-start;
+        gap:14px;
+        padding:18px;
+        border:1px solid var(--rfi-line);
+        border-radius:13px;
+        background:#fafbfb;
+      }
+
+      .rfi-whatsapp-empty{
+        align-items:center;
+        flex-direction:column;
+        text-align:center;
+      }
+
+      .rfi-whatsapp-empty strong,
+      .rfi-whatsapp-connected strong,
+      .rfi-whatsapp-qr strong{
+        display:block;
+        margin-bottom:4px;
+        font-size:11px;
+      }
+
+      .rfi-whatsapp-empty p,
+      .rfi-whatsapp-connected p,
+      .rfi-whatsapp-qr p{
+        margin:0;
+        color:var(--rfi-muted);
+        font-size:9px;
+        line-height:15px;
+      }
+
+      .rfi-whatsapp-connected > span{
+        display:grid;
+        place-items:center;
+        width:42px;
+        height:42px;
+        flex:0 0 auto;
+        border-radius:50%;
+        background:var(--rfi-success-soft);
+        color:var(--rfi-success);
+      }
+
+      .rfi-whatsapp-qr{
+        display:grid;
+        grid-template-columns:190px minmax(0,1fr);
+        gap:22px;
+        align-items:center;
+      }
+
+      .rfi-whatsapp-qr img{
+        width:190px;
+        height:190px;
+        display:block;
+        border:10px solid #fff;
+        border-radius:12px;
+        object-fit:contain;
+        box-shadow:0 0 0 1px var(--rfi-line);
+      }
+
+      .rfi-whatsapp-qr small{
+        display:block;
+        margin-top:8px;
+        color:var(--rfi-muted);
+        font-size:8px;
+        line-height:13px;
+      }
+
+      .rfi-modal-footer{
+        display:flex;
+        align-items:center;
+        justify-content:flex-end;
+        gap:8px;
+        padding:15px 24px 20px;
+        border-top:1px solid var(--rfi-line);
+      }
+
+      .rfi-btn.danger{
+        border-color:#ffc9c5;
+        background:var(--rfi-danger-soft);
+        color:var(--rfi-danger);
+      }
+
       @media(max-width:650px){
+        .rfi-modal-backdrop{
+          align-items:flex-end;
+          padding:0;
+        }
+
+        .rfi-modal{
+          max-height:92vh;
+          border-radius:18px 18px 0 0;
+        }
+
+        .rfi-form-grid.two,
+        .rfi-provider-choice,
+        .rfi-whatsapp-qr{
+          grid-template-columns:1fr;
+        }
+
+        .rfi-whatsapp-qr img{
+          width:min(220px,100%);
+          height:auto;
+          justify-self:center;
+        }
+
+        .rfi-modal-head,
+        .rfi-modal-body,
+        .rfi-modal-footer{
+          padding-left:16px;
+          padding-right:16px;
+        }
+
         .rf-integrations-v7{
           padding:18px 12px 84px;
         }
