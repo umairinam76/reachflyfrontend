@@ -193,7 +193,7 @@ h3,
   gap: 8px;
   border-radius: 999px;
   padding: 8px 13px;
-  background: rgba(123, 66, 255, .07);
+  background:#5658d6;
   border: 1px solid rgba(123, 66, 255, .16);
   color: var(--purple);
   text-transform: uppercase;

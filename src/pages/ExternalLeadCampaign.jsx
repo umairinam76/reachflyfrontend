@@ -2835,6 +2835,9 @@ function ExternalLeadCampaignV7Styles() {
         min-width:0;
       }
 
+      .eyebrow{
+      background: #5658d6;
+      }
       .rf-external-campaign-v7 .external-campaign-hero .eyebrow{
         color:#c8caff;
       }
