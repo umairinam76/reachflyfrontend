@@ -12,7 +12,6 @@ import {
 import { api } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import {
-  Bot,
   ChevronRight,
   RefreshCw,
   Send,
@@ -50,6 +49,9 @@ export default function ReachFlyAIFloating() {
 
   const endRef = useRef(null);
   const lastAnalysedPath = useRef("");
+  const inactivityTimerRef = useRef(null);
+  const loadingRef = useRef(false);
+  const streamIdRef = useRef(0);
 
   const screen = useMemo(
     () =>
@@ -74,6 +76,10 @@ export default function ReachFlyAIFloating() {
   );
 
   useEffect(() => {
+    loadingRef.current = loading;
+  }, [loading]);
+
+  useEffect(() => {
     if (!open) {
       return;
     }
@@ -86,23 +92,83 @@ export default function ReachFlyAIFloating() {
   }, [messages, loading, open]);
 
   useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    if (
-      lastAnalysedPath.current ===
-      location.pathname
-    ) {
-      return;
-    }
-
-    lastAnalysedPath.current =
-      location.pathname;
-
-    analyseCurrentScreen();
+    if (!open) return;
+    const routeKey = `${location.pathname}${location.search || ""}`;
+    if (lastAnalysedPath.current === routeKey) return;
+    void analyseCurrentScreen({ automatic: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, location.pathname]);
+  }, [open, loading, location.pathname, location.search]);
+
+  useEffect(() => {
+    if (!isAuthenticated || initializing || typeof window === "undefined") {
+      return undefined;
+    }
+
+    const routeKey = `${location.pathname}${location.search || ""}`;
+    const sessionKey = `reachfly-ai-nudged:${routeKey}`;
+    let lastActivityAt = Date.now();
+
+    const clearTimer = () => {
+      if (inactivityTimerRef.current) {
+        window.clearTimeout(inactivityTimerRef.current);
+        inactivityTimerRef.current = null;
+      }
+    };
+
+    const schedule = () => {
+      clearTimer();
+      if (window.sessionStorage.getItem(sessionKey) === "1") return;
+
+      inactivityTimerRef.current = window.setTimeout(() => {
+        if (document.hidden || open || loadingRef.current) return;
+        if (Date.now() - lastActivityAt < 9_500) {
+          schedule();
+          return;
+        }
+
+        window.sessionStorage.setItem(sessionKey, "1");
+        setOpen(true);
+        setUnread(false);
+        setMessages((current) => [
+          ...current.filter((message) => message.type !== "proactive-nudge"),
+          {
+            role: "assistant",
+            type: "proactive-nudge",
+            text: "Still on this page? I can check the current screen and help you finish what you’re doing.",
+          },
+        ]);
+
+        window.setTimeout(() => {
+          void analyseCurrentScreen({ automatic: true, proactive: true });
+        }, 120);
+      }, 10_000);
+    };
+
+    const markActivity = () => {
+      lastActivityAt = Date.now();
+      schedule();
+    };
+
+    ["pointerdown", "keydown", "touchstart"].forEach((eventName) =>
+      window.addEventListener(eventName, markActivity, { passive: true })
+    );
+    window.addEventListener("scroll", markActivity, { passive: true });
+    schedule();
+
+    return () => {
+      clearTimer();
+      ["pointerdown", "keydown", "touchstart"].forEach((eventName) =>
+        window.removeEventListener(eventName, markActivity)
+      );
+      window.removeEventListener("scroll", markActivity);
+    };
+  }, [
+    initializing,
+    isAuthenticated,
+    location.pathname,
+    location.search,
+    open,
+  ]);
 
   if (
     initializing ||
@@ -111,172 +177,169 @@ export default function ReachFlyAIFloating() {
     return null;
   }
 
-  const send = async (
-    requestedText = input
-  ) => {
-    const command = String(
-      requestedText || ""
-    ).trim();
+  const streamAssistantReply = async ({
+    command,
+    latestScreen,
+    type = "",
+    automatic = false,
+    replaceType = "",
+  }) => {
+    const streamId = `rfai-${Date.now()}-${streamIdRef.current++}`;
 
-    if (!command || loading) {
-      return;
-    }
+    setMessages((current) => {
+      const base = replaceType
+        ? current.filter((message) => message.type !== replaceType)
+        : current;
+
+      return [
+        ...base,
+        {
+          id: streamId,
+          role: "assistant",
+          type,
+          text: "",
+          streaming: true,
+        },
+      ];
+    });
+
+    const appendDelta = (delta) => {
+      if (!delta) return;
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === streamId
+            ? {
+                ...message,
+                text: `${message.text || ""}${delta}`,
+              }
+            : message
+        )
+      );
+    };
+
+    const result = typeof api.contextualCommandStream === "function"
+      ? await api.contextualCommandStream(command, latestScreen, {
+          automatic,
+          onDelta: appendDelta,
+        })
+      : await api.contextualCommand(command, latestScreen, { automatic });
+
+    const finalReply = safeAiMessage(
+      result?.reply || result?.message || "I reviewed this screen."
+    );
+
+    setMessages((current) =>
+      current.map((message) =>
+        message.id === streamId
+          ? {
+              ...message,
+              text: message.text?.trim() ? safeAiMessage(message.text) : finalReply,
+              streaming: false,
+              action: result?.action || null,
+              link: result?.link || result?.url || "",
+              campaign: result?.campaign || null,
+              support: result?.support || null,
+            }
+          : message
+      )
+    );
+
+    return result;
+  };
+
+  const send = async (requestedText = input) => {
+    const command = String(requestedText || "").trim();
+    if (!command || loadingRef.current) return;
 
     setInput("");
-
     setMessages((current) => [
       ...current,
-      {
-        role: "user",
-        text: command,
-      },
+      { role: "user", text: command },
     ]);
-
     setLoading(true);
+    loadingRef.current = true;
 
     try {
-      const latestScreen =
-        buildScreenContext({
-          pathname:
-            location.pathname,
+      const latestScreen = buildScreenContext({
+        pathname: location.pathname,
+        search: location.search,
+        user,
+      });
 
-          search:
-            location.search,
+      await streamAssistantReply({
+        command,
+        latestScreen,
+        automatic: false,
+      });
 
-          user,
-        });
-
-      const result =
-        await sendContextualCommand(
-          command,
-          latestScreen
-        );
-
-      const reply =
-        result?.reply ||
-        result?.message ||
-        "I reviewed this screen, but no recommendation was returned.";
-
-      const nextMessage = {
-        role: "assistant",
-        text: safeAiMessage(reply),
-
-        action:
-          result?.action ||
-          null,
-
-        link:
-          result?.link ||
-          result?.url ||
-          "",
-
-        campaign:
-          result?.campaign ||
-          null,
-      };
-
-      setMessages((current) => [
-        ...current,
-        nextMessage,
-      ]);
-
-      if (!open) {
-        setUnread(true);
-      }
+      if (!open) setUnread(true);
     } catch (error) {
       setMessages((current) => [
-        ...current,
+        ...current.filter((message) => !message.streaming),
         {
           role: "assistant",
           text: safeAiMessage(
-            error?.message ||
-              "ReachFly AI could not process this request."
+            error?.message || "ReachFly AI could not process this request."
           ),
           error: true,
         },
       ]);
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
   };
 
-  async function analyseCurrentScreen() {
-    if (loading) {
-      return;
-    }
+  async function analyseCurrentScreen({ automatic = true, proactive = false } = {}) {
+    if (loadingRef.current) return;
 
+    const routeKey = `${location.pathname}${location.search || ""}`;
+    lastAnalysedPath.current = routeKey;
     setLoading(true);
+    loadingRef.current = true;
 
     try {
-      const currentScreen =
-        buildScreenContext({
-          pathname:
-            location.pathname,
+      const currentScreen = buildScreenContext({
+        pathname: location.pathname,
+        search: location.search,
+        user,
+      });
 
-          search:
-            location.search,
-
-          user,
-        });
-
-      const result =
-        await sendContextualCommand(
-          [
+      const prompt = proactive
+        ? [
+            "The user has been inactive on this ReachFly screen for about 10 seconds and may be stuck.",
+            "Look at the current page context and proactively help them continue.",
+            "Start with one short question or observation, then give up to three exact next steps.",
+            "If there is a visible error, explain it using only the supplied context.",
+          ].join(" ")
+        : [
             "Review my current ReachFly screen.",
-            "Briefly explain what I should check next.",
-            "Give at most three practical actions.",
-            "Only discuss ReachFly data and workflows.",
-          ].join(" "),
-          currentScreen
-        );
+            "Explain what this page is for and what I should check next.",
+            "Give at most three practical actions using the controls that are actually visible.",
+          ].join(" ");
 
-      const reply =
-        result?.reply ||
-        result?.message;
-
-      if (reply) {
-        setMessages((current) => {
-          const withoutPreviousAnalysis =
-            current.filter(
-              (message) =>
-                message.type !==
-                "screen-analysis"
-            );
-
-          return [
-            ...withoutPreviousAnalysis,
-            {
-              role: "assistant",
-              type: "screen-analysis",
-              text: safeAiMessage(reply),
-
-              action:
-                result?.action ||
-                null,
-
-              link:
-                result?.link ||
-                result?.url ||
-                "",
-
-              campaign:
-                result?.campaign ||
-                null,
-            },
-          ];
-        });
-      }
+      await streamAssistantReply({
+        command: prompt,
+        latestScreen: currentScreen,
+        type: "screen-analysis",
+        replaceType: "screen-analysis",
+        automatic,
+      });
     } catch (error) {
-      console.error(
-        "ReachFly screen analysis failed:",
-        error
-      );
+      console.error("ReachFly screen analysis failed:", error);
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
   }
 
   const openBot = () => {
+    try {
+      window.sessionStorage.setItem(
+        `reachfly-ai-nudged:${location.pathname}${location.search || ""}`,
+        "1"
+      );
+    } catch {}
     setOpen(true);
     setUnread(false);
   };
@@ -328,8 +391,9 @@ export default function ReachFlyAIFloating() {
         >
           <header className="reachfly-ai-floating-header">
             <div className="reachfly-ai-floating-heading">
-              <span className="reachfly-ai-floating-avatar">
-                <Bot size={18} />
+              <span className="reachfly-ai-floating-avatar" aria-hidden="true">
+                <span>RF</span>
+                <i />
               </span>
 
               <div>
@@ -338,7 +402,7 @@ export default function ReachFlyAIFloating() {
                 </strong>
 
                 <small>
-                  Workspace-aware assistant
+                  Live Claude assistant
                 </small>
               </div>
             </div>
@@ -390,7 +454,7 @@ export default function ReachFlyAIFloating() {
 
             <em>
               <Shield size={11} />
-              ReachFly workspace context only
+              Current page + workspace context
             </em>
           </div>
 
@@ -412,6 +476,12 @@ export default function ReachFlyAIFloating() {
                   <p>
                     {safeAiMessage(message.text)}
                   </p>
+
+                  {message.support?.id ? (
+                    <span className="reachfly-ai-support-chip">
+                      Support request {message.support.emailStatus === "sent" ? "sent" : "queued"}
+                    </span>
+                  ) : null}
 
                   {message.link ||
                   message.campaign?.id ? (
@@ -516,8 +586,9 @@ export default function ReachFlyAIFloating() {
             : "Open ReachFly AI"
         }
       >
-        <span className="reachfly-ai-trigger-logo">
-          <Sparkles size={16} />
+        <span className="reachfly-ai-trigger-logo" aria-hidden="true">
+          <span>RF</span>
+          <i />
         </span>
 
         <span className="reachfly-ai-trigger-label">
@@ -585,7 +656,10 @@ function buildScreenContext({
     visibleActions:
       pageInformation.actions,
 
-    visibleSummary:
+    headings:
+      pageInformation.headings,
+
+    visibleText:
       pageInformation.summary,
 
     campaignId:
@@ -623,6 +697,7 @@ function readVisiblePageInformation() {
       heading: "",
       subheading: "",
       actions: [],
+      headings: [],
       summary: "",
     };
   }
@@ -663,7 +738,7 @@ function readVisiblePageInformation() {
         .trim()
     )
     .filter(Boolean)
-    .slice(0, 12);
+    .slice(0, 40);
 
   const textNodes =
     Array.from(
@@ -683,15 +758,24 @@ function readVisiblePageInformation() {
       )
       .filter(Boolean);
 
+  const headings = Array.from(
+    main.querySelectorAll("h1, h2, h3")
+  )
+    .filter((element) => element.offsetParent !== null)
+    .map((element) => element.textContent?.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .slice(0, 30);
+
   return {
     heading,
     subheading,
     actions,
+    headings,
 
     summary:
       textNodes
         .join(" | ")
-        .slice(0, 2500),
+        .slice(0, 8000),
   };
 }
 
@@ -839,6 +923,33 @@ function getPageName(pathname) {
     path.includes("/builder")
   ) {
     return "Campaign Builder";
+  }
+
+  if (path.includes("/connections") || path.includes("/integrations")) {
+    return "Integrations";
+  }
+
+  if (path.includes("/voice-agent")) {
+    return "AI Voice";
+  }
+
+  if (path.includes("/agents")) {
+    return "Voice Agents";
+  }
+
+  if (path.includes("/billing")) {
+    return "Billing";
+  }
+
+  if (path.includes("/pipeline")) {
+    return "Pipeline";
+  }
+
+  if (path.includes("/leads")) {
+    const params = new URLSearchParams(window.location.search || "");
+    if (params.get("view") === "all") return "All Leads";
+    if (params.get("view") === "external") return "External Leads";
+    return "Find Leads";
   }
 
   if (
@@ -1044,7 +1155,7 @@ function ReachFlyAIFloatingStyles() {
       .reachfly-ai-floating-panel{
         position:fixed;
         z-index:2147483000;
-        right:22px;
+        left:calc(var(--rf7-sidebar-width,260px) + 18px);
         bottom:84px;
         width:min(402px,calc(100vw - 24px));
         height:min(640px,calc(100vh - 116px));
@@ -1059,7 +1170,7 @@ function ReachFlyAIFloatingStyles() {
           0 28px 80px rgba(25,28,29,.18),
           0 8px 24px rgba(70,72,212,.08);
         animation:rfafPanelIn .22s var(--rfaf-ease);
-        transform-origin:bottom right;
+        transform-origin:bottom left;
       }
 
       .reachfly-ai-floating-header{
@@ -1085,15 +1196,38 @@ function ReachFlyAIFloatingStyles() {
       }
 
       .reachfly-ai-floating-avatar{
-        width:39px;
-        height:39px;
+        width:40px;
+        height:40px;
+        position:relative;
         display:grid;
         place-items:center;
+        overflow:hidden;
         color:#fff;
-        background:linear-gradient(135deg,#5b5de1,#4648d4);
-        border:1px solid rgba(255,255,255,.15);
-        border-radius:10px;
-        box-shadow:0 8px 18px rgba(0,0,0,.14);
+        background:
+          radial-gradient(circle at 72% 22%,rgba(255,255,255,.34),transparent 22%),
+          linear-gradient(145deg,#6d5dfc,#4f46e5 56%,#312e81);
+        border:1px solid rgba(255,255,255,.2);
+        border-radius:13px;
+        box-shadow:0 9px 22px rgba(31,41,55,.22);
+      }
+
+      .reachfly-ai-floating-avatar > span{
+        font-size:12px;
+        line-height:1;
+        font-weight:900;
+        letter-spacing:-.05em;
+      }
+
+      .reachfly-ai-floating-avatar > i{
+        position:absolute;
+        width:7px;
+        height:7px;
+        right:5px;
+        bottom:5px;
+        border-radius:50%;
+        background:#6ee7b7;
+        border:2px solid #4143c5;
+        box-shadow:0 0 0 2px rgba(110,231,183,.12);
       }
 
       .reachfly-ai-floating-heading > div{
@@ -1254,7 +1388,7 @@ function ReachFlyAIFloatingStyles() {
         margin:0;
         white-space:pre-wrap;
         overflow-wrap:anywhere;
-        font-size:8px;
+        font-size:12px;
         line-height:13px;
       }
 
@@ -1280,6 +1414,21 @@ function ReachFlyAIFloatingStyles() {
         font-size:6.5px;
         font-weight:750;
         transition:.13s var(--rfaf-ease);
+      }
+
+      .reachfly-ai-support-chip{
+        display:inline-flex;
+        width:max-content;
+        max-width:100%;
+        margin-top:8px;
+        padding:5px 8px;
+        border-radius:999px;
+        background:#eefaf5;
+        border:1px solid #ccefdc;
+        color:#087f50;
+        font-size:10px;
+        line-height:14px;
+        font-weight:800;
       }
 
       .reachfly-ai-message-action:hover{
@@ -1403,7 +1552,7 @@ function ReachFlyAIFloatingStyles() {
       .reachfly-ai-floating-trigger{
         position:fixed;
         z-index:2147483001;
-        right:22px;
+        left:calc(var(--rf7-sidebar-width,260px) + 18px);
         bottom:22px;
         min-height:48px;
         display:flex;
@@ -1435,14 +1584,36 @@ function ReachFlyAIFloatingStyles() {
       }
 
       .reachfly-ai-trigger-logo{
-        width:35px;
-        height:35px;
+        width:36px;
+        height:36px;
+        position:relative;
         display:grid;
         place-items:center;
+        overflow:hidden;
         color:#fff;
-        background:var(--rfaf-primary);
-        border:1px solid rgba(255,255,255,.14);
+        background:
+          radial-gradient(circle at 72% 22%,rgba(255,255,255,.32),transparent 22%),
+          linear-gradient(145deg,#6d5dfc,#4f46e5 58%,#312e81);
+        border:1px solid rgba(255,255,255,.18);
+        border-radius:12px;
+        box-shadow:0 5px 14px rgba(0,0,0,.18);
+      }
+
+      .reachfly-ai-trigger-logo > span{
+        font-size:11px;
+        font-weight:900;
+        letter-spacing:-.05em;
+      }
+
+      .reachfly-ai-trigger-logo > i{
+        position:absolute;
+        width:7px;
+        height:7px;
+        right:4px;
+        bottom:4px;
         border-radius:50%;
+        background:#6ee7b7;
+        border:2px solid #4143c5;
       }
 
       .reachfly-ai-floating-trigger.open .reachfly-ai-trigger-logo{
@@ -1470,7 +1641,7 @@ function ReachFlyAIFloatingStyles() {
 
       @media(max-width:620px){
         .reachfly-ai-floating-panel{
-          right:8px;
+          left:8px;
           bottom:72px;
           width:calc(100vw - 16px);
           height:min(620px,calc(100vh - 90px));
@@ -1478,7 +1649,7 @@ function ReachFlyAIFloatingStyles() {
         }
 
         .reachfly-ai-floating-trigger{
-          right:12px;
+          left:12px;
           bottom:12px;
         }
 

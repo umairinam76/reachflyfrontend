@@ -200,6 +200,21 @@ export default function ExternalLeadCampaign() {
 
   const [step, setStep] = useState(0);
   const [sourceType, setSourceType] = useState("file");
+  const [externalConnections, setExternalConnections] = useState([]);
+  const [selectedExternalConnectionId, setSelectedExternalConnectionId] = useState("");
+  const [externalProvider, setExternalProvider] = useState("google_sheets");
+  const [externalForm, setExternalForm] = useState({
+    name: "",
+    url: "",
+    accessToken: "",
+    baseId: "",
+    tableName: "",
+    view: "",
+    recordsPath: "",
+    bearerToken: "",
+  });
+  const [externalBusy, setExternalBusy] = useState("");
+  const [externalError, setExternalError] = useState("");
   const [fileName, setFileName] = useState("");
   const [sheets, setSheets] = useState([]);
   const [selectedSheet, setSelectedSheet] = useState("");
@@ -295,6 +310,40 @@ export default function ExternalLeadCampaign() {
     }
 
     void loadWorkspaceReadiness();
+
+    return () => {
+      active = false;
+    };
+  }, [canManage]);
+
+  useEffect(() => {
+    if (!canManage) return undefined;
+
+    let active = true;
+
+    async function loadExternalSources() {
+      try {
+        const result = await api.externalLeadSources();
+        if (!active) return;
+        const connections = Array.isArray(result?.connections)
+          ? result.connections
+          : [];
+        setExternalConnections(connections);
+        setSelectedExternalConnectionId((current) =>
+          current || connections[0]?.id || ""
+        );
+      } catch (error) {
+        if (active) {
+          setExternalError(
+            safeExternalCampaignMessage(
+              error?.message || "External lead sources could not be loaded."
+            )
+          );
+        }
+      }
+    }
+
+    void loadExternalSources();
 
     return () => {
       active = false;
@@ -635,6 +684,149 @@ export default function ExternalLeadCampaign() {
     }
   };
 
+  const updateExternalForm = (field, value) => {
+    setExternalForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+    setExternalError("");
+  };
+
+  const applyExternalRows = (rows, label = "Connected source") => {
+    const nextRows = Array.isArray(rows) ? rows : [];
+    const nextHeaders = collectHeaders(nextRows);
+
+    if (!nextRows.length || !nextHeaders.length) {
+      throw new Error("This source connected successfully but returned no readable lead rows.");
+    }
+
+    const sheet = {
+      name: label,
+      rows: nextRows,
+      headers: nextHeaders,
+    };
+
+    setFileName(label);
+    setSheets([sheet]);
+    applySheet(sheet);
+    setSourceType("connected");
+  };
+
+  const connectExternalSource = async () => {
+    if (externalBusy) return;
+
+    try {
+      setExternalBusy("connect");
+      setExternalError("");
+
+      const payload = {
+        provider: externalProvider,
+        name: externalForm.name,
+        url: externalForm.url,
+        accessToken: externalForm.accessToken,
+        baseId: externalForm.baseId,
+        tableName: externalForm.tableName,
+        view: externalForm.view,
+        recordsPath: externalForm.recordsPath,
+        bearerToken: externalForm.bearerToken,
+      };
+
+      const connected = await api.connectExternalLeadSource(payload);
+      const connection = connected?.connection;
+
+      if (!connection?.id) {
+        throw new Error("ReachFly connected to the source but did not receive a connection ID.");
+      }
+
+      setExternalConnections((current) => [
+        connection,
+        ...current.filter((item) => item.id !== connection.id),
+      ]);
+      setSelectedExternalConnectionId(connection.id);
+
+      const imported = await api.importExternalLeadSource(connection.id, {
+        limit: 1000,
+      });
+
+      applyExternalRows(
+        imported?.records || [],
+        connection.name || connection.providerLabel || "Connected source"
+      );
+
+      setExternalForm((current) => ({
+        ...current,
+        accessToken: "",
+        bearerToken: "",
+      }));
+    } catch (error) {
+      setExternalError(
+        safeExternalCampaignMessage(
+          error?.message || "External lead source could not be connected."
+        )
+      );
+    } finally {
+      setExternalBusy("");
+    }
+  };
+
+  const importExternalSource = async (connectionId = selectedExternalConnectionId) => {
+    if (!connectionId || externalBusy) return;
+
+    try {
+      setExternalBusy(`import:${connectionId}`);
+      setExternalError("");
+
+      const imported = await api.importExternalLeadSource(connectionId, {
+        limit: 2000,
+      });
+      const connection = imported?.connection ||
+        externalConnections.find((item) => item.id === connectionId);
+
+      setExternalConnections((current) =>
+        current.map((item) =>
+          item.id === connectionId
+            ? { ...item, ...(imported?.connection || {}) }
+            : item
+        )
+      );
+
+      applyExternalRows(
+        imported?.records || [],
+        connection?.name || connection?.providerLabel || "Connected source"
+      );
+    } catch (error) {
+      setExternalError(
+        safeExternalCampaignMessage(
+          error?.message || "Leads could not be imported from this source."
+        )
+      );
+    } finally {
+      setExternalBusy("");
+    }
+  };
+
+  const disconnectExternalSource = async (connectionId) => {
+    if (!connectionId || externalBusy) return;
+    const accepted = window.confirm("Disconnect this external lead source from ReachFly?");
+    if (!accepted) return;
+
+    try {
+      setExternalBusy(`disconnect:${connectionId}`);
+      setExternalError("");
+      await api.disconnectExternalLeadSource(connectionId);
+      setExternalConnections((current) => current.filter((item) => item.id !== connectionId));
+      setSelectedExternalConnectionId((current) => current === connectionId ? "" : current);
+    } catch (error) {
+      setExternalError(
+        safeExternalCampaignMessage(
+          error?.message || "External lead source could not be disconnected."
+        )
+      );
+    } finally {
+      setExternalBusy("");
+    }
+  };
+
   const updateFieldMap = (field, value) => {
     setFieldMap((current) => ({
       ...current,
@@ -658,6 +850,7 @@ export default function ExternalLeadCampaign() {
   const resetFlow = () => {
     setStep(0);
     setSourceType("file");
+    setExternalError("");
     setFileName("");
     setSheets([]);
     setSelectedSheet("");
@@ -964,8 +1157,8 @@ export default function ExternalLeadCampaign() {
             <div>
               <h2>Choose lead source</h2>
               <p>
-                Start from a spreadsheet. Connector-based imports are shown as
-                unavailable until a real connector API is wired.
+                Upload a file or connect a live lead source. ReachFly imports the rows,
+                maps the fields, and keeps provider credentials on the server.
               </p>
             </div>
           </div>
@@ -992,9 +1185,13 @@ export default function ExternalLeadCampaign() {
 
             <button
               type="button"
-              className="external-source-card"
-              disabled
-              title="Connector import is not enabled in this build."
+              onClick={() => {
+                setSourceType("connected");
+                setExternalError("");
+              }}
+              className={`external-source-card ${
+                sourceType === "connected" ? "active" : ""
+              }`}
             >
               <span>
                 <GitBranch />
@@ -1002,9 +1199,8 @@ export default function ExternalLeadCampaign() {
               <div>
                 <b>Connected source</b>
                 <small>
-                  Connector-based imports are not enabled in this build. Use Excel
-                  or CSV so the page only offers an import path that is actually
-                  available.
+                  Import directly from Google Sheets, HubSpot, Airtable, or a secure
+                  JSON / REST API without downloading a file first.
                 </small>
               </div>
             </button>
@@ -1046,12 +1242,246 @@ export default function ExternalLeadCampaign() {
               )}
             </>
           ) : (
-            <div className="external-warning">
-              <GitBranch />
-              <div>
-                <b>Connected imports are not enabled.</b>
-                <p>Use Excel or CSV for this campaign. This screen does not claim an external connector until a real connector API is wired.</p>
+            <div className="external-connector-workspace">
+              <div className="external-connector-layout">
+                <section className="external-connector-panel">
+                  <div className="external-card-head">
+                    <div>
+                      <h3>Connect a lead source</h3>
+                      <p>
+                        ReachFly verifies the source before saving it. Tokens stay encrypted
+                        on the API server and are never returned to this browser.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="external-provider-tabs">
+                    {[
+                      ["google_sheets", "Google Sheets"],
+                      ["hubspot", "HubSpot"],
+                      ["airtable", "Airtable"],
+                      ["json_api", "JSON / REST API"],
+                    ].map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        className={externalProvider === value ? "active" : ""}
+                        onClick={() => {
+                          setExternalProvider(value);
+                          setExternalError("");
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="external-connector-fields">
+                    <label className="field">
+                      <span>Connection name</span>
+                      <input
+                        value={externalForm.name}
+                        onChange={(event) => updateExternalForm("name", event.target.value)}
+                        placeholder="e.g. Marketing leads"
+                      />
+                    </label>
+
+                    {externalProvider === "google_sheets" ? (
+                      <label className="field external-connector-wide">
+                        <span>Google Sheets URL</span>
+                        <input
+                          value={externalForm.url}
+                          onChange={(event) => updateExternalForm("url", event.target.value)}
+                          placeholder="https://docs.google.com/spreadsheets/d/.../edit?gid=0"
+                        />
+                        <small className="external-field-help">
+                          The sheet must be accessible with link access or published for ReachFly to import it.
+                        </small>
+                      </label>
+                    ) : null}
+
+                    {externalProvider === "hubspot" ? (
+                      <label className="field external-connector-wide">
+                        <span>HubSpot private app access token</span>
+                        <input
+                          type="password"
+                          autoComplete="new-password"
+                          value={externalForm.accessToken}
+                          onChange={(event) => updateExternalForm("accessToken", event.target.value)}
+                          placeholder="pat-..."
+                        />
+                        <small className="external-field-help">
+                          Give the private app read access to CRM contacts. ReachFly imports contact properties directly.
+                        </small>
+                      </label>
+                    ) : null}
+
+                    {externalProvider === "airtable" ? (
+                      <>
+                        <label className="field external-connector-wide">
+                          <span>Airtable personal access token</span>
+                          <input
+                            type="password"
+                            autoComplete="new-password"
+                            value={externalForm.accessToken}
+                            onChange={(event) => updateExternalForm("accessToken", event.target.value)}
+                            placeholder="pat..."
+                          />
+                        </label>
+                        <label className="field">
+                          <span>Base ID</span>
+                          <input
+                            value={externalForm.baseId}
+                            onChange={(event) => updateExternalForm("baseId", event.target.value)}
+                            placeholder="appXXXXXXXXXXXXXX"
+                          />
+                        </label>
+                        <label className="field">
+                          <span>Table name</span>
+                          <input
+                            value={externalForm.tableName}
+                            onChange={(event) => updateExternalForm("tableName", event.target.value)}
+                            placeholder="Leads"
+                          />
+                        </label>
+                        <label className="field external-connector-wide">
+                          <span>View name <em>(optional)</em></span>
+                          <input
+                            value={externalForm.view}
+                            onChange={(event) => updateExternalForm("view", event.target.value)}
+                            placeholder="Qualified Leads"
+                          />
+                        </label>
+                      </>
+                    ) : null}
+
+                    {externalProvider === "json_api" ? (
+                      <>
+                        <label className="field external-connector-wide">
+                          <span>HTTPS API URL</span>
+                          <input
+                            value={externalForm.url}
+                            onChange={(event) => updateExternalForm("url", event.target.value)}
+                            placeholder="https://crm.example.com/api/leads"
+                          />
+                        </label>
+                        <label className="field">
+                          <span>Records path <em>(optional)</em></span>
+                          <input
+                            value={externalForm.recordsPath}
+                            onChange={(event) => updateExternalForm("recordsPath", event.target.value)}
+                            placeholder="data.contacts"
+                          />
+                        </label>
+                        <label className="field">
+                          <span>Bearer token <em>(optional)</em></span>
+                          <input
+                            type="password"
+                            autoComplete="new-password"
+                            value={externalForm.bearerToken}
+                            onChange={(event) => updateExternalForm("bearerToken", event.target.value)}
+                            placeholder="Bearer credential"
+                          />
+                        </label>
+                      </>
+                    ) : null}
+                  </div>
+
+                  {externalError ? (
+                    <div className="external-error">{externalError}</div>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    className="btn primary external-connect-button"
+                    disabled={Boolean(externalBusy)}
+                    onClick={() => void connectExternalSource()}
+                  >
+                    <GitBranch />
+                    {externalBusy === "connect" ? "Connecting & importing..." : "Connect & import leads"}
+                  </button>
+                </section>
+
+                <aside className="external-connected-sources">
+                  <div className="external-card-head">
+                    <div>
+                      <h3>Saved sources</h3>
+                      <p>Import again any time to refresh your lead list.</p>
+                    </div>
+                    <span className="external-source-count">{externalConnections.length}</span>
+                  </div>
+
+                  {externalConnections.length ? (
+                    <div className="external-source-list">
+                      {externalConnections.map((connection) => (
+                        <article
+                          key={connection.id}
+                          className={`external-saved-source ${
+                            selectedExternalConnectionId === connection.id ? "active" : ""
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            className="external-saved-source-main"
+                            onClick={() => setSelectedExternalConnectionId(connection.id)}
+                          >
+                            <span><GitBranch /></span>
+                            <div>
+                              <b>{connection.name || connection.providerLabel}</b>
+                              <small>
+                                {connection.providerLabel}
+                                {connection.lastImportCount
+                                  ? ` · ${connection.lastImportCount} last imported`
+                                  : " · Ready to import"}
+                              </small>
+                            </div>
+                          </button>
+                          {connection.lastError ? (
+                            <p className="external-source-error">{connection.lastError}</p>
+                          ) : null}
+                          <div className="external-saved-source-actions">
+                            <button
+                              type="button"
+                              disabled={Boolean(externalBusy)}
+                              onClick={() => void importExternalSource(connection.id)}
+                            >
+                              {externalBusy === `import:${connection.id}` ? "Importing..." : "Import leads"}
+                            </button>
+                            <button
+                              type="button"
+                              className="danger"
+                              disabled={Boolean(externalBusy)}
+                              onClick={() => void disconnectExternalSource(connection.id)}
+                            >
+                              Disconnect
+                            </button>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="external-connector-empty">
+                      <GitBranch />
+                      <b>No connected sources yet</b>
+                      <p>Connect Google Sheets, HubSpot, Airtable, or a secure API.</p>
+                    </div>
+                  )}
+                </aside>
               </div>
+
+              {records.length > 0 ? (
+                <LeadPreview
+                  sheets={sheets}
+                  selectedSheet={selectedSheet}
+                  handleSheetChange={handleSheetChange}
+                  records={records}
+                  filteredRecords={filteredRecords}
+                  headers={headers}
+                  stats={stats}
+                  tableSearch={tableSearch}
+                  setTableSearch={setTableSearch}
+                />
+              ) : null}
             </div>
           )}
         </div>
@@ -3903,6 +4333,256 @@ function ExternalLeadCampaignV7Styles() {
         }
 
         .rf-external-campaign-v7 .external-actions .btn{
+          width:100%;
+        }
+      }
+
+      /* Connected lead sources */
+      .rf-external-campaign-v7 .external-connector-workspace{
+        display:grid;
+        gap:22px;
+      }
+
+      .rf-external-campaign-v7 .external-connector-layout{
+        display:grid;
+        grid-template-columns:minmax(0,1.35fr) minmax(320px,.65fr);
+        gap:20px;
+        align-items:start;
+      }
+
+      .rf-external-campaign-v7 .external-connector-panel,
+      .rf-external-campaign-v7 .external-connected-sources{
+        border:1px solid #e5e7eb;
+        border-radius:18px;
+        background:#fff;
+        padding:22px;
+        box-shadow:0 10px 30px rgba(15,23,42,.05);
+      }
+
+      .rf-external-campaign-v7 .external-provider-tabs{
+        display:grid;
+        grid-template-columns:repeat(4,minmax(0,1fr));
+        gap:8px;
+        padding:5px;
+        margin:18px 0;
+        border:1px solid #e5e7eb;
+        border-radius:14px;
+        background:#f8fafc;
+      }
+
+      .rf-external-campaign-v7 .external-provider-tabs button{
+        min-height:42px;
+        border:0;
+        border-radius:10px;
+        background:transparent;
+        color:#64748b;
+        font-weight:750;
+        padding:8px 10px;
+      }
+
+      .rf-external-campaign-v7 .external-provider-tabs button:hover{
+        color:#334155;
+        background:#eef2ff;
+      }
+
+      .rf-external-campaign-v7 .external-provider-tabs button.active{
+        color:#3730a3;
+        background:#fff;
+        box-shadow:0 2px 10px rgba(15,23,42,.08);
+      }
+
+      .rf-external-campaign-v7 .external-connector-fields{
+        display:grid;
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:14px;
+      }
+
+      .rf-external-campaign-v7 .external-connector-wide{
+        grid-column:1/-1;
+      }
+
+      .rf-external-campaign-v7 .external-connect-button{
+        min-width:210px;
+        margin-top:4px;
+        background:#4f46e5!important;
+        border-color:#4f46e5!important;
+        color:#fff!important;
+        box-shadow:0 8px 20px rgba(79,70,229,.18)!important;
+      }
+
+      .rf-external-campaign-v7 .external-connect-button:hover:not(:disabled){
+        background:#4338ca!important;
+        border-color:#4338ca!important;
+      }
+
+      .rf-external-campaign-v7 .external-source-count{
+        min-width:32px;
+        height:32px;
+        border-radius:10px;
+        display:grid;
+        place-items:center;
+        background:#eef2ff;
+        color:#4338ca;
+        font-weight:800;
+      }
+
+      .rf-external-campaign-v7 .external-source-list{
+        display:grid;
+        gap:10px;
+        margin-top:14px;
+      }
+
+      .rf-external-campaign-v7 .external-saved-source{
+        border:1px solid #e5e7eb;
+        border-radius:14px;
+        padding:10px;
+        background:#fff;
+        transition:160ms ease;
+      }
+
+      .rf-external-campaign-v7 .external-saved-source.active{
+        border-color:#a5b4fc;
+        box-shadow:0 0 0 3px rgba(99,102,241,.08);
+      }
+
+      .rf-external-campaign-v7 .external-saved-source-main{
+        width:100%;
+        border:0;
+        background:transparent;
+        display:grid;
+        grid-template-columns:38px minmax(0,1fr);
+        gap:10px;
+        align-items:center;
+        padding:2px;
+        text-align:left;
+        color:#0f172a;
+      }
+
+      .rf-external-campaign-v7 .external-saved-source-main > span{
+        width:38px;
+        height:38px;
+        border-radius:11px;
+        display:grid;
+        place-items:center;
+        color:#4f46e5;
+        background:#eef2ff;
+      }
+
+      .rf-external-campaign-v7 .external-saved-source-main > div{
+        min-width:0;
+        display:grid;
+        gap:2px;
+      }
+
+      .rf-external-campaign-v7 .external-saved-source-main b{
+        font-size:14px;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+      }
+
+      .rf-external-campaign-v7 .external-saved-source-main small{
+        font-size:12px;
+        color:#64748b;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+      }
+
+      .rf-external-campaign-v7 .external-saved-source-actions{
+        display:flex;
+        gap:8px;
+        margin-top:9px;
+      }
+
+      .rf-external-campaign-v7 .external-saved-source-actions button{
+        min-height:34px;
+        border:1px solid #dbe1ea;
+        border-radius:9px;
+        background:#f8fafc;
+        color:#334155;
+        padding:0 10px;
+        font-size:12px;
+        font-weight:750;
+      }
+
+      .rf-external-campaign-v7 .external-saved-source-actions button:hover:not(:disabled){
+        border-color:#a5b4fc;
+        background:#eef2ff;
+        color:#3730a3;
+      }
+
+      .rf-external-campaign-v7 .external-saved-source-actions button.danger{
+        margin-left:auto;
+        color:#b42318;
+        background:#fff;
+        border-color:#fecaca;
+      }
+
+      .rf-external-campaign-v7 .external-source-error{
+        margin:8px 0 0;
+        color:#b42318;
+        font-size:12px!important;
+        line-height:17px!important;
+      }
+
+      .rf-external-campaign-v7 .external-connector-empty{
+        min-height:190px;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        justify-content:center;
+        gap:8px;
+        text-align:center;
+        color:#64748b;
+        border:1px dashed #cbd5e1;
+        border-radius:14px;
+        margin-top:14px;
+        padding:22px;
+      }
+
+      .rf-external-campaign-v7 .external-connector-empty > svg{
+        width:28px;
+        height:28px;
+        color:#6366f1;
+      }
+
+      .rf-external-campaign-v7 .external-connector-empty b{
+        color:#0f172a;
+        font-size:14px;
+      }
+
+      .rf-external-campaign-v7 .external-connector-empty p{
+        margin:0;
+        font-size:13px!important;
+        line-height:19px!important;
+      }
+
+      .rf-external-campaign-v7 .external-campaign-hero p,
+      .rf-external-campaign-v7 .external-card-head p,
+      .rf-external-campaign-v7 .external-message-head p,
+      .rf-external-campaign-v7 .external-records-head p{
+        font-size:14px!important;
+        line-height:21px!important;
+      }
+
+      @media(max-width:980px){
+        .rf-external-campaign-v7 .external-connector-layout{
+          grid-template-columns:1fr;
+        }
+      }
+
+      @media(max-width:700px){
+        .rf-external-campaign-v7 .external-provider-tabs,
+        .rf-external-campaign-v7 .external-connector-fields{
+          grid-template-columns:1fr;
+        }
+
+        .rf-external-campaign-v7 .external-connector-wide{
+          grid-column:auto;
+        }
+
+        .rf-external-campaign-v7 .external-connect-button{
           width:100%;
         }
       }
