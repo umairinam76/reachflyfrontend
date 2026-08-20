@@ -2788,7 +2788,7 @@ if (showingResults) {
         </label>
       </div>
 
-      <CampaignVoiceOption
+      {/* <CampaignVoiceOption
         enabled={form.voiceEnabled === true}
         onChange={(enabled) => set("voiceEnabled", enabled)}
         ready={voiceReady}
@@ -2797,8 +2797,8 @@ if (showingResults) {
         creditsKnown={aiCallCreditsKnown}
         onSetup={() => navigate("/app/voice-agent")}
         onBilling={() => navigate("/app/billing")}
-      />
-
+      /> */}
+{/* 
       {["email", "both"].includes(form.goal) ? (
         <EmailAccountSelector
           accounts={emailAccounts}
@@ -2806,7 +2806,7 @@ if (showingResults) {
           onChange={(value) => set("emailAccountId", value)}
           onSetup={() => navigate("/app/email")}
         />
-      ) : null}
+      ) : null} */}
 
       <Field
         label="Offer / service"
@@ -3085,49 +3085,7 @@ function CampaignVoiceOption({
   onBilling,
 }) {
   return (
-    <section className="builder-email-empty" aria-label="AI Voice campaign option">
-      <span className="live-lead-detail-symbol" aria-hidden="true">☎</span>
-
-      <div>
-        <b>ReachFly AI Voice Agent</b>
-        <small>
-          {enabled
-            ? ready
-              ? `Ready${number ? ` · ${number}` : ""}. Calls identify the agent as AI and follow the workspace calling policy.`
-              : "Enabled for this campaign, but Voice Agent setup must be completed before calls can launch."
-            : "Optional. Enable automated AI calls alongside your selected digital follow-up."}
-        </small>
-        {enabled ? (
-          <small>
-            AI call credits: {creditsKnown ? formatCompactNumber(aiCallBalance) : "Check billing at launch"}.
-            Connected-call charging remains server-authoritative.
-          </small>
-        ) : null}
-      </div>
-
-      <div className="flex flex-gap flex-wrap">
-        <label className="option-card" style={{ margin: 0 }}>
-          <input
-            type="checkbox"
-            checked={enabled}
-            onChange={(event) => onChange(event.target.checked)}
-          />
-          <span><b>{enabled ? "AI Voice enabled" : "Enable AI Voice"}</b></span>
-        </label>
-
-        {enabled && !ready ? (
-          <button className="btn small" type="button" onClick={onSetup}>
-            Complete Voice Agent setup
-          </button>
-        ) : null}
-
-        {enabled ? (
-          <button className="btn small light" type="button" onClick={onBilling}>
-            Credits & usage
-          </button>
-        ) : null}
-      </div>
-    </section>
+  
   );
 }
 
