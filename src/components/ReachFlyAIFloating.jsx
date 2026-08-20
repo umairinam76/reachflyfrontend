@@ -1077,6 +1077,9 @@ function safeAiMessage(value) {
     .replace(/\bWebRTC\b/gi, "browser calling");
 }
 
+// Replace ONLY the ReachFlyAIFloatingStyles() function
+// in web/src/components/ReachFlyAIFloating.jsx with this version.
+
 function ReachFlyAIFloatingStyles() {
   return (
     <style>{`
@@ -1087,9 +1090,6 @@ function ReachFlyAIFloatingStyles() {
         --rfaf-line:#e2e4e7;
         --rfaf-primary:#4648d4;
         --rfaf-primary-dark:#393bbb;
-        --rfaf-primary-soft:#e8e9ff;
-        --rfaf-violet:#6b38d4;
-        --rfaf-violet-soft:#f1ebff;
         --rfaf-red:#ba1a1a;
         --rfaf-red-soft:#ffedeb;
         --rfaf-dark:#2e3132;
@@ -1139,7 +1139,9 @@ function ReachFlyAIFloatingStyles() {
       }
 
       @keyframes rfafSpin{
-        to{transform:rotate(360deg)}
+        to{
+          transform:rotate(360deg);
+        }
       }
 
       .rfai-floating-spin{
@@ -1149,7 +1151,13 @@ function ReachFlyAIFloatingStyles() {
       .reachfly-ai-floating-panel,
       .reachfly-ai-floating-trigger{
         box-sizing:border-box;
-        font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+        font-family:
+          Inter,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
       }
 
       .reachfly-ai-floating-panel *,
@@ -1161,45 +1169,89 @@ function ReachFlyAIFloatingStyles() {
         box-sizing:border-box;
       }
 
+      /*
+       * MAIN ASSISTANT PANEL
+       *
+       * IMPORTANT:
+       * The assistant is attached to the RIGHT side.
+       * It never uses the left sidebar position.
+       */
       .reachfly-ai-floating-panel{
-        position:fixed;
+        position:fixed !important;
+
+        top:auto !important;
+        left:auto !important;
+
+        right:22px !important;
+        bottom:82px !important;
+
+        width:380px !important;
+        min-width:0 !important;
+        max-width:calc(100vw - 44px) !important;
+
+        height:min(590px,calc(100vh - 110px)) !important;
+        min-height:0 !important;
+        max-height:calc(100vh - 110px) !important;
+
+        margin:0 !important;
+
         z-index:2147483000;
-        left:calc(var(--rf7-sidebar-width,260px) + 18px);
-        bottom:84px;
-        width:min(402px,calc(100vw - 24px));
-        height:min(640px,calc(100vh - 116px));
+
         display:grid;
-        grid-template-rows:auto auto minmax(0,1fr) auto auto;
+        grid-template-rows:
+          auto
+          auto
+          minmax(0,1fr)
+          auto
+          auto;
+
         overflow:hidden;
+
         color:var(--rfaf-text);
         background:#fff;
-        border:1px solid rgba(226,228,231,.95);
-        border-radius:16px;
+
+        border:1px solid rgba(226,228,231,.98);
+        border-radius:18px;
+
         box-shadow:
           0 28px 80px rgba(25,28,29,.18),
           0 8px 24px rgba(70,72,212,.08);
+
         animation:rfafPanelIn .22s var(--rfaf-ease);
-        transform-origin:bottom left;
+
+        transform-origin:bottom right;
       }
 
       .reachfly-ai-floating-header{
         min-height:70px;
+
         display:flex;
         align-items:center;
         justify-content:space-between;
+
         gap:10px;
+
         padding:12px 13px;
+
         color:#fff;
+
         background:
-          radial-gradient(circle at 87% 12%,rgba(95,98,231,.25),transparent 34%),
+          radial-gradient(
+            circle at 87% 12%,
+            rgba(95,98,231,.25),
+            transparent 34%
+          ),
           #2e3132;
+
         border-bottom:1px solid rgba(255,255,255,.06);
       }
 
       .reachfly-ai-floating-heading{
         min-width:0;
+
         display:grid;
         grid-template-columns:39px minmax(0,1fr);
+
         align-items:center;
         gap:9px;
       }
@@ -1207,17 +1259,34 @@ function ReachFlyAIFloatingStyles() {
       .reachfly-ai-floating-avatar{
         width:40px;
         height:40px;
+
         position:relative;
+
         display:grid;
         place-items:center;
+
         overflow:hidden;
+
         color:#fff;
+
         background:
-          radial-gradient(circle at 72% 22%,rgba(255,255,255,.34),transparent 22%),
-          linear-gradient(145deg,#6d5dfc,#4f46e5 56%,#312e81);
+          radial-gradient(
+            circle at 72% 22%,
+            rgba(255,255,255,.34),
+            transparent 22%
+          ),
+          linear-gradient(
+            145deg,
+            #6d5dfc,
+            #4f46e5 56%,
+            #312e81
+          );
+
         border:1px solid rgba(255,255,255,.2);
         border-radius:13px;
-        box-shadow:0 9px 22px rgba(31,41,55,.22);
+
+        box-shadow:
+          0 9px 22px rgba(31,41,55,.22);
       }
 
       .reachfly-ai-floating-avatar > span{
@@ -1229,14 +1298,21 @@ function ReachFlyAIFloatingStyles() {
 
       .reachfly-ai-floating-avatar > i{
         position:absolute;
+
         width:7px;
         height:7px;
+
         right:5px;
         bottom:5px;
+
         border-radius:50%;
+
         background:#6ee7b7;
+
         border:2px solid #4143c5;
-        box-shadow:0 0 0 2px rgba(110,231,183,.12);
+
+        box-shadow:
+          0 0 0 2px rgba(110,231,183,.12);
       }
 
       .reachfly-ai-floating-heading > div{
@@ -1246,12 +1322,20 @@ function ReachFlyAIFloatingStyles() {
 
       .reachfly-ai-floating-heading strong{
         color:#fff;
-        font:600 13px/18px Geist,Inter,sans-serif;
+
+        font:
+          600
+          13px/18px
+          Geist,
+          Inter,
+          sans-serif;
       }
 
       .reachfly-ai-floating-heading small{
         margin-top:1px;
+
         color:rgba(244,246,247,.58);
+
         font-size:9px;
       }
 
@@ -1264,14 +1348,21 @@ function ReachFlyAIFloatingStyles() {
       .reachfly-ai-floating-header-actions button{
         width:31px;
         height:31px;
+
         display:grid;
         place-items:center;
+
         padding:0;
+
         color:rgba(255,255,255,.82);
+
         background:rgba(255,255,255,.07);
+
         border:1px solid rgba(255,255,255,.08);
         border-radius:8px;
+
         cursor:pointer;
+
         transition:.14s var(--rfaf-ease);
       }
 
@@ -1287,55 +1378,90 @@ function ReachFlyAIFloatingStyles() {
 
       .reachfly-ai-screen-context{
         display:grid;
-        grid-template-columns:minmax(0,1fr) auto;
+
+        grid-template-columns:
+          minmax(0,1fr)
+          auto;
+
         align-items:center;
+
         gap:3px 8px;
+
         padding:9px 12px;
-        background:linear-gradient(135deg,#f8f8ff,#fff);
-        border-bottom:1px solid var(--rfaf-line);
+
+        background:
+          linear-gradient(
+            135deg,
+            #f8f8ff,
+            #fff
+          );
+
+        border-bottom:
+          1px solid
+          var(--rfaf-line);
       }
 
       .reachfly-ai-screen-context > span{
         display:flex;
         align-items:center;
         gap:5px;
+
         color:var(--rfaf-primary);
+
         font-size:7px;
         font-weight:800;
+
         letter-spacing:.05em;
+
         text-transform:uppercase;
       }
 
       .reachfly-ai-screen-context > b{
         grid-column:1;
+
         overflow:hidden;
+
         color:var(--rfaf-text);
+
         text-overflow:ellipsis;
         white-space:nowrap;
+
         font-size:9px;
       }
 
       .reachfly-ai-screen-context > small{
         grid-column:1;
+
         overflow:hidden;
+
         color:var(--rfaf-muted);
+
         text-overflow:ellipsis;
         white-space:nowrap;
+
         font-size:7px;
       }
 
       .reachfly-ai-screen-context > em{
         grid-column:2;
         grid-row:1 / span 3;
+
         display:flex;
         align-items:center;
+
         gap:4px;
+
         max-width:120px;
+
         padding:5px 6px;
+
         color:#5e5f84;
+
         background:#fff;
+
         border:1px solid #e3e3f4;
         border-radius:7px;
+
         font-size:6px;
         font-style:normal;
         line-height:9px;
@@ -1343,62 +1469,92 @@ function ReachFlyAIFloatingStyles() {
 
       .reachfly-ai-floating-messages{
         min-height:0;
+
         overflow-y:auto;
+        overscroll-behavior:contain;
+
         display:grid;
         align-content:start;
+
         gap:9px;
+
         padding:13px;
+
         background:
-          radial-gradient(circle at 95% 5%,rgba(70,72,212,.035),transparent 24%),
+          radial-gradient(
+            circle at 95% 5%,
+            rgba(70,72,212,.035),
+            transparent 24%
+          ),
           #fff;
+
         scrollbar-width:thin;
         scrollbar-color:#d8d9dd transparent;
       }
 
       .reachfly-ai-floating-message{
         max-width:87%;
+
         display:grid;
+
         gap:4px;
+
         padding:9px 10px;
+
         color:var(--rfaf-text2);
+
         background:#f4f5f6;
+
         border:1px solid #eceeef;
         border-radius:10px 10px 10px 4px;
       }
 
       .reachfly-ai-floating-message.user{
         justify-self:end;
+
         color:#fff;
+
         background:var(--rfaf-primary);
+
         border-color:var(--rfaf-primary);
         border-radius:10px 10px 4px 10px;
-        box-shadow:0 5px 13px rgba(70,72,212,.1);
+
+        box-shadow:
+          0 5px 13px rgba(70,72,212,.1);
       }
 
       .reachfly-ai-floating-message.error{
         color:#7c1d1d;
+
         background:var(--rfaf-red-soft);
+
         border-color:#ffd0cc;
       }
 
       .reachfly-ai-message-role{
         color:var(--rfaf-muted);
-        font-size:6px;
+
+        font-size:7px;
         font-weight:800;
+
         letter-spacing:.045em;
+
         text-transform:uppercase;
       }
 
-      .reachfly-ai-floating-message.user .reachfly-ai-message-role{
+      .reachfly-ai-floating-message.user
+      .reachfly-ai-message-role{
         color:rgba(255,255,255,.63);
       }
 
       .reachfly-ai-floating-message p{
         margin:0;
+
         white-space:pre-wrap;
         overflow-wrap:anywhere;
+
         font-size:12px;
-        line-height:13px;
+        line-height:1.48;
       }
 
       .reachfly-ai-floating-message.user p{
@@ -1408,56 +1564,88 @@ function ReachFlyAIFloatingStyles() {
       .reachfly-ai-message-action{
         width:max-content;
         max-width:100%;
+
         min-height:29px;
+
         display:inline-flex;
+
         align-items:center;
         justify-content:center;
+
         gap:4px;
+
         margin-top:3px;
+
         padding:5px 7px;
+
         color:var(--rfaf-primary);
+
         background:#fff;
+
         border:1px solid #dcdcff;
         border-radius:7px;
+
         cursor:pointer;
-        font-size:6.5px;
+
+        font-size:7px;
         font-weight:750;
+
         transition:.13s var(--rfaf-ease);
+      }
+
+      .reachfly-ai-message-action:hover{
+        transform:translateY(-1px);
+
+        background:#fafaff;
       }
 
       .reachfly-ai-support-chip{
         display:inline-flex;
+
         width:max-content;
         max-width:100%;
+
         margin-top:8px;
+
         padding:5px 8px;
+
         border-radius:999px;
+
         background:#eefaf5;
+
         border:1px solid #ccefdc;
+
         color:#087f50;
+
         font-size:10px;
         line-height:14px;
         font-weight:800;
       }
 
-      .reachfly-ai-message-action:hover{
-        transform:translateY(-1px);
-        background:#fafaff;
-      }
-
       .reachfly-ai-floating-message.loading{
         width:74px;
-        grid-template-columns:repeat(3,6px);
+
+        grid-template-columns:
+          repeat(3,6px);
+
         align-items:center;
+
         gap:4px;
       }
 
       .reachfly-ai-floating-message.loading > span{
         width:6px;
         height:6px;
+
         background:var(--rfaf-primary);
+
         border-radius:50%;
-        animation:rfafThinking 1s infinite ease-in-out;
+
+        animation:
+          rfafThinking
+          1s
+          infinite
+          ease-in-out;
       }
 
       .reachfly-ai-floating-message.loading > span:nth-child(2){
@@ -1470,11 +1658,17 @@ function ReachFlyAIFloatingStyles() {
 
       .reachfly-ai-quick-actions{
         display:flex;
+
         gap:5px;
+
         overflow-x:auto;
+
         padding:8px 10px;
+
         background:#fafbfb;
+
         border-top:1px solid var(--rfaf-line);
+
         scrollbar-width:none;
       }
 
@@ -1484,22 +1678,33 @@ function ReachFlyAIFloatingStyles() {
 
       .reachfly-ai-quick-actions button{
         min-height:29px;
+
         flex:0 0 auto;
-        padding:5px 7px;
+
+        padding:5px 8px;
+
         color:#55567d;
+
         background:#fff;
+
         border:1px solid #e0e1ef;
         border-radius:999px;
+
         cursor:pointer;
-        font-size:6.3px;
+
+        font-size:7px;
         font-weight:700;
+
         white-space:nowrap;
+
         transition:.13s var(--rfaf-ease);
       }
 
       .reachfly-ai-quick-actions button:hover:not(:disabled){
         color:var(--rfaf-primary);
+
         border-color:#cbccfb;
+
         background:#f8f8ff;
       }
 
@@ -1510,47 +1715,86 @@ function ReachFlyAIFloatingStyles() {
 
       .reachfly-ai-floating-form{
         min-height:66px;
+
         display:grid;
-        grid-template-columns:minmax(0,1fr) 38px;
+
+        grid-template-columns:
+          minmax(0,1fr)
+          38px;
+
         align-items:center;
+
         gap:7px;
+
         padding:9px 10px 10px;
+
         background:#fff;
+
         border-top:1px solid var(--rfaf-line);
       }
 
       .reachfly-ai-floating-form textarea{
         width:100%;
+
         min-height:40px;
         max-height:96px;
+
         resize:none;
+
         padding:11px 10px;
+
         color:var(--rfaf-text);
+
         background:#f6f7f8;
+
         border:1px solid transparent;
         border-radius:9px;
+
         outline:0;
-        font:400 8px/13px Inter,sans-serif;
+
+        font:
+          400
+          12px/17px
+          Inter,
+          sans-serif;
       }
 
       .reachfly-ai-floating-form textarea:focus{
         background:#fff;
-        border-color:rgba(70,72,212,.5);
-        box-shadow:0 0 0 3px rgba(70,72,212,.06);
+
+        border-color:
+          rgba(70,72,212,.5);
+
+        box-shadow:
+          0 0 0 3px
+          rgba(70,72,212,.06);
       }
 
       .reachfly-ai-floating-form button{
         width:38px;
         height:38px;
+
         display:grid;
         place-items:center;
+
         padding:0;
+
         color:#fff;
+
         background:var(--rfaf-primary);
+
         border:0;
         border-radius:9px;
+
         cursor:pointer;
-        box-shadow:0 6px 13px rgba(70,72,212,.15);
+
+        box-shadow:
+          0 6px 13px
+          rgba(70,72,212,.15);
+      }
+
+      .reachfly-ai-floating-form button:hover:not(:disabled){
+        background:var(--rfaf-primary-dark);
       }
 
       .reachfly-ai-floating-form button:disabled{
@@ -1558,31 +1802,70 @@ function ReachFlyAIFloatingStyles() {
         cursor:not-allowed;
       }
 
+      /*
+       * FLOATING BUTTON
+       *
+       * RIGHT SIDE.
+       */
       .reachfly-ai-floating-trigger{
-        position:fixed;
-        z-index:2147483001;
-        left:calc(var(--rf7-sidebar-width,260px) + 18px);
-        bottom:22px;
+        position:fixed !important;
+
+        top:auto !important;
+        left:auto !important;
+
+        right:22px !important;
+        bottom:22px !important;
+
+        width:auto !important;
+        min-width:0 !important;
+        max-width:180px !important;
+
         min-height:48px;
+
+        z-index:2147483001;
+
         display:flex;
+
         align-items:center;
+
         gap:8px;
+
         padding:6px 11px 6px 6px;
+
         color:#fff;
+
         background:
-          linear-gradient(135deg,#3c3e40,#2e3132);
-        border:1px solid rgba(255,255,255,.08);
+          linear-gradient(
+            135deg,
+            #3c3e40,
+            #2e3132
+          );
+
+        border:
+          1px solid
+          rgba(255,255,255,.08);
+
         border-radius:999px;
+
         box-shadow:
           0 11px 28px rgba(25,28,29,.18),
           0 3px 10px rgba(70,72,212,.12);
+
         cursor:pointer;
-        animation:rfafTriggerIn .22s var(--rfaf-ease);
-        transition:.15s var(--rfaf-ease);
+
+        animation:
+          rfafTriggerIn
+          .22s
+          var(--rfaf-ease);
+
+        transition:
+          .15s
+          var(--rfaf-ease);
       }
 
       .reachfly-ai-floating-trigger:hover{
         transform:translateY(-2px);
+
         box-shadow:
           0 15px 34px rgba(25,28,29,.2),
           0 5px 13px rgba(70,72,212,.15);
@@ -1595,17 +1878,38 @@ function ReachFlyAIFloatingStyles() {
       .reachfly-ai-trigger-logo{
         width:36px;
         height:36px;
+
         position:relative;
+
         display:grid;
         place-items:center;
+
         overflow:hidden;
+
         color:#fff;
+
         background:
-          radial-gradient(circle at 72% 22%,rgba(255,255,255,.32),transparent 22%),
-          linear-gradient(145deg,#6d5dfc,#4f46e5 58%,#312e81);
-        border:1px solid rgba(255,255,255,.18);
+          radial-gradient(
+            circle at 72% 22%,
+            rgba(255,255,255,.32),
+            transparent 22%
+          ),
+          linear-gradient(
+            145deg,
+            #6d5dfc,
+            #4f46e5 58%,
+            #312e81
+          );
+
+        border:
+          1px solid
+          rgba(255,255,255,.18);
+
         border-radius:12px;
-        box-shadow:0 5px 14px rgba(0,0,0,.18);
+
+        box-shadow:
+          0 5px 14px
+          rgba(0,0,0,.18);
       }
 
       .reachfly-ai-trigger-logo > span{
@@ -1616,50 +1920,128 @@ function ReachFlyAIFloatingStyles() {
 
       .reachfly-ai-trigger-logo > i{
         position:absolute;
+
         width:7px;
         height:7px;
+
         right:4px;
         bottom:4px;
+
         border-radius:50%;
+
         background:#6ee7b7;
+
         border:2px solid #4143c5;
       }
 
-      .reachfly-ai-floating-trigger.open .reachfly-ai-trigger-logo{
-        background:rgba(255,255,255,.13);
+      .reachfly-ai-floating-trigger.open
+      .reachfly-ai-trigger-logo{
+        background:
+          rgba(255,255,255,.13);
       }
 
       .reachfly-ai-trigger-label{
         padding-right:2px;
-        font-size:8px;
+
+        font-size:10px;
         font-weight:750;
+
         letter-spacing:-.01em;
+
+        white-space:nowrap;
       }
 
       .reachfly-ai-unread{
         position:absolute;
+
         top:2px;
         right:4px;
+
         width:8px;
         height:8px;
+
         background:#7b7df1;
+
         border:2px solid #fff;
         border-radius:50%;
-        animation:rfafUnread 1.25s infinite ease-in-out;
+
+        animation:
+          rfafUnread
+          1.25s
+          infinite
+          ease-in-out;
       }
 
-      @media(max-width:620px){
+      /*
+       * TABLET
+       */
+      @media(max-width:900px){
         .reachfly-ai-floating-panel{
-          left:8px;
-          bottom:72px;
-          width:calc(100vw - 16px);
-          height:min(620px,calc(100vh - 90px));
-          border-radius:14px;
+          right:14px !important;
+          bottom:76px !important;
+
+          width:360px !important;
+
+          max-width:
+            calc(100vw - 28px) !important;
+
+          height:
+            min(
+              560px,
+              calc(100vh - 98px)
+            ) !important;
+
+          max-height:
+            calc(100vh - 98px) !important;
         }
 
         .reachfly-ai-floating-trigger{
-          left:12px;
-          bottom:12px;
+          right:14px !important;
+          bottom:14px !important;
+        }
+      }
+
+      /*
+       * MOBILE
+       *
+       * Still right aligned.
+       * It does NOT become a full-screen drawer.
+       */
+      @media(max-width:620px){
+        .reachfly-ai-floating-panel{
+          top:auto !important;
+          left:auto !important;
+
+          right:10px !important;
+          bottom:72px !important;
+
+          width:
+            min(
+              360px,
+              calc(100vw - 20px)
+            ) !important;
+
+          max-width:
+            calc(100vw - 20px) !important;
+
+          height:
+            min(
+              540px,
+              calc(100vh - 92px)
+            ) !important;
+
+          max-height:
+            calc(100vh - 92px) !important;
+
+          border-radius:14px !important;
+        }
+
+        .reachfly-ai-floating-trigger{
+          top:auto !important;
+          left:auto !important;
+
+          right:10px !important;
+          bottom:10px !important;
         }
 
         .reachfly-ai-screen-context > em{
@@ -1672,59 +2054,35 @@ function ReachFlyAIFloatingStyles() {
       }
 
       @media(max-width:410px){
+        .reachfly-ai-floating-panel{
+          right:8px !important;
+
+          width:
+            calc(100vw - 16px) !important;
+
+          max-width:
+            calc(100vw - 16px) !important;
+        }
+
+        .reachfly-ai-floating-trigger{
+          right:8px !important;
+        }
+
         .reachfly-ai-trigger-label{
           display:none;
         }
 
         .reachfly-ai-floating-trigger{
-          width:48px;
+          width:48px !important;
           height:48px;
+
           padding:6px;
+
           justify-content:center;
         }
 
         .reachfly-ai-screen-context{
           padding:8px 10px;
-        }
-      }
-
-      /*
-       * Hard size guard: this assistant is a compact left-side helper, never a
-       * page-sized drawer. !important protects it from legacy global panel/section
-       * rules in styles.css.
-       */
-      .reachfly-ai-floating-panel{
-        inset:auto auto 78px calc(var(--rf7-sidebar-width,260px) + 16px) !important;
-        right:auto !important;
-        top:auto !important;
-        width:360px !important;
-        min-width:0 !important;
-        max-width:calc(100vw - var(--rf7-sidebar-width,260px) - 34px) !important;
-        height:min(560px,calc(100vh - 110px)) !important;
-        max-height:calc(100vh - 110px) !important;
-        margin:0 !important;
-      }
-
-      .reachfly-ai-floating-trigger{
-        left:calc(var(--rf7-sidebar-width,260px) + 16px) !important;
-        right:auto !important;
-        width:auto !important;
-        max-width:180px !important;
-      }
-
-      @media(max-width:760px){
-        .reachfly-ai-floating-panel{
-          inset:auto auto 72px 12px !important;
-          width:min(360px,calc(100vw - 24px)) !important;
-          max-width:calc(100vw - 24px) !important;
-          height:min(540px,calc(100vh - 92px)) !important;
-          max-height:calc(100vh - 92px) !important;
-          border-radius:14px !important;
-        }
-
-        .reachfly-ai-floating-trigger{
-          left:12px !important;
-          bottom:12px !important;
         }
       }
 
@@ -1734,13 +2092,13 @@ function ReachFlyAIFloatingStyles() {
         .reachfly-ai-floating-message.loading > span,
         .reachfly-ai-unread,
         .rfai-floating-spin{
-          animation:none!important;
+          animation:none !important;
         }
 
         .reachfly-ai-floating-panel *,
         .reachfly-ai-floating-trigger *{
-          transition-duration:.01ms!important;
-          scroll-behavior:auto!important;
+          transition-duration:.01ms !important;
+          scroll-behavior:auto !important;
         }
       }
     `}</style>
