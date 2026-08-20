@@ -64,40 +64,100 @@ export default function ConnectionsPage() {
       }
 
       try {
-        const [connectionResult, whatsappResult, voiceResult] =
-          await Promise.allSettled([
-            api.connections(),
-            api.whatsappStatus(),
-            api.voiceAgentDashboard?.(),
-          ]);
+        const [
+          connectionResult,
+          whatsappResult,
+          voiceResult,
+        ] = await Promise.allSettled([
+          callApi("connections"),
+          callApi("whatsappStatus", {
+            optional: true,
+          }),
+          callApi("voiceAgentDashboard", {
+            optional: true,
+          }),
+        ]);
 
         if (!mountedRef.current) {
           return;
         }
 
-        if (connectionResult.status !== "fulfilled") {
-          throw connectionResult.reason;
+        const problems = [];
+
+        if (
+          connectionResult.status ===
+          "fulfilled"
+        ) {
+          setData(
+            normalizeConnectionDashboard(
+              connectionResult.value
+            )
+          );
+        } else {
+          setData(
+            normalizeConnectionDashboard(
+              null
+            )
+          );
+
+          problems.push(
+            safeMessage(
+              connectionResult.reason
+                ?.message ||
+                "Workspace connections could not be loaded."
+            )
+          );
         }
 
-        setData(connectionResult.value || {});
-        setWhatsapp(
-          whatsappResult.status === "fulfilled"
-            ? normalizeWhatsAppStatus(whatsappResult.value)
-            : null
-        );
-        setVoiceDashboard(
-          voiceResult.status === "fulfilled"
-            ? voiceResult.value || null
-            : null
-        );
-        setError("");
+        if (
+          whatsappResult.status ===
+          "fulfilled"
+        ) {
+          setWhatsapp(
+            whatsappResult.value
+              ? normalizeWhatsAppStatus(
+                  whatsappResult.value
+                )
+              : null
+          );
+        } else {
+          setWhatsapp(null);
+        }
+
+        if (
+          voiceResult.status ===
+          "fulfilled"
+        ) {
+          setVoiceDashboard(
+            normalizeVoiceDashboard(
+              voiceResult.value
+            )
+          );
+        } else {
+          setVoiceDashboard(null);
+        }
+
+        const nextError =
+          problems
+            .filter(Boolean)
+            .join(" ");
+
+        setError(nextError);
 
         if (successToast) {
-          notify(
-            "success",
-            "Integrations refreshed",
-            "Latest connection health is now visible."
-          );
+          if (nextError) {
+            notify(
+              "warning",
+              "Integrations partially refreshed",
+              nextError
+            );
+          } else {
+            notify(
+              "success",
+              "Integrations refreshed",
+              "Latest connection health is now visible."
+            );
+          }
         }
       } catch (requestError) {
         if (!mountedRef.current) {
@@ -105,7 +165,8 @@ export default function ConnectionsPage() {
         }
 
         const text = safeMessage(
-          requestError?.message || "Integrations could not be loaded."
+          requestError?.message ||
+            "Integrations could not be loaded."
         );
 
         setError(text);
@@ -140,23 +201,66 @@ export default function ConnectionsPage() {
   }, [load]);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const status = params.get("google_connection");
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const params =
+      new URLSearchParams(
+        window.location.search
+      );
+
+    const status =
+      params.get(
+        "google_connection"
+      );
 
     if (status === "success") {
-      const text = "Google Workspace connected successfully.";
+      const text =
+        "Google Workspace connected successfully.";
+
       setMessage(text);
-      notify("success", "Google Workspace connected", text);
-      void load({ silent: true });
+      setError("");
+
+      notify(
+        "success",
+        "Google Workspace connected",
+        text
+      );
+
       clearGoogleCallbackQuery();
+
+      void load({
+        silent: true,
+      });
+
       return;
     }
 
     if (status === "error") {
+      const reason =
+        safeMessage(
+          params.get("reason") ||
+          params.get(
+            "google_connection_message"
+          ) ||
+          ""
+        );
+
       const text =
-        "Google Workspace connection could not be completed. Try again.";
+        reason
+          ? `Google Workspace connection could not be completed (${reason}).`
+          : "Google Workspace connection could not be completed. Try again.";
+
       setError(text);
-      notify("error", "Google connection failed", text);
+      setMessage("");
+
+      notify(
+        "error",
+        "Google connection failed",
+        text
+      );
+
       clearGoogleCallbackQuery();
     }
   }, [load]);
@@ -507,26 +611,65 @@ export default function ConnectionsPage() {
       setError("");
       setMessage("");
 
-      const response = await api.startGoogleConnection({
-        returnTo: "/app/connections",
-      });
+      const response =
+        await callApi(
+          "startGoogleConnection",
+          {
+            args: [
+              {
+                returnTo:
+                  "/app/connections",
+              },
+            ],
+          }
+        );
 
-      if (!response?.authorizationUrl) {
+      const authorizationUrl =
+        String(
+          response
+            ?.authorizationUrl ||
+          response
+            ?.url ||
+          ""
+        ).trim();
+
+      if (
+        !/^https:\/\//i.test(
+          authorizationUrl
+        )
+      ) {
         throw new Error(
           "Google authorization could not be opened."
         );
       }
 
-      window.location.assign(response.authorizationUrl);
-    } catch (requestError) {
-      const text = safeMessage(
-        requestError?.message ||
-          "Google Workspace connection could not start."
+      if (
+        typeof window ===
+        "undefined"
+      ) {
+        throw new Error(
+          "Google authorization requires a browser session."
+        );
+      }
+
+      window.location.assign(
+        authorizationUrl
       );
+    } catch (requestError) {
+      const text =
+        safeMessage(
+          requestError?.message ||
+            "Google Workspace connection could not start."
+        );
 
       setError(text);
       setBusy("");
-      notify("error", "Google connection unavailable", text);
+
+      notify(
+        "error",
+        "Google connection unavailable",
+        text
+      );
     }
   }
 
@@ -553,17 +696,40 @@ export default function ConnectionsPage() {
       setMessage("");
 
       if (action === "email") {
-        await api.testConnectionEmail(connection.id, {});
+        await callApi(
+          "testConnectionEmail",
+          {
+            args: [
+              connection.id,
+              {},
+            ],
+          }
+        );
         const text = `Email sending is healthy for ${connection.accountEmail || "this account"}.`;
         setMessage(text);
         notify("success", "Email test passed", text);
       } else if (action === "calendar") {
-        await api.testConnectionCalendar(connection.id, {});
+        await callApi(
+          "testConnectionCalendar",
+          {
+            args: [
+              connection.id,
+              {},
+            ],
+          }
+        );
         const text = `Calendar access is healthy for ${connection.accountEmail || "this account"}.`;
         setMessage(text);
         notify("success", "Calendar test passed", text);
       } else if (action === "disconnect") {
-        await api.disconnectConnection(connection.id);
+        await callApi(
+          "disconnectConnection",
+          {
+            args: [
+              connection.id,
+            ],
+          }
+        );
         const text = `${connection.accountEmail || "The account"} was disconnected.`;
         setMessage(text);
         notify("success", "Connection removed", text);
@@ -1315,13 +1481,61 @@ function ConnectionsSkeleton() {
   );
 }
 
+function normalizeConnectionDashboard(value) {
+  const source =
+    unwrapData(value);
+
+  return {
+    ...source,
+    connections:
+      Array.isArray(
+        source.connections
+      )
+        ? source.connections
+        : [],
+    emailConnections:
+      Array.isArray(
+        source.emailConnections
+      )
+        ? source.emailConnections
+        : [],
+    calendarConnections:
+      Array.isArray(
+        source.calendarConnections
+      )
+        ? source.calendarConnections
+        : [],
+    googleConfigured:
+      source.googleConfigured !==
+      false,
+  };
+}
+
+function normalizeVoiceDashboard(value) {
+  const source =
+    unwrapData(value);
+
+  return source &&
+    typeof source ===
+      "object"
+    ? source
+    : {};
+}
+
 function normalizeConnections(value) {
-  const source = value && typeof value === "object" ? value : {};
-  const primary = Array.isArray(source.connections) ? source.connections : [];
-  const email = Array.isArray(source.emailConnections) ? source.emailConnections : [];
-  const calendar = Array.isArray(source.calendarConnections)
-    ? source.calendarConnections
-    : [];
+  const source =
+    normalizeConnectionDashboard(
+      value
+    );
+
+  const primary =
+    source.connections;
+
+  const email =
+    source.emailConnections;
+
+  const calendar =
+    source.calendarConnections;
 
   const byId = new Map();
 
@@ -1451,12 +1665,25 @@ function unwrapData(value) {
 }
 
 function normalizeAgents(value) {
-  if (Array.isArray(value?.agents)) {
-    return value.agents;
+  const source =
+    normalizeVoiceDashboard(
+      value
+    );
+
+  if (
+    Array.isArray(
+      source.agents
+    )
+  ) {
+    return source.agents.filter(
+      Boolean
+    );
   }
 
-  if (value?.agent) {
-    return [value.agent];
+  if (source.agent) {
+    return [
+      source.agent,
+    ];
   }
 
   return [];
@@ -1826,18 +2053,68 @@ function formatPhone(value) {
   return text || "Connected number";
 }
 
+async function callApi(
+  methodName,
+  {
+    optional = false,
+    args = [],
+  } = {}
+) {
+  const method =
+    api?.[methodName];
+
+  if (
+    typeof method !==
+    "function"
+  ) {
+    if (optional) {
+      return null;
+    }
+
+    throw new Error(
+      `ReachFly API method "${methodName}" is unavailable in this frontend build.`
+    );
+  }
+
+  return method(
+    ...args
+  );
+}
+
 function clearGoogleCallbackQuery() {
   try {
-    const url = new URL(window.location.href);
-    url.searchParams.delete("google_connection");
-    url.searchParams.delete("google_connection_message");
+    if (
+      typeof window ===
+      "undefined"
+    ) {
+      return;
+    }
+
+    const url =
+      new URL(
+        window.location.href
+      );
+
+    [
+      "google_connection",
+      "google_connection_message",
+      "reason",
+      "code",
+      "state",
+    ].forEach(
+      (key) =>
+        url.searchParams.delete(
+          key
+        )
+    );
+
     window.history.replaceState(
       {},
       "",
       `${url.pathname}${url.search}${url.hash}`
     );
   } catch {
-    // The page remains fully usable if browser history cannot be replaced.
+    // Callback cleanup must never break the page.
   }
 }
 

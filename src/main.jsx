@@ -25,9 +25,13 @@ class ReachFlyRootBoundary extends React.Component {
     super(props);
 
     this.state = {
-      error:
-        null,
+      error: null,
+      retryKey: 0,
+      errorId: "",
     };
+
+    this.retry =
+      this.retry.bind(this);
   }
 
   static getDerivedStateFromError(
@@ -35,6 +39,8 @@ class ReachFlyRootBoundary extends React.Component {
   ) {
     return {
       error,
+      errorId:
+        createErrorId(),
     };
   }
 
@@ -42,40 +48,107 @@ class ReachFlyRootBoundary extends React.Component {
     error,
     info
   ) {
-    if (
-      import.meta.env.DEV
-    ) {
-      console.error(
-        "ReachFly root render error",
-        error,
-        info
+    /*
+     * Do not hide production render errors completely.
+     * This logs only the JavaScript error/React component stack and
+     * never intentionally logs auth tokens or API secrets.
+     */
+    console.error(
+      "[ReachFly] root render error",
+      {
+        errorId:
+          this.state.errorId,
+        name:
+          error?.name ||
+          "Error",
+        message:
+          error?.message ||
+          String(error),
+        componentStack:
+          info?.componentStack ||
+          "",
+      }
+    );
+
+    try {
+      window.dispatchEvent(
+        new CustomEvent(
+          "reachfly:root-error",
+          {
+            detail: {
+              errorId:
+                this.state
+                  .errorId,
+              message:
+                String(
+                  error?.message ||
+                  "Unknown render error"
+                ).slice(
+                  0,
+                  500
+                ),
+            },
+          }
+        )
       );
+    } catch {
+      // Diagnostics must never create a second render failure.
     }
+  }
+
+  retry() {
+    this.setState(
+      (current) => ({
+        error: null,
+        errorId: "",
+        retryKey:
+          current.retryKey +
+          1,
+      })
+    );
   }
 
   render() {
     if (
-      !this.state.error
+      this.state.error
     ) {
-      return this.props.children;
+      return (
+        <RootRecoveryScreen
+          error={
+            this.state.error
+          }
+          errorId={
+            this.state.errorId
+          }
+          onRetry={
+            this.retry
+          }
+        />
+      );
     }
 
     return (
-      <RootRecoveryScreen
-        onRetry={() => {
-          this.setState({
-            error:
-              null,
-          });
-        }}
-      />
+      <React.Fragment
+        key={
+          this.state.retryKey
+        }
+      >
+        {this.props.children}
+      </React.Fragment>
     );
   }
 }
 
 function RootRecoveryScreen({
+  error,
+  errorId,
   onRetry,
 }) {
+  const showDetails =
+    Boolean(
+      import.meta.env.DEV
+    );
+
   return (
     <main
       className="rf-root-recovery"
@@ -96,21 +169,44 @@ function RootRecoveryScreen({
         </small>
 
         <h1>
-          This screen needs to reload.
+          This screen could not open.
         </h1>
 
         <p>
-          Your account data is not changed by this display error. Retry the
-          workspace first, or reload the browser if the screen still does not
-          open.
+          A frontend display error was caught before it could change your
+          workspace data. Retry this screen first. If it happens again,
+          reload the browser and check the browser console for the error ID.
         </p>
+
+        {errorId ? (
+          <div className="rf-root-recovery__error-id">
+            Error ID
+            <strong>
+              {errorId}
+            </strong>
+          </div>
+        ) : null}
+
+        {showDetails &&
+        error?.message ? (
+          <pre className="rf-root-recovery__details">
+            {String(
+              error.message
+            ).slice(
+              0,
+              900
+            )}
+          </pre>
+        ) : null}
 
         <div className="rf-root-recovery__actions">
           <button
             type="button"
-            onClick={onRetry}
+            onClick={
+              onRetry
+            }
           >
-            Retry workspace
+            Retry screen
           </button>
 
           <button
@@ -126,6 +222,28 @@ function RootRecoveryScreen({
       </section>
     </main>
   );
+}
+
+function createErrorId() {
+  try {
+    return (
+      "RF-" +
+      crypto
+        .randomUUID()
+        .slice(
+          0,
+          8
+        )
+        .toUpperCase()
+    );
+  } catch {
+    return (
+      "RF-" +
+      Date.now()
+        .toString(36)
+        .toUpperCase()
+    );
+  }
 }
 
 function RootRecoveryStyles() {
@@ -158,14 +276,14 @@ function RootRecoveryStyles() {
       }
 
       .rf-root-recovery__card{
-        width:min(510px,100%);
+        width:min(560px,100%);
         display:grid;
         justify-items:start;
-        gap:6px;
-        padding:26px;
+        gap:7px;
+        padding:28px;
         background:#fff;
         border:1px solid var(--rfr-line);
-        border-radius:15px;
+        border-radius:16px;
         box-shadow:0 20px 55px rgba(25,28,29,.09);
       }
 
@@ -185,7 +303,7 @@ function RootRecoveryStyles() {
 
       .rf-root-recovery__card small{
         color:var(--rfr-primary);
-        font-size:6px;
+        font-size:8px;
         font-weight:800;
         letter-spacing:.08em;
         text-transform:uppercase;
@@ -193,33 +311,72 @@ function RootRecoveryStyles() {
 
       .rf-root-recovery__card h1{
         margin:0;
-        font:600 24px/31px Geist,Inter,sans-serif;
+        font:600 28px/35px Geist,Inter,sans-serif;
         letter-spacing:-.025em;
       }
 
       .rf-root-recovery__card p{
-        margin:2px 0 0;
+        margin:3px 0 0;
         color:var(--rfr-text2);
-        font-size:8px;
-        line-height:14px;
+        font-size:12px;
+        line-height:19px;
+      }
+
+      .rf-root-recovery__error-id{
+        width:100%;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:14px;
+        margin-top:8px;
+        padding:9px 11px;
+        color:var(--rfr-muted);
+        background:#f6f7f9;
+        border:1px solid #e6e7ea;
+        border-radius:9px;
+        font-size:9px;
+        font-weight:700;
+        text-transform:uppercase;
+        letter-spacing:.05em;
+      }
+
+      .rf-root-recovery__error-id strong{
+        color:var(--rfr-text);
+        font-size:10px;
+        letter-spacing:.03em;
+      }
+
+      .rf-root-recovery__details{
+        width:100%;
+        max-height:150px;
+        overflow:auto;
+        margin:4px 0 0;
+        padding:10px;
+        color:#8b2525;
+        background:#fff7f7;
+        border:1px solid #f1d6d6;
+        border-radius:8px;
+        font:11px/17px ui-monospace,SFMono-Regular,Menlo,monospace;
+        white-space:pre-wrap;
+        word-break:break-word;
       }
 
       .rf-root-recovery__actions{
         display:flex;
         flex-wrap:wrap;
-        gap:7px;
-        margin-top:10px;
+        gap:8px;
+        margin-top:12px;
       }
 
       .rf-root-recovery__actions button{
-        min-height:39px;
-        padding:8px 11px;
+        min-height:40px;
+        padding:8px 13px;
         color:#fff;
         background:var(--rfr-primary);
         border:1px solid var(--rfr-primary);
         border-radius:8px;
         cursor:pointer;
-        font-size:7px;
+        font-size:10px;
         font-weight:750;
       }
 
