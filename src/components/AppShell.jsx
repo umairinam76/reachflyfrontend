@@ -35,6 +35,7 @@ import {
   Inbox,
   LayoutDashboard,
   Lightbulb,
+  Lock,
   LogOut,
   Mail,
   MapPin,
@@ -211,6 +212,16 @@ export default function AppShell() {
   const creditBalance = Number(creditWallet?.balance ?? 0);
   const creditReserved = Number(creditWallet?.reserved ?? 0);
   const creditConsumed = Number(creditWallet?.totalConsumed ?? 0);
+
+  const creditsExhausted =
+    Boolean(creditWallet) &&
+    !creditLoading &&
+    creditBalance <= 0;
+
+  const creditGate =
+    creditsExhausted
+      ? getCreditGate(location)
+      : null;
 
   const showToast = useCallback((input = {}) => {
     const normalized = normalizeToast(input);
@@ -527,12 +538,20 @@ export default function AppShell() {
         items: [
           {
             label: isCaller ? "My Leads" : "Leads",
-            to: isCaller ? "/app/my-leads" : "/app/builder",
+            to: isCaller
+              ? "/app/my-leads"
+              : "/app/leads?view=discover",
             icon: Target,
             matchPrefixes: isCaller
               ? ["/app/my-leads"]
-              : ["/app/builder", "/app/launch-campaign"],
+              : [
+                  "/app/leads",
+                  "/app/builder",
+                  "/app/launch-campaign",
+                  "/app/campaigns/external-leads",
+                ],
             visible: isCaller || canManageCampaigns,
+            creditGated: !isCaller,
           },
           {
             label: "AI Audits",
@@ -540,6 +559,7 @@ export default function AppShell() {
             icon: Sparkles,
             matchPrefix: "/app/ai",
             visible: canManageWorkspace,
+            creditGated: true,
           },
           {
             label: "Campaigns",
@@ -591,6 +611,7 @@ export default function AppShell() {
               : { tab: "leads", view: ["dialer", "quick-lead", null] },
             queryPathPrefix: "/app/voice-agent",
             visible: isCaller || canUseVoiceAgent,
+            creditGated: true,
           },
         ],
       },
@@ -764,15 +785,19 @@ export default function AppShell() {
           label: "Find Leads",
           description: "Discover prospects and build a list",
           icon: Target,
-          to: isCaller ? "/app/my-leads" : "/app/builder",
+          to: isCaller
+            ? "/app/my-leads"
+            : "/app/leads?view=discover",
           visible: isCaller || canManageCampaigns,
+          creditGated: !isCaller,
         },
         {
           label: "Create Campaign",
           description: "Launch a new outreach workflow",
           icon: Rocket,
-          to: "/app/builder",
+          to: "/app/leads?view=discover",
           visible: canManageCampaigns,
+          creditGated: true,
         },
         {
           label: "Create Voice Agent",
@@ -913,10 +938,15 @@ export default function AppShell() {
         },
         {
           label: "Leads",
-          to: isCaller ? "/app/my-leads" : "/app/builder",
+          to: isCaller
+            ? "/app/my-leads"
+            : "/app/leads?view=discover",
           icon: Target,
-          matchPrefixes: isCaller ? ["/app/my-leads"] : ["/app/builder"],
+          matchPrefixes: isCaller
+            ? ["/app/my-leads"]
+            : ["/app/leads", "/app/builder"],
           visible: isCaller || canManageCampaigns,
+          creditGated: !isCaller,
         },
         {
           label: "Inbox",
@@ -1097,11 +1127,24 @@ export default function AppShell() {
                       <NavLink
                         key={`${group.label}-${item.label}-${item.to}`}
                         to={item.to}
-                        className={`rf7-nav-link ${active ? "active" : ""}`}
+                        className={`rf7-nav-link ${active ? "active" : ""} ${
+                          creditsExhausted && item.creditGated
+                            ? "credit-locked"
+                            : ""
+                        }`}
                         onClick={() => setSidebarOpen(false)}
                       >
                         <Icon size={18} aria-hidden="true" />
                         <span className="rf7-nav-link-text">{item.label}</span>
+
+                        {creditsExhausted &&
+                        item.creditGated ? (
+                          <Lock
+                            className="rf7-credit-lock-icon-v9"
+                            size={13}
+                            aria-label="Credits required"
+                          />
+                        ) : null}
 
                         {Number(item.count || 0) > 0 ? (
                           <em className="rf7-nav-badge">
@@ -1403,7 +1446,11 @@ export default function AppShell() {
           </header>
 
           <div className="rf7-page-stage">
-            <Outlet />
+            {creditGate ? (
+              <CreditLockedState gate={creditGate} />
+            ) : (
+              <Outlet />
+            )}
           </div>
         </main>
 
@@ -1424,6 +1471,13 @@ export default function AppShell() {
               >
                 <span className="rf7-mobile-nav-icon-v7">
                   <Icon size={19} />
+                  {creditsExhausted &&
+                  item.creditGated ? (
+                    <Lock
+                      className="rf7-mobile-credit-lock-v9"
+                      size={10}
+                    />
+                  ) : null}
                   {Number(item.count || 0) > 0 ? (
                     <em>{formatCount(item.count)}</em>
                   ) : null}
@@ -1684,6 +1738,58 @@ function ShellMotionStyles() {
       .rf7-mobile-nav-icon-v7 em{position:absolute;top:-4px;right:-7px;min-width:15px;height:15px;display:grid;place-items:center;padding:0 3px;color:#fff;background:#e43e46;border:2px solid #fff;border-radius:999px;font-size:7px;font-style:normal}
       @media(max-width:900px){.rf7-sidebar-close-v7{display:inline-grid}.rf7-topbar-profile-copy-v7{display:none}.rf7-topbar-profile-v7>svg{display:none}}
       @media(max-width:640px){.rf7-topbar-profile-v7{display:none}.rf7-credit-usage-v7,.rf7-credit-copy-v7 small{display:none}.rf7-credit-pill-v7{padding-right:6px;gap:5px}.rf7-topbar-end{gap:4px}.rf7-topbar .rf7-topbar-icon{width:34px;height:34px;flex-basis:34px}.rf7-notifications-popover-v7{position:fixed;top:62px;right:8px}.rf7-toast-stack-v7{top:67px;right:10px;width:calc(100vw - 20px)}.rf7-mobile-bottom-nav{position:fixed;z-index:75;right:0;bottom:0;left:0;height:62px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:center;padding:4px 7px calc(4px + env(safe-area-inset-bottom));background:rgba(255,255,255,.96);border-top:1px solid var(--rf7-outline);box-shadow:0 -8px 24px rgba(20,24,31,.06);backdrop-filter:blur(14px)}}
+      /* ReachFly V9 shared-credit lock states */
+      .rf7-nav-link.credit-locked{color:#94939d}
+      .rf7-nav-link.credit-locked .rf7-credit-lock-icon-v9{
+        margin-left:auto;color:#8d8b96
+      }
+      .rf7-mobile-nav-icon-v7{position:relative}
+      .rf7-mobile-credit-lock-v9{
+        position:absolute;top:-4px;right:-7px;padding:1px;border-radius:50%;
+        color:#fff;background:#6b6874;
+      }
+      .rf7-credit-lock-state-v9{
+        width:min(650px,calc(100% - 28px));min-height:390px;
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        margin:34px auto;padding:34px;border:1px solid #e1e2e7;border-radius:18px;
+        background:radial-gradient(circle at 50% 0,rgba(90,82,230,.09),transparent 38%),#fff;
+        box-shadow:0 15px 40px rgba(30,33,52,.055);text-align:center;
+      }
+      .rf7-credit-lock-visual-v9{
+        width:54px;height:54px;display:grid;place-items:center;margin-bottom:12px;
+        border-radius:15px;color:#5658d9;background:#eeeeff;
+      }
+      .rf7-credit-lock-state-v9>span{
+        color:#6966df;font-size:9px;font-weight:850;letter-spacing:.08em;text-transform:uppercase;
+      }
+      .rf7-credit-lock-state-v9 h1{
+        margin:7px 0 0;color:#252732;font-family:Geist,Inter,sans-serif;
+        font-size:27px;letter-spacing:-.03em;
+      }
+      .rf7-credit-lock-state-v9 p{
+        max-width:490px;margin:8px 0 0;color:#777884;font-size:11px;line-height:17px;
+      }
+      .rf7-credit-lock-state-v9>div:last-child{
+        display:flex;align-items:center;justify-content:center;gap:8px;margin-top:20px;
+      }
+      .rf7-credit-lock-buy-v9,.rf7-credit-lock-secondary-v9{
+        min-height:40px;display:inline-flex;align-items:center;justify-content:center;
+        gap:6px;padding:0 14px;border-radius:10px;text-decoration:none;
+        font-size:10px;font-weight:800;
+      }
+      .rf7-credit-lock-buy-v9{
+        color:#fff;background:linear-gradient(135deg,#5558e8,#8054df);
+        box-shadow:0 8px 18px rgba(82,84,219,.17);
+      }
+      .rf7-credit-lock-secondary-v9{
+        color:#5658d7;border:1px solid #dedff0;background:#f8f8ff;
+      }
+      @media(max-width:560px){
+        .rf7-credit-lock-state-v9{width:calc(100% - 16px);min-height:340px;padding:25px 18px}
+        .rf7-credit-lock-state-v9>div:last-child{width:100%;flex-direction:column}
+        .rf7-credit-lock-buy-v9,.rf7-credit-lock-secondary-v9{width:100%}
+      }
+
       @media(prefers-reduced-motion:reduce){.rf7-popover-enter-v7,.rf7-toast-v7,.rf7-toast-progress-v7{animation:none!important}.rf7-command-item-v7,.rf7-notification-item-v7{transition:none!important}}
     `}</style>
   );
@@ -1780,6 +1886,7 @@ function buildBreadcrumbs(pathname, search) {
   const routeMap = [
     ["/app/platform-admin", ["Home", "Platform Admin"]],
     ["/app/dashboard", ["Home", "Dashboard"]],
+    ["/app/leads", ["Growth", "Leads"]],
     ["/app/builder", ["Growth", "Leads"]],
     ["/app/my-leads", ["Growth", "My Leads"]],
     ["/app/campaigns", ["Growth", "Campaigns"]],
@@ -1817,7 +1924,7 @@ function buildBreadcrumbs(pathname, search) {
 function resolveBreadcrumbRoot(label) {
   const map = {
     Home: "/app/dashboard",
-    Growth: "/app/builder",
+    Growth: "/app/leads?view=discover",
     Communication: "/app/inbox",
     "AI Voice": "/app/agents",
     CRM: "/app/contacts",
@@ -1827,6 +1934,129 @@ function resolveBreadcrumbRoot(label) {
   };
 
   return map[label];
+}
+
+function getCreditGate(location) {
+  const pathname =
+    String(location?.pathname || "");
+
+  const params =
+    new URLSearchParams(
+      location?.search || ""
+    );
+
+  if (pathname.startsWith("/app/leads")) {
+    if (params.get("view") === "external") {
+      return null;
+    }
+
+    return {
+      title: "Lead discovery is locked",
+      feature: "lead discovery",
+      description:
+        "Your ReachFly credit balance is empty. Add credits to find new leads again. Imported/external leads remain available from the Leads section.",
+    };
+  }
+
+  if (
+    pathname.startsWith("/app/builder") ||
+    pathname.startsWith("/app/lead-discovery")
+  ) {
+    return {
+      title: "Lead discovery is locked",
+      feature: "lead discovery",
+      description:
+        "Your ReachFly credit balance is empty. Add credits to find new prospects.",
+    };
+  }
+
+  if (
+    pathname.startsWith("/app/ai") ||
+    pathname.startsWith("/app/audits") ||
+    pathname.startsWith("/app/website-audits") ||
+    pathname.startsWith("/app/ai-audits")
+  ) {
+    return {
+      title: "AI Audits are locked",
+      feature: "AI Audits",
+      description:
+        "Your ReachFly credit balance is empty. Add credits to run another metered audit or research action.",
+    };
+  }
+
+  if (
+    pathname === "/app/dialer" ||
+    pathname.startsWith("/app/call-workspace")
+  ) {
+    return {
+      title: "AI calling is locked",
+      feature: "AI calling",
+      description:
+        "Your ReachFly credit balance is empty. Add credits before starting new connected calling activity.",
+    };
+  }
+
+  if (pathname.startsWith("/app/voice-agent")) {
+    const tab = params.get("tab");
+    const view = params.get("view");
+
+    if (
+      tab === "leads" ||
+      ["dialer", "quick-lead"].includes(view)
+    ) {
+      return {
+        title: "AI calling is locked",
+        feature: "AI calling",
+        description:
+          "Your ReachFly credit balance is empty. Add credits to launch new AI calling activity.",
+      };
+    }
+  }
+
+  return null;
+}
+
+function CreditLockedState({ gate }) {
+  return (
+    <section className="rf7-credit-lock-state-v9">
+      <div className="rf7-credit-lock-visual-v9">
+        <Lock size={25} />
+      </div>
+
+      <span>Credits required</span>
+      <h1>{gate?.title || "This feature is locked"}</h1>
+      <p>
+        {gate?.description ||
+          "Add ReachFly credits to continue using this metered feature."}
+      </p>
+
+      <div>
+        <Link
+          className="rf7-credit-lock-buy-v9"
+          to="/app/billing"
+        >
+          Buy credits
+          <ChevronRight size={14} />
+        </Link>
+
+        {gate?.feature === "lead discovery" ? (
+          <Link
+            className="rf7-credit-lock-secondary-v9"
+            to="/app/leads?view=external"
+          >
+            Open imported leads
+          </Link>
+        ) : (
+          <Link
+            className="rf7-credit-lock-secondary-v9"
+            to="/app/voice-start"
+          >
+            Back to workspace
+          </Link>
+        )}
+      </div>
+    </section>
+  );
 }
 
 function normalizeToast(input = {}) {

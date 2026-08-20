@@ -8,6 +8,7 @@ import {
 
 import {
   Navigate,
+  useNavigate,
   useSearchParams,
 } from "react-router-dom";
 
@@ -217,8 +218,10 @@ const LIVE_CALL_STATES = new Set([
 
 export default function TelnyxAIAgentPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const onboardingMode = searchParams.get("onboarding") === "1";
+  const returnTo = String(searchParams.get("returnTo") || "").trim();
   const refreshTimerRef = useRef(null);
   const mountedRef = useRef(true);
   const lastToastRef = useRef({
@@ -290,7 +293,26 @@ export default function TelnyxAIAgentPage() {
         if (!mountedRef.current) return;
         setDashboard(response);
         setAccessDenied(false);
-        const urlAgentId = new URLSearchParams(window.location.search).get("agentId") || "";
+        const urlParams =
+          new URLSearchParams(
+            window.location.search
+          );
+
+        const urlAgentId =
+          urlParams.get("agentId") || "";
+
+        const requestedCallingMode =
+          ["inbound", "outbound", "both"].includes(
+            String(
+              urlParams.get("mode") ||
+              ""
+            ).toLowerCase()
+          )
+            ? String(
+                urlParams.get("mode")
+              ).toLowerCase()
+            : "";
+
         const responseAgents = Array.isArray(response?.agents) ? response.agents : [];
         const selectedResponseAgent =
           responseAgents.find((item) => item.id === urlAgentId) ||
@@ -309,6 +331,10 @@ export default function TelnyxAIAgentPage() {
               selectedResponseAgent?.fromNumber ||
               response.diagnostics?.selectedFromNumber ||
               current.fromNumber,
+            callingMode:
+              requestedCallingMode ||
+              selectedResponseAgent?.callingMode ||
+              current.callingMode,
           })
         );
       } catch (requestError) {
@@ -1256,6 +1282,18 @@ export default function TelnyxAIAgentPage() {
       const savedAgent = await persistVoiceAgent({ announce: true });
 
       if (savedAgent) {
+        if (returnTo && returnTo.startsWith("/app/")) {
+          setSuccess(
+            "AI Agent setup saved. Returning to your pending lead assignment…"
+          );
+
+          window.setTimeout(() => {
+            navigate(returnTo, { replace: true });
+          }, 250);
+
+          return;
+        }
+
         setSuccess(
           "The ReachFly voice agent was saved and synchronized. Next, add or select leads for the calling queue."
         );
@@ -3057,7 +3095,6 @@ function AgentSetup({
   const [verificationCode, setVerificationCode] = useState("");
   const [connectingExisting, setConnectingExisting] = useState(false);
   const [verifyingExisting, setVerifyingExisting] = useState(false);
-  const [unlinkingNumberId, setUnlinkingNumberId] = useState("");
 
   const normalizedMode = ["inbound", "outbound", "both"].includes(
     String(form.callingMode || "").toLowerCase()
@@ -3382,17 +3419,12 @@ function AgentSetup({
     const sandboxVerification = Boolean(
       existingPending?.testVerificationCode
     );
-    const requiresVerificationCode =
-      sandboxVerification ||
-      existingPending?.requiresVerificationCode === true ||
-      normalizeStatus(existingPending?.number?.verificationProvider) ===
-        "telnyx_verified_numbers";
 
     if (!numberId) {
       onError?.("Start existing-number verification first.");
       return;
     }
-    if (requiresVerificationCode && !verificationCode) {
+    if (sandboxVerification && !verificationCode) {
       onError?.("Enter the ownership verification code.");
       return;
     }
@@ -3408,7 +3440,7 @@ function AgentSetup({
         )}/verify`,
         {
           method: "POST",
-          body: requiresVerificationCode
+          body: sandboxVerification
             ? { code: verificationCode }
             : {},
           timeoutMs: 30_000,
@@ -3449,58 +3481,6 @@ function AgentSetup({
       );
     } finally {
       setVerifyingExisting(false);
-    }
-  }
-
-  async function unlinkExistingNumber(number) {
-    const id = String(number?.id || "").trim();
-    const phoneNumber = String(number?.phoneNumber || "").trim();
-    if (!id || !phoneNumber || unlinkingNumberId) return;
-
-    const confirmed = window.confirm(
-      `Unlink ${formatPhone(phoneNumber)} from ReachFly?\n\n` +
-        "This removes the connected existing number from this workspace, removes its Telnyx verified-number authorization, and removes its managed ElevenLabs phone-number route. It does not release a ReachFly-purchased carrier number."
-    );
-    if (!confirmed) return;
-
-    setUnlinkingNumberId(id);
-    onError?.("");
-    onSuccess?.("");
-
-    try {
-      await apiRequest(
-        `/voice-commerce/numbers/${encodeURIComponent(id)}`,
-        {
-          method: "DELETE",
-          timeoutMs: 30_000,
-        }
-      );
-
-      if (
-        normalizePhoneForUi(form.fromNumber) ===
-        normalizePhoneForUi(phoneNumber)
-      ) {
-        onChange("fromNumber", "");
-      }
-
-      const pendingId =
-        existingPending?.number?.id || existingPending?.id || "";
-      if (pendingId === id) {
-        setExistingPending(null);
-        setVerificationCode("");
-      }
-
-      await onRefresh?.();
-      onSuccess?.(
-        `${formatPhone(phoneNumber)} was unlinked from this workspace and disconnected from the managed Telnyx/ElevenLabs number route.`
-      );
-    } catch (requestError) {
-      onError?.(
-        requestError?.message ||
-          "The existing business number could not be unlinked."
-      );
-    } finally {
-      setUnlinkingNumberId("");
     }
   }
 
@@ -3780,6 +3760,15 @@ function AgentSetup({
               )}
             </div>
 
+            <div className="rf-voice-wizard-note">
+              <b>ReachFly manages the carrier layer</b>
+              <span>
+                Customers do not need their own Telnyx or
+                ElevenLabs account. ReachFly can purchase and map
+                numbers to each workspace while using the managed
+                carrier/SIP infrastructure.
+              </span>
+            </div>
           </div>
         ) : null}
 
@@ -3908,45 +3897,18 @@ function AgentSetup({
                                           </span>
                                         </div>
 
-                                        <div
-                                          style={{
-                                            display: "flex",
-                                            gap: 8,
-                                            flexWrap: "wrap",
-                                            alignItems: "center",
-                                          }}
+                                        <button
+                                          type="button"
+                                          className={isSelected ? "btn light" : "btn primary"}
+                                          disabled={!isActive || isSelected}
+                                          onClick={() => useOwnedNumber(number)}
                                         >
-                                          <button
-                                            type="button"
-                                            className={isSelected ? "btn light" : "btn primary"}
-                                            disabled={!isActive || isSelected}
-                                            onClick={() => useOwnedNumber(number)}
-                                          >
-                                            {isSelected
-                                              ? "Selected"
-                                              : isActive
-                                                ? "Use this number"
-                                                : "Activation pending"}
-                                          </button>
-
-                                          {number.source === "existing_number" ? (
-                                            <button
-                                              type="button"
-                                              className="btn light"
-                                              disabled={
-                                                unlinkingNumberId === number.id ||
-                                                verifyingExisting
-                                              }
-                                              onClick={() =>
-                                                void unlinkExistingNumber(number)
-                                              }
-                                            >
-                                              {unlinkingNumberId === number.id
-                                                ? "Unlinking…"
-                                                : "Unlink number"}
-                                            </button>
-                                          ) : null}
-                                        </div>
+                                          {isSelected
+                                            ? "Selected"
+                                            : isActive
+                                              ? "Use this number"
+                                              : "Activation pending"}
+                                        </button>
                                       </article>
                                     );
                                   })}
@@ -4218,32 +4180,21 @@ function AgentSetup({
                                           "Complete ownership verification to activate this number."}
                                       </p>
 
-                                      {existingPending?.testVerificationCode ||
-                                      existingPending?.requiresVerificationCode === true ||
-                                      normalizeStatus(
-                                        existingPending?.number?.verificationProvider
-                                      ) === "telnyx_verified_numbers" ? (
+                                      {existingPending?.testVerificationCode ? (
                                         <div className="rf-voice-verification-code">
                                           <Field
-                                            label={
-                                              existingPending?.testVerificationCode
-                                                ? "Sandbox verification code"
-                                                : "Verification code"
-                                            }
+                                            label="Sandbox verification code"
                                             value={verificationCode}
-                                            onChange={setVerificationCode}
+                                            onChange={
+                                              setVerificationCode
+                                            }
                                             placeholder="123456"
                                           />
-                                          {!existingPending?.testVerificationCode ? (
-                                            <small>
-                                              Enter the code delivered by the Telnyx ownership-verification call or SMS.
-                                            </small>
-                                          ) : null}
                                           <button
                                             type="button"
                                             className="btn primary"
                                             disabled={
-                                              verifyingExisting || !verificationCode.trim()
+                                              verifyingExisting
                                             }
                                             onClick={() =>
                                               void verifyExistingNumber()
@@ -4251,9 +4202,33 @@ function AgentSetup({
                                           >
                                             {verifyingExisting
                                               ? "Verifying…"
-                                              : existingPending?.testVerificationCode
-                                                ? "Confirm ownership"
-                                                : "Verify code"}
+                                              : "Confirm ownership"}
+                                          </button>
+                                        </div>
+                                      ) : [
+                                          "pending_verification",
+                                          "verifying",
+                                        ].includes(
+                                          normalizeStatus(
+                                            existingPending?.number?.status
+                                          )
+                                        ) ? (
+                                        <div className="rf-voice-production-verification">
+                                          <b>Answer the verification call and press 1</b>
+                                          <span>
+                                            ReachFly checks ownership before this number can be used as an AI calling identity.
+                                          </span>
+                                          <button
+                                            type="button"
+                                            className="btn primary"
+                                            disabled={verifyingExisting}
+                                            onClick={() =>
+                                              void verifyExistingNumber()
+                                            }
+                                          >
+                                            {verifyingExisting
+                                              ? "Checking…"
+                                              : "Check verification status"}
                                           </button>
                                         </div>
                                       ) : null}

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 
 import {
+  Link,
   Navigate,
   Route,
   Routes,
@@ -56,8 +57,10 @@ import PipelineBuilder from "./pages/PipelineBuilder";
 import EmailSetup from "./pages/EmailSetup";
 import WhatsAppSetup from "./pages/WhatsAppSetup";
 import ReachFlyAI from "./pages/ReachFlyAI";
+import WebsiteAudits from "./pages/WebsiteAudits";
 import Analytics from "./pages/Analytics";
 import Contacts from "./pages/Contacts";
+import Companies from "./pages/Companies";
 import Inbox from "./pages/Inbox";
 import InboxDetail from "./pages/InboxDetails";
 import Territories from "./pages/Territories";
@@ -76,16 +79,12 @@ import ManagerResourceBoard from "../src/pages/ManagerResourceBoard";
 import TelnyxAIAgentPage from "../src/pages/TelnyxAIAgentPage";
 import CodesyncAdminPage from "./pages/CodesyncAdminPage";
 import CreditsBillingPage from "./pages/CreditsBillingPage";
+import VoiceStartPage from "./pages/VoiceStartPage";
 import AIWorkforcePage from "./pages/AIWorkforcePage";
 import VoiceCommerceStorePage from "./pages/VoiceCommerceStorePage";
 import ConnectionsPage from "./pages/ConnectionsPage";
-import SalesOperations from "./pages/SalesOperations";
-import TeamPerformance from "./pages/TeamPerformance";
 
 import "./styles.css";
-
-/* Final V7 operational integration: invitation acceptance remains public;
- * Sales Operations and Team Performance now have canonical authenticated routes. */
 
 /**
  * Routes rendered inside AuthProvider.
@@ -104,7 +103,10 @@ function AppRoutes() {
   );
 
   const defaultDashboardPath =
-    getDefaultDashboardPath(role);
+    getDefaultDashboardPath(
+      role,
+      user
+    );
 
   return (
     <>
@@ -241,6 +243,15 @@ function AppRoutes() {
               element={<DashboardRoute />}
             />
 
+            <Route
+              path="voice-start"
+              element={
+                <VoiceAgentRoute>
+                  <VoiceStartPage />
+                </VoiceAgentRoute>
+              }
+            />
+
             {/*
              * Canonical V7 product routes.
              *
@@ -263,7 +274,25 @@ function AppRoutes() {
               path="audits"
               element={
                 <ManagerOnlyRoute>
-                  <ReachFlyAI />
+                  <WebsiteAudits />
+                </ManagerOnlyRoute>
+              }
+            />
+
+            <Route
+              path="website-audits"
+              element={
+                <ManagerOnlyRoute>
+                  <PreserveSearchRedirect to="/app/audits" />
+                </ManagerOnlyRoute>
+              }
+            />
+
+            <Route
+              path="ai-audits"
+              element={
+                <ManagerOnlyRoute>
+                  <PreserveSearchRedirect to="/app/audits" />
                 </ManagerOnlyRoute>
               }
             />
@@ -272,10 +301,7 @@ function AppRoutes() {
               path="campaigns"
               element={
                 <ManagerOnlyRoute>
-                  <Navigate
-                    to="/app/campaigns/active"
-                    replace
-                  />
+                  <CampaignList />
                 </ManagerOnlyRoute>
               }
             />
@@ -330,7 +356,10 @@ function AppRoutes() {
               path="builder"
               element={
                 <ManagerOnlyRoute>
-                  <Builder />
+                  <Navigate
+                    to="/app/leads?view=discover"
+                    replace
+                  />
                 </ManagerOnlyRoute>
               }
             />
@@ -340,7 +369,7 @@ function AppRoutes() {
               element={
                 <ManagerOnlyRoute>
                   <Navigate
-                    to="/app/builder"
+                    to="/app/leads?view=discover"
                     replace
                   />
                 </ManagerOnlyRoute>
@@ -381,7 +410,10 @@ function AppRoutes() {
               path="campaigns/external-leads"
               element={
                 <ManagerOnlyRoute>
-                  <ExternalLeadCampaign />
+                  <Navigate
+                    to="/app/leads?view=external"
+                    replace
+                  />
                 </ManagerOnlyRoute>
               }
             />
@@ -497,27 +529,6 @@ function AppRoutes() {
             />
 
             <Route
-              path="sales-operations"
-              element={
-                <WorkspaceManagementRoute>
-                  <SalesOperations />
-                </WorkspaceManagementRoute>
-              }
-            />
-
-            <Route
-              path="sales"
-              element={
-                <WorkspaceManagementRoute>
-                  <Navigate
-                    to="/app/sales-operations"
-                    replace
-                  />
-                </WorkspaceManagementRoute>
-              }
-            />
-
-            <Route
               path="resource-board"
               element={
                 <WorkspaceManagementRoute>
@@ -600,16 +611,10 @@ function AppRoutes() {
               path="team/performance"
               element={
                 <WorkspaceManagementRoute>
-                  <TeamPerformance />
-                </WorkspaceManagementRoute>
-              }
-            />
-
-            <Route
-              path="team-performance"
-              element={
-                <WorkspaceManagementRoute>
-                  <TeamPerformance />
+                  <Navigate
+                    to="/app/analytics"
+                    replace
+                  />
                 </WorkspaceManagementRoute>
               }
             />
@@ -721,6 +726,38 @@ function AppRoutes() {
               element={
                 <ManagerOnlyRoute>
                   <Contacts />
+                </ManagerOnlyRoute>
+              }
+            />
+
+            <Route
+              path="companies"
+              element={
+                <ManagerOnlyRoute>
+                  <Companies />
+                </ManagerOnlyRoute>
+              }
+            />
+
+            {/*
+             * Compatibility aliases for older account/company links. These do
+             * not create a second source of truth; they preserve any existing
+             * deep links while the CRM navigation moves to /app/companies.
+             */}
+            <Route
+              path="accounts"
+              element={
+                <ManagerOnlyRoute>
+                  <PreserveSearchRedirect to="/app/companies" />
+                </ManagerOnlyRoute>
+              }
+            />
+
+            <Route
+              path="company"
+              element={
+                <ManagerOnlyRoute>
+                  <PreserveSearchRedirect to="/app/companies" />
                 </ManagerOnlyRoute>
               }
             />
@@ -846,20 +883,130 @@ function DashboardRoute() {
  * callers stay inside their assigned-lead workspace.
  */
 function LeadsRoute() {
-  const { user, initializing } = useAuth();
+  const {
+    user,
+    initializing,
+  } = useAuth();
+
+  const location =
+    useLocation();
 
   if (initializing) {
-    return <RouteLoadingState label="Loading leads" />;
+    return (
+      <RouteLoadingState label="Loading leads" />
+    );
   }
 
-  const role = normalizeRole(user?.workspaceRole || user?.role || "caller");
+  const role =
+    normalizeRole(
+      user?.workspaceRole ||
+        user?.role ||
+        "caller"
+    );
 
   if (role === "caller") {
     return <MyLeadsPage />;
   }
 
-  if (["owner", "admin", "manager"].includes(role)) {
-    return <Builder />;
+  if (
+    ["owner", "admin", "manager"].includes(
+      role
+    )
+  ) {
+    const params =
+      new URLSearchParams(
+        location.search
+      );
+
+    const view =
+      params.get("view") ===
+      "external"
+        ? "external"
+        : "discover";
+
+    return (
+      <section className="rf-leads-workspace-v9">
+        <style>{`
+          .rf-leads-workspace-v9{
+            min-width:0;
+          }
+
+          .rf-leads-workspace-tabs-v9{
+            width:max-content;
+            max-width:100%;
+            display:flex;
+            align-items:center;
+            gap:6px;
+            margin:0 0 14px;
+            padding:5px;
+            border:1px solid #e4e5ea;
+            border-radius:12px;
+            background:#fff;
+            box-shadow:0 5px 18px rgba(28,31,50,.035);
+          }
+
+          .rf-leads-workspace-tabs-v9 a{
+            min-height:34px;
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            padding:0 12px;
+            border-radius:8px;
+            color:#666874;
+            text-decoration:none;
+            font-size:10px;
+            font-weight:750;
+          }
+
+          .rf-leads-workspace-tabs-v9 a.active{
+            color:#fff;
+            background:linear-gradient(135deg,#5658e7,#7855df);
+            box-shadow:0 6px 16px rgba(84,86,224,.17);
+          }
+
+          @media(max-width:620px){
+            .rf-leads-workspace-tabs-v9{
+              width:100%;
+            }
+
+            .rf-leads-workspace-tabs-v9 a{
+              flex:1;
+            }
+          }
+        `}</style>
+
+        <nav
+          className="rf-leads-workspace-tabs-v9"
+          aria-label="Lead workspace"
+        >
+          <Link
+            className={
+              view === "discover"
+                ? "active"
+                : ""
+            }
+            to="/app/leads?view=discover"
+          >
+            Find leads
+          </Link>
+
+          <Link
+            className={
+              view === "external"
+                ? "active"
+                : ""
+            }
+            to="/app/leads?view=external"
+          >
+            Import / external leads
+          </Link>
+        </nav>
+
+        {view === "external"
+          ? <ExternalLeadCampaign />
+          : <Builder />}
+      </section>
+    );
   }
 
   return (
@@ -1034,7 +1181,7 @@ function isCodesyncDashboardUser(user) {
  * - lead assignment pages
  * - pipelines
  * - territories
- * - campaign contacts
+ * - campaign contacts and companies
  */
 function ManagerOnlyRoute({
   children,
@@ -1259,13 +1406,22 @@ function getUnauthorizedRedirectPath(
  * Caller accounts open their assigned-lead workspace.
  */
 function getDefaultDashboardPath(
-  role
+  role,
+  user
 ) {
+  if (
+    isCodesyncDashboardUser(
+      user
+    )
+  ) {
+    return "platform-admin";
+  }
+
   if (role === "caller") {
     return "dashboard";
   }
 
-  return "dashboard";
+  return "voice-start";
 }
 
 /**

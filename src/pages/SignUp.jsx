@@ -18,6 +18,7 @@ import {
   Zap,
 } from "../components/icons";
 import { useAuth } from "../auth/AuthContext";
+import GoogleAuthButton from "../components/GoogleAuthButton";
 import AuthLayout from "./AuthLayout";
 
 const INITIAL_FORM = {
@@ -60,14 +61,22 @@ const WORKSPACE_TYPES = [
 
 export default function Signup() {
   const navigate = useNavigate();
-  const { signup } = useAuth();
+  const {
+    signup,
+    googleAuth,
+  } = useAuth();
   const reduceMotion = useReducedMotion();
 
   const [step, setStep] = useState(1);
   const [form, setForm] = useState(INITIAL_FORM);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const busy =
+    loading ||
+    googleLoading;
 
   const isCompany = form.accountType === "company";
 
@@ -99,7 +108,7 @@ export default function Signup() {
   );
 
   function set(key, value) {
-    if (loading) return;
+    if (busy) return;
 
     setError("");
 
@@ -119,7 +128,7 @@ export default function Signup() {
   }
 
   function goToStep(nextStep) {
-    if (loading) return;
+    if (busy) return;
 
     if (nextStep === 2 && !form.accountType) {
       setError("Choose the workspace type that matches how you sell.");
@@ -153,7 +162,7 @@ export default function Signup() {
   async function submit(event) {
     event.preventDefault();
 
-    if (loading) return;
+    if (busy) return;
 
     const name = form.name.trim();
     const companyName = form.companyName.trim();
@@ -210,7 +219,7 @@ export default function Signup() {
        * Preserve the existing post-signup product flow: new workspace owners
        * enter AI Voice Agent onboarding immediately after account creation.
        */
-      navigate("/app/voice-agent?onboarding=1", {
+      navigate("/app/voice-start?onboarding=1", {
         replace: true,
       });
     } catch (requestError) {
@@ -222,6 +231,64 @@ export default function Signup() {
       );
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleGoogleCredential(
+    credential
+  ) {
+    if (busy) {
+      return;
+    }
+
+    const detailsError =
+      validateDetailsStep(form);
+
+    if (detailsError) {
+      setStep(2);
+      setError(detailsError);
+      return;
+    }
+
+    try {
+      setGoogleLoading(true);
+      setError("");
+
+      await googleAuth(
+        {
+          credential,
+          mode: "signup",
+          name:
+            form.name.trim(),
+          accountType:
+            form.accountType,
+          role:
+            form.role.trim(),
+          companyName:
+            isCompany
+              ? form.companyName.trim()
+              : "",
+        },
+        {
+          rememberMe: true,
+        }
+      );
+
+      navigate(
+        "/app/voice-start?onboarding=1",
+        {
+          replace: true,
+        }
+      );
+    } catch (requestError) {
+      setError(
+        safeAuthMessage(
+          requestError?.message ||
+            "Google signup could not be completed."
+        )
+      );
+    } finally {
+      setGoogleLoading(false);
     }
   }
 
@@ -295,7 +362,7 @@ export default function Signup() {
                 form={form}
                 isCompany={isCompany}
                 selectedWorkspace={selectedWorkspace}
-                loading={loading}
+                loading={busy}
                 onChange={set}
                 onBack={() => goToStep(1)}
                 onContinue={() => goToStep(3)}
@@ -310,8 +377,18 @@ export default function Signup() {
                 isCompany={isCompany}
                 showPassword={showPassword}
                 passwordScore={passwordScore}
-                loading={loading}
+                loading={busy}
+                googleLoading={googleLoading}
                 canSubmit={canSubmit}
+                onGoogleCredential={handleGoogleCredential}
+                onGoogleError={(googleError) =>
+                  setError(
+                    safeAuthMessage(
+                      googleError?.message ||
+                        "Google signup could not be initialized."
+                    )
+                  )
+                }
                 onChange={set}
                 onTogglePassword={() =>
                   setShowPassword((current) => !current)
@@ -693,7 +770,10 @@ function AccountSecurityStep({
   showPassword,
   passwordScore,
   loading,
+  googleLoading,
   canSubmit,
+  onGoogleCredential,
+  onGoogleError,
   onChange,
   onTogglePassword,
   onBack,
@@ -746,6 +826,29 @@ function AccountSecurityStep({
               "ReachFly"}{" "}
             • {form.role.trim() || "Workspace owner"}
           </p>
+        </div>
+      </div>
+
+      <div className="rf11-signup-google-block">
+        <GoogleAuthButton
+          mode="signup"
+          onCredential={onGoogleCredential}
+          onError={onGoogleError}
+          disabled={loading}
+        />
+
+        <div className="rf11-signup-or">
+          <span />
+          <b>or continue with email</b>
+          <span />
+        </div>
+
+        <div className="rf11-signup-starter-credit">
+          <Sparkles size={13} />
+          <span>
+            <strong>10 free ReachFly credits</strong>
+            {" "}are included when this workspace is created.
+          </span>
         </div>
       </div>
 
@@ -846,7 +949,9 @@ function AccountSecurityStep({
             <>
               <span className="rf11-signup-spinner" />
 
-              Creating workspace…
+              {googleLoading
+                ? "Connecting Google…"
+                : "Creating workspace…"}
             </>
           ) : (
             <>
@@ -1511,8 +1616,8 @@ function SignupStyles() {
       }
 
       .rf11-signup-field > div:focus-within{
-        border-color:rgba(70,72,212,.55);
-        box-shadow:0 0 0 3px rgba(70,72,212,.07);
+        border-color:var(--rf11-signup-line);
+        box-shadow:none;
       }
 
       .rf11-signup-field > div > svg{
@@ -1629,6 +1734,57 @@ function SignupStyles() {
         text-overflow:ellipsis;
         white-space:nowrap;
         font-size:6px;
+      }
+
+      .rf11-signup-google-block{
+        display:grid;
+        gap:10px;
+        margin-bottom:14px;
+      }
+
+      .rf11-signup-google-block > div:first-child{
+        width:100%;
+      }
+
+      .rf11-signup-or{
+        display:grid;
+        grid-template-columns:1fr auto 1fr;
+        align-items:center;
+        gap:9px;
+      }
+
+      .rf11-signup-or > span{
+        height:1px;
+        background:var(--rf11-signup-line);
+      }
+
+      .rf11-signup-or > b{
+        color:var(--rf11-signup-muted);
+        font-size:7px;
+        font-weight:650;
+      }
+
+      .rf11-signup-starter-credit{
+        min-height:34px;
+        display:flex;
+        align-items:center;
+        gap:7px;
+        padding:8px 10px;
+        border:1px solid #d8dcf3;
+        border-radius:9px;
+        color:#4b4f61;
+        background:#f7f7ff;
+        font-size:8px;
+        line-height:12px;
+      }
+
+      .rf11-signup-starter-credit svg{
+        color:#6f63f6;
+        flex:0 0 auto;
+      }
+
+      .rf11-signup-starter-credit strong{
+        color:#4d47d7;
       }
 
       .rf11-signup-account-fields{
@@ -1887,7 +2043,7 @@ function SignupContrastStyles() {
       .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-field>span{color:#2b382f!important;font-weight:700!important;opacity:1!important}
       .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-field>div{min-height:56px!important;color:#637067!important;background:#f6f8f5!important;border:1px solid #cbd5cc!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 5px 16px rgba(32,48,36,.03)!important}
       .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-field>div:hover{background:#f3f6f2!important;border-color:#b8c6ba!important}
-      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-field>div:focus-within{color:#31463a!important;background:#fff!important;border-color:#87998a!important;box-shadow:0 0 0 4px rgba(45,73,52,.075),0 10px 28px rgba(31,48,35,.05)!important}
+      .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-field>div:focus-within{color:#31463a!important;background:#fff!important;border-color:#cbd5cc!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 5px 16px rgba(32,48,36,.03)!important}
       .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-field>div>svg{color:#66746a!important;opacity:1!important}
       .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-field input{color:#172019!important;background:transparent!important;caret-color:#1c2e1e!important;font-size:14px!important;font-weight:550!important;opacity:1!important;-webkit-text-fill-color:#172019!important}
       .rf15-auth-page.rf16-auth-page .rf16-auth-panel .rf11-signup-field input::placeholder{color:#748077!important;opacity:1!important;font-weight:500!important;-webkit-text-fill-color:#748077!important}
