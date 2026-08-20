@@ -815,6 +815,12 @@ export const api = {
       ...jsonOptions("POST", data),
     }),
 
+  connectCalendly: (data = {}) =>
+    request("/api/connections/calendly", {
+      ...jsonOptions("POST", data),
+      timeoutMs: 30_000,
+    }),
+
   disconnectConnection: (connectionId) =>
     request(`/api/connections/${encode(connectionId)}`, {
       method: "DELETE",
