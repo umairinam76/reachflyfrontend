@@ -6,6 +6,8 @@ import {
   useState,
 } from "react";
 
+import QRCode from "qrcode";
+
 import {
   Calendar,
   CheckCircle2,
@@ -376,7 +378,7 @@ export default function ConnectionsPage() {
     };
 
     void poll();
-    const timer = window.setInterval(poll, 4000);
+    const timer = window.setInterval(poll, 1200);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
@@ -506,17 +508,20 @@ export default function ConnectionsPage() {
               : googleConnections,
             assignmentCounts
           ),
-          action: {
-            label: healthyGoogleConnections.length
-              ? "Connect another"
-              : googleConnections.length
-                ? "Reconnect"
-                : data?.googleConfigured === false
-                  ? "Connect / retry"
-                  : "Connect",
-            onClick: connectGoogle,
-            loading: busy === "google",
-          },
+          action: data?.googleConfigured === false
+            ? {
+                label: "Unavailable",
+                disabled: true,
+              }
+            : {
+                label: healthyGoogleConnections.length
+                  ? "Connect another"
+                  : googleConnections.length
+                    ? "Reconnect"
+                    : "Connect",
+                onClick: connectGoogle,
+                loading: busy === "google",
+              },
           settings: healthyGoogle || anyGoogle
             ? () => setMessage(
                 `Google Workspace is connected as ${(healthyGoogle || anyGoogle)?.accountEmail || "this account"}.`
@@ -541,15 +546,16 @@ export default function ConnectionsPage() {
                 onClick: () => runAction(googleEmailConnection, "email"),
                 loading: busy === `${googleEmailConnection.id}:email`,
               }
-            : {
-                label: googleEmailConnection
-                  ? "Reconnect"
-                  : data?.googleConfigured === false
-                    ? "Connect / retry"
-                    : "Connect",
-                onClick: connectGoogle,
-                loading: busy === "google",
-              },
+            : data?.googleConfigured === false
+              ? {
+                  label: "Unavailable",
+                  disabled: true,
+                }
+              : {
+                  label: googleEmailConnection ? "Reconnect" : "Connect",
+                  onClick: connectGoogle,
+                  loading: busy === "google",
+                },
           settings: googleEmailConnection
             ? () => setMessage(
                 `Gmail is available for ${googleEmailConnection.accountEmail || "this Google connection"}.`
@@ -574,15 +580,16 @@ export default function ConnectionsPage() {
                 onClick: () => runAction(googleCalendarConnection, "calendar"),
                 loading: busy === `${googleCalendarConnection.id}:calendar`,
               }
-            : {
-                label: googleCalendarConnection
-                  ? "Reconnect"
-                  : data?.googleConfigured === false
-                    ? "Connect / retry"
-                    : "Connect",
-                onClick: connectGoogle,
-                loading: busy === "google",
-              },
+            : data?.googleConfigured === false
+              ? {
+                  label: "Unavailable",
+                  disabled: true,
+                }
+              : {
+                  label: googleCalendarConnection ? "Reconnect" : "Connect",
+                  onClick: connectGoogle,
+                  loading: busy === "google",
+                },
           settings: googleCalendarConnection
             ? () => setMessage(
                 `Calendar booking is available for ${googleCalendarConnection.accountEmail || "this Google connection"}.`
@@ -1173,7 +1180,7 @@ export default function ConnectionsPage() {
                 <button
                   type="button"
                   className="rfi-btn primary"
-                  disabled={busy === "google"}
+                  disabled={busy === "google" || data?.googleConfigured === false}
                   onClick={() => void connectGoogle()}
                 >
                   {busy === "google" ? (
@@ -1353,14 +1360,62 @@ function IntegrationModal({
   setCalendlyForm,
   onConnectCalendly,
 }) {
-  if (!active) return null;
-
-  const whatsappQr = firstString(
+  const whatsappQrToken = firstString(
     whatsapp?.qr,
     whatsapp?.qrCode,
     whatsapp?.qrcode,
     whatsapp?.qrDataUrl
   );
+  const [whatsappQrImage, setWhatsappQrImage] = useState("");
+  const [whatsappQrRenderError, setWhatsappQrRenderError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function renderWhatsAppQr() {
+      setWhatsappQrRenderError("");
+
+      if (active !== "whatsapp" || whatsapp?.ready || !whatsappQrToken) {
+        setWhatsappQrImage("");
+        return;
+      }
+
+      if (/^data:image\//i.test(whatsappQrToken)) {
+        setWhatsappQrImage(whatsappQrToken);
+        return;
+      }
+
+      try {
+        // whatsapp-web.js supplies the raw QR token. Render the image in the
+        // browser so the API never spends time generating PNG/base64 QR data.
+        const dataUrl = await QRCode.toDataURL(whatsappQrToken, {
+          width: 320,
+          margin: 2,
+          errorCorrectionLevel: "M",
+          color: {
+            dark: "#111827",
+            light: "#ffffff",
+          },
+        });
+
+        if (!cancelled) setWhatsappQrImage(dataUrl);
+      } catch (error) {
+        if (!cancelled) {
+          setWhatsappQrImage("");
+          setWhatsappQrRenderError(
+            safeMessage(error?.message || "Could not render the WhatsApp QR code.")
+          );
+        }
+      }
+    }
+
+    void renderWhatsAppQr();
+    return () => {
+      cancelled = true;
+    };
+  }, [active, whatsapp?.ready, whatsappQrToken]);
+
+  if (!active) return null;
 
   const titles = {
     "custom-email": ["Custom Email", "Connect a mailbox without leaving Integrations."],
@@ -1533,9 +1588,9 @@ function IntegrationModal({
                   <p>{whatsapp.phone ? `Linked number: ${formatPhone(whatsapp.phone)}` : "The linked session is ready for messaging workflows."}</p>
                 </div>
               </div>
-            ) : whatsappQr ? (
+            ) : whatsappQrImage ? (
               <div className="rfi-whatsapp-qr">
-                <img src={whatsappQr} alt="WhatsApp linking QR code" />
+                <img src={whatsappQrImage} alt="WhatsApp linking QR code" />
                 <div>
                   <strong>Scan from WhatsApp</strong>
                   <p>Open WhatsApp → Linked devices → Link a device, then scan this QR code.</p>
@@ -1545,8 +1600,13 @@ function IntegrationModal({
             ) : (
               <div className="rfi-whatsapp-empty">
                 <MessageCircle size={28} />
-                <strong>Generate a linking QR code</strong>
-                <p>No WhatsApp password is entered into ReachFly. Start linking, then scan the QR code from your phone.</p>
+                <strong>{whatsappQrToken ? "Preparing QR code…" : "Generate a linking QR code"}</strong>
+                <p>
+                  {whatsappQrRenderError ||
+                    (whatsappQrToken
+                      ? "The WhatsApp Web token is ready. ReachFly is rendering it securely in your browser."
+                      : "No WhatsApp password is entered into ReachFly. Start linking, then scan the QR code from your phone.")}
+                </p>
               </div>
             )}
           </div>
@@ -1622,7 +1682,7 @@ function IntegrationModal({
                 onClick={() => void onConnectWhatsApp()}
               >
                 {busy === "whatsapp" ? <RefreshCw size={12} className="spin" /> : <MessageCircle size={13} />}
-                {whatsappQr ? "Generate new QR" : "Start linking"}
+                {whatsappQrToken ? "Refresh QR" : "Start linking"}
               </button>
             )
           ) : null}
