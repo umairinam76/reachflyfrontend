@@ -636,6 +636,10 @@ function applyLeadStreamEvent(
       message:
         event.message ||
         base.message,
+      serverRunId:
+        event.runId ||
+        base.serverRunId ||
+        "",
     };
   }
 
@@ -856,6 +860,7 @@ export default function Builder() {
   const { user } = useAuth();
   const streamControllerRef = useRef(null);
   const leadSearchRunRef = useRef(0);
+  const archivedRunSyncRef = useRef(new Set());
 
   const builderBootstrapRef =
     useRef({
@@ -1267,6 +1272,66 @@ export default function Builder() {
   }, [step, form]);
 
   useEffect(() => {
+    if (!canManage || !leadResult) return undefined;
+
+    const status = String(leadResult.status || "").toLowerCase();
+    const leads = Array.isArray(leadResult.leads) ? leadResult.leads : [];
+
+    if (
+      leadResult.streaming === true ||
+      ["loading", "error"].includes(status) ||
+      leadResult.restored === true ||
+      !leads.length
+    ) {
+      return undefined;
+    }
+
+    const runId = String(
+      leadResult.serverRunId ||
+        leadResult.clientRunId ||
+        `browser-${leadResult.startedAt || Date.now()}`
+    );
+
+    if (archivedRunSyncRef.current.has(runId)) return undefined;
+    archivedRunSyncRef.current.add(runId);
+
+    let cancelled = false;
+
+    apiRequest("/leads/scraped/import", {
+      method: "POST",
+      timeoutMs: 30_000,
+      body: {
+        runId,
+        leads,
+        niche: leadResult.search?.niche || form.niche || "",
+        location: leadResult.search?.location || form.location || "",
+        requested: Number(leadResult.requested ?? leads.length),
+        status: leadResult.status || "complete",
+      },
+    })
+      .then(() => {
+        if (!cancelled && showingAllLeads) {
+          setArchiveReloadKey((value) => value + 1);
+        }
+      })
+      .catch(() => {
+        // The live-search backend also archives every streamed batch. This
+        // client sync is a safety net for navigation/reload races only.
+        archivedRunSyncRef.current.delete(runId);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    canManage,
+    leadResult,
+    showingAllLeads,
+    form.niche,
+    form.location,
+  ]);
+
+  useEffect(() => {
     if (!showingAllLeads || !canManage) return undefined;
 
     let cancelled = false;
@@ -1295,16 +1360,55 @@ export default function Builder() {
             `/leads/scraped?limit=${pageSize}&offset=${offset}`,
             { timeoutMs: 30_000 }
           );
-          const page = Array.isArray(response?.leads)
-            ? response.leads
-            : Array.isArray(response?.items)
-              ? response.items
+          const payload =
+            response?.data && typeof response.data === "object"
+              ? response.data
+              : response || {};
+          const page = Array.isArray(payload?.leads)
+            ? payload.leads
+            : Array.isArray(payload?.items)
+              ? payload.items
               : [];
-          total = Number(response?.total ?? page.length);
+          total = Number(payload?.total ?? page.length);
           collected.push(...page);
           offset += page.length;
-          if (!page.length || response?.hasMore === false) break;
+          if (!page.length || payload?.hasMore === false) break;
         } while (offset < total);
+
+        if (!collected.length) {
+          const inMemoryLeads = Array.isArray(leadResult?.leads)
+            ? leadResult.leads
+            : [];
+
+          if (inMemoryLeads.length) {
+            const recoveryRunId = String(
+              leadResult?.serverRunId ||
+                leadResult?.clientRunId ||
+                `browser-recovery-${Date.now()}`
+            );
+
+            try {
+              await apiRequest("/leads/scraped/import", {
+                method: "POST",
+                timeoutMs: 30_000,
+                body: {
+                  runId: recoveryRunId,
+                  leads: inMemoryLeads,
+                  niche: leadResult?.search?.niche || form.niche || "",
+                  location: leadResult?.search?.location || form.location || "",
+                  requested: Number(leadResult?.requested ?? inMemoryLeads.length),
+                  status: leadResult?.status || "complete",
+                },
+              });
+              collected.push(...inMemoryLeads);
+              total = inMemoryLeads.length;
+            } catch {
+              // Keep the in-memory result visible even if the recovery write fails.
+              collected.push(...inMemoryLeads);
+              total = inMemoryLeads.length;
+            }
+          }
+        }
 
         if (cancelled) return;
 
@@ -1348,7 +1452,16 @@ export default function Builder() {
     return () => {
       cancelled = true;
     };
-  }, [showingAllLeads, canManage, user?.workspaceId, user?.id, archiveReloadKey]);
+  }, [
+    showingAllLeads,
+    canManage,
+    user?.workspaceId,
+    user?.id,
+    archiveReloadKey,
+    leadResult,
+    form.niche,
+    form.location,
+  ]);
 
   useEffect(() => {
     if (!showingResults || leadResult || !canManage) return undefined;
@@ -5228,8 +5341,11 @@ function LiveLeadResultsPage({
     return true;
   });
 
-  const requested = Number(result?.requested || form.limit || 100);
   const delivered = leads.length;
+  const requested = archiveMode
+    ? Number(result?.total ?? result?.requested ?? delivered)
+    : Number(result?.requested ?? form.limit ?? 100);
+  const visibleCount = filteredLeads.length;
   const percent = Math.max(0, Math.min(100, Number(result?.percent || 0)));
   const isLoading =
     archiveLoading ||
@@ -5475,7 +5591,7 @@ function LiveLeadResultsPage({
             <div>
               <strong>
                 {archiveMode
-                  ? `Saved lead archive · ${delivered.toLocaleString()} unique leads`
+                  ? `Saved lead archive · ${requested.toLocaleString()} unique leads`
                   : result?.restored
                     ? `Latest saved search restored · ${delivered.toLocaleString()} leads`
                     : result?.exact
@@ -5499,7 +5615,7 @@ function LiveLeadResultsPage({
 
           <div className="rf7-result-integrity-metrics">
             <span><b>{requested.toLocaleString()}</b>{archiveMode ? "Saved" : "Requested"}</span>
-            <span><b>{delivered.toLocaleString()}</b>{archiveMode ? "Visible" : "Returned"}</span>
+            <span><b>{(archiveMode ? visibleCount : delivered).toLocaleString()}</b>{archiveMode ? "Visible" : "Returned"}</span>
             <span><b>{phoneCount.toLocaleString()}</b>Phones</span>
           </div>
         </motion.section>
@@ -5647,11 +5763,19 @@ function LiveLeadResultsPage({
             <div className="rf7-leads-empty-icon">
               <Search size={22} />
             </div>
-            <h3>{leads.length ? "No leads match these filters" : "Build your first prospect list"}</h3>
+            <h3>
+              {leads.length
+                ? "No leads match these filters"
+                : archiveMode
+                  ? "No saved scraped leads yet"
+                  : "Build your first prospect list"}
+            </h3>
             <p>
               {leads.length
                 ? "Adjust the search or filter controls to see more leads."
-                : "Search a market and ReachFly will build a live business prospect list."}
+                : archiveMode
+                  ? "New lead searches are archived automatically. Leads from searches completed before server-side lead archiving was deployed cannot be reconstructed after the old page state was refreshed."
+                  : "Search a market and ReachFly will build a live business prospect list."}
             </p>
             <button type="button" className="rf7-leads-primary" onClick={onBack}>
               <Search size={17} />

@@ -8,7 +8,6 @@ import {
 
 import {
   Link,
-  NavLink,
   Outlet,
   useLocation,
   useNavigate,
@@ -537,7 +536,7 @@ export default function AppShell() {
         label: "Growth",
         items: [
           {
-            label: isCaller ? "My Leads" : "Leads",
+            label: isCaller ? "My Leads" : "Find Leads",
             to: isCaller
               ? "/app/my-leads"
               : "/app/leads?view=discover",
@@ -951,14 +950,17 @@ export default function AppShell() {
           visible: true,
         },
         {
-          label: "Leads",
+          label: isCaller ? "My Leads" : "Find Leads",
           to: isCaller
             ? "/app/my-leads"
             : "/app/leads?view=discover",
           icon: Target,
-          matchPrefixes: isCaller
-            ? ["/app/my-leads"]
-            : ["/app/leads", "/app/builder"],
+          ...(isCaller
+            ? { matchPrefixes: ["/app/my-leads"] }
+            : {
+                matchQuery: { view: ["discover", "results", null] },
+                queryPathPrefix: "/app/leads",
+              }),
           visible: isCaller || canManageCampaigns,
           creditGated: !isCaller,
         },
@@ -1138,7 +1140,7 @@ export default function AppShell() {
                     });
 
                     return (
-                      <NavLink
+                      <Link
                         key={`${group.label}-${item.label}-${item.to}`}
                         to={item.to}
                         className={`rf7-nav-link ${active ? "active" : ""} ${
@@ -1146,6 +1148,7 @@ export default function AppShell() {
                             ? "credit-locked"
                             : ""
                         }`}
+                        aria-current={active ? "page" : undefined}
                         onClick={() => setSidebarOpen(false)}
                       >
                         <Icon size={18} aria-hidden="true" />
@@ -1165,7 +1168,7 @@ export default function AppShell() {
                             {formatCount(item.count)}
                           </em>
                         ) : null}
-                      </NavLink>
+                      </Link>
                     );
                   })}
                 </div>
@@ -1478,10 +1481,11 @@ export default function AppShell() {
             });
 
             return (
-              <NavLink
+              <Link
                 key={item.label}
                 className={`rf7-mobile-nav-link-v7 ${active ? "active" : ""}`}
                 to={item.to}
+                aria-current={active ? "page" : undefined}
               >
                 <span className="rf7-mobile-nav-icon-v7">
                   <Icon size={19} />
@@ -1497,7 +1501,7 @@ export default function AppShell() {
                   ) : null}
                 </span>
                 <span>{item.label}</span>
-              </NavLink>
+              </Link>
             );
           })}
         </nav>
