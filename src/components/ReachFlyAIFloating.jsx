@@ -20,10 +20,19 @@ import {
   X,
 } from "./icons";
 
+const AUTO_OPEN_IDLE_MS = 30_000;
+
 const welcomeMessage = {
   role: "assistant",
   text:
     "Hi, I’m ReachFly AI. I can review your current ReachFly screen, explain what is happening, and suggest the best next action.",
+};
+
+const proactiveMessage = {
+  role: "assistant",
+  type: "proactive-nudge",
+  text:
+    "Still on this page? If you’re stuck, tell me what you’re trying to do and I’ll guide you from this screen.",
 };
 
 export default function ReachFlyAIFloating() {
@@ -92,14 +101,6 @@ export default function ReachFlyAIFloating() {
   }, [messages, loading, open]);
 
   useEffect(() => {
-    if (!open) return;
-    const routeKey = `${location.pathname}${location.search || ""}`;
-    if (lastAnalysedPath.current === routeKey) return;
-    void analyseCurrentScreen({ automatic: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, loading, location.pathname, location.search]);
-
-  useEffect(() => {
     if (!isAuthenticated || initializing || typeof window === "undefined") {
       return undefined;
     }
@@ -120,8 +121,13 @@ export default function ReachFlyAIFloating() {
       if (window.sessionStorage.getItem(sessionKey) === "1") return;
 
       inactivityTimerRef.current = window.setTimeout(() => {
-        if (document.hidden || open || loadingRef.current) return;
-        if (Date.now() - lastActivityAt < 9_500) {
+        if (document.hidden || open || loadingRef.current) {
+          schedule();
+          return;
+        }
+
+        const idleFor = Date.now() - lastActivityAt;
+        if (idleFor < AUTO_OPEN_IDLE_MS - 250) {
           schedule();
           return;
         }
@@ -129,19 +135,22 @@ export default function ReachFlyAIFloating() {
         window.sessionStorage.setItem(sessionKey, "1");
         setOpen(true);
         setUnread(false);
-        setMessages((current) => [
-          ...current.filter((message) => message.type !== "proactive-nudge"),
-          {
-            role: "assistant",
-            type: "proactive-nudge",
-            text: "Still on this page? I can check the current screen and help you finish what you’re doing.",
-          },
-        ]);
+        setMessages((current) => {
+          const withoutOldNudge = current.filter(
+            (message) => message.type !== "proactive-nudge"
+          );
 
-        window.setTimeout(() => {
-          void analyseCurrentScreen({ automatic: true, proactive: true });
-        }, 120);
-      }, 10_000);
+          const hasConversation = withoutOldNudge.some(
+            (message) => message.role === "user"
+          );
+
+          if (!hasConversation && withoutOldNudge.length <= 1) {
+            return [proactiveMessage];
+          }
+
+          return [...withoutOldNudge, proactiveMessage];
+        });
+      }, AUTO_OPEN_IDLE_MS);
     };
 
     const markActivity = () => {
@@ -307,7 +316,7 @@ export default function ReachFlyAIFloating() {
 
       const prompt = proactive
         ? [
-            "The user has been inactive on this ReachFly screen for about 10 seconds and may be stuck.",
+            "The user has been inactive on this ReachFly screen for about 30 seconds and may be stuck.",
             "Look at the current page context and proactively help them continue.",
             "Start with one short question or observation, then give up to three exact next steps.",
             "If there is a visible error, explain it using only the supplied context.",
@@ -1676,6 +1685,46 @@ function ReachFlyAIFloatingStyles() {
 
         .reachfly-ai-screen-context{
           padding:8px 10px;
+        }
+      }
+
+      /*
+       * Hard size guard: this assistant is a compact left-side helper, never a
+       * page-sized drawer. !important protects it from legacy global panel/section
+       * rules in styles.css.
+       */
+      .reachfly-ai-floating-panel{
+        inset:auto auto 78px calc(var(--rf7-sidebar-width,260px) + 16px) !important;
+        right:auto !important;
+        top:auto !important;
+        width:360px !important;
+        min-width:0 !important;
+        max-width:calc(100vw - var(--rf7-sidebar-width,260px) - 34px) !important;
+        height:min(560px,calc(100vh - 110px)) !important;
+        max-height:calc(100vh - 110px) !important;
+        margin:0 !important;
+      }
+
+      .reachfly-ai-floating-trigger{
+        left:calc(var(--rf7-sidebar-width,260px) + 16px) !important;
+        right:auto !important;
+        width:auto !important;
+        max-width:180px !important;
+      }
+
+      @media(max-width:760px){
+        .reachfly-ai-floating-panel{
+          inset:auto auto 72px 12px !important;
+          width:min(360px,calc(100vw - 24px)) !important;
+          max-width:calc(100vw - 24px) !important;
+          height:min(540px,calc(100vh - 92px)) !important;
+          max-height:calc(100vh - 92px) !important;
+          border-radius:14px !important;
+        }
+
+        .reachfly-ai-floating-trigger{
+          left:12px !important;
+          bottom:12px !important;
         }
       }
 
