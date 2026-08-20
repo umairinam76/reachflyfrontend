@@ -5,6 +5,7 @@ import Lenis from "lenis";
 import "lenis/dist/lenis.css";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import {CheckCircle2} from "../components/icons";
 import {
   ArrowRight,
   Brain,
