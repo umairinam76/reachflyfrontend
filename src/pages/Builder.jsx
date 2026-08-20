@@ -2809,7 +2809,7 @@ if (showingResults) {
       ) : null} */}
 
       <Field
-        label="Offer / service"
+        label="What would you like to offer these leads?"
         value={form.offer}
         onChange={(value) => set("offer", value)}
         placeholder="e.g. A conversion-focused website redesign"
