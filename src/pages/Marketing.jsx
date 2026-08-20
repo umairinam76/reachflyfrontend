@@ -108,6 +108,70 @@ const TRUST_POINTS = [
 
 const AUDIENCES = ["Agencies", "B2B SaaS", "Local sales", "Growth teams", "Founders"];
 
+const PRICING_PLANS = [
+  {
+    id: "launch",
+    name: "Launch",
+    eyebrow: "Start simple",
+    price: "$40",
+    credits: "1,000 credits",
+    perCredit: "$0.04 / credit",
+    agents: "1 AI Agent",
+    numbers: "Ready for 1 business number",
+    calling: "10 credits / connected minute",
+    description: "A clean starting point for a new ReachFly workspace.",
+    cta: "Choose Launch",
+    href: "/signup?plan=launch",
+  },
+  {
+    id: "growth",
+    name: "Growth",
+    eyebrow: "Most popular",
+    price: "$75",
+    credits: "2,500 credits",
+    perCredit: "$0.03 / credit",
+    agents: "3 AI Agents",
+    numbers: "Ready for 1 business number",
+    calling: "10 credits / connected minute",
+    description: "More capacity for an active team running ReachFly every day.",
+    badge: "25% lower / credit",
+    featured: true,
+    cta: "Choose Growth",
+    href: "/signup?plan=growth",
+  },
+  {
+    id: "scale",
+    name: "Scale",
+    eyebrow: "Best value",
+    price: "$100",
+    credits: "5,000 credits",
+    perCredit: "$0.02 / credit",
+    agents: "10 AI Agents",
+    numbers: "Ready for up to 3 business numbers",
+    calling: "10 credits / connected minute",
+    description: "Maximum per-credit value for teams operating at scale.",
+    badge: "50% lower / credit",
+    cta: "Choose Scale",
+    href: "/signup?plan=scale",
+  },
+  {
+    id: "enterprise",
+    name: "Enterprise",
+    eyebrow: "Custom scale",
+    price: "Custom",
+    credits: "Custom credit capacity",
+    perCredit: "Custom pricing",
+    agents: "Custom / unlimited AI Agents",
+    numbers: "Custom business-number capacity",
+    calling: "Custom workspace capacity",
+    description: "Tailored capacity and limits for higher-volume organizations.",
+    badge: "Enterprise",
+    cta: "Contact sales",
+    href: "/contact",
+    enterprise: true,
+  },
+];
+
 function useTypewriter(text, speed = 38, startDelay = 500) {
   const [displayed, setDisplayed] = useState("");
   const [done, setDone] = useState(false);
@@ -602,11 +666,270 @@ function CharacterMotionStyles() {
 
       .rf14-voice-section,
       .rf14-usecase-section,
+      .rf14-pricing-section,
       .rf14-trust-section,
       .rf14-final-wrap,
       .rf14-footer{
         position:relative;
         z-index:4;
+      }
+
+
+      .rf14-pricing-section{
+        position:relative;
+        z-index:4;
+        padding:110px 0 118px;
+        background:
+          radial-gradient(circle at 88% 10%,rgba(100,88,238,.075),transparent 34%),
+          linear-gradient(180deg,#fbfbfd 0%,#f6f7fb 100%);
+        overflow:hidden;
+      }
+
+      .rf14-pricing-head{
+        max-width:760px;
+        margin-bottom:34px;
+      }
+
+      .rf14-pricing-head h2{
+        max-width:720px;
+        margin:10px 0 0;
+        color:#171923;
+        font-size:clamp(38px,4.2vw,60px);
+        line-height:1.02;
+        letter-spacing:-.045em;
+      }
+
+      .rf14-pricing-head p{
+        max-width:660px;
+        margin:15px 0 0;
+        color:#6e707c;
+        font-size:15px;
+        line-height:1.75;
+      }
+
+      .rf14-pricing-grid{
+        display:grid;
+        grid-template-columns:repeat(4,minmax(0,1fr));
+        gap:14px;
+      }
+
+      .rf14-price-card{
+        position:relative;
+        min-width:0;
+        display:flex;
+        flex-direction:column;
+        min-height:470px;
+        padding:24px;
+        border:1px solid #e2e3e9;
+        border-radius:22px;
+        background:
+          radial-gradient(circle at 100% 0,rgba(91,82,229,.055),transparent 38%),
+          rgba(255,255,255,.96);
+        box-shadow:0 16px 42px rgba(31,34,54,.055);
+        transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease;
+      }
+
+      .rf14-price-card:hover{
+        transform:translateY(-4px);
+        border-color:#d2d2e8;
+        box-shadow:0 22px 52px rgba(31,34,54,.09);
+      }
+
+      .rf14-price-card.is-featured{
+        border-color:rgba(85,79,225,.42);
+        box-shadow:0 18px 48px rgba(81,74,211,.11);
+      }
+
+      .rf14-price-card.is-enterprise{
+        background:
+          radial-gradient(circle at 100% 0,rgba(32,35,49,.08),transparent 42%),
+          linear-gradient(180deg,#fff 0%,#fafafd 100%);
+      }
+
+      .rf14-price-card-badge{
+        position:absolute;
+        top:18px;
+        right:18px;
+        display:inline-flex;
+        align-items:center;
+        min-height:26px;
+        padding:4px 9px;
+        border-radius:999px;
+        color:#5450d8;
+        background:#efefff;
+        font-size:10px;
+        font-weight:800;
+      }
+
+      .rf14-price-card.is-enterprise .rf14-price-card-badge{
+        color:#fff;
+        background:#292c39;
+      }
+
+      .rf14-price-card > small{
+        color:#7f7f8a;
+        font-size:10px;
+        font-weight:800;
+        letter-spacing:.08em;
+        text-transform:uppercase;
+      }
+
+      .rf14-price-card h3{
+        margin:7px 0 0;
+        color:#20222c;
+        font-size:24px;
+        letter-spacing:-.025em;
+      }
+
+      .rf14-price-card > p{
+        min-height:60px;
+        margin:8px 0 0;
+        color:#777985;
+        font-size:12px;
+        line-height:1.6;
+      }
+
+      .rf14-price-amount{
+        margin:22px 0 18px;
+        padding:18px 0;
+        border-top:1px solid #ececf1;
+        border-bottom:1px solid #ececf1;
+      }
+
+      .rf14-price-amount strong,
+      .rf14-price-amount span,
+      .rf14-price-amount em{
+        display:block;
+      }
+
+      .rf14-price-amount strong{
+        color:#20222c;
+        font-size:34px;
+        line-height:1;
+        letter-spacing:-.04em;
+      }
+
+      .rf14-price-amount span{
+        margin-top:6px;
+        color:#5356d8;
+        font-size:11px;
+        font-weight:800;
+      }
+
+      .rf14-price-amount em{
+        margin-top:3px;
+        color:#8c8b95;
+        font-size:9px;
+        font-style:normal;
+      }
+
+      .rf14-price-features{
+        display:grid;
+        gap:10px;
+        margin:0 0 22px;
+        padding:0;
+        list-style:none;
+      }
+
+      .rf14-price-features li{
+        display:flex;
+        align-items:flex-start;
+        gap:8px;
+        color:#5f616c;
+        font-size:11px;
+        line-height:1.45;
+      }
+
+      .rf14-price-features li svg{
+        flex:0 0 auto;
+        margin-top:1px;
+        color:#5b57df;
+      }
+
+      .rf14-price-cta{
+        min-height:44px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        gap:8px;
+        margin-top:auto;
+        border-radius:12px;
+        color:#fff;
+        background:linear-gradient(135deg,#5558e9 0%,#8752df 100%);
+        text-decoration:none;
+        font-size:12px;
+        font-weight:800;
+        box-shadow:0 10px 22px rgba(84,86,224,.16);
+      }
+
+      .rf14-price-card.is-enterprise .rf14-price-cta{
+        background:#292c39;
+      }
+
+      .rf14-pricing-note{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:18px;
+        margin-top:18px;
+        padding:15px 18px;
+        border:1px solid #e3e4e9;
+        border-radius:15px;
+        background:rgba(255,255,255,.78);
+      }
+
+      .rf14-pricing-note div{
+        min-width:0;
+      }
+
+      .rf14-pricing-note strong{
+        display:block;
+        color:#343640;
+        font-size:12px;
+      }
+
+      .rf14-pricing-note p{
+        margin:3px 0 0;
+        color:#85848e;
+        font-size:10px;
+        line-height:1.5;
+      }
+
+      .rf14-pricing-note a{
+        flex:0 0 auto;
+        color:#5558d8;
+        text-decoration:none;
+        font-size:10px;
+        font-weight:800;
+      }
+
+      @media (max-width:1180px){
+        .rf14-pricing-grid{
+          grid-template-columns:repeat(2,minmax(0,1fr));
+        }
+      }
+
+      @media (max-width:680px){
+        .rf14-pricing-section{
+          padding:78px 0 82px;
+        }
+
+        .rf14-pricing-grid{
+          grid-template-columns:1fr;
+        }
+
+        .rf14-price-card{
+          min-height:0;
+        }
+
+        .rf14-price-card > p{
+          min-height:0;
+        }
+
+        .rf14-pricing-note{
+          align-items:flex-start;
+          flex-direction:column;
+        }
       }
 
       @media (min-width:1024px) and (max-width:1240px){
@@ -759,6 +1082,8 @@ function Navbar({ open, setOpen }) {
           <span>·</span>
           <a href="#use-cases">Use cases</a>
           <span>·</span>
+          <a href="#pricing">Pricing</a>
+          <span>·</span>
           <a href="#trust">Trust</a>
         </nav>
 
@@ -802,6 +1127,7 @@ function Navbar({ open, setOpen }) {
                 ["#how", "How it works"],
                 ["#voice", "AI Voice"],
                 ["#use-cases", "Use cases"],
+                ["#pricing", "Pricing"],
                 ["#trust", "Trust"],
               ].map(([href, label]) => (
                 <a key={href} href={href} onClick={() => setOpen(false)}>
@@ -1172,6 +1498,77 @@ function UseCasesSection() {
   );
 }
 
+function PricingSection() {
+  return (
+    <section id="pricing" className="rf14-pricing-section">
+      <div className="rf14-section-width">
+        <Reveal className="rf14-pricing-head">
+          <span className="rf14-eyebrow">Simple pricing</span>
+          <h2>One balance. Clear AI Agent capacity.</h2>
+          <p>
+            Start with the workspace size that fits today, then move up when
+            your team needs more credits and more AI Agents.
+          </p>
+        </Reveal>
+
+        <div className="rf14-pricing-grid">
+          {PRICING_PLANS.map((plan, index) => (
+            <Reveal key={plan.id} delay={index * 0.055}>
+              <article
+                className={`rf14-price-card ${
+                  plan.featured ? "is-featured" : ""
+                } ${plan.enterprise ? "is-enterprise" : ""}`}
+              >
+                {plan.badge ? (
+                  <span className="rf14-price-card-badge">{plan.badge}</span>
+                ) : null}
+
+                <small>{plan.eyebrow}</small>
+                <h3>{plan.name}</h3>
+                <p>{plan.description}</p>
+
+                <div className="rf14-price-amount">
+                  <strong>{plan.price}</strong>
+                  <span>{plan.credits}</span>
+                  <em>{plan.perCredit}</em>
+                </div>
+
+                <ul className="rf14-price-features">
+                  {[plan.agents, plan.numbers, plan.calling, "One shared ReachFly balance"].map(
+                    (feature) => (
+                      <li key={feature}>
+                        <CheckCircle2 size={15} />
+                        <span>{feature}</span>
+                      </li>
+                    )
+                  )}
+                </ul>
+
+                <Link className="rf14-price-cta" to={plan.href}>
+                  {plan.cta}
+                  <ArrowRight size={15} />
+                </Link>
+              </article>
+            </Reveal>
+          ))}
+        </div>
+
+        <Reveal className="rf14-pricing-note">
+          <div>
+            <strong>Need a different credit amount?</strong>
+            <p>
+              ReachFly also supports flexible credit top-ups while your AI Agent
+              allowance follows the workspace plan.
+            </p>
+          </div>
+          <Link to="/signup">Create workspace →</Link>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
+
 function TrustSection() {
   return (
     <section id="trust" className="rf14-trust-section">
@@ -1247,6 +1644,7 @@ function Footer() {
         </p>
 
         <nav>
+          <a href="#pricing">Pricing</a>
           <Link to="/blog">Guides</Link>
           <Link to="/privacy">Privacy</Link>
           <Link to="/terms">Terms</Link>
@@ -1281,6 +1679,7 @@ export default function Marketing() {
       <WorkflowSection />
       <VoiceSection />
       <UseCasesSection />
+      <PricingSection />
       <TrustSection />
       <FinalCTA />
       <Footer />

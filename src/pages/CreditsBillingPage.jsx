@@ -35,6 +35,7 @@ const BUNDLES = [
     description:
       "A clean starting balance for a new workspace.",
     valueLabel: "Standard rate",
+    agentLimit: 1,
   },
   {
     id: "growth",
@@ -46,6 +47,7 @@ const BUNDLES = [
       "More room for an active team with a better per-credit rate.",
     valueLabel: "25% lower / credit",
     recommended: true,
+    agentLimit: 3,
   },
   {
     id: "scale",
@@ -57,6 +59,7 @@ const BUNDLES = [
       "Maximum value for teams running ReachFly every day.",
     valueLabel: "50% lower / credit",
     scaleValue: true,
+    agentLimit: 10,
   },
 ];
 
@@ -463,7 +466,7 @@ export default function CreditsBillingPage() {
           <SectionHeading
             eyebrow="Recommended bundles"
             title="Choose the balance that fits your workspace"
-            text="Start at the standard rate, save more as you buy more, and get 50% lower cost per credit on the Scale tier."
+            text="Choose a credit balance and AI Agent allowance that fits your workspace. Launch includes 1 agent, Growth 3, Scale 10, and Enterprise supports custom or unlimited capacity."
             action={
               <Link className="rfub-inline-link" to="/app/phone-numbers">
                 Business numbers
@@ -538,6 +541,13 @@ export default function CreditsBillingPage() {
                       </span>
                     </li>
                     <li>
+                      <Bot size={14} />
+                      <span>
+                        <b>{bundle.agentLimit}</b>{" "}
+                        AI Agent{bundle.agentLimit === 1 ? "" : "s"} included
+                      </span>
+                    </li>
+                    <li>
                       <CheckCircle2 size={14} />
                       <span>
                         AI calling at{" "}
@@ -574,6 +584,55 @@ export default function CreditsBillingPage() {
                 </article>
               );
             })}
+
+            <article className="rfub-bundle-card enterprise">
+              <span className="rfub-enterprise-badge">Enterprise</span>
+
+              <div className="rfub-bundle-top">
+                <span>Custom scale</span>
+                <h3>Enterprise</h3>
+                <p>
+                  Custom pricing, agent capacity and workspace limits for
+                  higher-volume teams.
+                </p>
+              </div>
+
+              <div className="rfub-bundle-price enterprise-price">
+                <small className="rfub-standard-label">Custom plan</small>
+                <strong>Let&apos;s talk</strong>
+                <small>Pricing and capacity tailored to your workspace</small>
+              </div>
+
+              <ul className="rfub-bundle-features">
+                <li>
+                  <Bot size={14} />
+                  <span>
+                    <b>Custom / unlimited</b> AI Agents
+                  </span>
+                </li>
+                <li>
+                  <Phone size={14} />
+                  <span>Custom business-number capacity</span>
+                </li>
+                <li>
+                  <CheckCircle2 size={14} />
+                  <span>Custom workspace capacity</span>
+                </li>
+                <li>
+                  <CheckCircle2 size={14} />
+                  <span>One ReachFly balance across the workspace</span>
+                </li>
+              </ul>
+
+              <Link className="rfub-btn primary full" to="/contact">
+                Contact sales
+                <ChevronRight size={13} />
+              </Link>
+
+              <small className="rfub-carrier-note">
+                We&apos;ll size the plan around your team and usage.
+              </small>
+            </article>
           </div>
         </section>
 
@@ -918,7 +977,7 @@ function BillingStyles() {
       .rfub-purpose-card{min-width:0;display:flex;align-items:flex-start;gap:10px;padding:13px;border:1px solid #e7e8ec;border-radius:12px;background:#fff;box-shadow:0 5px 15px rgba(25,28,45,.035)}
       .rfub-purpose-icon{width:31px;height:31px;flex:0 0 31px;display:grid;place-items:center;border-radius:9px;color:#5456d7;background:#f0f0ff;font-size:13px;font-weight:800}
       .rfub-purpose-card strong,.rfub-purpose-card b{display:block}.rfub-purpose-card strong{color:#30323d;font-size:10px}.rfub-purpose-card b{margin-top:2px;color:#5355d7;font-size:9px}.rfub-purpose-card p{margin:4px 0 0;color:#85838f;font-size:8px;line-height:13px}
-      .rfub-bundle-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+      .rfub-bundle-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
       .rfub-bundle-card{position:relative;overflow:hidden;padding:19px;border:1px solid #e4e5ea;border-radius:16px;background:radial-gradient(circle at 100% 0,rgba(99,101,238,.07),transparent 38%),#fff;box-shadow:0 10px 28px rgba(25,27,52,.055);transition:transform 160ms ease,box-shadow 160ms ease,border-color 160ms ease}
       .rfub-bundle-card:hover{transform:translateY(-2px);border-color:#d7d6ef;box-shadow:0 16px 34px rgba(25,27,52,.08)}.rfub-bundle-card.recommended{border-color:rgba(85,88,232,.42);box-shadow:0 15px 36px rgba(81,83,211,.12)}
       .rfub-discount-ribbon{position:absolute;top:13px;right:-29px;width:110px;min-height:22px;transform:rotate(38deg);font-size:8px}
@@ -949,6 +1008,38 @@ function BillingStyles() {
       @media(max-width:960px){.rfub-hero{grid-template-columns:1fr}.rfub-bundle-grid{grid-template-columns:1fr}.rfub-bundle-top p{min-height:0}.rfub-custom-card{grid-template-columns:1fr}}
       @media(max-width:720px){.rf-unified-billing{padding-inline:0}.rfub-header{flex-direction:column}.rfub-header>.rfub-btn{width:100%}.rfub-balance-panel{grid-template-columns:auto minmax(0,1fr);padding:18px}.rfub-balance-stats{grid-column:1/-1}.rfub-purpose-grid,.rfub-lower-grid{grid-template-columns:1fr}.rfub-lower-grid>:first-child{grid-column:auto}.rfub-section-heading{align-items:flex-start;flex-direction:column}.rfub-clarity{grid-template-columns:auto minmax(0,1fr)}.rfub-clarity>.rfub-inline-link{grid-column:1/-1}}
 
+      /* ReachFly Agent Plan Limits V7 */
+      .rfub-bundle-card.enterprise{
+        border-color:rgba(30,32,42,.18);
+        background:
+          radial-gradient(circle at 100% 0,rgba(39,42,61,.08),transparent 42%),
+          linear-gradient(180deg,#fff 0%,#fafafd 100%);
+      }
+      .rfub-enterprise-badge{
+        position:absolute;
+        top:15px;
+        left:19px;
+        min-height:22px;
+        display:inline-flex;
+        align-items:center;
+        padding:3px 8px;
+        border-radius:999px;
+        color:#fff;
+        background:#292c3a;
+        font-size:8px;
+        font-weight:800;
+        letter-spacing:.04em;
+        text-transform:uppercase;
+      }
+      .rfub-bundle-card.enterprise .rfub-bundle-top{
+        padding-top:24px;
+      }
+      .rfub-bundle-price.enterprise-price strong{
+        font-size:25px;
+      }
+      @media(max-width:1320px){
+        .rfub-bundle-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      }
       /* ReachFly Pricing V2 */
       .rfub-bundle-card.scale-value{
         border-color:rgba(82,85,215,.38);
@@ -988,6 +1079,26 @@ function BillingStyles() {
       @media(max-width:560px){
         .rfub-custom-price{grid-template-columns:1fr!important}
       }
+
+      /* ReachFly Billing V3 — breathing room and layout spacing */
+      .rf-unified-billing{max-width:1520px;padding:24px 28px 52px}
+      .rfub-header{margin-bottom:24px;padding:0 2px}
+      .rfub-header p{margin-top:10px}
+      .rfub-hero{gap:18px;margin-bottom:26px}
+      .rfub-balance-panel{padding:28px}
+      .rfub-sale-panel{padding:24px}
+      .rfub-purpose-section,.rfub-bundle-section,.rfub-buy-section{margin-top:30px}
+      .rfub-section-heading{margin-bottom:15px}
+      .rfub-purpose-grid{gap:12px}
+      .rfub-purpose-card{padding:15px}
+      .rfub-bundle-grid{gap:16px}
+      .rfub-bundle-card{padding:23px}
+      .rfub-custom-card{gap:30px;padding:28px}
+      .rfub-lower-grid{gap:16px;margin-top:24px}
+      .rfub-panel{padding:20px}
+      .rfub-clarity{margin-top:18px;padding:15px 17px}
+      @media(max-width:900px){.rf-unified-billing{padding:18px 18px 42px}.rfub-purpose-section,.rfub-bundle-section,.rfub-buy-section{margin-top:24px}}
+      @media(max-width:720px){.rf-unified-billing{padding:14px 12px 34px}.rfub-balance-panel,.rfub-sale-panel,.rfub-custom-card{padding:18px}.rfub-bundle-card,.rfub-panel{padding:17px}}
       @media(prefers-reduced-motion:reduce){.rf-unified-billing *,.rf-unified-billing *::before,.rf-unified-billing *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
     `}</style>
   );
