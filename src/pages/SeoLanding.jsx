@@ -30,7 +30,7 @@ const SITE = "https://www.reachflyai.com";
 const FAQ = [
   [
     "Is ReachFly only a lead scraper?",
-    "No. ReachFly is a connected sales workspace that combines lead discovery, website intelligence, AI Voice, outreach, meetings, contacts, pipeline activity, and team operations.",
+    "No. ReachFly is a connected sales workspace that combines lead discovery, website intelligence, AI Voice, email follow-up, meetings, CRM activity, and niche-aware operations such as reservations or appointments.",
   ],
   [
     "Can I use ReachFly for AI calling?",
@@ -132,6 +132,108 @@ const PAGES = {
     accentIcon: MapPinned,
   },
 
+  "ai-voice-agent": {
+    path: "/ai-voice-agent",
+    title: "AI Voice Agent for Inbound & Outbound Sales — ReachFlyAI",
+    description:
+      "Use ReachFlyAI V4 Voice Agents for inbound and outbound conversations, qualification, follow-up, meeting booking, and connected CRM operations.",
+    h1: "AI Voice Agents built for real inbound and outbound sales conversations.",
+    keyword: "AI voice agent",
+    badge: "V4 AI Voice",
+    intro:
+      "Run contextual phone conversations from the same workspace that holds lead research, campaigns, email follow-up, meetings, and operational outcomes.",
+    finalTitle: "Move from a phone conversation to the next business action without rebuilding context.",
+    focusTitle: "Voice is more useful when the rest of the workflow is native.",
+    focusText:
+      "ReachFly keeps call context, outcomes, follow-up, meetings, and customer operations attached to the same workspace record instead of sending teams through disconnected automation tools.",
+    accentIcon: Bot,
+  },
+
+  "ai-voice-latency": {
+    path: "/ai-voice-agent-latency",
+    title: "AI Voice Agent Latency & Call Quality — ReachFlyAI",
+    description:
+      "Learn how ReachFlyAI approaches conversational latency, turn-taking, call quality, interruption handling, and production benchmarking for V4 Voice Agents.",
+    h1: "AI voice latency should be measured where customers actually feel it: inside the conversation.",
+    keyword: "AI voice agent latency",
+    badge: "Call quality & latency",
+    intro:
+      "ReachFly V4 Voice Agents are engineered for fast conversational turns, clear call audio, and natural interruption handling. We publish benchmark methodology so teams can compare production behavior instead of marketing-only numbers.",
+    finalTitle: "Benchmark conversational quality with repeatable measurements, not isolated claims.",
+    focusTitle: "Measure end-to-end response time, not one model component.",
+    focusText:
+      "A useful latency benchmark includes telephony transport, speech detection, transcription, reasoning, synthesis, and playback. ReachFly focuses on the complete caller experience and keeps measurements tied to reproducible test conditions.",
+    accentIcon: Zap,
+  },
+
+  "inbound-ai": {
+    path: "/inbound-ai-phone-agent",
+    title: "Inbound AI Phone Agent for Customer Calls — ReachFlyAI",
+    description:
+      "Use ReachFlyAI to answer inbound calls, qualify intent, capture customer details, book meetings or appointments, and keep outcomes connected to operations.",
+    h1: "An inbound AI phone agent that can turn customer calls into real next actions.",
+    keyword: "inbound AI phone agent",
+    badge: "Inbound AI Voice",
+    intro:
+      "Answer calls with business context, capture the caller's intent, schedule the right outcome, and keep the result visible to the team.",
+    finalTitle: "Give every inbound conversation a visible operational outcome.",
+    focusTitle: "Inbound automation should finish the workflow, not just answer the phone.",
+    focusText:
+      "For restaurants, clinics, salons, service businesses, and B2B teams, ReachFly can connect the conversation to reservations, appointments, meetings, follow-up, or human handoff.",
+    accentIcon: Phone,
+  },
+
+  "outbound-ai": {
+    path: "/outbound-ai-calling-software",
+    title: "Outbound AI Calling Software for Sales Teams — ReachFlyAI",
+    description:
+      "Run outbound AI calling from targeted lead lists with shared campaign context, call outcomes, email follow-up, meetings, and pipeline activity in ReachFlyAI.",
+    h1: "Outbound AI calling that starts with lead context and ends with a tracked outcome.",
+    keyword: "outbound AI calling software",
+    badge: "Outbound AI Voice",
+    intro:
+      "Move selected leads into AI calling, keep the offer and campaign context available during the conversation, and route qualified outcomes into follow-up and pipeline workflows.",
+    finalTitle: "Connect lead discovery, calling, follow-up, and CRM state in one outbound motion.",
+    focusTitle: "A dialer is only one part of a reliable outbound system.",
+    focusText:
+      "ReachFly is designed to keep who was called, why they were targeted, what happened, and what should happen next attached to the same lead and campaign.",
+    accentIcon: Phone,
+  },
+
+  "call-email": {
+    path: "/ai-calling-email-automation",
+    title: "AI Calling + Email Follow-Up Automation — ReachFlyAI",
+    description:
+      "Coordinate AI voice calls and email follow-up from one campaign so ReachFlyAI can keep lead context, call outcomes, and the next message connected.",
+    h1: "AI calling and email follow-up should share one decision-making context.",
+    keyword: "AI calling email automation",
+    badge: "Voice + email",
+    intro:
+      "Use AI Voice for the conversation, then continue through email when the outcome and campaign rules make email the appropriate next step.",
+    finalTitle: "Stop rebuilding call context when the conversation moves to email.",
+    focusTitle: "The best follow-up depends on what actually happened on the call.",
+    focusText:
+      "ReachFly keeps call outcomes and campaign context available to the next channel so follow-up can be relevant rather than a disconnected generic sequence.",
+    accentIcon: Mail,
+  },
+
+  "restaurant-ai": {
+    path: "/ai-voice-agent-for-restaurants",
+    title: "AI Voice Agent for Restaurant Reservations — ReachFlyAI",
+    description:
+      "Use ReachFlyAI for restaurant inbound calls, reservation requests, guest context, follow-up, and a reservations workspace designed for day-to-day operations.",
+    h1: "AI Voice for restaurants that connects conversations to reservations.",
+    keyword: "AI voice agent for restaurants",
+    badge: "Restaurant AI Voice",
+    intro:
+      "Handle inbound reservation intent, guest questions, and follow-up while keeping reservation outcomes visible in a dedicated operations workspace.",
+    finalTitle: "Turn phone conversations into reservation records your team can actually use.",
+    focusTitle: "Restaurant AI should connect the caller to the front-of-house workflow.",
+    focusText:
+      "ReachFly's niche-aware operations experience can present restaurant records as reservations, while clinics see appointments, salons see bookings, and other businesses see terminology that matches their work.",
+    accentIcon: Calendar,
+  },
+
   "lead-scraping": {
     path: "/lead-scraping-software",
     title: "Lead Scraping Software for Outreach Workflows — ReachFlyAI",
@@ -182,6 +284,11 @@ const PLATFORM_CARDS = [
     Calendar,
     "Meetings",
     "Keep booked meetings tied to the contact, source, owner, and conversation that created them.",
+  ],
+  [
+    Workflow,
+    "Niche-aware operations",
+    "Show reservations, appointments, bookings, viewings, and other customer outcomes using terminology that matches each workspace.",
   ],
   [
     BarChart3,

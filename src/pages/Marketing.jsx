@@ -1,10 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import Lenis from "lenis";
-import "lenis/dist/lenis.css";
-import { gsap } from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import {CheckCircle2} from "../components/icons";
 import {
   ArrowRight,
@@ -86,6 +82,13 @@ const USE_CASES = [
     title: "Run one sales motion without stitching together six tools.",
     text: "Use one workspace for prospecting, AI Voice, follow-up, meetings, ownership, and pipeline activity.",
     href: "/ai-marketing-software",
+  },
+  {
+    icon: CalendarCheck2,
+    label: "Restaurants & service businesses",
+    title: "Turn conversations into reservations, appointments, and real operations.",
+    text: "Handle inbound and outbound conversations, capture booking intent, and keep customer outcomes visible in a niche-aware operations workspace.",
+    href: "/ai-voice-agent-for-restaurants",
   },
 ];
 
@@ -173,199 +176,80 @@ const PRICING_PLANS = [
   },
 ];
 
-function useTypewriter(text, speed = 38, startDelay = 500) {
-  const [displayed, setDisplayed] = useState("");
-  const [done, setDone] = useState(false);
-
-  useEffect(() => {
-    setDisplayed("");
-    setDone(false);
-
-    let timer;
-    let interval;
-
-    timer = window.setTimeout(() => {
-      let index = 0;
-      interval = window.setInterval(() => {
-        index += 1;
-        setDisplayed(text.slice(0, index));
-
-        if (index >= text.length) {
-          window.clearInterval(interval);
-          setDone(true);
-        }
-      }, speed);
-    }, startDelay);
-
-    return () => {
-      window.clearTimeout(timer);
-      if (interval) window.clearInterval(interval);
-    };
-  }, [text, speed, startDelay]);
-
-  return { displayed, done };
-}
-
-function useLenis() {
-  useEffect(() => {
-    const lenis = new Lenis({
-      duration: 1.05,
-      smoothWheel: true,
-      wheelMultiplier: 0.88,
-      touchMultiplier: 1,
-    });
-
-    let rafId = 0;
-
-    const raf = (time) => {
-      lenis.raf(time);
-      rafId = window.requestAnimationFrame(raf);
-    };
-
-    rafId = window.requestAnimationFrame(raf);
-
-    return () => {
-      window.cancelAnimationFrame(rafId);
-      lenis.destroy();
-    };
-  }, []);
-}
-
-function BackgroundVideo({ layerRef }) {
+function BackgroundVideo() {
   const videoRef = useRef(null);
-  const previousX = useRef(null);
-  const targetTime = useRef(0);
-  const seeking = useRef(false);
+  const [enabled, setEnabled] = useState(false);
 
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return undefined;
+    if (typeof window === "undefined") return undefined;
 
-    const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+    const connection =
+      navigator.connection ||
+      navigator.mozConnection ||
+      navigator.webkitConnection;
 
-    const initializeDesktopFrame = () => {
-      if (!Number.isFinite(video.duration) || video.duration <= 0) return;
+    const shouldSkip =
+      window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ||
+      connection?.saveData === true ||
+      window.innerWidth < 1024;
 
-      if (window.innerWidth >= 1024) {
-        video.pause();
-        targetTime.current = Math.min(video.duration * 0.18, video.duration);
-        try {
-          video.currentTime = targetTime.current;
-        } catch {
-          targetTime.current = 0;
-        }
-      }
-    };
+    if (shouldSkip) return undefined;
 
-    const seekToTarget = () => {
-      if (!Number.isFinite(video.duration) || video.duration <= 0) return;
-      if (window.innerWidth < 1024) return;
+    let timer = 0;
+    let idleId = 0;
 
-      const next = clamp(targetTime.current, 0, video.duration);
-      if (Math.abs(video.currentTime - next) < 0.015) {
-        seeking.current = false;
-        return;
-      }
+    const enable = () => setEnabled(true);
 
-      seeking.current = true;
-      try {
-        video.currentTime = next;
-      } catch {
-        seeking.current = false;
-      }
-    };
-
-    const onSeeked = () => {
-      seeking.current = false;
-      if (
-        window.innerWidth >= 1024 &&
-        Math.abs(video.currentTime - targetTime.current) > 0.02
-      ) {
-        seekToTarget();
-      }
-    };
-
-    const onMouseMove = (event) => {
-      if (window.innerWidth < 1024) {
-        previousX.current = null;
-        return;
-      }
-
-      if (!Number.isFinite(video.duration) || video.duration <= 0) return;
-
-      if (previousX.current === null) {
-        previousX.current = event.clientX;
-        targetTime.current = video.currentTime || targetTime.current || 0;
-        return;
-      }
-
-      const delta = event.clientX - previousX.current;
-      previousX.current = event.clientX;
-
-      targetTime.current = clamp(
-        targetTime.current +
-          (delta / Math.max(window.innerWidth, 1)) * 0.8 * video.duration,
-        0,
-        video.duration
-      );
-
-      if (!seeking.current) seekToTarget();
-    };
-
-    const resetPointer = () => {
-      previousX.current = null;
-    };
-
-    const configurePlayback = () => {
-      if (window.innerWidth < 1024) {
-        previousX.current = null;
-        video.autoplay = true;
-        video.loop = true;
-        video.play().catch(() => {});
-      } else {
-        video.autoplay = false;
-        video.loop = false;
-        video.pause();
-      }
-    };
-
-    video.addEventListener("loadedmetadata", initializeDesktopFrame);
-    video.addEventListener("loadedmetadata", configurePlayback);
-    video.addEventListener("canplay", configurePlayback);
-    video.addEventListener("seeked", onSeeked);
-    window.addEventListener("mousemove", onMouseMove, { passive: true });
-    window.addEventListener("mouseleave", resetPointer, { passive: true });
-    window.addEventListener("blur", resetPointer);
-    window.addEventListener("resize", configurePlayback, { passive: true });
-
-    if (video.readyState >= 1) {
-      initializeDesktopFrame();
-      configurePlayback();
+    if (typeof window.requestIdleCallback === "function") {
+      idleId = window.requestIdleCallback(enable, { timeout: 1800 });
+    } else {
+      timer = window.setTimeout(enable, 1200);
     }
 
     return () => {
-      video.removeEventListener("loadedmetadata", initializeDesktopFrame);
-      video.removeEventListener("loadedmetadata", configurePlayback);
-      video.removeEventListener("canplay", configurePlayback);
-      video.removeEventListener("seeked", onSeeked);
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseleave", resetPointer);
-      window.removeEventListener("blur", resetPointer);
-      window.removeEventListener("resize", configurePlayback);
+      if (idleId && typeof window.cancelIdleCallback === "function") {
+        window.cancelIdleCallback(idleId);
+      }
+      if (timer) window.clearTimeout(timer);
     };
   }, []);
 
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !enabled) return undefined;
+
+    const setFrame = () => {
+      if (!Number.isFinite(video.duration) || video.duration <= 0) return;
+
+      video.pause();
+
+      try {
+        video.currentTime = Math.min(video.duration * 0.18, video.duration);
+      } catch {
+        // Keep the CSS background if the browser refuses programmatic seeking.
+      }
+    };
+
+    video.addEventListener("loadedmetadata", setFrame);
+    if (video.readyState >= 1) setFrame();
+
+    return () => video.removeEventListener("loadedmetadata", setFrame);
+  }, [enabled]);
+
   return (
-    <div ref={layerRef} className="rf14-video-layer" aria-hidden="true">
-      <video
-        ref={videoRef}
-        className="rf14-video"
-        muted
-        playsInline
-        preload="auto"
-      >
-        <source src={VIDEO_URL} type="video/mp4" />
-      </video>
+    <div className="rf14-video-layer" aria-hidden="true">
+      {enabled ? (
+        <video
+          ref={videoRef}
+          className="rf14-video"
+          muted
+          playsInline
+          preload="metadata"
+        >
+          <source src={VIDEO_URL} type="video/mp4" />
+        </video>
+      ) : null}
+
       <div className="rf14-video-left-wash" />
       <div className="rf14-video-edge-wash" />
       <div className="rf14-video-grain" />
@@ -373,135 +257,6 @@ function BackgroundVideo({ layerRef }) {
   );
 }
 
-
-function useCharacterScrollMotion(layerRef) {
-  useEffect(() => {
-    const layer = layerRef.current;
-    if (!layer || typeof window === "undefined") return undefined;
-
-    gsap.registerPlugin(ScrollTrigger);
-
-    const hero = document.querySelector(".rf14-hero");
-    const workflow = document.querySelector(".rf14-workflow-section");
-    const leftWash = layer.querySelector(".rf14-video-left-wash");
-    const edgeWash = layer.querySelector(".rf14-video-edge-wash");
-
-    if (!hero || !workflow) return undefined;
-
-    const mm = gsap.matchMedia();
-
-    mm.add(
-      "(min-width: 1024px) and (prefers-reduced-motion: no-preference)",
-      () => {
-        gsap.set(layer, {
-          xPercent: 0,
-          yPercent: 0,
-          scale: 1,
-          opacity: 1,
-          filter: "saturate(1) contrast(1)",
-          transformOrigin: "78% 50%",
-          force3D: true,
-        });
-
-        const heroTimeline = gsap.timeline({
-          scrollTrigger: {
-            trigger: hero,
-            start: "top top",
-            end: "bottom top",
-            scrub: 1.15,
-            invalidateOnRefresh: true,
-          },
-        });
-
-        heroTimeline.to(layer, {
-          xPercent: 7,
-          yPercent: -1.5,
-          scale: 0.9,
-          ease: "none",
-          force3D: true,
-        });
-
-        const sectionTimeline = gsap.timeline({
-          scrollTrigger: {
-            trigger: workflow,
-            start: "top 96%",
-            end: "top 18%",
-            scrub: 1.2,
-            invalidateOnRefresh: true,
-            onEnter: () => layer.classList.add("is-section-background"),
-            onEnterBack: () => layer.classList.add("is-section-background"),
-            onLeaveBack: () => layer.classList.remove("is-section-background"),
-          },
-        });
-
-        sectionTimeline
-          .to(
-            layer,
-            {
-              xPercent: 21,
-              yPercent: 6,
-              scale: 0.67,
-              opacity: 0.31,
-              filter: "saturate(.72) contrast(.94)",
-              ease: "power2.inOut",
-              force3D: true,
-            },
-            0
-          )
-          .to(
-            leftWash,
-            {
-              opacity: 0,
-              ease: "power2.inOut",
-            },
-            0
-          )
-          .to(
-            edgeWash,
-            {
-              opacity: 0.08,
-              ease: "power2.inOut",
-            },
-            0
-          );
-
-        gsap.to(layer, {
-          opacity: 0,
-          yPercent: 10,
-          scale: 0.61,
-          ease: "none",
-          scrollTrigger: {
-            trigger: workflow,
-            start: "62% center",
-            end: "bottom 22%",
-            scrub: 1.05,
-            invalidateOnRefresh: true,
-            onLeave: () => layer.classList.remove("is-section-background"),
-            onEnterBack: () => layer.classList.add("is-section-background"),
-          },
-        });
-
-        return () => {
-          layer.classList.remove("is-section-background");
-        };
-      }
-    );
-
-    mm.add("(max-width: 1023px)", () => {
-      gsap.set(layer, {
-        clearProps: "transform,opacity,filter",
-      });
-      layer.classList.remove("is-section-background");
-    });
-
-    const refreshId = window.requestAnimationFrame(() => ScrollTrigger.refresh());
-
-    return () => {
-      window.cancelAnimationFrame(refreshId);
-      mm.revert();
-    };
-  }, [layerRef]);
-}
 
 function CharacterMotionStyles() {
   return (
@@ -1176,12 +931,6 @@ function Reveal({ children, className = "", delay = 0 }) {
 
 function Hero() {
   const [services, setServices] = useState([]);
-  const { displayed, done } = useTypewriter(
-    "AI Agents that turns the right businesses\ninto real conversations for You",
-    38,
-    500
-  );
-
   const target = useMemo(
     () =>
       services.length
@@ -1201,26 +950,20 @@ function Hero() {
   return (
     <section className="rf14-hero">
       <div className="rf14-hero-inner">
-        <motion.div
-          className="rf14-hero-copy"
-          initial={{ opacity: 0, y: 22 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
-        >
+        <div className="rf14-hero-copy">
           <span className="rf14-kicker">
             <Sparkles size={14} />
-            Our New V4 Voice Agents are better then Humans
+            ReachFly V4 Voice Agents · inbound + outbound
           </span>
 
           <h1>
-            {displayed}
-            {!done ? <i className="rf14-type-cursor animate-blink" /> : null}
+            AI agents that turn the right businesses into real conversations.
           </h1>
 
           <p className="rf14-hero-subtitle">
-            ReachFly helps you discover focused businesses, understand why they may
-            care, start contextual AI Voice conversations, and keep every next step
-            connected.
+            Discover focused businesses, run fast contextual AI Voice conversations,
+            continue the right prospects through email, and keep meetings, reservations,
+            appointments, and pipeline outcomes connected in one workspace.
           </p>
 
           <div className="rf14-hero-actions">
@@ -1302,7 +1045,7 @@ function Hero() {
               </AnimatePresence>
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
 
       <div className="rf14-scroll-cue" aria-hidden="true">
@@ -1658,22 +1401,17 @@ function Footer() {
 
 export default function Marketing() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const characterLayerRef = useRef(null);
-
-  useLenis();
-  useCharacterScrollMotion(characterLayerRef);
-
   useSEO({
-    title: "ReachFlyAI — AI Sales Workspace from Prospect to Conversation",
+    title: "ReachFlyAI — AI Voice, Lead Generation & Sales Automation",
     description:
-      "Discover focused business prospects, add useful context, run AI Voice conversations, coordinate follow-up, and keep meetings and pipeline connected with ReachFly.",
+      "ReachFlyAI connects fresh lead discovery, V4 AI Voice for inbound and outbound calls, intelligent email follow-up, meetings, reservations, appointments, and CRM operations in one workspace.",
     path: "/",
   });
 
   return (
     <main className="rf14-page">
       <CharacterMotionStyles />
-      <BackgroundVideo layerRef={characterLayerRef} />
+      <BackgroundVideo />
       <Navbar open={menuOpen} setOpen={setMenuOpen} />
       <Hero />
       <AudienceStrip />
