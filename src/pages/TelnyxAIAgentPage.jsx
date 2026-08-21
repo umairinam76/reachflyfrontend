@@ -245,6 +245,13 @@ export default function TelnyxAIAgentPage() {
     searchParams.get("view") ||
     DEFAULT_VOICE_VIEWS[activeTab] ||
     DEFAULT_VOICE_VIEWS.setup;
+  const requestedDirection = normalizeVoiceDirection(
+    searchParams.get("direction")
+  );
+  const activeDirection =
+    requestedDirection ||
+    (normalizeVoiceDirection(form.callingMode) ||
+      (String(form.callingMode || "").toLowerCase() === "both" ? "all" : "outbound"));
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -901,6 +908,22 @@ export default function TelnyxAIAgentPage() {
     }
 
     setSearchParams(nextParams, { replace });
+  }
+
+  function selectVoiceDirection(direction) {
+    const normalized =
+      direction === "all"
+        ? "all"
+        : normalizeVoiceDirection(direction);
+
+    const nextParams = new URLSearchParams(searchParams);
+    if (normalized && normalized !== "all") {
+      nextParams.set("direction", normalized);
+    } else {
+      nextParams.delete("direction");
+    }
+
+    setSearchParams(nextParams, { replace: true });
   }
 
   function updateForm(key, value) {
@@ -1911,6 +1934,15 @@ export default function TelnyxAIAgentPage() {
       </nav>
       ) : null}
 
+      {!dialerFocusMode ? (
+        <VoiceDirectionNavigator
+          value={activeDirection}
+          callingMode={form.callingMode}
+          activeTab={activeTab}
+          onChange={selectVoiceDirection}
+        />
+      ) : null}
+
       {activeTab === "setup" ? (
         <AgentSetup
           form={form}
@@ -2009,6 +2041,7 @@ export default function TelnyxAIAgentPage() {
         <CallsPanel
           calls={calls}
           view={requestedView}
+          direction={activeDirection}
           busyCallId={busyCallId}
           onCancel={(id) => void cancelCall(id)}
           onRefresh={() => loadDashboard({ silent: true })}
@@ -2019,6 +2052,7 @@ export default function TelnyxAIAgentPage() {
         <MeetingsPanel
           meetings={meetings}
           view={requestedView}
+          direction={activeDirection}
         />
       ) : null}
         </>
@@ -7806,9 +7840,58 @@ function LeadQueue({
   );
 }
 
+function VoiceDirectionNavigator({
+  value = "all",
+  callingMode = "outbound",
+  activeTab = "setup",
+  onChange,
+}) {
+  const configuredMode = String(callingMode || "outbound").toLowerCase();
+  const options = [
+    ["outbound", "Outbound", "Campaigns, dialer, prospect calls and booked meetings"],
+    ["inbound", "Inbound", "Customer calls, reception, bookings and service operations"],
+  ];
+
+  if (configuredMode === "both") {
+    options.push(["all", "All activity", "See inbound and outbound activity together"]);
+  }
+
+  return (
+    <section className="rf-voice-direction-nav-v8" aria-label="Calling direction">
+      <div className="rf-voice-direction-copy-v8">
+        <span>Phone workflow</span>
+        <b>
+          {activeTab === "setup"
+            ? "Configure one agent for inbound, outbound, or both"
+            : "Filter this workspace by call direction"}
+        </b>
+      </div>
+
+      <div className="rf-voice-direction-switch-v8">
+        {options.map(([key, label, detail]) => (
+          <button
+            type="button"
+            key={key}
+            className={value === key ? "active" : ""}
+            onClick={() => onChange?.(key)}
+            title={detail}
+          >
+            <span>{key === "inbound" ? "↓" : key === "outbound" ? "↑" : "↕"}</span>
+            <div>
+              <b>{label}</b>
+              <small>{detail}</small>
+            </div>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function CallsPanel({
   calls,
   view = "active-calls",
+  direction = "all",
   busyCallId,
   onCancel,
   onRefresh,
@@ -7845,11 +7928,19 @@ function CallsPanel({
           normalizeStatus(call.status)
         );
 
+        const callDirection = normalizeVoiceDirection(
+          call.direction || call.callDirection || call.call_direction
+        ) || "outbound";
+        const directionMatches =
+          direction === "all" || !direction || callDirection === direction;
+
+        if (!directionMatches) return false;
+
         return callView === "active-calls"
           ? isLive
           : !isLive;
       }),
-    [calls, callView]
+    [calls, callView, direction]
   );
 
   const monitorCall = useMemo(
@@ -8863,6 +8954,7 @@ function CallsPanel({
             <thead>
               <tr>
                 <th>Lead</th>
+                <th>Direction</th>
                 <th>Status</th>
                 <th>Outcome</th>
                 <th>Started</th>
@@ -8895,6 +8987,20 @@ function CallsPanel({
                             call.toNumber
                           )}
                         </small>
+                      </td>
+
+                      <td>
+                        <span className={`rf-agent-direction-badge-v8 ${
+                          normalizeVoiceDirection(
+                            call.direction || call.callDirection || call.call_direction
+                          ) || "outbound"
+                        }`}>
+                          {normalizeVoiceDirection(
+                            call.direction || call.callDirection || call.call_direction
+                          ) === "inbound"
+                            ? "↓ Inbound"
+                            : "↑ Outbound"}
+                        </span>
                       </td>
 
                       <td>
@@ -9468,6 +9574,7 @@ function decodeMuLawSample(
 function MeetingsPanel({
   meetings,
   view = "upcoming",
+  direction = "all",
 }) {
   const meetingView =
     view === "meeting-history"
@@ -9482,6 +9589,12 @@ function MeetingsPanel({
       const isPast =
         Number.isFinite(startAt) &&
         startAt < now;
+      const meetingDirection =
+        normalizeVoiceDirection(meeting.direction) || "outbound";
+      const directionMatches =
+        direction === "all" || !direction || meetingDirection === direction;
+
+      if (!directionMatches) return false;
 
       return meetingView === "meeting-history"
         ? isPast
@@ -9500,7 +9613,11 @@ function MeetingsPanel({
                 <span>{formatMonth(meeting.startAt)}</span>
               </div>
               <div>
-                <span className="eyebrow">Confirmed meeting</span>
+                <span className="eyebrow">
+                  {normalizeVoiceDirection(meeting.direction) === "inbound"
+                    ? "Inbound meeting"
+                    : "Outbound meeting"}
+                </span>
                 <h3>{meeting.leadName || meeting.attendeeName || "Lead"}</h3>
                 <p>{formatDateTime(meeting.startAt)}</p>
               </div>
@@ -10534,6 +10651,106 @@ function VoiceWorkspaceV7Styles() {
       .rf-voice-health-balance-v7 button:hover{
         background:#fff;
       }
+
+      .rf-voice-direction-nav-v8{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:14px;
+        margin:0 0 14px;
+        padding:10px 12px;
+        border:1px solid #e6e8ed;
+        border-radius:12px;
+        background:#fff;
+      }
+      .rf-voice-direction-copy-v8 span,
+      .rf-voice-direction-copy-v8 b{
+        display:block;
+      }
+      .rf-voice-direction-copy-v8 span{
+        color:#8b8e98;
+        font-size:8px;
+        font-weight:800;
+        letter-spacing:.08em;
+        text-transform:uppercase;
+      }
+      .rf-voice-direction-copy-v8 b{
+        margin-top:2px;
+        color:#343640;
+        font-size:10px;
+      }
+      .rf-voice-direction-switch-v8{
+        display:flex;
+        gap:6px;
+        flex-wrap:wrap;
+        justify-content:flex-end;
+      }
+      .rf-voice-direction-switch-v8 button{
+        min-width:148px;
+        display:grid;
+        grid-template-columns:26px minmax(0,1fr);
+        align-items:center;
+        gap:7px;
+        padding:7px 9px;
+        border:1px solid #e7e8ed;
+        border-radius:9px;
+        background:#fafafb;
+        color:#686b76;
+        text-align:left;
+      }
+      .rf-voice-direction-switch-v8 button>span{
+        width:24px;
+        height:24px;
+        display:grid;
+        place-items:center;
+        border-radius:7px;
+        background:#f0f1f4;
+        color:#5557db;
+        font-size:12px;
+        font-weight:850;
+      }
+      .rf-voice-direction-switch-v8 button b,
+      .rf-voice-direction-switch-v8 button small{
+        display:block;
+      }
+      .rf-voice-direction-switch-v8 button b{
+        font-size:9px;
+      }
+      .rf-voice-direction-switch-v8 button small{
+        margin-top:1px;
+        color:#94969f;
+        font-size:7px;
+        line-height:1.35;
+      }
+      .rf-voice-direction-switch-v8 button.active{
+        border-color:#cfd1ff;
+        background:#f6f6ff;
+        color:#4547c4;
+        box-shadow:0 5px 15px rgba(85,87,219,.08);
+      }
+      .rf-voice-direction-switch-v8 button.active>span{
+        background:#5557db;
+        color:#fff;
+      }
+      @media(max-width:850px){
+        .rf-voice-direction-nav-v8{
+          align-items:stretch;
+          flex-direction:column;
+        }
+        .rf-voice-direction-switch-v8{
+          justify-content:stretch;
+        }
+        .rf-voice-direction-switch-v8 button{
+          flex:1 1 180px;
+        }
+      }
+
+      .rf-agent-direction-badge-v8{
+        display:inline-flex;align-items:center;gap:4px;padding:5px 7px;border-radius:999px;
+        background:#f1f1f5;color:#6f717b;font-size:8px;font-weight:800;white-space:nowrap;
+      }
+      .rf-agent-direction-badge-v8.inbound{background:#eef8f3;color:#2b7b55;}
+      .rf-agent-direction-badge-v8.outbound{background:#f0f0ff;color:#5557db;}
 
       .rf-agent-tabs-v7{
         display:flex;
@@ -12347,6 +12564,15 @@ function resolveFrontendFriendlyVoice(
       );
     }) || null
   );
+}
+
+function normalizeVoiceDirection(value) {
+  const direction = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_")
+    .replace(/-/g, "_");
+  return ["inbound", "outbound"].includes(direction) ? direction : "";
 }
 
 function normalizeStatus(value) {

@@ -98,6 +98,7 @@ const API_BASE_URL = /\/api$/i.test(
 const BUILDER_STORAGE_KEY = "reachfly.builder.state.v2";
 const LEGACY_BUILDER_STORAGE_KEY = "reachfly.builder.state.v1";
 const CAMPAIGN_SELECTION_STORAGE_KEY = "reachfly:selected-campaign-leads";
+const AUDIT_SELECTION_STORAGE_KEY = "reachfly:selected-audit-leads";
 
 function readPersistedBuilderState() {
   try {
@@ -2562,6 +2563,7 @@ if (showingAllLeads) {
           onOpenBilling={() => navigate("/app/billing")}
           onDownload={() => downloadLeads(archivedLeadResult?.leads || [])}
           onCreateCampaign={openCampaignBuilder}
+          onOpenAuditWorkspace={() => navigate("/app/ai")}
           archiveMode
           archiveLoading={archiveLoading}
         />
@@ -2653,6 +2655,7 @@ if (showingResults) {
             )
           }
           onCreateCampaign={openCampaignBuilder}
+          onOpenAuditWorkspace={() => navigate("/app/ai")}
         />
 
         <CallLeadDrawer
@@ -5760,6 +5763,7 @@ function LiveLeadResultsPage({
   onLaunchVoice,
   onOpenVoice,
   onOpenBilling,
+  onOpenAuditWorkspace,
   archiveMode = false,
   archiveLoading = false,
 }) {
@@ -6066,6 +6070,23 @@ function LiveLeadResultsPage({
       setSelectedAuditError(
         "The selected leads do not have websites available for an AI website audit."
       );
+      return;
+    }
+
+    if (typeof onOpenAuditWorkspace === "function") {
+      try {
+        sessionStorage.setItem(
+          AUDIT_SELECTION_STORAGE_KEY,
+          JSON.stringify({
+            leads: selectedLeadRecords,
+            updatedAt: new Date().toISOString(),
+          })
+        );
+      } catch {
+        // Session storage can be unavailable in hardened browser contexts.
+      }
+
+      onOpenAuditWorkspace(selectedLeadRecords);
       return;
     }
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   ArrowRight,
   Building2,
@@ -120,6 +120,8 @@ const DEFAULT_PROFILE = {
 
 export default function NicheOperations() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const requestedDirection = normalizeDirection(searchParams.get("direction"));
   const [payload, setPayload] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -136,7 +138,10 @@ export default function NicheOperations() {
       let operations = null;
 
       try {
-        operations = await apiRequest("/operations?limit=500", {
+        const directionQuery = requestedDirection
+          ? `&direction=${encodeURIComponent(requestedDirection)}`
+          : "";
+        operations = await apiRequest(`/operations?limit=500${directionQuery}`, {
           timeoutMs: 20_000,
         });
       } catch (operationsError) {
@@ -172,7 +177,7 @@ export default function NicheOperations() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [requestedDirection]);
 
   useEffect(() => {
     void load();
@@ -198,7 +203,13 @@ export default function NicheOperations() {
   );
 
   const profile = useMemo(() => getNicheProfile(niche), [niche]);
-  const records = useMemo(() => normalizeRecords(payload), [payload]);
+  const records = useMemo(() => {
+    const all = normalizeRecords(payload);
+    if (!requestedDirection) return all;
+    return all.filter((record) =>
+      normalizeDirection(record.direction) === requestedDirection
+    );
+  }, [payload, requestedDirection]);
 
   const visibleRecords = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -555,6 +566,16 @@ function resolveNiche(values) {
 function getNicheProfile(niche) {
   const value = String(niche || "").toLowerCase();
   return NICHE_PROFILES.find((profile) => profile.matches.some((term) => value.includes(term))) || DEFAULT_PROFILE;
+}
+
+
+function normalizeDirection(value) {
+  const direction = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_")
+    .replace(/-/g, "_");
+  return ["inbound", "outbound"].includes(direction) ? direction : "";
 }
 
 function normalizeStatus(value) {
