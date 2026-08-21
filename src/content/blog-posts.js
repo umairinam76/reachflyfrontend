@@ -2569,10 +2569,17 @@ export const CORE_BLOG_POSTS = [
   }
 ];
 
-export const BLOG_POSTS = Object.freeze([
-  ...SEO_BLOG_POSTS,
-  ...CORE_BLOG_POSTS,
-]);
+export const BLOG_POSTS = Object.freeze(
+  [
+    ...SEO_BLOG_POSTS,
+    ...CORE_BLOG_POSTS,
+  ].filter(
+    (post) =>
+      post &&
+      typeof post === "object" &&
+      String(post.slug || "").trim()
+  )
+);
 
 export const BLOG_CATEGORIES = Object.freeze(
   Array.from(
