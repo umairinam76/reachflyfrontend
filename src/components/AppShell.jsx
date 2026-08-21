@@ -78,12 +78,13 @@ const CODESYNC_WORKSPACE_ID = "codesync-labs-workspace";
 const TOAST_EVENT = "reachfly:toast";
 
 /**
- * ReachFly V7 application shell.
+ * ReachFly application shell.
  *
  * Goals:
- * - Match the Stitch ReachFly.AI shell/navigation system.
- * - Preserve existing route and role behavior while pages are migrated one by one.
- * - Keep all current backend/API behavior untouched.
+ * - Keep navigation aligned with the connected Leads -> Campaigns -> Email/AI Voice flow.
+ * - Keep Campaigns selected for campaign creation and campaign detail routes.
+ * - Route calling work to the dedicated Dialer while keeping Voice Agent setup separate.
+ * - Preserve existing role and workspace access behavior.
  * - Provide global quick-create, command palette, notifications, responsive mobile nav,
  *   and a reusable animated success/error/warning/info toast channel.
  */
@@ -449,7 +450,7 @@ export default function AppShell() {
 
     void loadCredits();
 
-    const timer = window.setInterval(loadCredits, 10_000);
+    const timer = window.setInterval(loadCredits, 30_000);
     window.addEventListener("focus", handleFocus);
     window.addEventListener("reachfly:credits-changed", handleCreditsChanged);
 
@@ -579,7 +580,11 @@ export default function AppShell() {
             to: "/app/campaigns/active",
             icon: Rocket,
             count: counters.activeCampaigns,
-            matchPrefix: "/app/campaigns",
+            matchPrefixes: [
+              "/app/campaigns",
+              "/app/create-campaign",
+              "/app/launch-campaign",
+            ],
             visible: canManageCampaigns,
           },
         ],
@@ -612,17 +617,9 @@ export default function AppShell() {
           },
           {
             label: "Dialer",
-            to: isCaller
-              ? "/app/call-workspace"
-              : "/app/voice-agent?tab=leads&view=dialer",
+            to: "/app/dialer",
             icon: Phone,
-            matchPrefixes: isCaller
-              ? ["/app/call-workspace"]
-              : ["/app/voice-agent"],
-            matchQuery: isCaller
-              ? null
-              : { tab: "leads", view: ["dialer", "quick-lead", null] },
-            queryPathPrefix: "/app/voice-agent",
+            matchPrefixes: ["/app/dialer", "/app/call-workspace"],
             visible: isCaller || canUseVoiceAgent,
             creditGated: true,
           },
@@ -806,11 +803,11 @@ export default function AppShell() {
         },
         {
           label: "Create Campaign",
-          description: "Launch a new outreach workflow",
+          description: "Choose email, AI calling, or AI-managed multichannel outreach",
           icon: Rocket,
-          to: "/app/leads?view=discover",
+          to: "/app/campaigns/new",
           visible: canManageCampaigns,
-          creditGated: true,
+          creditGated: false,
         },
         {
           label: "Create Voice Agent",
@@ -973,13 +970,12 @@ export default function AppShell() {
           visible: true,
         },
         {
-          label: "Voice",
-          to: canUseVoiceAgent ? "/app/agents" : "/app/call-workspace",
-          icon: Bot,
-          matchPrefixes: canUseVoiceAgent
-            ? ["/app/agents", "/app/voice-agent"]
-            : ["/app/call-workspace"],
+          label: "Dialer",
+          to: "/app/dialer",
+          icon: Phone,
+          matchPrefixes: ["/app/dialer", "/app/call-workspace"],
           visible: canUseVoiceAgent || isCaller,
+          creditGated: true,
         },
         {
           label: "More",
@@ -1916,6 +1912,25 @@ function buildBreadcrumbs(pathname, search) {
     }
   }
 
+  if (
+    pathname === "/app/campaigns/new" ||
+    pathname === "/app/create-campaign" ||
+    pathname === "/app/launch-campaign"
+  ) {
+    return [
+      { label: "Growth", to: "/app/leads?view=discover" },
+      { label: "Campaigns", to: "/app/campaigns/active" },
+      { label: "Create Campaign" },
+    ];
+  }
+
+  if (pathname === "/app/dialer") {
+    return [
+      { label: "Communication", to: "/app/inbox" },
+      { label: "Dialer" },
+    ];
+  }
+
   const routeMap = [
     ["/app/platform-admin", ["Home", "Platform Admin"]],
     ["/app/dashboard", ["Home", "Dashboard"]],
@@ -1927,6 +1942,7 @@ function buildBreadcrumbs(pathname, search) {
     ["/app/inbox", ["Communication", "Inbox"]],
     ["/app/email", ["Communication", "Email"]],
     ["/app/whatsapp", ["Communication", "WhatsApp"]],
+    ["/app/dialer", ["Communication", "Dialer"]],
     ["/app/call-workspace", ["Communication", "Dialer"]],
     ["/app/agents", ["AI Voice", "Voice Agents"]],
     ["/app/contacts", ["CRM", "Contacts"]],

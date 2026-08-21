@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 
 import {
   Link,
@@ -9,80 +9,74 @@ import {
   useNavigate,
 } from "react-router-dom";
 
-import {
-  Analytics as VercelAnalytics,
-} from "@vercel/analytics/react";
+import { Analytics as VercelAnalytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 
-import {
-  AuthProvider,
-  useAuth,
-} from "./auth/AuthContext";
-
-import {
-  ProtectedRoute,
-  PublicOnlyRoute,
-} from "./auth/protectedRoute";
-
-import AppShell from "./components/AppShell";
-import ReachFlyAIFloating from "./components/ReachFlyAIFloating";
-import RoleOperations from "./components/RoleOperations";
+import { AuthProvider, useAuth } from "./auth/AuthContext";
+import { ProtectedRoute, PublicOnlyRoute } from "./auth/protectedRoute";
 
 /*
- * Public pages
+ * Route-level code splitting
+ * --------------------------
+ * ReachFly previously imported almost every public and authenticated page into
+ * the initial bundle. That made the browser download, parse and evaluate code
+ * for pages the visitor had not opened, contributing to the high FCP/LCP seen
+ * in Vercel Speed Insights. Keep only auth/router primitives eager and load each
+ * feature when its route is actually visited.
  */
-import Marketing from "./pages/Marketing";
-import SeoLanding from "./pages/SeoLanding";
-import BlogIndexPage from "./pages/BlogIndexPage";
-import BlogPostPage from "./pages/BlogPostPage";
+const AppShell = lazy(() => import("./components/AppShell"));
+const ReachFlyAIFloating = lazy(() => import("./components/ReachFlyAIFloating"));
+const RoleOperations = lazy(() => import("./components/RoleOperations"));
 
-/*
- * Authentication pages
- */
-import Login from "./pages/Login";
-import Signup from "./pages/SignUp";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
-import AcceptInvite from "./pages/AcceptInvite";
-import LegalPage from "./pages/LegalPage";
+/* Public pages */
+const Marketing = lazy(() => import("./pages/Marketing"));
+const SeoLanding = lazy(() => import("./pages/SeoLanding"));
+const BlogIndexPage = lazy(() => import("./pages/BlogIndexPage"));
+const BlogPostPage = lazy(() => import("./pages/BlogPostPage"));
+const LegalPage = lazy(() => import("./pages/LegalPage"));
 
-/*
- * Main application pages
- */
-import DashboardV6 from "./pages/DashboardV6";
-import Builder from "./pages/Builder";
-import CampaignList from "./pages/CampaignList";
-import CampaignDetail from "./pages/CampaignDetail";
-import PipelineBuilder from "./pages/PipelineBuilder";
-import EmailSetup from "./pages/EmailSetup";
-import WhatsAppSetup from "./pages/WhatsAppSetup";
-import ReachFlyAI from "./pages/ReachFlyAI";
-import WebsiteAudits from "./pages/WebsiteAudits";
-import Analytics from "./pages/Analytics";
-import Contacts from "./pages/Contacts";
-import Companies from "./pages/Companies";
-import Inbox from "./pages/Inbox";
-import InboxDetail from "./pages/InboxDetails";
-import Territories from "./pages/Territories";
-import Settings from "./pages/Settings";
-import ExternalLeadCampaign from "./pages/ExternalLeadCampaign";
+/* Authentication pages */
+const Login = lazy(() => import("./pages/Login"));
+const Signup = lazy(() => import("./pages/SignUp"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const AcceptInvite = lazy(() => import("./pages/AcceptInvite"));
 
-/*
- * Role-based work pages
- */
-import MyLeadsPage from "./pages/MyLeadsPage";
-import CallWorkspacePage from "../src/pages/CallWorkspacePage";
-import ProfileSettingsPage from "../src/pages/ProfileSettingsPage";
-import AttendancePage from "../src/pages/AttendancePage";
-import CallerDashboard from "../src/pages/CallerDashboardPage";
-import ManagerResourceBoard from "../src/pages/ManagerResourceBoard";
-import TelnyxAIAgentPage from "../src/pages/TelnyxAIAgentPage";
-import CodesyncAdminPage from "./pages/CodesyncAdminPage";
-import CreditsBillingPage from "./pages/CreditsBillingPage";
-import VoiceStartPage from "./pages/VoiceStartPage";
-import AIWorkforcePage from "./pages/AIWorkforcePage";
-import VoiceCommerceStorePage from "./pages/VoiceCommerceStorePage";
-import ConnectionsPage from "./pages/ConnectionsPage";
+/* Main application pages */
+const DashboardV6 = lazy(() => import("./pages/DashboardV6"));
+const Builder = lazy(() => import("./pages/Builder"));
+const CampaignList = lazy(() => import("./pages/CampaignList"));
+const CampaignCreate = lazy(() => import("./pages/CampaignCreate"));
+const CampaignDetail = lazy(() => import("./pages/CampaignDetail"));
+const PipelineBuilder = lazy(() => import("./pages/PipelineBuilder"));
+const EmailSetup = lazy(() => import("./pages/EmailSetup"));
+const WhatsAppSetup = lazy(() => import("./pages/WhatsAppSetup"));
+const ReachFlyAI = lazy(() => import("./pages/ReachFlyAI"));
+const WebsiteAudits = lazy(() => import("./pages/WebsiteAudits"));
+const Analytics = lazy(() => import("./pages/Analytics"));
+const Contacts = lazy(() => import("./pages/Contacts"));
+const Companies = lazy(() => import("./pages/Companies"));
+const Inbox = lazy(() => import("./pages/Inbox"));
+const InboxDetail = lazy(() => import("./pages/InboxDetails"));
+const Territories = lazy(() => import("./pages/Territories"));
+const Settings = lazy(() => import("./pages/Settings"));
+const ExternalLeadCampaign = lazy(() => import("./pages/ExternalLeadCampaign"));
+
+/* Role-based work pages */
+const MyLeadsPage = lazy(() => import("./pages/MyLeadsPage"));
+const CallWorkspacePage = lazy(() => import("./pages/CallWorkspacePage"));
+const ProfileSettingsPage = lazy(() => import("./pages/ProfileSettingsPage"));
+const AttendancePage = lazy(() => import("./pages/AttendancePage"));
+const CallerDashboard = lazy(() => import("./pages/CallerDashboardPage"));
+const ManagerResourceBoard = lazy(() => import("./pages/ManagerResourceBoard"));
+const TelnyxAIAgentPage = lazy(() => import("./pages/TelnyxAIAgentPage"));
+const TelnyxDialer = lazy(() => import("./pages/TelnyxDialer"));
+const CodesyncAdminPage = lazy(() => import("./pages/CodesyncAdminPage"));
+const CreditsBillingPage = lazy(() => import("./pages/CreditsBillingPage"));
+const VoiceStartPage = lazy(() => import("./pages/VoiceStartPage"));
+const AIWorkforcePage = lazy(() => import("./pages/AIWorkforcePage"));
+const VoiceCommerceStorePage = lazy(() => import("./pages/VoiceCommerceStorePage"));
+const ConnectionsPage = lazy(() => import("./pages/ConnectionsPage"));
 
 import "./styles.css";
 
@@ -109,8 +103,9 @@ function AppRoutes() {
     );
 
   return (
-    <>
-      <Routes>
+    <Suspense fallback={<RouteLoadingState label="Loading ReachFly" />}>
+      <>
+        <Routes>
         {/*
          * Public marketing pages
          */}
@@ -369,7 +364,19 @@ function AppRoutes() {
               element={
                 <ManagerOnlyRoute>
                   <Navigate
-                    to="/app/leads?view=discover"
+                    to="/app/campaigns/new"
+                    replace
+                  />
+                </ManagerOnlyRoute>
+              }
+            />
+
+            <Route
+              path="create-campaign"
+              element={
+                <ManagerOnlyRoute>
+                  <Navigate
+                    to="/app/campaigns/new"
                     replace
                   />
                 </ManagerOnlyRoute>
@@ -414,6 +421,15 @@ function AppRoutes() {
                     to="/app/leads?view=external"
                     replace
                   />
+                </ManagerOnlyRoute>
+              }
+            />
+
+            <Route
+              path="campaigns/new"
+              element={
+                <ManagerOnlyRoute>
+                  <CampaignCreate />
                 </ManagerOnlyRoute>
               }
             />
@@ -841,11 +857,11 @@ function AppRoutes() {
         />
       </Routes>
 
-      {isAuthenticated &&
-      !initializing ? (
-        <ReachFlyAIFloating />
-      ) : null}
-    </>
+        {isAuthenticated && !initializing ? (
+          <ReachFlyAIFloating />
+        ) : null}
+      </>
+    </Suspense>
   );
 }
 
@@ -1114,9 +1130,9 @@ function CallsRoute() {
 }
 
 /**
- * Canonical dialer route. Human callers keep their dedicated call workspace;
- * managers and individual Voice Agent accounts use the existing Voice Agent
- * manual-dialer view.
+ * Canonical dialer route. Human callers keep their assigned calling workspace;
+ * managers and individual Voice Agent accounts get the dedicated ReachFly
+ * dialer instead of being pushed back into the Voice Agent configuration page.
  */
 function DialerRoute() {
   const { user, initializing } = useAuth();
@@ -1135,12 +1151,7 @@ function DialerRoute() {
   }
 
   if (["owner", "admin", "manager"].includes(role) || accountType === "individual") {
-    return (
-      <Navigate
-        to="/app/voice-agent?tab=leads&view=dialer"
-        replace
-      />
-    );
+    return <TelnyxDialer />;
   }
 
   return (
