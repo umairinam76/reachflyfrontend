@@ -28,6 +28,174 @@ const STATIC_INDEXABLE_ROUTES = [
   "/blog",
 ];
 
+
+const LANDING_PAGES = [
+  {
+    path: "/ai-marketing-software",
+    title: "AI Marketing Software for Lead Generation — ReachFlyAI",
+    description:
+      "ReachFly helps sales and growth teams discover leads, add website intelligence, run AI Voice conversations, follow up, and manage pipeline activity in one workspace.",
+    h1: "AI marketing software that keeps discovery, conversations, and follow-up connected.",
+    keyword: "AI marketing software",
+    badge: "AI marketing workspace",
+    intro:
+      "Find the right businesses, understand why they may care, launch the right conversation, and keep every next step tied to the same lead record.",
+    finalTitle:
+      "Build an AI-assisted sales workflow without stitching together disconnected tools.",
+    focusTitle: "Move from market signal to measurable sales action.",
+    focusText:
+      "ReachFly is designed around the operating sequence that matters: identify a market, build context, start a conversation, capture the outcome, and continue the follow-up.",
+  },
+  {
+    path: "/ai-lead-generation-crm",
+    title: "AI Lead Generation CRM for Sales Teams — ReachFlyAI",
+    description:
+      "Use ReachFly to discover business leads, organize prospect context, connect outreach, and track sales activity in one AI-assisted CRM.",
+    h1: "AI lead generation CRM for teams that need more than another contact list.",
+    keyword: "AI lead generation CRM",
+    badge: "Lead generation CRM",
+    intro:
+      "Choose a niche and location, discover relevant businesses, keep useful evidence attached to each lead, and move prospects into real follow-up workflows.",
+    finalTitle: "Turn lead discovery into an organized sales process.",
+    focusTitle: "Better prospecting starts with explainable context.",
+    focusText:
+      "Instead of treating a lead as a row in a spreadsheet, ReachFly keeps the business, discovery context, activity, owner, outreach, and next action connected.",
+  },
+  {
+    path: "/website-audit-outreach-tool",
+    title: "Website Audit Outreach Tool — ReachFlyAI",
+    description:
+      "Use ReachFly website intelligence to identify practical digital opportunities and carry that context into outreach, calling, and follow-up.",
+    h1: "Turn website intelligence into better sales conversations.",
+    keyword: "website audit outreach tool",
+    badge: "Audit-based outreach",
+    intro:
+      "Review website and digital-experience signals before contacting a prospect, then keep the useful findings available to your campaign, AI Voice Agent, and team.",
+    finalTitle: "Give every outreach motion a clearer reason to exist.",
+    focusTitle: "Useful audits are sales context, not decorative scores.",
+    focusText:
+      "ReachFly keeps audit findings connected to the prospect so your team can use the evidence in a call, email, follow-up, or qualification decision.",
+  },
+  {
+    path: "/auto-reach-crm",
+    title: "Auto-Reach CRM for Follow-Up Workflows — ReachFlyAI",
+    description:
+      "ReachFly connects lead context, email follow-up, calling, campaign activity, and pipeline actions inside one sales workspace.",
+    h1: "Auto-reach CRM for coordinated follow-up across the sales workflow.",
+    keyword: "auto-reach CRM",
+    badge: "Connected follow-up",
+    intro:
+      "Build follow-up around real lead outcomes instead of isolated channel automation. Keep calls, email activity, callbacks, meetings, and pipeline state connected.",
+    finalTitle:
+      "Automate repetitive follow-up without losing sales context.",
+    focusTitle: "One lead timeline should coordinate every next action.",
+    focusText:
+      "ReachFly is built to keep outreach state visible so a callback, meeting, email, or campaign step does not become another disconnected task.",
+  },
+  {
+    path: "/local-lead-generation-tool",
+    title: "Local Lead Generation Tool for Service Businesses — ReachFlyAI",
+    description:
+      "Discover local business opportunities by niche and location, keep prospect context organized, and move leads into outreach workflows with ReachFly.",
+    h1: "Local lead generation for teams selling into real business markets.",
+    keyword: "local lead generation tool",
+    badge: "Local lead discovery",
+    intro:
+      "Choose the market you want to pursue, discover relevant businesses, preserve useful location and opportunity context, and hand qualified prospects into your sales process.",
+    finalTitle:
+      "Turn local market research into a repeatable sales workflow.",
+    focusTitle: "Treat the market as a territory, not a one-off search.",
+    focusText:
+      "ReachFly helps teams organize discovery around niches and locations so prospecting, campaign activity, and future follow-up remain easier to understand.",
+  },
+  {
+    path: "/lead-scraping-software",
+    title: "Lead Scraping Software for Outreach Workflows — ReachFlyAI",
+    description:
+      "Use ReachFly to discover business leads, organize source context, avoid disconnected lists, and move useful prospects into audits, outreach, AI calling, and CRM activity.",
+    h1: "Lead discovery software connected to the work that happens after the list.",
+    keyword: "lead scraping software",
+    badge: "Business lead discovery",
+    intro:
+      "Build prospect lists from the market you care about, keep useful source and business context visible, and move qualified records directly into outreach and follow-up.",
+    finalTitle:
+      "Stop treating lead collection as the end of the workflow.",
+    focusTitle: "A useful lead is one your team can act on.",
+    focusText:
+      "ReachFly is designed to carry discovered businesses into audit, calling, email, meetings, and pipeline workflows instead of exporting context into another disconnected system.",
+  },
+];
+
+const LANDING_FAQ = [
+  [
+    "Is ReachFly only a lead scraper?",
+    "No. ReachFly is a connected sales workspace that combines lead discovery, website intelligence, AI Voice, outreach, meetings, contacts, pipeline activity, and team operations.",
+  ],
+  [
+    "Can I use ReachFly for AI calling?",
+    "Yes. ReachFly includes AI Voice Agent workflows for qualifying leads, capturing call outcomes, supporting follow-up, and booking meetings from the same workspace context.",
+  ],
+  [
+    "Can I continue conversations through email?",
+    "Yes. ReachFly includes email setup and follow-up workflows so lead and campaign context can continue into email without rebuilding the prospect record.",
+  ],
+  [
+    "Does ReachFly support team workflows?",
+    "Yes. ReachFly uses workspace roles so owners, administrators, managers, callers, and other permitted users can see the tools appropriate to their responsibilities.",
+  ],
+];
+
+const LANDING_PLATFORM_CARDS = [
+  [
+    "Lead discovery",
+    "Build focused prospect lists by niche and location, then keep those records attached to the sales workflow.",
+  ],
+  [
+    "Website intelligence",
+    "Turn visible digital and website opportunities into useful prospect context before outreach begins.",
+  ],
+  [
+    "AI Voice Agents",
+    "Run AI-assisted sales conversations, capture outcomes, and support meeting booking from workspace context.",
+  ],
+  [
+    "Email follow-up",
+    "Continue prospect conversations through email while keeping campaign and lead context connected.",
+  ],
+  [
+    "Meetings",
+    "Keep booked meetings tied to the contact, source, owner, and conversation that created them.",
+  ],
+  [
+    "Sales operations",
+    "Track activity, calls, meetings, campaigns, follow-up, and pipeline movement from one workspace.",
+  ],
+];
+
+const LANDING_WORKFLOW = [
+  [
+    "Choose the market",
+    "Define the niche and location you want to pursue instead of starting with an anonymous bulk list.",
+  ],
+  [
+    "Build context",
+    "Review the prospect and the evidence that makes the account worth contacting.",
+  ],
+  [
+    "Start the conversation",
+    "Use AI Voice, email, or team follow-up while keeping the same lead context available.",
+  ],
+  [
+    "Capture the outcome",
+    "Record what happened, what the prospect needs, and which next action should occur.",
+  ],
+  [
+    "Continue the pipeline",
+    "Keep callbacks, meetings, follow-up, and ownership visible instead of recreating context manually.",
+  ],
+];
+
+
 const DIST_DIR = resolveDistDirectory();
 const INDEX_FILE = path.join(DIST_DIR, "index.html");
 
@@ -85,6 +253,97 @@ const websiteLd = {
     "@id": `${SITE}/#organization`,
   },
 };
+
+
+for (const page of LANDING_PAGES) {
+  const canonical = `${SITE}${page.path}`;
+  const breadcrumbId = `${canonical}#breadcrumb`;
+
+  const graph = [
+    organizationLd,
+    websiteLd,
+    {
+      "@type": "WebPage",
+      "@id": `${canonical}#webpage`,
+      url: canonical,
+      name: page.title,
+      description: page.description,
+      isPartOf: {
+        "@id": `${SITE}/#website`,
+      },
+      breadcrumb: {
+        "@id": breadcrumbId,
+      },
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": `${canonical}#software`,
+      name: SITE_NAME,
+      applicationCategory: "BusinessApplication",
+      operatingSystem: "Web",
+      description: page.description,
+      url: canonical,
+      featureList: [
+        "Lead discovery",
+        "Website intelligence",
+        "AI Voice Agents",
+        "Email follow-up",
+        "Meeting workflows",
+        "CRM and pipeline activity",
+        "Role-based team operations",
+      ],
+      publisher: {
+        "@id": `${SITE}/#organization`,
+      },
+    },
+    {
+      "@type": "FAQPage",
+      "@id": `${canonical}#faq`,
+      mainEntity: LANDING_FAQ.map(([question, answer]) => ({
+        "@type": "Question",
+        name: question,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: answer,
+        },
+      })),
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": breadcrumbId,
+      itemListElement: [
+        {
+          "@type": "ListItem",
+          position: 1,
+          name: "Home",
+          item: `${SITE}/`,
+        },
+        {
+          "@type": "ListItem",
+          position: 2,
+          name: page.keyword,
+          item: canonical,
+        },
+      ],
+    },
+  ];
+
+  const html = renderDocument({
+    baseHtml,
+    title: page.title,
+    description: page.description,
+    canonical,
+    bodyHtml: renderSeoLanding(page),
+    jsonLd: {
+      "@context": "https://schema.org",
+      "@graph": graph,
+    },
+    includeRss: false,
+    css: criticalLandingCss(),
+  });
+
+  writeRoute(page.path, html);
+}
 
 const blogIndexCanonical = `${SITE}/blog`;
 const blogIndexTitle = "AI Sales Automation, Lead Generation & CRM Guides";
@@ -254,7 +513,7 @@ writeRootFile("robots.txt", renderRobotsTxt());
 writeRootFile("rss.xml", renderRssFeed());
 
 console.log(
-  `ReachFly SEO prerender complete: ${BLOG_POSTS.length} article pages + /blog + sitemap.xml + robots.txt + rss.xml written to ${DIST_DIR}`
+  `ReachFly SEO prerender complete: ${LANDING_PAGES.length} commercial pages + ${BLOG_POSTS.length} article pages + /blog + sitemap.xml + robots.txt + rss.xml written to ${DIST_DIR}`
 );
 
 function resolveDistDirectory() {
@@ -285,6 +544,8 @@ function renderDocument({
   section = "",
   bodyHtml,
   jsonLd,
+  includeRss = true,
+  css = criticalBlogCss(),
 }) {
   let html = stripManagedSeo(baseHtml);
 
@@ -318,9 +579,13 @@ function renderDocument({
       ? `<meta data-reachfly-prerender="true" property="article:section" content="${escapeAttribute(section)}">`
       : "",
     `<link data-reachfly-prerender="true" rel="canonical" href="${escapeAttribute(canonical)}">`,
-    `<link data-reachfly-prerender="true" rel="alternate" type="application/rss+xml" title="ReachFlyAI Blog RSS" href="${RSS_URL}">`,
+    includeRss
+      ? `<link data-reachfly-prerender="true" rel="alternate" type="application/rss+xml" title="ReachFlyAI Blog RSS" href="${RSS_URL}">`
+      : "",
     `<script data-reachfly-prerender="true" type="application/ld+json">${safeJson(jsonLd)}</script>`,
-    `<style data-reachfly-prerender="true">${criticalBlogCss()}</style>`,
+    css
+      ? `<style data-reachfly-prerender="true">${css}</style>`
+      : "",
   ].filter(Boolean);
 
   html = html.replace("</head>", `    ${tags.join("\n    ")}\n  </head>`);
@@ -356,6 +621,94 @@ function stripManagedSeo(value) {
       /<style\s+[^>]*data-reachfly-prerender=["']true["'][^>]*>[\s\S]*?<\/style>/gi,
       ""
     );
+}
+
+
+function renderSeoLanding(page) {
+  const cards = LANDING_PLATFORM_CARDS.map(
+    ([title, text]) => `
+      <article class="rf-landing-card">
+        <h3>${escapeHtml(title)}</h3>
+        <p>${escapeHtml(text)}</p>
+      </article>`
+  ).join("\n");
+
+  const workflow = LANDING_WORKFLOW.map(
+    ([title, text], index) => `
+      <article class="rf-landing-step">
+        <span>${String(index + 1).padStart(2, "0")}</span>
+        <div>
+          <h3>${escapeHtml(title)}</h3>
+          <p>${escapeHtml(text)}</p>
+        </div>
+      </article>`
+  ).join("\n");
+
+  const faqs = LANDING_FAQ.map(
+    ([question, answer]) => `
+      <details>
+        <summary>${escapeHtml(question)}</summary>
+        <p>${escapeHtml(answer)}</p>
+      </details>`
+  ).join("\n");
+
+  return `
+    <main class="rf-prerender-landing">
+      <nav class="rf-landing-nav" aria-label="Primary">
+        <a class="rf-landing-brand" href="/">ReachFlyAI</a>
+        <div>
+          <a href="/">Platform</a>
+          <a href="/blog">Guides</a>
+          <a href="/login">Sign in</a>
+          <a class="rf-landing-button" href="/signup">Get started</a>
+        </div>
+      </nav>
+
+      <header class="rf-landing-hero">
+        <p class="rf-landing-kicker">${escapeHtml(page.badge)}</p>
+        <h1>${escapeHtml(page.h1)}</h1>
+        <p class="rf-landing-intro">${escapeHtml(page.intro)}</p>
+        <p><a class="rf-landing-button" href="/signup">Create your workspace</a></p>
+      </header>
+
+      <section class="rf-landing-section">
+        <p class="rf-landing-eyebrow">Connected platform</p>
+        <h2>From prospect discovery to the next real sales action.</h2>
+        <p>ReachFly gives teams one place to find relevant businesses, build useful context, start conversations, and keep follow-up attached to the same prospect.</p>
+        <div class="rf-landing-grid">${cards}</div>
+      </section>
+
+      <section class="rf-landing-focus">
+        <p class="rf-landing-eyebrow">Why this workflow</p>
+        <h2>${escapeHtml(page.focusTitle)}</h2>
+        <p>${escapeHtml(page.focusText)}</p>
+        <ul>
+          <li>Business context stays attached to the lead.</li>
+          <li>Calls, meetings, email, and pipeline activity remain visible.</li>
+          <li>Owners and teams work inside the same workspace model.</li>
+          <li>Customer-facing screens avoid unnecessary provider jargon.</li>
+        </ul>
+      </section>
+
+      <section class="rf-landing-section">
+        <p class="rf-landing-eyebrow">Operating sequence</p>
+        <h2>A clearer path from market selection to measurable follow-up.</h2>
+        <p>The product is organized around the actions a sales team actually takes instead of forcing every workflow through a collection of disconnected technical settings.</p>
+        <div class="rf-landing-workflow">${workflow}</div>
+      </section>
+
+      <section class="rf-landing-section rf-landing-faq">
+        <p class="rf-landing-eyebrow">FAQ</p>
+        <h2>Common questions about ReachFly.</h2>
+        ${faqs}
+      </section>
+
+      <section class="rf-landing-final">
+        <h2>${escapeHtml(page.finalTitle)}</h2>
+        <p>Start with a focused market, add the context your team needs, and keep every conversation and next action connected.</p>
+        <p><a class="rf-landing-button" href="/signup">Get started</a> <a href="/blog">Read the guides</a></p>
+      </section>
+    </main>`;
 }
 
 function renderBlogIndex() {
@@ -666,6 +1019,23 @@ function formatHumanDate(value) {
     day: "numeric",
     timeZone: "UTC",
   }).format(new Date(time));
+}
+
+
+function criticalLandingCss() {
+  return `
+    .rf-prerender-landing{max-width:1220px;margin:0 auto;padding:0 22px 72px;color:#191c1d;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    .rf-landing-nav{min-height:68px;display:flex;align-items:center;justify-content:space-between;gap:20px;border-bottom:1px solid #e4e5e9}.rf-landing-nav>div{display:flex;align-items:center;gap:16px}.rf-landing-nav a{color:#4c4d57;text-decoration:none;font-size:14px}.rf-landing-brand{font-weight:800!important;color:#171923!important;font-size:18px!important}
+    .rf-landing-button{display:inline-flex;align-items:center;justify-content:center;padding:11px 16px!important;border-radius:9px;background:#4648d4;color:#fff!important;text-decoration:none;font-weight:700}
+    .rf-landing-hero{padding:72px 0 64px;max-width:900px}.rf-landing-kicker,.rf-landing-eyebrow{color:#5658dc;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em}.rf-landing-hero h1{margin:10px 0 16px;font-size:clamp(40px,6vw,68px);line-height:1.02;letter-spacing:-.045em}.rf-landing-intro{max-width:760px;color:#5e606d;font-size:19px;line-height:1.7}
+    .rf-landing-section,.rf-landing-focus,.rf-landing-final{padding:56px 0}.rf-landing-section>h2,.rf-landing-focus>h2,.rf-landing-final>h2{max-width:850px;margin:8px 0 12px;font-size:clamp(30px,4vw,46px);line-height:1.1;letter-spacing:-.035em}.rf-landing-section>p:not(.rf-landing-eyebrow),.rf-landing-focus>p:not(.rf-landing-eyebrow),.rf-landing-final>p{max-width:780px;color:#626572;font-size:16px;line-height:1.7}
+    .rf-landing-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:28px}.rf-landing-card{padding:22px;border:1px solid #e3e4e8;border-radius:14px;background:#fff}.rf-landing-card h3{margin:0 0 8px;font-size:18px}.rf-landing-card p{margin:0;color:#6a6c78;line-height:1.6}
+    .rf-landing-focus{padding-left:30px;padding-right:30px;border-radius:18px;background:#f7f7ff}.rf-landing-focus ul{display:grid;gap:10px;padding-left:20px;color:#4f515e}
+    .rf-landing-workflow{display:grid;gap:10px;margin-top:28px}.rf-landing-step{display:grid;grid-template-columns:44px 1fr;gap:14px;padding:18px 0;border-top:1px solid #ececf0}.rf-landing-step>span{color:#7779df;font-weight:800}.rf-landing-step h3{margin:0 0 6px}.rf-landing-step p{margin:0;color:#6b6d79;line-height:1.6}
+    .rf-landing-faq details{padding:16px 0;border-top:1px solid #ececf0}.rf-landing-faq summary{cursor:pointer;font-weight:700}.rf-landing-faq details p{color:#626572;line-height:1.65}
+    .rf-landing-final{margin-top:24px;padding:46px 34px;border-radius:18px;background:#2e3132;color:#fff}.rf-landing-final>p{color:rgba(255,255,255,.72)}.rf-landing-final a:not(.rf-landing-button){margin-left:12px;color:#d7d8ff}
+    @media(max-width:800px){.rf-landing-nav>div>a:not(.rf-landing-button){display:none}.rf-landing-grid{grid-template-columns:1fr}.rf-landing-hero{padding-top:50px}.rf-landing-focus,.rf-landing-final{padding-left:22px;padding-right:22px}}
+  `;
 }
 
 function criticalBlogCss() {

@@ -25,6 +25,8 @@ import {
 } from "../components/icons";
 import { useSEO } from "../seo";
 
+const SITE = "https://www.reachflyai.com";
+
 const FAQ = [
   [
     "Is ReachFly only a lead scraper?",
@@ -231,17 +233,52 @@ export default function SeoLanding({
     page.accentIcon ||
     Sparkles;
 
-  const jsonLd = useMemo(
-    () => ({
+  const jsonLd = useMemo(() => {
+    const canonical = `${SITE}${page.path}`;
+
+    return {
       "@context": "https://schema.org",
       "@graph": [
         {
+          "@type": "Organization",
+          "@id": `${SITE}/#organization`,
+          name: "ReachFlyAI",
+          url: `${SITE}/`,
+          logo: {
+            "@type": "ImageObject",
+            url: `${SITE}/reachfly-logo.png`,
+          },
+        },
+        {
+          "@type": "WebSite",
+          "@id": `${SITE}/#website`,
+          url: `${SITE}/`,
+          name: "ReachFlyAI",
+          publisher: {
+            "@id": `${SITE}/#organization`,
+          },
+        },
+        {
+          "@type": "WebPage",
+          "@id": `${canonical}#webpage`,
+          url: canonical,
+          name: page.title,
+          description: page.description,
+          isPartOf: {
+            "@id": `${SITE}/#website`,
+          },
+          breadcrumb: {
+            "@id": `${canonical}#breadcrumb`,
+          },
+        },
+        {
           "@type": "SoftwareApplication",
+          "@id": `${canonical}#software`,
           name: "ReachFlyAI",
           applicationCategory: "BusinessApplication",
           operatingSystem: "Web",
           description: page.description,
-          url: page.path,
+          url: canonical,
           featureList: [
             "Lead discovery",
             "Website intelligence",
@@ -251,50 +288,48 @@ export default function SeoLanding({
             "CRM and pipeline activity",
             "Role-based team operations",
           ],
+          publisher: {
+            "@id": `${SITE}/#organization`,
+          },
         },
         {
           "@type": "FAQPage",
-          mainEntity: FAQ.map(
-            (
-              [
-                question,
-                answer,
-              ]
-            ) => ({
-              "@type": "Question",
-              name: question,
-              acceptedAnswer: {
-                "@type": "Answer",
-                text: answer,
-              },
-            })
-          ),
+          "@id": `${canonical}#faq`,
+          mainEntity: FAQ.map(([question, answer]) => ({
+            "@type": "Question",
+            name: question,
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: answer,
+            },
+          })),
         },
         {
           "@type": "BreadcrumbList",
+          "@id": `${canonical}#breadcrumb`,
           itemListElement: [
             {
               "@type": "ListItem",
               position: 1,
               name: "Home",
-              item: "/",
+              item: `${SITE}/`,
             },
             {
               "@type": "ListItem",
               position: 2,
               name: page.keyword,
-              item: page.path,
+              item: canonical,
             },
           ],
         },
       ],
-    }),
-    [
-      page.description,
-      page.keyword,
-      page.path,
-    ]
-  );
+    };
+  }, [
+    page.description,
+    page.keyword,
+    page.path,
+    page.title,
+  ]);
 
   useSEO({
     title: page.title,
@@ -319,15 +354,7 @@ export default function SeoLanding({
               <BrandLogo size={37} />
             </span>
 
-            <div>
-              <strong>
-                ReachFly
-              </strong>
-
-              <small>
-                Sales OS
-              </small>
-            </div>
+      
           </Link>
 
           <nav>
@@ -659,15 +686,7 @@ export default function SeoLanding({
               <BrandLogo size={35} />
             </span>
 
-            <div>
-              <strong>
-                ReachFly
-              </strong>
-
-              <small>
-                Sales OS
-              </small>
-            </div>
+     
           </Link>
 
           <p>
