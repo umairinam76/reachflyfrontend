@@ -1524,6 +1524,13 @@ export default function TelnyxAIAgentPage() {
     }
   }
 
+  const dialerFocusMode =
+    !onboardingMode &&
+    activeTab === "leads" &&
+    ["dialer", "quick-lead"].includes(
+      requestedView
+    );
+
   if (accessDenied) {
     return <Navigate to="/app/dashboard" replace />;
   }
@@ -1550,9 +1557,60 @@ export default function TelnyxAIAgentPage() {
       <VoiceWorkspaceV7Styles />
 
       <main
-        className="rf-agent-page rf-agent-v7"
+        className={`rf-agent-page rf-agent-v7 ${
+          dialerFocusMode
+            ? "rf-agent-dialer-focus-v8"
+            : ""
+        }`}
         data-voice-ui-version={VOICE_UI_VERSION}
       >
+        {dialerFocusMode ? (
+          <AIDialerFocusHeader
+            agent={executionAgent || agent}
+            businessNumber={
+              voiceOverview.businessNumber
+            }
+            workspaceName={
+              dashboard?.workspace?.name ||
+              user?.companyName ||
+              "ReachFly workspace"
+            }
+            configured={
+              diagnostics.configured
+            }
+            activeCalls={
+              activeCalls.length
+            }
+            queuedLeads={
+              voiceOverview.queuedLeads
+            }
+            refreshing={refreshing}
+            onManualDialer={() =>
+              navigate("/app/dialer")
+            }
+            onSetup={() =>
+              selectVoiceView(
+                "setup",
+                "agent"
+              )
+            }
+            onCalls={() =>
+              selectVoiceView(
+                "calls",
+                "active-calls"
+              )
+            }
+            onRefresh={() =>
+              void Promise.all([
+                loadDashboard({
+                  silent: true,
+                }),
+                loadVoiceCommerce(),
+                loadBillingData(),
+              ])
+            }
+          />
+        ) : (
         <header className="rf-agent-header rf-agent-header-v7">
           <div className="rf-agent-identity-v7">
             <span
@@ -1658,6 +1716,7 @@ export default function TelnyxAIAgentPage() {
             </button>
           </div>
         </header>
+        )}
 
         {error ? (
           <div className="rf-agent-alert error" role="alert">
@@ -1677,7 +1736,8 @@ export default function TelnyxAIAgentPage() {
           </div>
         ) : null}
 
-        {!onboardingMode ? (
+        {!onboardingMode &&
+        !dialerFocusMode ? (
           <section className="rf-voice-overview-grid-v7">
             <div className="rf-voice-overview-main-v7">
               <section className="rf-agent-metrics rf-agent-metrics-v7">
@@ -1832,6 +1892,7 @@ export default function TelnyxAIAgentPage() {
         />
       ) : (
         <>
+      {!dialerFocusMode ? (
       <nav className="rf-agent-tabs rf-agent-tabs-v7" aria-label="Voice-agent sections">
         {TABS.map(([value, label]) => (
           <button
@@ -1848,6 +1909,7 @@ export default function TelnyxAIAgentPage() {
           </button>
         ))}
       </nav>
+      ) : null}
 
       {activeTab === "setup" ? (
         <AgentSetup
@@ -5719,6 +5781,1130 @@ function IntelList({ title, items }) {
   );
 }
 
+
+function AIDialerFocusHeader({
+  agent,
+  businessNumber,
+  workspaceName,
+  configured,
+  activeCalls,
+  queuedLeads,
+  refreshing,
+  onManualDialer,
+  onSetup,
+  onCalls,
+  onRefresh,
+}) {
+  return (
+    <header className="rf-ai-dialer-focus-header-v8">
+      <div className="rf-ai-dialer-focus-title-v8">
+        <span className="rf-ai-dialer-focus-mark-v8">
+          <Phone size={18} />
+        </span>
+
+        <div>
+          <span className="rf-agent-kicker-v7">
+            AI calling workspace
+          </span>
+
+          <div>
+            <h1>Dialer</h1>
+
+            <span
+              className={`rf-ai-dialer-ready-v8 ${
+                configured
+                  ? "ready"
+                  : "pending"
+              }`}
+            >
+              <i />
+              {configured
+                ? "Ready"
+                : "Setup required"}
+            </span>
+          </div>
+
+          <p>
+            {businessNumber
+              ? `${formatPhone(
+                  businessNumber
+                )} · ${
+                  agent?.name ||
+                  "AI Agent"
+                } · ${
+                  workspaceName
+                }`
+              : `${
+                  agent?.name ||
+                  "AI Agent"
+                } · ${workspaceName}`}
+          </p>
+        </div>
+      </div>
+
+      <div className="rf-ai-dialer-focus-actions-v8">
+        <span className="rf-ai-dialer-focus-stat-v8">
+          <Activity size={14} />
+          <b>{activeCalls}</b>
+          live
+        </span>
+
+        <span className="rf-ai-dialer-focus-stat-v8">
+          <Users size={14} />
+          <b>{queuedLeads}</b>
+          queued
+        </span>
+
+        <button
+          type="button"
+          className="rf-agent-action-v7 secondary"
+          onClick={onManualDialer}
+        >
+          <Phone size={14} />
+          Human dialer
+        </button>
+
+        <button
+          type="button"
+          className="rf-agent-action-v7 secondary"
+          onClick={onSetup}
+        >
+          <Settings size={14} />
+          Agent
+        </button>
+
+        <button
+          type="button"
+          className="rf-agent-action-v7 primary"
+          onClick={onCalls}
+        >
+          <Activity size={14} />
+          Live calls
+        </button>
+
+        <button
+          type="button"
+          className="rf-agent-icon-action-v7"
+          disabled={refreshing}
+          aria-label="Refresh AI dialer"
+          title="Refresh AI dialer"
+          onClick={onRefresh}
+        >
+          <RefreshCw
+            size={15}
+            className={
+              refreshing
+                ? "spin"
+                : ""
+            }
+          />
+        </button>
+      </div>
+    </header>
+  );
+}
+
+function AIDialerWorkspace({
+  agent,
+  agents = [],
+  executionAgentId,
+  campaignContext,
+  campaignLanguage,
+  queue,
+  queuedCount,
+  campaignLimit,
+  customLeadForm,
+  activeCustomPhoneCall,
+  activeCalls,
+  busyCallId,
+  creatingCustomLead,
+  callingCustomLead,
+  canTestCall,
+  starting,
+  onCustomLeadForm,
+  onQueueCustomLead,
+  onCallCustomLead,
+  onTestCustomLead,
+  onEndCall,
+  onOpenCalls,
+  onCampaignLimit,
+  onExecutionAgentId,
+  onCampaignContext,
+  onCampaignLanguage,
+  onStart,
+  onDiscover,
+  onLeadPool,
+  onQueueActivity,
+  onLaunch,
+}) {
+  const [
+    mode,
+    setMode,
+  ] = useState("ai");
+
+  const [
+    queueSearch,
+    setQueueSearch,
+  ] = useState("");
+
+  const visibleQueue =
+    useMemo(() => {
+      const query =
+        queueSearch
+          .trim()
+          .toLowerCase();
+
+      const records =
+        Array.isArray(queue)
+          ? queue
+          : [];
+
+      if (!query) {
+        return records.slice(0, 40);
+      }
+
+      return records
+        .filter((item) =>
+          [
+            item?.customLeadDetails
+              ?.contactName,
+            item?.customLeadDetails
+              ?.companyName,
+            item?.leadName,
+            item?.lead?.name,
+            item?.phone,
+            item?.lead?.phone,
+            item?.campaignName,
+            item?.status,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(query)
+        )
+        .slice(0, 40);
+    }, [
+      queue,
+      queueSearch,
+    ]);
+
+  const number =
+    String(
+      customLeadForm?.phone ||
+        ""
+    );
+
+  const appendDigit = (digit) => {
+    if (
+      creatingCustomLead ||
+      callingCustomLead ||
+      activeCustomPhoneCall
+    ) {
+      return;
+    }
+
+    const current =
+      String(number || "");
+
+    const next =
+      digit === "+" &&
+      current.includes("+")
+        ? current
+        : `${current}${digit}`;
+
+    onCustomLeadForm(
+      "phone",
+      next.slice(0, 30)
+    );
+  };
+
+  const removeDigit = () => {
+    onCustomLeadForm(
+      "phone",
+      String(number || "").slice(
+        0,
+        -1
+      )
+    );
+  };
+
+  const primaryDisabled =
+    mode === "power"
+      ? starting ||
+        queuedCount <= 0
+      : creatingCustomLead ||
+        callingCustomLead ||
+        Boolean(
+          activeCustomPhoneCall
+        ) ||
+        !String(
+          customLeadForm?.phone ||
+            ""
+        ).trim();
+
+  const runPrimaryAction = () => {
+    if (mode === "power") {
+      onStart?.();
+      return;
+    }
+
+    if (mode === "queue") {
+      onQueueCustomLead?.();
+      return;
+    }
+
+    onCallCustomLead?.();
+  };
+
+  const primaryLabel =
+    mode === "power"
+      ? starting
+        ? "Starting power batch…"
+        : `Start ${Math.min(
+            Number(
+              campaignLimit || 1
+            ),
+            Math.max(
+              queuedCount,
+              1
+            )
+          )} AI calls`
+      : mode === "queue"
+        ? creatingCustomLead
+          ? "Adding to queue…"
+          : "Add lead to AI queue"
+        : activeCustomPhoneCall
+          ? "Call already active"
+          : callingCustomLead
+            ? "Starting AI call…"
+            : "Start AI call";
+
+  return (
+    <section className="rf-ai-dialer-v8">
+      <div className="rf-ai-dialer-modebar-v8">
+        <div
+          className="rf-ai-dialer-modes-v8"
+          role="tablist"
+          aria-label="AI dialer mode"
+        >
+          <button
+            type="button"
+            className={
+              mode === "ai"
+                ? "active"
+                : ""
+            }
+            aria-selected={
+              mode === "ai"
+            }
+            role="tab"
+            onClick={() =>
+              setMode("ai")
+            }
+          >
+            <Bot size={14} />
+            AI call
+            <small>
+              One lead now
+            </small>
+          </button>
+
+          <button
+            type="button"
+            className={
+              mode === "queue"
+                ? "active"
+                : ""
+            }
+            aria-selected={
+              mode === "queue"
+            }
+            role="tab"
+            onClick={() =>
+              setMode("queue")
+            }
+          >
+            <Users size={14} />
+            Queue
+            <small>
+              Add for later
+            </small>
+          </button>
+
+          <button
+            type="button"
+            className={
+              mode === "power"
+                ? "active"
+                : ""
+            }
+            aria-selected={
+              mode === "power"
+            }
+            role="tab"
+            onClick={() =>
+              setMode("power")
+            }
+          >
+            <Zap size={14} />
+            Power
+            <small>
+              Controlled batch
+            </small>
+          </button>
+        </div>
+
+        <div className="rf-ai-dialer-quicklinks-v8">
+          <button
+            type="button"
+            onClick={onDiscover}
+          >
+            Find leads
+          </button>
+
+          <button
+            type="button"
+            onClick={onLeadPool}
+          >
+            Lead pool
+          </button>
+
+          <button
+            type="button"
+            onClick={
+              onQueueActivity
+            }
+          >
+            Queue activity
+          </button>
+        </div>
+      </div>
+
+      <div className="rf-ai-dialer-grid-v8">
+        <aside className="rf-ai-dialer-queue-v8">
+          <div className="rf-ai-dialer-panel-head-v8">
+            <div>
+              <span>Call queue</span>
+              <strong>
+                AI worklist
+              </strong>
+            </div>
+
+            <b>
+              {Array.isArray(queue)
+                ? queue.length
+                : 0}
+            </b>
+          </div>
+
+          <label className="rf-ai-dialer-search-v8">
+            <SearchIconV8 />
+            <input
+              value={queueSearch}
+              onChange={(event) =>
+                setQueueSearch(
+                  event.target.value
+                )
+              }
+              placeholder="Search queued leads…"
+            />
+          </label>
+
+          <div className="rf-ai-dialer-queue-list-v8">
+            {visibleQueue.length ? (
+              visibleQueue.map(
+                (item) => {
+                  const name =
+                    item
+                      ?.customLeadDetails
+                      ?.companyName ||
+                    item?.lead?.business ||
+                    item?.lead?.name ||
+                    item?.leadName ||
+                    item
+                      ?.customLeadDetails
+                      ?.contactName ||
+                    "Lead";
+
+                  const phone =
+                    item?.phone ||
+                    item?.lead?.phone ||
+                    "";
+
+                  const active =
+                    activeCalls.find(
+                      (call) =>
+                        normalizePhoneKey(
+                          call.toNumber
+                        ) ===
+                        normalizePhoneKey(
+                          phone
+                        )
+                    );
+
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`rf-ai-dialer-queue-item-v8 ${
+                        active
+                          ? "live"
+                          : ""
+                      }`}
+                      onClick={() => {
+                        if (phone) {
+                          onCustomLeadForm(
+                            "phone",
+                            phone
+                          );
+                        }
+
+                        onCustomLeadForm(
+                          "contactName",
+                          item
+                            ?.customLeadDetails
+                            ?.contactName ||
+                            item
+                              ?.lead
+                              ?.name ||
+                            item
+                              ?.leadName ||
+                            ""
+                        );
+
+                        onCustomLeadForm(
+                          "companyName",
+                          item
+                            ?.customLeadDetails
+                            ?.companyName ||
+                            item
+                              ?.lead
+                              ?.business ||
+                            ""
+                        );
+
+                        if (
+                          item
+                            ?.customContext
+                        ) {
+                          onCustomLeadForm(
+                            "context",
+                            item.customContext
+                          );
+                        }
+                      }}
+                    >
+                      <span className="rf-ai-dialer-avatar-v8">
+                        {String(name)
+                          .trim()
+                          .slice(0, 1)
+                          .toUpperCase()}
+                      </span>
+
+                      <span className="rf-ai-dialer-queue-copy-v8">
+                        <strong>
+                          {name}
+                        </strong>
+
+                        <small>
+                          {formatPhone(
+                            phone
+                          ) ||
+                            "No phone"}
+                        </small>
+
+                        <em>
+                          {formatLabel(
+                            normalizeStatus(
+                              item.status ||
+                                "queued"
+                            )
+                          )}
+                        </em>
+                      </span>
+
+                      {active ? (
+                        <span className="rf-ai-dialer-live-dot-v8">
+                          Live
+                        </span>
+                      ) : (
+                        <span
+                          className="rf-ai-dialer-arrow-v8"
+                          aria-hidden="true"
+                        >
+                          ›
+                        </span>
+                      )}
+                    </button>
+                  );
+                }
+              )
+            ) : (
+              <div className="rf-ai-dialer-empty-v8">
+                <Users size={20} />
+                <strong>
+                  Queue is empty
+                </strong>
+                <span>
+                  Add a lead here or
+                  select leads from the
+                  workspace pool.
+                </span>
+              </div>
+            )}
+          </div>
+
+          <button
+            type="button"
+            className="rf-ai-dialer-secondary-v8"
+            onClick={onLeadPool}
+          >
+            Open lead pool
+          </button>
+        </aside>
+
+        <main className="rf-ai-dialer-console-v8">
+          <div className="rf-ai-dialer-console-meta-v8">
+            <label>
+              <span>AI agent</span>
+              <select
+                value={
+                  executionAgentId ||
+                  agent?.id ||
+                  ""
+                }
+                onChange={(event) =>
+                  onExecutionAgentId?.(
+                    event.target.value
+                  )
+                }
+              >
+                {agents.map(
+                  (item) => (
+                    <option
+                      key={item.id}
+                      value={item.id}
+                    >
+                      {item.name} ·{" "}
+                      {String(
+                        item.callingMode ||
+                          "outbound"
+                      ).replace(
+                        /_/g,
+                        " "
+                      )}
+                    </option>
+                  )
+                )}
+              </select>
+            </label>
+
+            <label>
+              <span>Language</span>
+              <select
+                value={
+                  supportedAgentLanguageOptions(
+                    agent
+                  ).some(
+                    ([code]) =>
+                      code ===
+                      campaignLanguage
+                  )
+                    ? campaignLanguage
+                    : ""
+                }
+                onChange={(event) =>
+                  onCampaignLanguage?.(
+                    event.target.value
+                  )
+                }
+              >
+                <option value="">
+                  Agent / lead default
+                </option>
+
+                {supportedAgentLanguageOptions(
+                  agent
+                ).map(
+                  ([code, name]) => (
+                    <option
+                      key={code}
+                      value={code}
+                    >
+                      {name}
+                    </option>
+                  )
+                )}
+              </select>
+            </label>
+          </div>
+
+          {activeCustomPhoneCall ? (
+            <div className="rf-ai-dialer-active-call-v8">
+              <span>
+                <i />
+                Live AI call
+              </span>
+
+              <div>
+                <strong>
+                  {activeCustomPhoneCall.leadName ||
+                    customLeadForm
+                      ?.companyName ||
+                    customLeadForm
+                      ?.contactName ||
+                    "Current lead"}
+                </strong>
+
+                <small>
+                  {formatPhone(
+                    activeCustomPhoneCall.toNumber
+                  )}{" "}
+                  ·{" "}
+                  {formatLabel(
+                    normalizeStatus(
+                      activeCustomPhoneCall.status
+                    )
+                  )}
+                </small>
+              </div>
+
+              <div>
+                <button
+                  type="button"
+                  onClick={onOpenCalls}
+                >
+                  Monitor
+                </button>
+
+                <button
+                  type="button"
+                  className="danger"
+                  disabled={
+                    busyCallId ===
+                    activeCustomPhoneCall.id
+                  }
+                  onClick={() =>
+                    onEndCall(
+                      activeCustomPhoneCall.id
+                    )
+                  }
+                >
+                  {busyCallId ===
+                  activeCustomPhoneCall.id
+                    ? "Ending…"
+                    : "End"}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="rf-ai-dialer-number-wrap-v8">
+            <span>
+              {mode === "power"
+                ? "Power calling"
+                : mode === "queue"
+                  ? "Queue a lead"
+                  : "Dial a lead"}
+            </span>
+
+            {mode === "power" ? (
+              <>
+                <strong className="rf-ai-dialer-batch-number-v8">
+                  {queuedCount}
+                </strong>
+
+                <small>
+                  leads currently ready
+                  in the AI queue
+                </small>
+              </>
+            ) : (
+              <>
+                <input
+                  value={
+                    customLeadForm
+                      ?.phone ||
+                    ""
+                  }
+                  onChange={(event) =>
+                    onCustomLeadForm(
+                      "phone",
+                      event.target.value
+                    )
+                  }
+                  inputMode="tel"
+                  placeholder="+1 213 555 1234"
+                  aria-label="Phone number to dial"
+                />
+
+                <small>
+                  Enter a phone number or
+                  choose a queued lead.
+                </small>
+              </>
+            )}
+          </div>
+
+          {mode === "power" ? (
+            <div className="rf-ai-dialer-power-v8">
+              <label>
+                <span>
+                  Calls to start
+                </span>
+
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={campaignLimit}
+                  onChange={(event) =>
+                    onCampaignLimit?.(
+                      Number(
+                        event.target
+                          .value
+                      )
+                    )
+                  }
+                />
+              </label>
+
+              <p>
+                ReachFly keeps your
+                configured timezone,
+                concurrency, daily limit,
+                suppression and calling
+                policy for every call.
+              </p>
+
+              <button
+                type="button"
+                onClick={onLaunch}
+              >
+                Open batch controls
+              </button>
+            </div>
+          ) : (
+            <div
+              className="rf-ai-dialer-keypad-v8"
+              aria-label="AI dial pad"
+            >
+              {[
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8",
+                "9",
+                "*",
+                "0",
+                "#",
+              ].map((digit) => (
+                <button
+                  key={digit}
+                  type="button"
+                  disabled={
+                    creatingCustomLead ||
+                    callingCustomLead ||
+                    Boolean(
+                      activeCustomPhoneCall
+                    )
+                  }
+                  onClick={() =>
+                    appendDigit(
+                      digit
+                    )
+                  }
+                >
+                  {digit}
+                </button>
+              ))}
+
+              <button
+                type="button"
+                className="clear"
+                onClick={() =>
+                  onCustomLeadForm(
+                    "phone",
+                    ""
+                  )
+                }
+                disabled={
+                  !number ||
+                  creatingCustomLead ||
+                  callingCustomLead
+                }
+              >
+                Clear
+              </button>
+
+              <button
+                type="button"
+                className="plus"
+                onClick={() =>
+                  appendDigit("+")
+                }
+                disabled={
+                  creatingCustomLead ||
+                  callingCustomLead
+                }
+              >
+                +
+              </button>
+
+              <button
+                type="button"
+                className="backspace"
+                onClick={
+                  removeDigit
+                }
+                disabled={
+                  !number ||
+                  creatingCustomLead ||
+                  callingCustomLead
+                }
+                aria-label="Delete last digit"
+              >
+                ⌫
+              </button>
+            </div>
+          )}
+
+          <button
+            type="button"
+            className={`rf-ai-dialer-primary-action-v8 ${mode}`}
+            disabled={
+              primaryDisabled
+            }
+            onClick={
+              runPrimaryAction
+            }
+          >
+            {mode === "power" ? (
+              <Zap size={17} />
+            ) : mode === "queue" ? (
+              <Users size={17} />
+            ) : (
+              <Phone size={17} />
+            )}
+
+            {primaryLabel}
+          </button>
+
+          {canTestCall &&
+          mode === "ai" ? (
+            <button
+              type="button"
+              className="rf-ai-dialer-test-v8"
+              disabled={
+                creatingCustomLead ||
+                callingCustomLead ||
+                Boolean(
+                  activeCustomPhoneCall
+                ) ||
+                !String(
+                  customLeadForm
+                    ?.phone ||
+                    ""
+                ).trim()
+              }
+              onClick={
+                onTestCustomLead
+              }
+            >
+              Controlled test · bypass
+              calling hours only
+            </button>
+          ) : null}
+        </main>
+
+        <aside className="rf-ai-dialer-context-v8">
+          <div className="rf-ai-dialer-panel-head-v8">
+            <div>
+              <span>Lead context</span>
+              <strong>
+                Personalize this call
+              </strong>
+            </div>
+          </div>
+
+          <div className="rf-ai-dialer-context-fields-v8">
+            <label>
+              <span>
+                Contact name
+              </span>
+              <input
+                value={
+                  customLeadForm
+                    ?.contactName ||
+                  ""
+                }
+                onChange={(event) =>
+                  onCustomLeadForm(
+                    "contactName",
+                    event.target.value
+                  )
+                }
+                placeholder="John"
+              />
+            </label>
+
+            <label>
+              <span>Company</span>
+              <input
+                value={
+                  customLeadForm
+                    ?.companyName ||
+                  ""
+                }
+                onChange={(event) =>
+                  onCustomLeadForm(
+                    "companyName",
+                    event.target.value
+                  )
+                }
+                placeholder="Acme Dental"
+              />
+            </label>
+
+            <label>
+              <span>Email</span>
+              <input
+                value={
+                  customLeadForm
+                    ?.email ||
+                  ""
+                }
+                onChange={(event) =>
+                  onCustomLeadForm(
+                    "email",
+                    event.target.value
+                  )
+                }
+                placeholder="john@company.com"
+                inputMode="email"
+              />
+            </label>
+
+            <label>
+              <span>Website</span>
+              <input
+                value={
+                  customLeadForm
+                    ?.website ||
+                  ""
+                }
+                onChange={(event) =>
+                  onCustomLeadForm(
+                    "website",
+                    event.target.value
+                  )
+                }
+                placeholder="https://company.com"
+              />
+            </label>
+
+            <label>
+              <span>Location</span>
+              <input
+                value={
+                  customLeadForm
+                    ?.location ||
+                  ""
+                }
+                onChange={(event) =>
+                  onCustomLeadForm(
+                    "location",
+                    event.target.value
+                  )
+                }
+                placeholder="New York, NY"
+              />
+            </label>
+
+            <label className="context">
+              <span>
+                Private lead context
+              </span>
+
+              <textarea
+                rows="6"
+                maxLength={12000}
+                value={
+                  customLeadForm
+                    ?.context ||
+                  ""
+                }
+                onChange={(event) =>
+                  onCustomLeadForm(
+                    "context",
+                    event.target.value
+                  )
+                }
+                placeholder="What should the AI know before this call? Pain points, offer, relationship history, objections, next step…"
+              />
+
+              <small>
+                {String(
+                  customLeadForm
+                    ?.context ||
+                    ""
+                ).length.toLocaleString()}{" "}
+                / 12,000
+              </small>
+            </label>
+
+            <label className="context">
+              <span>
+                Campaign context
+              </span>
+
+              <textarea
+                rows="4"
+                value={
+                  campaignContext
+                }
+                onChange={(event) =>
+                  onCampaignContext?.(
+                    event.target.value
+                  )
+                }
+                placeholder="Offer, goal, positioning, active promotion or constraints for this campaign…"
+              />
+            </label>
+          </div>
+
+          <div className="rf-ai-dialer-context-note-v8">
+            <Sparkles size={15} />
+
+            <p>
+              ReachFly snapshots the
+              agent context, campaign
+              context and private lead
+              context before the AI call
+              starts.
+            </p>
+          </div>
+        </aside>
+      </div>
+    </section>
+  );
+}
+
+function SearchIconV8() {
+  return (
+    <span
+      className="rf-ai-dialer-search-icon-v8"
+      aria-hidden="true"
+    >
+      ⌕
+    </span>
+  );
+}
+
 function LeadQueue({
   agent,
   agents = [],
@@ -5837,6 +7023,84 @@ function LeadQueue({
     onViewChange?.(
       LEAD_STEP_VIEWS[resolved] ||
         LEAD_STEP_VIEWS[0]
+    );
+  }
+
+  if (leadFlowStep === 0) {
+    return (
+      <AIDialerWorkspace
+        agent={agent}
+        agents={agents}
+        executionAgentId={
+          executionAgentId
+        }
+        campaignContext={
+          campaignContext
+        }
+        campaignLanguage={
+          campaignLanguage
+        }
+        queue={queue}
+        queuedCount={queuedCount}
+        campaignLimit={
+          campaignLimit
+        }
+        customLeadForm={
+          customLeadForm
+        }
+        activeCustomPhoneCall={
+          activeCustomPhoneCall
+        }
+        activeCalls={activeCalls}
+        busyCallId={busyCallId}
+        creatingCustomLead={
+          creatingCustomLead
+        }
+        callingCustomLead={
+          callingCustomLead
+        }
+        canTestCall={canTestCall}
+        starting={starting}
+        onCustomLeadForm={
+          onCustomLeadForm
+        }
+        onQueueCustomLead={
+          onQueueCustomLead
+        }
+        onCallCustomLead={
+          onCallCustomLead
+        }
+        onTestCustomLead={
+          onTestCustomLead
+        }
+        onEndCall={onEndCall}
+        onOpenCalls={onOpenCalls}
+        onCampaignLimit={
+          onCampaignLimit
+        }
+        onExecutionAgentId={
+          onExecutionAgentId
+        }
+        onCampaignContext={
+          onCampaignContext
+        }
+        onCampaignLanguage={
+          onCampaignLanguage
+        }
+        onStart={onStart}
+        onDiscover={() =>
+          moveLeadFlow(1)
+        }
+        onLeadPool={() =>
+          moveLeadFlow(2)
+        }
+        onQueueActivity={() =>
+          moveLeadFlow(3)
+        }
+        onLaunch={() =>
+          moveLeadFlow(4)
+        }
+      />
     );
   }
 
@@ -9927,6 +11191,950 @@ function VoiceWorkspaceV7Styles() {
           scroll-behavior:auto!important;
         }
       }
+
+      /* ReachFly V8 focused AI dialer */
+      .rf-agent-dialer-focus-v8{
+        max-width:none!important;
+        padding-top:18px!important;
+      }
+
+      .rf-ai-dialer-focus-header-v8{
+        min-height:76px;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:18px;
+        margin-bottom:14px;
+        padding:13px 16px;
+        background:#fff;
+        border:1px solid #e7e8ee;
+        border-radius:16px;
+        box-shadow:0 8px 24px rgba(24,28,48,.04);
+      }
+
+      .rf-ai-dialer-focus-title-v8{
+        min-width:0;
+        display:flex;
+        align-items:center;
+        gap:12px;
+      }
+
+      .rf-ai-dialer-focus-mark-v8{
+        width:42px;
+        height:42px;
+        display:grid;
+        place-items:center;
+        flex:0 0 42px;
+        color:#fff;
+        background:linear-gradient(145deg,#5154e8,#724ed9);
+        border-radius:13px;
+        box-shadow:0 10px 20px rgba(81,84,232,.18);
+      }
+
+      .rf-ai-dialer-focus-title-v8 > div{
+        min-width:0;
+      }
+
+      .rf-ai-dialer-focus-title-v8 > div > div{
+        display:flex;
+        align-items:center;
+        gap:8px;
+      }
+
+      .rf-ai-dialer-focus-title-v8 h1{
+        margin:0;
+        font:700 21px/27px Geist,Inter,sans-serif;
+        letter-spacing:-.025em;
+      }
+
+      .rf-ai-dialer-focus-title-v8 p{
+        margin:2px 0 0;
+        color:#6b707a;
+        font-size:10px;
+        line-height:15px;
+      }
+
+      .rf-ai-dialer-ready-v8{
+        min-height:23px;
+        display:inline-flex;
+        align-items:center;
+        gap:6px;
+        padding:4px 8px;
+        color:#8a6500;
+        background:#fff6dc;
+        border:1px solid #f1dfaa;
+        border-radius:999px;
+        font-size:8px;
+        font-weight:800;
+      }
+
+      .rf-ai-dialer-ready-v8 i{
+        width:6px;
+        height:6px;
+        border-radius:50%;
+        background:#d49514;
+      }
+
+      .rf-ai-dialer-ready-v8.ready{
+        color:#08744f;
+        background:#e7f8f1;
+        border-color:#c6eadc;
+      }
+
+      .rf-ai-dialer-ready-v8.ready i{
+        background:#0f9f6e;
+        box-shadow:0 0 0 4px rgba(15,159,110,.1);
+      }
+
+      .rf-ai-dialer-focus-actions-v8{
+        display:flex;
+        align-items:center;
+        justify-content:flex-end;
+        gap:7px;
+        flex-wrap:wrap;
+      }
+
+      .rf-ai-dialer-focus-stat-v8{
+        min-height:34px;
+        display:inline-flex;
+        align-items:center;
+        gap:5px;
+        padding:6px 9px;
+        color:#696e78;
+        background:#fafbfc;
+        border:1px solid #e9eaef;
+        border-radius:10px;
+        font-size:8px;
+        font-weight:700;
+        white-space:nowrap;
+      }
+
+      .rf-ai-dialer-focus-stat-v8 b{
+        color:#22252b;
+        font-size:10px;
+      }
+
+      .rf-ai-dialer-v8{
+        --rfd-text:#1b1d21;
+        --rfd-soft:#646a74;
+        --rfd-muted:#8b909a;
+        --rfd-line:#e8eaf0;
+        --rfd-primary:#5154e8;
+        --rfd-primary-soft:#efefff;
+        --rfd-green:#0f9f6e;
+        --rfd-red:#d94848;
+        display:grid;
+        gap:11px;
+      }
+
+      .rf-ai-dialer-v8 *,
+      .rf-ai-dialer-v8 *::before,
+      .rf-ai-dialer-v8 *::after{
+        box-sizing:border-box;
+      }
+
+      .rf-ai-dialer-modebar-v8{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:12px;
+      }
+
+      .rf-ai-dialer-modes-v8{
+        display:flex;
+        align-items:stretch;
+        gap:4px;
+        padding:4px;
+        background:#eff1f5;
+        border-radius:12px;
+      }
+
+      .rf-ai-dialer-modes-v8 button{
+        min-width:110px;
+        min-height:42px;
+        display:grid;
+        grid-template-columns:auto auto;
+        align-content:center;
+        align-items:center;
+        justify-content:center;
+        column-gap:5px;
+        row-gap:0;
+        padding:5px 10px;
+        color:#686e79;
+        background:transparent;
+        border:0;
+        border-radius:9px;
+        cursor:pointer;
+        font-size:10px;
+        font-weight:800;
+      }
+
+      .rf-ai-dialer-modes-v8 button small{
+        grid-column:1/-1;
+        color:#9297a0;
+        font-size:7.5px;
+        font-weight:600;
+      }
+
+      .rf-ai-dialer-modes-v8 button.active{
+        color:#23262c;
+        background:#fff;
+        box-shadow:0 2px 8px rgba(23,26,42,.08);
+      }
+
+      .rf-ai-dialer-modes-v8 button.active small{
+        color:var(--rfd-primary);
+      }
+
+      .rf-ai-dialer-quicklinks-v8{
+        display:flex;
+        align-items:center;
+        gap:5px;
+      }
+
+      .rf-ai-dialer-quicklinks-v8 button{
+        min-height:34px;
+        padding:0 10px;
+        color:#555b66;
+        background:#fff;
+        border:1px solid #e5e7ec;
+        border-radius:9px;
+        cursor:pointer;
+        font-size:8.5px;
+        font-weight:750;
+      }
+
+      .rf-ai-dialer-grid-v8{
+        min-height:650px;
+        display:grid;
+        grid-template-columns:minmax(220px,250px) minmax(390px,1fr) minmax(280px,330px);
+        overflow:hidden;
+        background:#fff;
+        border:1px solid var(--rfd-line);
+        border-radius:18px;
+        box-shadow:0 18px 50px rgba(22,26,44,.065);
+      }
+
+      .rf-ai-dialer-queue-v8,
+      .rf-ai-dialer-context-v8{
+        min-width:0;
+        display:flex;
+        flex-direction:column;
+        background:#fafbfc;
+      }
+
+      .rf-ai-dialer-queue-v8{
+        border-right:1px solid var(--rfd-line);
+      }
+
+      .rf-ai-dialer-context-v8{
+        border-left:1px solid var(--rfd-line);
+      }
+
+      .rf-ai-dialer-panel-head-v8{
+        min-height:64px;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:10px;
+        padding:13px 13px 9px;
+      }
+
+      .rf-ai-dialer-panel-head-v8 > div{
+        display:grid;
+        gap:1px;
+      }
+
+      .rf-ai-dialer-panel-head-v8 span{
+        color:var(--rfd-primary);
+        font-size:7.5px;
+        font-weight:850;
+        letter-spacing:.08em;
+        text-transform:uppercase;
+      }
+
+      .rf-ai-dialer-panel-head-v8 strong{
+        color:var(--rfd-text);
+        font-size:11px;
+      }
+
+      .rf-ai-dialer-panel-head-v8 > b{
+        min-width:22px;
+        height:22px;
+        display:grid;
+        place-items:center;
+        padding:0 6px;
+        color:var(--rfd-primary);
+        background:var(--rfd-primary-soft);
+        border-radius:999px;
+        font-size:8px;
+      }
+
+      .rf-ai-dialer-search-v8{
+        min-height:36px;
+        display:flex;
+        align-items:center;
+        gap:7px;
+        margin:0 10px 9px;
+        padding:0 9px;
+        color:#9a9ea7;
+        background:#fff;
+        border:1px solid var(--rfd-line);
+        border-radius:9px;
+      }
+
+      .rf-ai-dialer-search-icon-v8{
+        font-size:13px;
+      }
+
+      .rf-ai-dialer-search-v8 input{
+        min-width:0;
+        width:100%;
+        height:34px;
+        padding:0;
+        color:var(--rfd-text);
+        background:transparent;
+        border:0;
+        outline:0;
+        font:500 9px/1 Inter,sans-serif;
+      }
+
+      .rf-ai-dialer-queue-list-v8{
+        min-height:0;
+        flex:1;
+        overflow:auto;
+        padding:0 7px 9px;
+      }
+
+      .rf-ai-dialer-queue-item-v8{
+        width:100%;
+        display:grid;
+        grid-template-columns:32px minmax(0,1fr) auto;
+        align-items:center;
+        gap:7px;
+        margin:2px 0;
+        padding:8px;
+        text-align:left;
+        background:transparent;
+        border:1px solid transparent;
+        border-radius:10px;
+        cursor:pointer;
+      }
+
+      .rf-ai-dialer-queue-item-v8:hover{
+        background:#fff;
+        border-color:#e3e5ef;
+      }
+
+      .rf-ai-dialer-queue-item-v8.live{
+        background:#fff;
+        border-color:#c9ecdf;
+        box-shadow:0 5px 14px rgba(15,159,110,.07);
+      }
+
+      .rf-ai-dialer-avatar-v8{
+        width:32px;
+        height:32px;
+        display:grid;
+        place-items:center;
+        color:#4749c5;
+        background:linear-gradient(145deg,#ececff,#f7f4ff);
+        border:1px solid #dedfff;
+        border-radius:9px;
+        font-size:10px;
+        font-weight:850;
+      }
+
+      .rf-ai-dialer-queue-copy-v8{
+        min-width:0;
+        display:grid;
+        gap:1px;
+      }
+
+      .rf-ai-dialer-queue-copy-v8 strong,
+      .rf-ai-dialer-queue-copy-v8 small,
+      .rf-ai-dialer-queue-copy-v8 em{
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+      }
+
+      .rf-ai-dialer-queue-copy-v8 strong{
+        color:var(--rfd-text);
+        font-size:9px;
+      }
+
+      .rf-ai-dialer-queue-copy-v8 small{
+        color:var(--rfd-soft);
+        font-size:8px;
+      }
+
+      .rf-ai-dialer-queue-copy-v8 em{
+        color:var(--rfd-primary);
+        font-size:7px;
+        font-style:normal;
+        font-weight:750;
+      }
+
+      .rf-ai-dialer-live-dot-v8{
+        min-height:20px;
+        display:inline-flex;
+        align-items:center;
+        padding:0 6px;
+        color:#08704d;
+        background:#e7f8f1;
+        border-radius:999px;
+        font-size:6.5px;
+        font-weight:850;
+      }
+
+      .rf-ai-dialer-arrow-v8{
+        color:#adb1ba;
+        font-size:16px;
+      }
+
+      .rf-ai-dialer-empty-v8{
+        min-height:150px;
+        display:grid;
+        place-items:center;
+        align-content:center;
+        gap:5px;
+        margin:12px 7px;
+        padding:14px;
+        text-align:center;
+        color:#858a94;
+        background:#fff;
+        border:1px dashed #daddE4;
+        border-radius:11px;
+      }
+
+      .rf-ai-dialer-empty-v8 strong{
+        color:#3b3f46;
+        font-size:9px;
+      }
+
+      .rf-ai-dialer-empty-v8 span{
+        max-width:170px;
+        font-size:7.5px;
+        line-height:12px;
+      }
+
+      .rf-ai-dialer-secondary-v8{
+        min-height:36px;
+        margin:0 10px 10px;
+        color:#4b4fc2;
+        background:#f0f0ff;
+        border:1px solid #dedfff;
+        border-radius:9px;
+        cursor:pointer;
+        font-size:8px;
+        font-weight:800;
+      }
+
+      .rf-ai-dialer-console-v8{
+        min-width:0;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        padding:20px 22px;
+        background:
+          radial-gradient(circle at 50% 0,rgba(81,84,232,.055),transparent 31%),
+          #fff;
+      }
+
+      .rf-ai-dialer-console-meta-v8{
+        width:100%;
+        display:grid;
+        grid-template-columns:1.35fr 1fr;
+        gap:8px;
+        margin-bottom:10px;
+      }
+
+      .rf-ai-dialer-console-meta-v8 label{
+        display:grid;
+        gap:3px;
+      }
+
+      .rf-ai-dialer-console-meta-v8 label > span{
+        color:var(--rfd-muted);
+        font-size:7px;
+        font-weight:800;
+        text-transform:uppercase;
+        letter-spacing:.05em;
+      }
+
+      .rf-ai-dialer-console-meta-v8 select{
+        width:100%;
+        min-height:35px;
+        padding:0 9px;
+        color:var(--rfd-text);
+        background:#fff;
+        border:1px solid var(--rfd-line);
+        border-radius:9px;
+        outline:0;
+        font-size:8px;
+      }
+
+      .rf-ai-dialer-active-call-v8{
+        width:100%;
+        display:grid;
+        grid-template-columns:auto minmax(0,1fr) auto;
+        align-items:center;
+        gap:9px;
+        margin:1px 0 11px;
+        padding:9px 10px;
+        background:#e9f9f2;
+        border:1px solid #c8eadc;
+        border-radius:11px;
+      }
+
+      .rf-ai-dialer-active-call-v8 > span{
+        display:flex;
+        align-items:center;
+        gap:5px;
+        color:#08704d;
+        font-size:7px;
+        font-weight:850;
+        text-transform:uppercase;
+      }
+
+      .rf-ai-dialer-active-call-v8 > span i{
+        width:6px;
+        height:6px;
+        border-radius:50%;
+        background:#0f9f6e;
+        box-shadow:0 0 0 4px rgba(15,159,110,.1);
+      }
+
+      .rf-ai-dialer-active-call-v8 > div:nth-child(2){
+        min-width:0;
+        display:grid;
+        gap:1px;
+      }
+
+      .rf-ai-dialer-active-call-v8 strong,
+      .rf-ai-dialer-active-call-v8 small{
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+      }
+
+      .rf-ai-dialer-active-call-v8 strong{
+        font-size:9px;
+      }
+
+      .rf-ai-dialer-active-call-v8 small{
+        color:#567065;
+        font-size:7.5px;
+      }
+
+      .rf-ai-dialer-active-call-v8 > div:last-child{
+        display:flex;
+        gap:5px;
+      }
+
+      .rf-ai-dialer-active-call-v8 button{
+        min-height:28px;
+        padding:0 8px;
+        color:#2e3e37;
+        background:#fff;
+        border:1px solid #cbe5d9;
+        border-radius:7px;
+        cursor:pointer;
+        font-size:7px;
+        font-weight:800;
+      }
+
+      .rf-ai-dialer-active-call-v8 button.danger{
+        color:#fff;
+        background:#d94848;
+        border-color:#d94848;
+      }
+
+      .rf-ai-dialer-number-wrap-v8{
+        width:100%;
+        display:grid;
+        justify-items:center;
+        gap:3px;
+        margin:12px 0 10px;
+      }
+
+      .rf-ai-dialer-number-wrap-v8 > span{
+        color:var(--rfd-primary);
+        font-size:7.5px;
+        font-weight:850;
+        text-transform:uppercase;
+        letter-spacing:.07em;
+      }
+
+      .rf-ai-dialer-number-wrap-v8 input{
+        width:min(100%,350px);
+        height:49px;
+        padding:0 10px;
+        color:#202329;
+        background:transparent;
+        border:0;
+        border-bottom:1px solid #dddfe5;
+        outline:0;
+        text-align:center;
+        font:650 23px/1 Geist,Inter,sans-serif;
+        letter-spacing:.02em;
+      }
+
+      .rf-ai-dialer-number-wrap-v8 small{
+        color:var(--rfd-muted);
+        font-size:7.5px;
+      }
+
+      .rf-ai-dialer-batch-number-v8{
+        color:#21242a;
+        font:700 50px/56px Geist,Inter,sans-serif;
+        letter-spacing:-.04em;
+      }
+
+      .rf-ai-dialer-keypad-v8{
+        width:min(100%,310px);
+        display:grid;
+        grid-template-columns:repeat(3,1fr);
+        gap:7px;
+        margin-top:4px;
+      }
+
+      .rf-ai-dialer-keypad-v8 button{
+        min-height:48px;
+        display:grid;
+        place-items:center;
+        color:#24262c;
+        background:#f8f9fb;
+        border:1px solid #eaecf0;
+        border-radius:13px;
+        cursor:pointer;
+        font:700 16px/1 Geist,Inter,sans-serif;
+      }
+
+      .rf-ai-dialer-keypad-v8 button:hover:not(:disabled){
+        background:#fff;
+        border-color:#d8d9f7;
+        box-shadow:0 6px 14px rgba(23,26,42,.055);
+      }
+
+      .rf-ai-dialer-keypad-v8 button:disabled{
+        opacity:.42;
+        cursor:not-allowed;
+      }
+
+      .rf-ai-dialer-keypad-v8 button.clear,
+      .rf-ai-dialer-keypad-v8 button.backspace,
+      .rf-ai-dialer-keypad-v8 button.plus{
+        min-height:32px;
+        color:#646a74;
+        font-size:8px;
+        font-weight:800;
+      }
+
+      .rf-ai-dialer-primary-action-v8{
+        min-width:210px;
+        min-height:50px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        gap:7px;
+        margin-top:16px;
+        padding:0 18px;
+        color:#fff;
+        background:linear-gradient(145deg,#5154e8,#4346cb);
+        border:0;
+        border-radius:14px;
+        cursor:pointer;
+        box-shadow:0 12px 25px rgba(81,84,232,.22);
+        font-size:10px;
+        font-weight:850;
+      }
+
+      .rf-ai-dialer-primary-action-v8.queue{
+        background:linear-gradient(145deg,#6b58d6,#5546bb);
+      }
+
+      .rf-ai-dialer-primary-action-v8.power{
+        background:linear-gradient(145deg,#0f9f6e,#087b55);
+        box-shadow:0 12px 25px rgba(15,159,110,.2);
+      }
+
+      .rf-ai-dialer-primary-action-v8:disabled{
+        opacity:.4;
+        cursor:not-allowed;
+        box-shadow:none;
+      }
+
+      .rf-ai-dialer-test-v8{
+        margin-top:6px;
+        padding:5px 8px;
+        color:#777c86;
+        background:transparent;
+        border:0;
+        cursor:pointer;
+        font-size:7px;
+        text-decoration:underline;
+        text-underline-offset:2px;
+      }
+
+      .rf-ai-dialer-power-v8{
+        width:min(100%,360px);
+        display:grid;
+        gap:10px;
+        margin-top:8px;
+        padding:15px;
+        background:#f8f9fb;
+        border:1px solid var(--rfd-line);
+        border-radius:13px;
+      }
+
+      .rf-ai-dialer-power-v8 label{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:10px;
+      }
+
+      .rf-ai-dialer-power-v8 label span{
+        color:#4e535c;
+        font-size:8px;
+        font-weight:800;
+      }
+
+      .rf-ai-dialer-power-v8 input{
+        width:82px;
+        min-height:34px;
+        padding:0 8px;
+        text-align:center;
+        border:1px solid var(--rfd-line);
+        border-radius:8px;
+        font-size:9px;
+      }
+
+      .rf-ai-dialer-power-v8 p{
+        margin:0;
+        color:var(--rfd-soft);
+        font-size:7.5px;
+        line-height:12px;
+      }
+
+      .rf-ai-dialer-power-v8 button{
+        min-height:32px;
+        color:#4d50c8;
+        background:#efefff;
+        border:1px solid #dbdcff;
+        border-radius:8px;
+        cursor:pointer;
+        font-size:7.5px;
+        font-weight:800;
+      }
+
+      .rf-ai-dialer-context-fields-v8{
+        min-height:0;
+        flex:1;
+        overflow:auto;
+        display:grid;
+        align-content:start;
+        gap:8px;
+        padding:0 11px 10px;
+      }
+
+      .rf-ai-dialer-context-fields-v8 label{
+        display:grid;
+        gap:3px;
+      }
+
+      .rf-ai-dialer-context-fields-v8 label > span{
+        color:var(--rfd-muted);
+        font-size:7px;
+        font-weight:800;
+        text-transform:uppercase;
+        letter-spacing:.05em;
+      }
+
+      .rf-ai-dialer-context-fields-v8 input,
+      .rf-ai-dialer-context-fields-v8 textarea{
+        width:100%;
+        padding:8px 9px;
+        color:var(--rfd-text);
+        background:#fff;
+        border:1px solid var(--rfd-line);
+        border-radius:9px;
+        outline:0;
+        font:500 8px/12px Inter,sans-serif;
+        resize:vertical;
+      }
+
+      .rf-ai-dialer-context-fields-v8 input{
+        min-height:35px;
+      }
+
+      .rf-ai-dialer-context-fields-v8 textarea{
+        min-height:78px;
+      }
+
+      .rf-ai-dialer-context-fields-v8 input:focus,
+      .rf-ai-dialer-context-fields-v8 textarea:focus{
+        border-color:#c4c6ff;
+        box-shadow:0 0 0 3px rgba(81,84,232,.07);
+      }
+
+      .rf-ai-dialer-context-fields-v8 label small{
+        color:var(--rfd-muted);
+        font-size:7px;
+        text-align:right;
+      }
+
+      .rf-ai-dialer-context-note-v8{
+        display:flex;
+        align-items:flex-start;
+        gap:7px;
+        margin:0 11px 11px;
+        padding:9px;
+        color:#4d50c7;
+        background:#f0f0ff;
+        border:1px solid #dedfff;
+        border-radius:9px;
+      }
+
+      .rf-ai-dialer-context-note-v8 svg{
+        flex:0 0 auto;
+        margin-top:1px;
+      }
+
+      .rf-ai-dialer-context-note-v8 p{
+        margin:0;
+        color:#5f60a1;
+        font-size:7.5px;
+        line-height:12px;
+      }
+
+      @media(max-width:1180px){
+        .rf-ai-dialer-grid-v8{
+          grid-template-columns:220px minmax(360px,1fr);
+        }
+
+        .rf-ai-dialer-context-v8{
+          grid-column:1/-1;
+          display:grid;
+          grid-template-columns:1fr 1fr;
+          align-items:start;
+          gap:8px;
+          padding:10px;
+          border-left:0;
+          border-top:1px solid var(--rfd-line);
+        }
+
+        .rf-ai-dialer-context-v8 .rf-ai-dialer-panel-head-v8{
+          grid-column:1/-1;
+          min-height:34px;
+          padding:0;
+        }
+
+        .rf-ai-dialer-context-fields-v8{
+          grid-template-columns:1fr 1fr;
+          padding:0;
+          overflow:visible;
+        }
+
+        .rf-ai-dialer-context-fields-v8 label.context{
+          grid-column:1/-1;
+        }
+
+        .rf-ai-dialer-context-note-v8{
+          margin:0;
+        }
+      }
+
+      @media(max-width:820px){
+        .rf-ai-dialer-focus-header-v8{
+          align-items:flex-start;
+          flex-direction:column;
+        }
+
+        .rf-ai-dialer-focus-actions-v8{
+          justify-content:flex-start;
+        }
+
+        .rf-ai-dialer-modebar-v8{
+          align-items:stretch;
+          flex-direction:column;
+        }
+
+        .rf-ai-dialer-modes-v8{
+          width:100%;
+        }
+
+        .rf-ai-dialer-modes-v8 button{
+          min-width:0;
+          flex:1;
+        }
+
+        .rf-ai-dialer-quicklinks-v8{
+          width:100%;
+          overflow:auto;
+        }
+
+        .rf-ai-dialer-grid-v8{
+          min-height:0;
+          grid-template-columns:1fr;
+        }
+
+        .rf-ai-dialer-queue-v8{
+          max-height:320px;
+          border-right:0;
+          border-bottom:1px solid var(--rfd-line);
+        }
+
+        .rf-ai-dialer-context-v8{
+          grid-template-columns:1fr;
+        }
+
+        .rf-ai-dialer-context-v8 .rf-ai-dialer-panel-head-v8{
+          grid-column:auto;
+        }
+
+        .rf-ai-dialer-context-fields-v8{
+          grid-template-columns:1fr;
+        }
+
+        .rf-ai-dialer-context-fields-v8 label.context{
+          grid-column:auto;
+        }
+
+        .rf-ai-dialer-console-v8{
+          padding-inline:13px;
+        }
+      }
+
+      @media(max-width:520px){
+        .rf-ai-dialer-focus-actions-v8 .rf-ai-dialer-focus-stat-v8{
+          display:none;
+        }
+
+        .rf-ai-dialer-modes-v8 button{
+          padding-inline:6px;
+          font-size:8.5px;
+        }
+
+        .rf-ai-dialer-console-meta-v8{
+          grid-template-columns:1fr;
+        }
+
+        .rf-ai-dialer-number-wrap-v8 input{
+          font-size:19px;
+        }
+
+        .rf-ai-dialer-keypad-v8{
+          width:100%;
+        }
+
+        .rf-ai-dialer-primary-action-v8{
+          width:100%;
+        }
+      }
+
     `}</style>
   );
 }

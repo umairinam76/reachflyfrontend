@@ -243,30 +243,234 @@ export default function TelnyxDialer({
     setMicrophonePermission,
   ] = useState("unknown");
 
+  const standaloneMode =
+    !lead &&
+    !assignmentId;
+
+  const [
+    standaloneQueue,
+    setStandaloneQueue,
+  ] = useState([]);
+
+  const [
+    standaloneAssignment,
+    setStandaloneAssignment,
+  ] = useState(null);
+
+  const [
+    standaloneLoading,
+    setStandaloneLoading,
+  ] = useState(false);
+
+  const [
+    standaloneSearch,
+    setStandaloneSearch,
+  ] = useState("");
+
+  const [
+    recentCalls,
+    setRecentCalls,
+  ] = useState([]);
+
+  const [
+    dialMode,
+    setDialMode,
+  ] = useState(
+    autoAdvance ? "power" : "manual"
+  );
+
+  const activeLead =
+    lead ||
+    standaloneAssignment?.lead ||
+    null;
+
   const resolvedAssignmentId =
     assignmentId ||
-    lead?.assignmentId ||
+    standaloneAssignment?.id ||
+    activeLead?.assignmentId ||
     "";
 
   const resolvedCampaignId =
     campaignId ||
-    lead?.campaignId ||
+    standaloneAssignment?.campaignId ||
+    activeLead?.campaignId ||
     "";
 
   const phone = useMemo(
     () =>
       normalizePhone(
-        lead?.phone ||
-          lead?.internationalPhoneNumber ||
-          lead?.nationalPhoneNumber ||
+        activeLead?.phone ||
+          activeLead?.internationalPhoneNumber ||
+          activeLead?.nationalPhoneNumber ||
           ""
       ),
     [
-      lead?.phone,
-      lead?.internationalPhoneNumber,
-      lead?.nationalPhoneNumber,
+      activeLead?.phone,
+      activeLead?.internationalPhoneNumber,
+      activeLead?.nationalPhoneNumber,
     ]
   );
+
+  const visibleStandaloneQueue =
+    useMemo(() => {
+      const query =
+        standaloneSearch
+          .trim()
+          .toLowerCase();
+
+      if (!query) {
+        return standaloneQueue;
+      }
+
+      return standaloneQueue.filter(
+        (item) =>
+          [
+            item?.lead?.business,
+            item?.lead?.name,
+            item?.lead?.phone,
+            item?.lead?.email,
+            item?.campaignName,
+            item?.status,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(query)
+      );
+    }, [
+      standaloneQueue,
+      standaloneSearch,
+    ]);
+
+  useEffect(() => {
+    if (!standaloneMode) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    async function loadStandaloneQueue() {
+      setStandaloneLoading(true);
+
+      try {
+        const response =
+          await apiRequest(
+            "/caller-queue?bucket=all&limit=250",
+            {
+              timeoutMs: 20_000,
+            }
+          );
+
+        if (cancelled) {
+          return;
+        }
+
+        const records =
+          Array.isArray(response?.records)
+            ? response.records
+            : Array.isArray(response?.items)
+              ? response.items
+              : [];
+
+        const callable =
+          records.filter(
+            (item) =>
+              item?.lead &&
+              normalizePhone(
+                item.lead.phone ||
+                  item.lead
+                    .internationalPhoneNumber ||
+                  item.lead
+                    .nationalPhoneNumber ||
+                  item.phone ||
+                  ""
+              )
+          );
+
+        setStandaloneQueue(
+          callable
+        );
+
+        setStandaloneAssignment(
+          (current) => {
+            if (
+              current?.id &&
+              callable.some(
+                (item) =>
+                  item.id === current.id
+              )
+            ) {
+              return current;
+            }
+
+            return callable[0] || null;
+          }
+        );
+      } catch (requestError) {
+        if (!cancelled) {
+          setError(
+            requestError?.message ||
+              "The calling queue could not be loaded."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setStandaloneLoading(false);
+        }
+      }
+    }
+
+    void loadStandaloneQueue();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    standaloneMode,
+  ]);
+
+  useEffect(() => {
+    if (!activeLead?.id) {
+      setRecentCalls([]);
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    async function loadRecentCalls() {
+      try {
+        const response =
+          await apiRequest(
+            `/telnyx/calls?leadId=${encodeURIComponent(
+              activeLead.id
+            )}&limit=8`,
+            {
+              timeoutMs: 15_000,
+            }
+          );
+
+        if (!cancelled) {
+          setRecentCalls(
+            Array.isArray(response?.calls)
+              ? response.calls
+              : []
+          );
+        }
+      } catch {
+        if (!cancelled) {
+          setRecentCalls([]);
+        }
+      }
+    }
+
+    void loadRecentCalls();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    activeLead?.id,
+  ]);
 
   const callInProgress =
     Boolean(callRef.current) ||
@@ -789,7 +993,7 @@ export default function TelnyxDialer({
 
     resetActiveCall();
   }, [
-    lead?.id,
+    activeLead?.id,
     resolvedAssignmentId,
     resetActiveCall,
   ]);
@@ -851,10 +1055,12 @@ export default function TelnyxDialer({
           outcome,
         });
 
-        if (
-          !autoAdvance ||
-          !onOpenNextLead
-        ) {
+        const shouldAdvance =
+          dialMode === "power" &&
+          (autoAdvance ||
+            standaloneMode);
+
+        if (!shouldAdvance) {
           return;
         }
 
@@ -866,23 +1072,66 @@ export default function TelnyxDialer({
           return;
         }
 
-        await onOpenNextLead({
-          completedAssignment:
-            completedAssignment ||
-            null,
+        if (onOpenNextLead) {
+          await onOpenNextLead({
+            completedAssignment:
+              completedAssignment ||
+              null,
 
-          completedCall:
-            completedCall ||
-            null,
+            completedCall:
+              completedCall ||
+              null,
 
-          outcome,
-        });
+            outcome,
+          });
+
+          return;
+        }
+
+        if (standaloneMode) {
+          const currentId =
+            resolvedAssignmentId;
+
+          const currentIndex =
+            standaloneQueue.findIndex(
+              (item) =>
+                item.id === currentId
+            );
+
+          const nextAssignment =
+            standaloneQueue[
+              currentIndex >= 0
+                ? currentIndex + 1
+                : 0
+            ] ||
+            standaloneQueue[0] ||
+            null;
+
+          if (nextAssignment) {
+            setStandaloneAssignment(
+              nextAssignment
+            );
+
+            void apiRequest(
+              `/caller-queue/${encodeURIComponent(
+                nextAssignment.id
+              )}/open`,
+              {
+                method: "POST",
+              }
+            ).catch(() => {});
+          }
+        }
       },
       [
         autoAdvance,
         autoAdvanceDelayMs,
+        dialMode,
         onCallComplete,
         onOpenNextLead,
+        resolvedAssignmentId,
+        standaloneMode,
+        standaloneQueue,
       ]
     );
 
@@ -1226,8 +1475,8 @@ export default function TelnyxDialer({
 
           setMessage(
             `Ringing ${
-              lead?.business ||
-              lead?.name ||
+              activeLead?.business ||
+              activeLead?.name ||
               phone
             }…`
           );
@@ -1256,8 +1505,8 @@ export default function TelnyxDialer({
 
           setMessage(
             `Connected to ${
-              lead?.business ||
-              lead?.name ||
+              activeLead?.business ||
+              activeLead?.name ||
               phone
             }.`
           );
@@ -1336,8 +1585,8 @@ export default function TelnyxDialer({
       [
         ensureRemoteAudio,
         finalizeCall,
-        lead?.business,
-        lead?.name,
+        activeLead?.business,
+        activeLead?.name,
         phone,
         startRingback,
         stopRingback,
@@ -1815,7 +2064,7 @@ export default function TelnyxDialer({
             toNumber: phone,
 
             leadId:
-              lead?.id ||
+              activeLead?.id ||
               "",
 
             campaignId:
@@ -1893,8 +2142,8 @@ export default function TelnyxDialer({
 
         setMessage(
           `Calling ${
-            lead?.business ||
-            lead?.name ||
+            activeLead?.business ||
+            activeLead?.name ||
             phone
           }…`
         );
@@ -2026,9 +2275,9 @@ export default function TelnyxDialer({
       connect,
       ensureRemoteAudio,
       finalizeCall,
-      lead?.business,
-      lead?.id,
-      lead?.name,
+      activeLead?.business,
+      activeLead?.id,
+      activeLead?.name,
       phone,
       recordingConsent,
       requestMicrophone,
@@ -2396,17 +2645,97 @@ export default function TelnyxDialer({
 
   const assignmentStatus =
     currentAssignment?.status ||
-    lead?.status ||
+    activeLead?.status ||
     "";
 
   const queueStatus =
     currentAssignment?.queueStatus ||
-    lead?.queueStatus ||
+    activeLead?.queueStatus ||
     "";
 
+  const leadName =
+    activeLead?.business ||
+    activeLead?.companyName ||
+    activeLead?.name ||
+    "Select a lead";
+
+  const leadContact =
+    activeLead?.contactName ||
+    activeLead?.decisionMaker ||
+    "";
+
+  const leadLocation =
+    activeLead?.address ||
+    activeLead?.location ||
+    "";
+
+  const leadEmail =
+    activeLead?.email ||
+    "";
+
+  const leadWebsite =
+    activeLead?.website ||
+    activeLead?.domain ||
+    "";
+
+  const queueIndex =
+    standaloneMode &&
+    resolvedAssignmentId
+      ? Math.max(
+          0,
+          standaloneQueue.findIndex(
+            (item) =>
+              item.id ===
+              resolvedAssignmentId
+          )
+        )
+      : -1;
+
+  const chooseStandaloneAssignment =
+    (assignment) => {
+      if (
+        !assignment ||
+        callInProgress ||
+        busy
+      ) {
+        return;
+      }
+
+      setStandaloneAssignment(
+        assignment
+      );
+
+      setError("");
+      setMessage("");
+      setLastOutcome("");
+
+      void apiRequest(
+        `/caller-queue/${encodeURIComponent(
+          assignment.id
+        )}/open`,
+        {
+          method: "POST",
+        }
+      ).catch(() => {});
+    };
+
+  const openAiDialer = () => {
+    if (
+      typeof window ===
+      "undefined"
+    ) {
+      return;
+    }
+
+    window.location.assign(
+      "/app/voice-agent?tab=leads&view=dialer"
+    );
+  };
+
   return (
-    <section className="cardish rf-telnyx-dialer rf-business-dialer-v7">
+    <section className="rf-telnyx-dialer rf-business-dialer-v8">
       <TelnyxDialerV7Styles />
+
       <audio
         id="reachfly-telnyx-remote-audio"
         ref={remoteAudioRef}
@@ -2414,248 +2743,708 @@ export default function TelnyxDialer({
         playsInline
       />
 
-      <div className="section-title-row">
-        <div>
-          <span className="eyebrow">
-            Business dialer
+      <header className="rfbd8-topbar">
+        <div className="rfbd8-title">
+          <span className="rfbd8-kicker">
+            ReachFly Dialer
           </span>
 
-          <h3>
-            {phone ||
-              "No phone number"}
-          </h3>
+          <h2>Calling workspace</h2>
 
           <p>
-            Status:{" "}
-            <b>
-              {formatLabel(status)}
-            </b>
-
-            {elapsed
-              ? ` · ${formatDuration(
-                  elapsed
-                )}`
-              : ""}
+            Work the queue, call the
+            current lead and keep the
+            context visible without
+            leaving the dialer.
           </p>
-
-          <p className="text-xs text-muted">
-            Microphone:{" "}
-            {formatLabel(
-              microphonePermission
-            )}
-          </p>
-
-          {assignmentStatus ? (
-            <p className="text-xs text-muted">
-              Lead:{" "}
-              {formatLabel(
-                assignmentStatus
-              )}
-
-              {queueStatus
-                ? ` · Queue: ${formatLabel(
-                    queueStatus
-                  )}`
-                : ""}
-            </p>
-          ) : null}
         </div>
 
-        <span
-          className={`badge badge-${getStatusBadge(
-            status
-          )}`}
-        >
-          {formatLabel(status)}
-        </span>
-      </div>
+        <div className="rfbd8-topbar-meta">
+          <span
+            className={`rfbd8-status ${
+              getStatusBadge(status)
+            }`}
+          >
+            <i />
+            {formatLabel(status)}
+          </span>
+
+          <span className="rfbd8-mic">
+            Mic{" "}
+            <b>
+              {formatLabel(
+                microphonePermission
+              )}
+            </b>
+          </span>
+        </div>
+      </header>
 
       {!window.isSecureContext ? (
-        <p className="error-banner">
+        <div className="rfbd8-banner error">
           Browser calling requires HTTPS.
-          This page is currently opened
-          through an insecure HTTP address.
-        </p>
+          Open ReachFly using its secure
+          HTTPS URL before placing a call.
+        </div>
       ) : null}
 
       {error ? (
-        <p className="error-banner">
+        <div
+          className="rfbd8-banner error"
+          role="alert"
+        >
           {safeCustomerMessage(error)}
-        </p>
+        </div>
       ) : null}
 
       {message ? (
-        <p className="success-banner">
+        <div
+          className="rfbd8-banner success"
+          role="status"
+        >
           {safeCustomerMessage(message)}
-        </p>
-      ) : null}
-
-      {lastOutcome ? (
-        <div className="rf-telnyx-result">
-          <span>Latest outcome</span>
-
-          <b>
-            {formatLabel(
-              lastOutcome
-            )}
-          </b>
         </div>
       ) : null}
 
-      <label className="rf-assignment-option">
-        <input
-          type="checkbox"
-          checked={
-            recordingConsent
-          }
-          onChange={(event) =>
-            setRecordingConsent(
-              event.target.checked
-            )
-          }
-          disabled={
-            callInProgress ||
-            busy
-          }
-        />
-
-        Approved recording disclosure
-        has been given and consent
-        obtained where required.
-      </label>
-
-      <div className="flex flex-gap flex-wrap mt16">
-        {!callInProgress ? (
+      <div className="rfbd8-modebar">
+        <div
+          className="rfbd8-mode-tabs"
+          role="tablist"
+          aria-label="Dialer mode"
+        >
           <button
-            className="btn primary"
             type="button"
-            onClick={startCall}
-            disabled={
-              busy ||
-              !phone ||
-              !resolvedAssignmentId ||
-              !window.isSecureContext
+            role="tab"
+            aria-selected={
+              dialMode === "manual"
             }
+            className={
+              dialMode === "manual"
+                ? "active"
+                : ""
+            }
+            onClick={() =>
+              setDialMode("manual")
+            }
+            disabled={callInProgress}
           >
-            {busy
-              ? "Connecting…"
-              : "Call lead"}
+            Manual
+            <small>
+              Call one lead
+            </small>
           </button>
-        ) : (
-          <>
-            <button
-              className="btn light"
-              type="button"
-              onClick={
-                toggleMute
-              }
-              disabled={busy}
-            >
-              {muted
-                ? "Unmute"
-                : "Mute"}
-            </button>
 
-            <button
-              className="btn light"
-              type="button"
-              onClick={() =>
-                setDialPadOpen(
-                  (current) =>
-                    !current
-                )
-              }
-              disabled={
-                busy ||
-                !ACTIVE_STATES.has(
-                  status
-                )
-              }
-              aria-expanded={
-                dialPadOpen
-              }
-            >
-              {dialPadOpen
-                ? "Hide dial pad"
-                : "Dial pad"}
-            </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={
+              dialMode === "power"
+            }
+            className={
+              dialMode === "power"
+                ? "active"
+                : ""
+            }
+            onClick={() =>
+              setDialMode("power")
+            }
+            disabled={callInProgress}
+          >
+            Power
+            <small>
+              Auto-open next
+            </small>
+          </button>
 
-            <button
-              className="btn danger"
-              type="button"
-              onClick={hangup}
-              disabled={busy}
-            >
-              {status === "ending"
-                ? "Ending…"
-                : "End call"}
-            </button>
-          </>
-        )}
+          <button
+            type="button"
+            role="tab"
+            aria-selected={
+              dialMode === "ai"
+            }
+            className={
+              dialMode === "ai"
+                ? "active"
+                : ""
+            }
+            onClick={() =>
+              setDialMode("ai")
+            }
+            disabled={callInProgress}
+          >
+            AI
+            <small>
+              Voice Agent
+            </small>
+          </button>
+        </div>
+
+        {standaloneMode ? (
+          <span className="rfbd8-queue-progress">
+            {standaloneLoading
+              ? "Loading queue…"
+              : standaloneQueue.length
+                ? `${Math.min(
+                    queueIndex + 1,
+                    standaloneQueue.length
+                  )} of ${standaloneQueue.length}`
+                : "No callable leads"}
+          </span>
+        ) : null}
       </div>
 
-      {callInProgress &&
-      dialPadOpen ? (
+      {dialMode === "ai" ? (
+        <section className="rfbd8-ai-handoff">
+          <span className="rfbd8-ai-mark">
+            AI
+          </span>
+
+          <div>
+            <strong>
+              Use ReachFly AI Voice Agent
+            </strong>
+
+            <p>
+              The AI dialer handles live
+              qualification, objections,
+              meeting booking and
+              campaign-aware email
+              follow-up.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            className="rfbd8-button primary"
+            onClick={openAiDialer}
+          >
+            Open AI dialer
+          </button>
+        </section>
+      ) : (
         <div
-          aria-label="Call dial pad"
-          style={{
-            marginTop: 16,
-            width: "100%",
-            maxWidth: 280,
-            display: "grid",
-            gridTemplateColumns:
-              "repeat(3, minmax(64px, 1fr))",
-            gap: 10,
-          }}
+          className={`rfbd8-workspace ${
+            standaloneMode
+              ? ""
+              : "embedded"
+          }`}
         >
-          {[
-            "1",
-            "2",
-            "3",
-            "4",
-            "5",
-            "6",
-            "7",
-            "8",
-            "9",
-            "*",
-            "0",
-            "#",
-          ].map((digit) => (
-            <button
-              key={digit}
-              className="btn light"
-              type="button"
-              disabled={
-                busy ||
-                Boolean(
-                  sendingDigit
-                ) ||
-                !ACTIVE_STATES.has(
-                  status
-                )
-              }
-              onClick={() =>
-                void sendDialPadDigit(
-                  digit
-                )
-              }
-              aria-label={`Send keypad digit ${digit}`}
-              style={{
-                minHeight: 48,
-                fontSize: 18,
-                fontWeight: 700,
-              }}
-            >
-              {sendingDigit ===
-              digit
-                ? "•"
-                : digit}
-            </button>
-          ))}
+          {standaloneMode ? (
+            <aside className="rfbd8-queue">
+              <div className="rfbd8-panel-head">
+                <div>
+                  <span>Call queue</span>
+                  <strong>
+                    Leads to work
+                  </strong>
+                </div>
+
+                <b>
+                  {
+                    visibleStandaloneQueue.length
+                  }
+                </b>
+              </div>
+
+              <label className="rfbd8-search">
+                <span aria-hidden="true">
+                  ⌕
+                </span>
+
+                <input
+                  value={
+                    standaloneSearch
+                  }
+                  onChange={(event) =>
+                    setStandaloneSearch(
+                      event.target.value
+                    )
+                  }
+                  placeholder="Search queue…"
+                />
+              </label>
+
+              <div className="rfbd8-queue-list">
+                {visibleStandaloneQueue.length ? (
+                  visibleStandaloneQueue.map(
+                    (item) => {
+                      const itemLead =
+                        item.lead || {};
+
+                      const selected =
+                        item.id ===
+                        resolvedAssignmentId;
+
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className={`rfbd8-queue-item ${
+                            selected
+                              ? "active"
+                              : ""
+                          }`}
+                          disabled={
+                            callInProgress ||
+                            busy
+                          }
+                          onClick={() =>
+                            chooseStandaloneAssignment(
+                              item
+                            )
+                          }
+                        >
+                          <span className="rfbd8-avatar">
+                            {String(
+                              itemLead.business ||
+                                itemLead.name ||
+                                "L"
+                            )
+                              .trim()
+                              .slice(0, 1)
+                              .toUpperCase()}
+                          </span>
+
+                          <span className="rfbd8-queue-copy">
+                            <strong>
+                              {itemLead.business ||
+                                itemLead.name ||
+                                "Unnamed lead"}
+                            </strong>
+
+                            <small>
+                              {itemLead.phone ||
+                                item.phone ||
+                                "No phone"}
+                            </small>
+
+                            <em>
+                              {item.campaignName ||
+                                formatLabel(
+                                  item.status ||
+                                    "queued"
+                                )}
+                            </em>
+                          </span>
+
+                          <span
+                            className="rfbd8-chevron"
+                            aria-hidden="true"
+                          >
+                            ›
+                          </span>
+                        </button>
+                      );
+                    }
+                  )
+                ) : (
+                  <div className="rfbd8-empty">
+                    <strong>
+                      No callable leads
+                    </strong>
+
+                    <span>
+                      Add leads to a
+                      campaign or assign
+                      leads to the caller
+                      queue first.
+                    </span>
+                  </div>
+                )}
+              </div>
+            </aside>
+          ) : null}
+
+          <main className="rfbd8-console">
+            <div className="rfbd8-call-card">
+              <div className="rfbd8-lead-summary">
+                <span className="rfbd8-avatar large">
+                  {String(leadName)
+                    .trim()
+                    .slice(0, 1)
+                    .toUpperCase()}
+                </span>
+
+                <div>
+                  <span>
+                    Current lead
+                  </span>
+
+                  <strong>
+                    {leadName}
+                  </strong>
+
+                  {leadContact ? (
+                    <small>
+                      {leadContact}
+                    </small>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="rfbd8-number">
+                {phone ||
+                  "No phone number"}
+              </div>
+
+              <div className="rfbd8-call-state">
+                <span>
+                  {callInProgress
+                    ? formatLabel(status)
+                    : "Ready to call"}
+                </span>
+
+                <strong>
+                  {callInProgress
+                    ? formatDuration(
+                        elapsed
+                      )
+                    : "00:00"}
+                </strong>
+              </div>
+
+              <div
+                className={`rfbd8-keypad ${
+                  callInProgress &&
+                  !dialPadOpen
+                    ? "collapsed"
+                    : ""
+                }`}
+                aria-label="Call dial pad"
+              >
+                {[
+                  "1",
+                  "2",
+                  "3",
+                  "4",
+                  "5",
+                  "6",
+                  "7",
+                  "8",
+                  "9",
+                  "*",
+                  "0",
+                  "#",
+                ].map((digit) => (
+                  <button
+                    key={digit}
+                    type="button"
+                    disabled={
+                      busy ||
+                      Boolean(
+                        sendingDigit
+                      ) ||
+                      !ACTIVE_STATES.has(
+                        status
+                      )
+                    }
+                    onClick={() =>
+                      void sendDialPadDigit(
+                        digit
+                      )
+                    }
+                    aria-label={`Send keypad digit ${digit}`}
+                  >
+                    {sendingDigit ===
+                    digit
+                      ? "•"
+                      : digit}
+                  </button>
+                ))}
+              </div>
+
+              <div className="rfbd8-call-controls">
+                {!callInProgress ? (
+                  <button
+                    className="rfbd8-call-button"
+                    type="button"
+                    onClick={startCall}
+                    disabled={
+                      busy ||
+                      !phone ||
+                      !resolvedAssignmentId ||
+                      !window.isSecureContext
+                    }
+                  >
+                    <span
+                      aria-hidden="true"
+                    >
+                      ☎
+                    </span>
+
+                    {busy
+                      ? "Connecting…"
+                      : "Start call"}
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className={`rfbd8-round-control ${
+                        muted
+                          ? "active"
+                          : ""
+                      }`}
+                      onClick={
+                        toggleMute
+                      }
+                      disabled={busy}
+                    >
+                      <span
+                        aria-hidden="true"
+                      >
+                        {muted
+                          ? "🔇"
+                          : "🎙"}
+                      </span>
+
+                      {muted
+                        ? "Unmute"
+                        : "Mute"}
+                    </button>
+
+                    <button
+                      type="button"
+                      className={`rfbd8-round-control ${
+                        dialPadOpen
+                          ? "active"
+                          : ""
+                      }`}
+                      onClick={() =>
+                        setDialPadOpen(
+                          (current) =>
+                            !current
+                        )
+                      }
+                      disabled={
+                        busy ||
+                        !ACTIVE_STATES.has(
+                          status
+                        )
+                      }
+                    >
+                      <span
+                        aria-hidden="true"
+                      >
+                        ⌨
+                      </span>
+                      Keypad
+                    </button>
+
+                    <button
+                      type="button"
+                      className="rfbd8-end-button"
+                      onClick={hangup}
+                      disabled={busy}
+                    >
+                      <span
+                        aria-hidden="true"
+                      >
+                        ☎
+                      </span>
+
+                      {status === "ending"
+                        ? "Ending…"
+                        : "End"}
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {lastOutcome ? (
+                <div className="rfbd8-outcome">
+                  <span>
+                    Latest outcome
+                  </span>
+
+                  <strong>
+                    {formatLabel(
+                      lastOutcome
+                    )}
+                  </strong>
+                </div>
+              ) : null}
+            </div>
+
+            <label className="rfbd8-consent">
+              <input
+                type="checkbox"
+                checked={
+                  recordingConsent
+                }
+                onChange={(event) =>
+                  setRecordingConsent(
+                    event.target
+                      .checked
+                  )
+                }
+                disabled={
+                  callInProgress ||
+                  busy
+                }
+              />
+
+              <span>
+                <strong>
+                  Recording disclosure
+                  confirmed
+                </strong>
+
+                <small>
+                  Confirm the approved
+                  disclosure and consent
+                  where required before
+                  starting the call.
+                </small>
+              </span>
+            </label>
+          </main>
+
+          <aside className="rfbd8-context">
+            <div className="rfbd8-panel-head">
+              <div>
+                <span>Lead context</span>
+                <strong>
+                  What you need now
+                </strong>
+              </div>
+            </div>
+
+            <div className="rfbd8-context-card">
+              <div className="rfbd8-context-title">
+                <span className="rfbd8-avatar">
+                  {String(leadName)
+                    .trim()
+                    .slice(0, 1)
+                    .toUpperCase()}
+                </span>
+
+                <div>
+                  <strong>
+                    {leadName}
+                  </strong>
+
+                  <small>
+                    {leadContact ||
+                      "Business lead"}
+                  </small>
+                </div>
+              </div>
+
+              <ContextField
+                label="Phone"
+                value={
+                  phone ||
+                  "Unavailable"
+                }
+              />
+
+              <ContextField
+                label="Email"
+                value={
+                  leadEmail ||
+                  "Unavailable"
+                }
+              />
+
+              <ContextField
+                label="Location"
+                value={
+                  leadLocation ||
+                  "Unavailable"
+                }
+              />
+
+              <ContextField
+                label="Website"
+                value={
+                  leadWebsite ||
+                  "Unavailable"
+                }
+              />
+
+              {assignmentStatus ? (
+                <ContextField
+                  label="Lead status"
+                  value={formatLabel(
+                    assignmentStatus
+                  )}
+                />
+              ) : null}
+
+              {queueStatus ? (
+                <ContextField
+                  label="Queue"
+                  value={formatLabel(
+                    queueStatus
+                  )}
+                />
+              ) : null}
+            </div>
+
+            <div className="rfbd8-history">
+              <div className="rfbd8-history-head">
+                <strong>
+                  Recent calls
+                </strong>
+
+                <span>
+                  {recentCalls.length}
+                </span>
+              </div>
+
+              {recentCalls.length ? (
+                recentCalls
+                  .slice(0, 5)
+                  .map((call) => (
+                    <div
+                      className="rfbd8-history-row"
+                      key={
+                        call.id ||
+                        `${call.createdAt}-${call.status}`
+                      }
+                    >
+                      <span>
+                        {formatLabel(
+                          call.outcome ||
+                            call.status ||
+                            "call"
+                        )}
+                      </span>
+
+                      <small>
+                        {formatDuration(
+                          call.durationSeconds ||
+                            0
+                        )}
+                      </small>
+                    </div>
+                  ))
+              ) : (
+                <p>
+                  No recent call history
+                  for this lead.
+                </p>
+              )}
+            </div>
+          </aside>
         </div>
-      ) : null}
+      )}
     </section>
+  );
+}
+
+function ContextField({
+  label,
+  value,
+}) {
+  return (
+    <div className="rfbd8-context-field">
+      <span>{label}</span>
+      <strong title={String(value)}>
+        {value}
+      </strong>
+    </div>
   );
 }
 
@@ -3117,310 +3906,996 @@ function safeCustomerMessage(value) {
 function TelnyxDialerV7Styles() {
   return (
     <style>{`
-      .rf-business-dialer-v7{
-        --rfbd-text:#191c1d;
-        --rfbd-text2:#4d4c59;
-        --rfbd-muted:#777784;
-        --rfbd-line:#e2e4e7;
-        --rfbd-primary:#4648d4;
-        --rfbd-primary-dark:#383aba;
-        --rfbd-primary-soft:#e8e9ff;
-        --rfbd-green:#087a51;
-        --rfbd-green-soft:#e4f7ee;
-        --rfbd-red:#ba1a1a;
-        --rfbd-red-soft:#ffedeb;
-        --rfbd-amber:#9a5b00;
-        --rfbd-amber-soft:#fff3d8;
-        --rfbd-ease:cubic-bezier(.2,.8,.2,1);
-        position:relative;
-        overflow:hidden;
-        display:grid;
-        gap:10px;
+      .rf-business-dialer-v8{
+        --rfbd8-text:#17191c;
+        --rfbd8-soft:#5f6570;
+        --rfbd8-muted:#858b96;
+        --rfbd8-line:#e7e9ee;
+        --rfbd8-surface:#ffffff;
+        --rfbd8-surface2:#f7f8fb;
+        --rfbd8-primary:#5154e8;
+        --rfbd8-primary-soft:#efefff;
+        --rfbd8-green:#0f9f6e;
+        --rfbd8-green-dark:#087a54;
+        --rfbd8-green-soft:#e7f8f1;
+        --rfbd8-red:#d94848;
+        --rfbd8-red-soft:#fff0f0;
+        --rfbd8-amber:#b26a00;
+        --rfbd8-amber-soft:#fff5df;
+        --rfbd8-shadow:0 18px 50px rgba(20,24,40,.07);
         width:100%;
-        margin:0!important;
-        padding:14px!important;
-        color:var(--rfbd-text);
-        background:
-          radial-gradient(circle at 94% 5%,rgba(70,72,212,.08),transparent 30%),
-          #fff;
-        border:1px solid #dddffa!important;
-        border-radius:12px!important;
-        box-shadow:0 1px 3px rgba(25,28,29,.025)!important;
+        display:grid;
+        gap:14px;
+        color:var(--rfbd8-text);
+        font-family:Inter,Geist,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
       }
 
-      .rf-business-dialer-v7 *,
-      .rf-business-dialer-v7 *::before,
-      .rf-business-dialer-v7 *::after{
+      .rf-business-dialer-v8 *,
+      .rf-business-dialer-v8 *::before,
+      .rf-business-dialer-v8 *::after{
         box-sizing:border-box;
       }
 
-      @keyframes rfbdIn{
-        from{opacity:0;transform:translateY(-4px)}
-        to{opacity:1;transform:none}
-      }
-
-      .rf-business-dialer-v7 > audio{
+      .rf-business-dialer-v8 > audio{
         display:none;
       }
 
-      .rf-business-dialer-v7 .section-title-row{
-        min-height:90px;
+      .rfbd8-topbar{
+        min-height:72px;
         display:flex;
-        align-items:flex-start;
+        align-items:center;
         justify-content:space-between;
-        gap:14px;
-        padding:1px 0 4px;
+        gap:18px;
+        padding:14px 16px;
+        background:var(--rfbd8-surface);
+        border:1px solid var(--rfbd8-line);
+        border-radius:16px;
+        box-shadow:0 8px 24px rgba(20,24,40,.035);
       }
 
-      .rf-business-dialer-v7 .section-title-row > div{
+      .rfbd8-title{
         min-width:0;
       }
 
-      .rf-business-dialer-v7 .eyebrow{
+      .rfbd8-kicker{
         display:block;
-        margin:0 0 4px;
-        color:var(--rfbd-primary);
-        font-size:7px;
+        margin-bottom:3px;
+        color:var(--rfbd8-primary);
+        font-size:11px;
         font-weight:800;
         letter-spacing:.08em;
         text-transform:uppercase;
       }
 
-      .rf-business-dialer-v7 h3{
+      .rfbd8-title h2{
         margin:0;
-        font:600 22px/28px Geist,Inter,sans-serif;
-        letter-spacing:-.02em;
+        font:700 20px/26px Geist,Inter,sans-serif;
+        letter-spacing:-.025em;
       }
 
-      .rf-business-dialer-v7 .section-title-row p{
-        margin:4px 0 0;
-        color:var(--rfbd-text2);
-        font-size:6.5px;
-        line-height:11px;
+      .rfbd8-title p{
+        max-width:650px;
+        margin:3px 0 0;
+        color:var(--rfbd8-soft);
+        font-size:12px;
+        line-height:18px;
       }
 
-      .rf-business-dialer-v7 .text-xs,
-      .rf-business-dialer-v7 .text-muted{
-        color:var(--rfbd-muted)!important;
+      .rfbd8-topbar-meta{
+        display:flex;
+        align-items:center;
+        gap:8px;
+        flex-wrap:wrap;
+        justify-content:flex-end;
       }
 
-      .rf-business-dialer-v7 .badge{
-        min-height:26px;
+      .rfbd8-status,
+      .rfbd8-mic{
+        min-height:32px;
         display:inline-flex;
         align-items:center;
-        padding:5px 8px;
-        border:1px solid transparent;
+        gap:7px;
+        padding:6px 10px;
+        border:1px solid var(--rfbd8-line);
         border-radius:999px;
-        font-size:5.8px;
+        background:#fff;
+        color:var(--rfbd8-soft);
+        font-size:11px;
+        font-weight:700;
+        white-space:nowrap;
+      }
+
+      .rfbd8-status i{
+        width:7px;
+        height:7px;
+        border-radius:50%;
+        background:#9ba0aa;
+        box-shadow:0 0 0 4px rgba(155,160,170,.11);
+      }
+
+      .rfbd8-status.green i{
+        background:var(--rfbd8-green);
+        box-shadow:0 0 0 4px rgba(15,159,110,.12);
+      }
+
+      .rfbd8-status.amber i{
+        background:#e1931d;
+        box-shadow:0 0 0 4px rgba(225,147,29,.12);
+      }
+
+      .rfbd8-status.red i{
+        background:var(--rfbd8-red);
+        box-shadow:0 0 0 4px rgba(217,72,72,.12);
+      }
+
+      .rfbd8-mic b{
+        color:var(--rfbd8-text);
+      }
+
+      .rfbd8-banner{
+        padding:10px 13px;
+        border-radius:12px;
+        border:1px solid;
+        font-size:12px;
+        line-height:18px;
+      }
+
+      .rfbd8-banner.error{
+        color:#932d2d;
+        background:var(--rfbd8-red-soft);
+        border-color:#ffd1d1;
+      }
+
+      .rfbd8-banner.success{
+        color:#096344;
+        background:var(--rfbd8-green-soft);
+        border-color:#c8ecdd;
+      }
+
+      .rfbd8-modebar{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:12px;
+      }
+
+      .rfbd8-mode-tabs{
+        display:inline-flex;
+        gap:4px;
+        padding:4px;
+        background:#eef0f4;
+        border-radius:12px;
+      }
+
+      .rfbd8-mode-tabs button{
+        min-width:104px;
+        min-height:44px;
+        display:grid;
+        align-content:center;
+        gap:1px;
+        padding:6px 12px;
+        color:#5b616b;
+        background:transparent;
+        border:0;
+        border-radius:9px;
+        cursor:pointer;
+        font-size:12px;
+        font-weight:800;
+        transition:background .15s ease,color .15s ease,box-shadow .15s ease;
+      }
+
+      .rfbd8-mode-tabs button small{
+        color:#9297a0;
+        font-size:9px;
+        font-weight:600;
+      }
+
+      .rfbd8-mode-tabs button.active{
+        color:var(--rfbd8-text);
+        background:#fff;
+        box-shadow:0 2px 8px rgba(20,24,40,.08);
+      }
+
+      .rfbd8-mode-tabs button.active small{
+        color:var(--rfbd8-primary);
+      }
+
+      .rfbd8-mode-tabs button:disabled{
+        opacity:.52;
+        cursor:not-allowed;
+      }
+
+      .rfbd8-queue-progress{
+        color:var(--rfbd8-soft);
+        font-size:11px;
+        font-weight:700;
+      }
+
+      .rfbd8-workspace{
+        min-height:620px;
+        display:grid;
+        grid-template-columns:minmax(220px,260px) minmax(360px,1fr) minmax(260px,320px);
+        overflow:hidden;
+        background:var(--rfbd8-surface);
+        border:1px solid var(--rfbd8-line);
+        border-radius:18px;
+        box-shadow:var(--rfbd8-shadow);
+      }
+
+      .rfbd8-workspace.embedded{
+        grid-template-columns:minmax(380px,1fr) minmax(260px,330px);
+      }
+
+      .rfbd8-queue,
+      .rfbd8-context{
+        min-width:0;
+        display:flex;
+        flex-direction:column;
+        background:#fafbfc;
+      }
+
+      .rfbd8-queue{
+        border-right:1px solid var(--rfbd8-line);
+      }
+
+      .rfbd8-context{
+        border-left:1px solid var(--rfbd8-line);
+      }
+
+      .rfbd8-panel-head{
+        min-height:67px;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:10px;
+        padding:14px 14px 10px;
+      }
+
+      .rfbd8-panel-head > div{
+        display:grid;
+        gap:2px;
+      }
+
+      .rfbd8-panel-head span{
+        color:var(--rfbd8-primary);
+        font-size:9px;
+        font-weight:800;
+        letter-spacing:.07em;
+        text-transform:uppercase;
+      }
+
+      .rfbd8-panel-head strong{
+        font-size:14px;
+        line-height:18px;
+      }
+
+      .rfbd8-panel-head > b{
+        min-width:24px;
+        height:24px;
+        display:grid;
+        place-items:center;
+        padding:0 7px;
+        color:var(--rfbd8-primary);
+        background:var(--rfbd8-primary-soft);
+        border-radius:999px;
+        font-size:10px;
+      }
+
+      .rfbd8-search{
+        display:flex;
+        align-items:center;
+        gap:7px;
+        margin:0 12px 10px;
+        padding:0 10px;
+        min-height:38px;
+        background:#fff;
+        border:1px solid var(--rfbd8-line);
+        border-radius:10px;
+        color:var(--rfbd8-muted);
+      }
+
+      .rfbd8-search input{
+        min-width:0;
+        width:100%;
+        height:36px;
+        padding:0;
+        color:var(--rfbd8-text);
+        background:transparent;
+        border:0;
+        outline:0;
+        font:500 11px/1 Inter,sans-serif;
+      }
+
+      .rfbd8-queue-list{
+        min-height:0;
+        flex:1;
+        overflow:auto;
+        padding:0 8px 10px;
+      }
+
+      .rfbd8-queue-item{
+        width:100%;
+        display:grid;
+        grid-template-columns:34px minmax(0,1fr) 14px;
+        align-items:center;
+        gap:8px;
+        margin:2px 0;
+        padding:9px;
+        text-align:left;
+        background:transparent;
+        border:1px solid transparent;
+        border-radius:11px;
+        cursor:pointer;
+        transition:.15s ease;
+      }
+
+      .rfbd8-queue-item:hover:not(:disabled){
+        background:#fff;
+        border-color:#e7e8f5;
+      }
+
+      .rfbd8-queue-item.active{
+        background:#fff;
+        border-color:#d5d6ff;
+        box-shadow:0 5px 15px rgba(81,84,232,.08);
+      }
+
+      .rfbd8-queue-item:disabled{
+        cursor:not-allowed;
+      }
+
+      .rfbd8-avatar{
+        width:34px;
+        height:34px;
+        display:grid;
+        place-items:center;
+        flex:0 0 34px;
+        color:#4547bd;
+        background:linear-gradient(145deg,#ececff,#f7f4ff);
+        border:1px solid #ddddff;
+        border-radius:10px;
+        font-size:12px;
         font-weight:800;
       }
 
-      .rf-business-dialer-v7 .badge-green{
-        color:var(--rfbd-green);
-        background:var(--rfbd-green-soft);
-        border-color:#c9ead9;
+      .rfbd8-avatar.large{
+        width:52px;
+        height:52px;
+        flex-basis:52px;
+        border-radius:15px;
+        font-size:18px;
       }
 
-      .rf-business-dialer-v7 .badge-amber{
-        color:var(--rfbd-amber);
-        background:var(--rfbd-amber-soft);
-        border-color:#f2dfb8;
+      .rfbd8-queue-copy{
+        min-width:0;
+        display:grid;
+        gap:1px;
       }
 
-      .rf-business-dialer-v7 .badge-red{
-        color:#8a1c1c;
-        background:var(--rfbd-red-soft);
-        border-color:#ffd0cc;
+      .rfbd8-queue-copy strong,
+      .rfbd8-queue-copy small,
+      .rfbd8-queue-copy em{
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
       }
 
-      .rf-business-dialer-v7 .badge-gray{
-        color:#646570;
-        background:#f0f1f2;
-        border-color:#e2e4e6;
+      .rfbd8-queue-copy strong{
+        color:var(--rfbd8-text);
+        font-size:11px;
+        font-style:normal;
       }
 
-      .rf-business-dialer-v7 .error-banner,
-      .rf-business-dialer-v7 .success-banner{
+      .rfbd8-queue-copy small{
+        color:var(--rfbd8-soft);
+        font-size:9px;
+      }
+
+      .rfbd8-queue-copy em{
+        color:var(--rfbd8-primary);
+        font-size:8px;
+        font-style:normal;
+        font-weight:700;
+      }
+
+      .rfbd8-chevron{
+        color:#acb0b8;
+        font-size:18px;
+      }
+
+      .rfbd8-empty{
+        display:grid;
+        gap:4px;
+        margin:16px 8px;
+        padding:18px 13px;
+        text-align:center;
+        background:#fff;
+        border:1px dashed #dadde3;
+        border-radius:12px;
+      }
+
+      .rfbd8-empty strong{
+        font-size:12px;
+      }
+
+      .rfbd8-empty span{
+        color:var(--rfbd8-muted);
+        font-size:10px;
+        line-height:15px;
+      }
+
+      .rfbd8-console{
+        min-width:0;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        gap:12px;
+        padding:28px 24px 20px;
+        background:
+          radial-gradient(circle at 50% 0,rgba(81,84,232,.06),transparent 30%),
+          #fff;
+      }
+
+      .rfbd8-call-card{
+        width:min(100%,480px);
+        display:grid;
+        justify-items:center;
+      }
+
+      .rfbd8-lead-summary{
+        width:100%;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        gap:11px;
+        margin-bottom:12px;
+      }
+
+      .rfbd8-lead-summary > div{
+        min-width:0;
+        display:grid;
+        gap:1px;
+      }
+
+      .rfbd8-lead-summary > div > span{
+        color:var(--rfbd8-muted);
+        font-size:9px;
+        font-weight:700;
+        text-transform:uppercase;
+        letter-spacing:.06em;
+      }
+
+      .rfbd8-lead-summary strong{
+        max-width:260px;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font:700 16px/21px Geist,Inter,sans-serif;
+      }
+
+      .rfbd8-lead-summary small{
+        color:var(--rfbd8-soft);
+        font-size:10px;
+      }
+
+      .rfbd8-number{
+        min-height:36px;
+        color:#20232a;
+        font:600 25px/34px Geist,Inter,sans-serif;
+        letter-spacing:.02em;
+        text-align:center;
+      }
+
+      .rfbd8-call-state{
+        display:flex;
+        align-items:center;
+        gap:8px;
+        margin:3px 0 16px;
+        color:var(--rfbd8-muted);
+        font-size:10px;
+      }
+
+      .rfbd8-call-state strong{
+        color:var(--rfbd8-text);
+        font-variant-numeric:tabular-nums;
+      }
+
+      .rfbd8-keypad{
+        width:min(100%,300px);
+        display:grid;
+        grid-template-columns:repeat(3,1fr);
+        gap:8px;
+      }
+
+      .rfbd8-keypad.collapsed{
+        display:none;
+      }
+
+      .rfbd8-keypad button{
+        aspect-ratio:1.18/1;
+        min-height:54px;
+        display:grid;
+        place-items:center;
+        color:#24262b;
+        background:#f8f9fb;
+        border:1px solid #eaecf0;
+        border-radius:14px;
+        cursor:pointer;
+        font:700 18px/1 Geist,Inter,sans-serif;
+        transition:.12s ease;
+      }
+
+      .rfbd8-keypad button:hover:not(:disabled){
+        transform:translateY(-1px);
+        background:#fff;
+        border-color:#d7d8f6;
+        box-shadow:0 7px 16px rgba(20,24,40,.06);
+      }
+
+      .rfbd8-keypad button:disabled{
+        color:#a9adb5;
+        cursor:default;
+      }
+
+      .rfbd8-call-controls{
+        width:100%;
+        min-height:64px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        gap:10px;
+        margin-top:18px;
+      }
+
+      .rfbd8-call-button{
+        min-width:190px;
+        min-height:54px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        gap:9px;
+        padding:0 22px;
+        color:#fff;
+        background:linear-gradient(145deg,#16a875,#087b55);
+        border:0;
+        border-radius:16px;
+        cursor:pointer;
+        box-shadow:0 12px 26px rgba(15,159,110,.25);
+        font-size:13px;
+        font-weight:800;
+      }
+
+      .rfbd8-call-button span{
+        font-size:18px;
+      }
+
+      .rfbd8-call-button:disabled{
+        opacity:.42;
+        cursor:not-allowed;
+        box-shadow:none;
+      }
+
+      .rfbd8-round-control,
+      .rfbd8-end-button{
+        min-width:82px;
+        min-height:54px;
+        display:grid;
+        place-items:center;
+        gap:2px;
+        padding:7px 12px;
+        border-radius:14px;
+        cursor:pointer;
+        font-size:10px;
+        font-weight:800;
+      }
+
+      .rfbd8-round-control{
+        color:var(--rfbd8-text);
+        background:#fff;
+        border:1px solid var(--rfbd8-line);
+      }
+
+      .rfbd8-round-control.active{
+        color:var(--rfbd8-primary);
+        background:var(--rfbd8-primary-soft);
+        border-color:#d5d6ff;
+      }
+
+      .rfbd8-round-control span,
+      .rfbd8-end-button span{
+        font-size:17px;
+      }
+
+      .rfbd8-end-button{
+        color:#fff;
+        background:var(--rfbd8-red);
+        border:1px solid var(--rfbd8-red);
+      }
+
+      .rfbd8-round-control:disabled,
+      .rfbd8-end-button:disabled{
+        opacity:.45;
+        cursor:not-allowed;
+      }
+
+      .rfbd8-outcome{
+        width:100%;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:10px;
+        margin-top:13px;
+        padding:9px 11px;
+        color:var(--rfbd8-soft);
+        background:#f7f8fa;
+        border:1px solid var(--rfbd8-line);
+        border-radius:10px;
+        font-size:10px;
+      }
+
+      .rfbd8-outcome strong{
+        color:var(--rfbd8-primary);
+      }
+
+      .rfbd8-consent{
+        width:min(100%,480px);
+        display:flex;
+        align-items:flex-start;
+        gap:9px;
+        padding:10px 12px;
+        background:#fafbfc;
+        border:1px solid var(--rfbd8-line);
+        border-radius:12px;
+      }
+
+      .rfbd8-consent input{
+        width:16px;
+        height:16px;
+        flex:0 0 16px;
+        margin:1px 0 0;
+        accent-color:var(--rfbd8-primary);
+      }
+
+      .rfbd8-consent span{
+        display:grid;
+        gap:2px;
+      }
+
+      .rfbd8-consent strong{
+        font-size:10px;
+      }
+
+      .rfbd8-consent small{
+        color:var(--rfbd8-muted);
+        font-size:9px;
+        line-height:14px;
+      }
+
+      .rfbd8-context{
+        padding-bottom:12px;
+      }
+
+      .rfbd8-context-card{
+        display:grid;
+        gap:0;
+        margin:0 12px 10px;
+        overflow:hidden;
+        background:#fff;
+        border:1px solid var(--rfbd8-line);
+        border-radius:13px;
+      }
+
+      .rfbd8-context-title{
+        display:flex;
+        align-items:center;
+        gap:9px;
+        padding:11px;
+        border-bottom:1px solid var(--rfbd8-line);
+      }
+
+      .rfbd8-context-title > div{
+        min-width:0;
+        display:grid;
+        gap:1px;
+      }
+
+      .rfbd8-context-title strong{
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font-size:11px;
+      }
+
+      .rfbd8-context-title small{
+        color:var(--rfbd8-muted);
+        font-size:9px;
+      }
+
+      .rfbd8-context-field{
+        display:grid;
+        gap:2px;
+        padding:9px 11px;
+        border-bottom:1px solid #eff0f2;
+      }
+
+      .rfbd8-context-field:last-child{
+        border-bottom:0;
+      }
+
+      .rfbd8-context-field span{
+        color:var(--rfbd8-muted);
+        font-size:8px;
+        font-weight:700;
+        text-transform:uppercase;
+        letter-spacing:.05em;
+      }
+
+      .rfbd8-context-field strong{
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        color:var(--rfbd8-text);
+        font-size:10px;
+      }
+
+      .rfbd8-history{
+        margin:0 12px;
         padding:10px 11px;
-        margin:0;
-        border:1px solid;
-        border-radius:8px;
-        font-size:6.5px;
-        line-height:11px;
-        animation:rfbdIn .16s var(--rfbd-ease);
+        background:#fff;
+        border:1px solid var(--rfbd8-line);
+        border-radius:13px;
       }
 
-      .rf-business-dialer-v7 .error-banner{
-        color:#7c1d1d;
-        background:var(--rfbd-red-soft);
-        border-color:#ffd0cc;
+      .rfbd8-history-head{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:10px;
+        margin-bottom:4px;
       }
 
-      .rf-business-dialer-v7 .success-banner{
-        color:#086846;
-        background:var(--rfbd-green-soft);
-        border-color:#caeadb;
+      .rfbd8-history-head strong{
+        font-size:10px;
       }
 
-      .rf-business-dialer-v7 .rf-telnyx-result{
-        min-height:46px;
+      .rfbd8-history-head span{
+        min-width:20px;
+        height:20px;
+        display:grid;
+        place-items:center;
+        color:var(--rfbd8-primary);
+        background:var(--rfbd8-primary-soft);
+        border-radius:999px;
+        font-size:8px;
+        font-weight:800;
+      }
+
+      .rfbd8-history-row{
         display:flex;
         align-items:center;
         justify-content:space-between;
         gap:8px;
-        padding:8px 10px;
-        color:var(--rfbd-text2);
-        background:#f6f7f8;
-        border:1px solid #eceeef;
-        border-radius:8px;
-        font-size:6px;
+        padding:7px 0;
+        border-bottom:1px solid #eff0f2;
       }
 
-      .rf-business-dialer-v7 .rf-telnyx-result b{
-        color:var(--rfbd-primary);
-        font-size:7px;
+      .rfbd8-history-row:last-child{
+        border-bottom:0;
       }
 
-      .rf-business-dialer-v7 .rf-assignment-option{
-        min-height:52px;
-        display:flex;
-        align-items:flex-start;
-        gap:8px;
-        padding:9px 10px;
-        color:var(--rfbd-text2);
-        background:#f8f9fa;
-        border:1px solid var(--rfbd-line);
-        border-radius:8px;
-        font-size:6.2px;
-        line-height:10px;
+      .rfbd8-history-row span{
+        color:var(--rfbd8-text);
+        font-size:9px;
+        font-weight:700;
       }
 
-      .rf-business-dialer-v7 .rf-assignment-option input{
-        width:15px;
-        height:15px;
-        flex:0 0 15px;
+      .rfbd8-history-row small{
+        color:var(--rfbd8-muted);
+        font-size:9px;
+        font-variant-numeric:tabular-nums;
+      }
+
+      .rfbd8-history p{
+        margin:7px 0 1px;
+        color:var(--rfbd8-muted);
+        font-size:9px;
+        line-height:14px;
+      }
+
+      .rfbd8-ai-handoff{
+        min-height:280px;
+        display:grid;
+        grid-template-columns:64px minmax(0,1fr) auto;
+        align-items:center;
+        gap:18px;
+        padding:28px;
+        background:
+          radial-gradient(circle at 10% 20%,rgba(81,84,232,.13),transparent 35%),
+          linear-gradient(135deg,#fafaff,#f5f7ff);
+        border:1px solid #dedfff;
+        border-radius:18px;
+        box-shadow:var(--rfbd8-shadow);
+      }
+
+      .rfbd8-ai-mark{
+        width:64px;
+        height:64px;
+        display:grid;
+        place-items:center;
+        color:#fff;
+        background:linear-gradient(145deg,#5154e8,#7f50d8);
+        border-radius:19px;
+        box-shadow:0 14px 28px rgba(81,84,232,.22);
+        font-size:18px;
+        font-weight:900;
+      }
+
+      .rfbd8-ai-handoff strong{
+        display:block;
+        margin-bottom:4px;
+        font:700 18px/24px Geist,Inter,sans-serif;
+      }
+
+      .rfbd8-ai-handoff p{
+        max-width:650px;
         margin:0;
-        accent-color:var(--rfbd-primary);
+        color:var(--rfbd8-soft);
+        font-size:12px;
+        line-height:18px;
       }
 
-      .rf-business-dialer-v7 .flex{
-        display:flex;
-      }
-
-      .rf-business-dialer-v7 .flex-gap{
-        gap:7px;
-      }
-
-      .rf-business-dialer-v7 .flex-wrap{
-        flex-wrap:wrap;
-      }
-
-      .rf-business-dialer-v7 .mt16{
-        margin-top:2px!important;
-      }
-
-      .rf-business-dialer-v7 .btn{
-        min-height:40px;
+      .rfbd8-button{
+        min-height:42px;
         display:inline-flex;
         align-items:center;
         justify-content:center;
-        padding:7px 12px;
-        border:1px solid transparent;
-        border-radius:8px;
+        padding:0 16px;
+        border-radius:11px;
         cursor:pointer;
-        font:700 7px/1 Inter,sans-serif;
-        transition:.14s var(--rfbd-ease);
+        font-size:11px;
+        font-weight:800;
       }
 
-      .rf-business-dialer-v7 .btn:hover:not(:disabled){
-        transform:translateY(-1px);
-      }
-
-      .rf-business-dialer-v7 .btn:disabled{
-        opacity:.42;
-        cursor:not-allowed;
-      }
-
-      .rf-business-dialer-v7 .btn.primary{
+      .rfbd8-button.primary{
         color:#fff;
-        background:var(--rfbd-primary);
-        border-color:var(--rfbd-primary);
-        box-shadow:0 7px 16px rgba(70,72,212,.14);
+        background:var(--rfbd8-primary);
+        border:1px solid var(--rfbd8-primary);
       }
 
-      .rf-business-dialer-v7 .btn.primary:hover:not(:disabled){
-        background:var(--rfbd-primary-dark);
-      }
-
-      .rf-business-dialer-v7 .btn.light{
-        color:var(--rfbd-text);
-        background:#fff;
-        border-color:var(--rfbd-line);
-      }
-
-      .rf-business-dialer-v7 .btn.danger{
-        color:#fff;
-        background:#b42318;
-        border-color:#b42318;
-      }
-
-      .rf-business-dialer-v7 div[aria-label="Call dial pad"]{
-        max-width:320px!important;
-        gap:7px!important;
-        margin-top:2px!important;
-        padding:10px;
-        background:#f6f7f8;
-        border:1px solid var(--rfbd-line);
-        border-radius:10px;
-      }
-
-      .rf-business-dialer-v7 div[aria-label="Call dial pad"] .btn{
-        min-height:52px!important;
-        font-size:15px!important;
-        background:#fff;
-        box-shadow:0 1px 2px rgba(25,28,29,.03);
-      }
-
-      @media(max-width:620px){
-        .rf-business-dialer-v7{
-          padding:12px!important;
+      @media(max-width:1120px){
+        .rfbd8-workspace{
+          grid-template-columns:220px minmax(340px,1fr);
         }
 
-        .rf-business-dialer-v7 .section-title-row{
-          min-height:0;
+        .rfbd8-context{
+          grid-column:1/-1;
+          display:grid;
+          grid-template-columns:1fr 1fr;
+          gap:10px;
+          padding:12px;
+          border-left:0;
+          border-top:1px solid var(--rfbd8-line);
+        }
+
+        .rfbd8-context .rfbd8-panel-head{
+          grid-column:1/-1;
+          padding:0;
+          min-height:34px;
+        }
+
+        .rfbd8-context-card,
+        .rfbd8-history{
+          margin:0;
+        }
+
+        .rfbd8-workspace.embedded{
+          grid-template-columns:1fr;
+        }
+      }
+
+      @media(max-width:760px){
+        .rfbd8-topbar{
           align-items:flex-start;
           flex-direction:column;
         }
 
-        .rf-business-dialer-v7 h3{
-          font-size:19px;
-          line-height:25px;
+        .rfbd8-topbar-meta{
+          justify-content:flex-start;
         }
 
-        .rf-business-dialer-v7 .flex{
-          display:grid;
-          grid-template-columns:1fr;
+        .rfbd8-modebar{
+          align-items:stretch;
+          flex-direction:column;
         }
 
-        .rf-business-dialer-v7 .btn{
+        .rfbd8-mode-tabs{
           width:100%;
         }
 
-        .rf-business-dialer-v7 div[aria-label="Call dial pad"]{
-          grid-template-columns:repeat(3,1fr)!important;
-          max-width:none!important;
+        .rfbd8-mode-tabs button{
+          min-width:0;
+          flex:1;
+        }
+
+        .rfbd8-workspace{
+          min-height:0;
+          grid-template-columns:1fr;
+        }
+
+        .rfbd8-queue{
+          max-height:300px;
+          border-right:0;
+          border-bottom:1px solid var(--rfbd8-line);
+        }
+
+        .rfbd8-console{
+          padding:22px 14px 16px;
+        }
+
+        .rfbd8-context{
+          grid-template-columns:1fr;
+        }
+
+        .rfbd8-context .rfbd8-panel-head{
+          grid-column:auto;
+        }
+
+        .rfbd8-ai-handoff{
+          grid-template-columns:1fr;
+          text-align:center;
+          justify-items:center;
+        }
+
+        .rfbd8-ai-handoff p{
+          text-align:center;
+        }
+
+        .rfbd8-button{
+          width:100%;
+        }
+      }
+
+      @media(max-width:460px){
+        .rfbd8-mode-tabs button{
+          padding-inline:7px;
+          font-size:10px;
+        }
+
+        .rfbd8-mode-tabs button small{
+          font-size:8px;
+        }
+
+        .rfbd8-number{
+          font-size:21px;
+        }
+
+        .rfbd8-keypad{
+          width:100%;
+        }
+
+        .rfbd8-keypad button{
+          min-height:50px;
+        }
+
+        .rfbd8-call-controls{
+          flex-wrap:wrap;
+        }
+
+        .rfbd8-call-button{
+          width:100%;
         }
       }
 
       @media(prefers-reduced-motion:reduce){
-        .rf-business-dialer-v7,
-        .rf-business-dialer-v7 *,
-        .rf-business-dialer-v7 *::before,
-        .rf-business-dialer-v7 *::after{
+        .rf-business-dialer-v8 *,
+        .rf-business-dialer-v8 *::before,
+        .rf-business-dialer-v8 *::after{
+          scroll-behavior:auto!important;
+          transition:none!important;
           animation:none!important;
-          transition-duration:.01ms!important;
         }
       }
     `}</style>
   );
 }
+
