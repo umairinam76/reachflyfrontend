@@ -417,6 +417,12 @@ export default function CampaignList({
               campaign?.pipelineStatus,
               campaign?.aiVoiceStatus,
               campaign?.voiceStatus,
+              campaign?.campaignType,
+              campaign?.primaryChannel,
+              campaign?.outreachPlan?.strategy,
+              campaign?.outreachPlan?.primaryChannel,
+              campaign?.outreachPlan?.digitalChannel,
+              campaign?.outreachPlan?.aiManagedEmailFollowUp ? "ai managed email follow up" : "",
               campaign?.ownerName,
               campaign?.owner?.name,
               campaign?.createdByName,
@@ -715,8 +721,7 @@ export default function CampaignList({
             </h1>
 
             <p>
-              Manage and track outbound communication across AI Voice, email,
-              WhatsApp, and imported lead workflows.
+              Manage AI calling, email outreach, AI-managed follow-up, and imported lead workflows from one connected campaign workspace.
             </p>
           </div>
 
@@ -731,7 +736,7 @@ export default function CampaignList({
 
             <Link
               className="rfc-btn rfc-btn-primary"
-              to="/app/launch-campaign"
+              to="/app/campaigns/new"
             >
               <Plus size={16} />
               Create Campaign
@@ -1812,10 +1817,20 @@ function CampaignMobileCard({
         ) ? (
           <Link
             className="rfc-mobile-link"
-            to="/app/voice-agents"
+            to={`/app/dialer?campaignId=${encodeURIComponent(campaign.id || "")}`}
           >
             <Phone size={14} />
-            Voice
+            Dialer
+          </Link>
+        ) : null}
+
+        {isEmailEnabled(campaign) ? (
+          <Link
+            className="rfc-mobile-link"
+            to={`/app/email?campaignId=${encodeURIComponent(campaign.id || "")}`}
+          >
+            <Mail size={14} />
+            Email
           </Link>
         ) : null}
 
@@ -1881,9 +1896,16 @@ function CampaignActions({
         {isAiVoiceEnabled(
           campaign
         ) ? (
-          <Link to="/app/voice-agents">
+          <Link to={`/app/dialer?campaignId=${encodeURIComponent(campaign.id || "")}`}>
             <Phone size={14} />
-            Voice Agent
+            Open Dialer
+          </Link>
+        ) : null}
+
+        {isEmailEnabled(campaign) ? (
+          <Link to={`/app/email?campaignId=${encodeURIComponent(campaign.id || "")}`}>
+            <Mail size={14} />
+            Open Email
           </Link>
         ) : null}
 
@@ -2221,7 +2243,7 @@ function CampaignEmptyState({
 
             <Link
               className="rfc-btn rfc-btn-primary"
-              to="/app/launch-campaign"
+              to="/app/campaigns/new"
             >
               <Plus size={16} />
               Create Campaign
@@ -2475,9 +2497,10 @@ function getCampaignChannel(
     channelKey ===
     "multi"
   ) {
+    const voiceAndEmail = isAiVoiceEnabled(campaign) && isEmailEnabled(campaign);
     return {
       key: "multi",
-      label: "Multi-channel",
+      label: voiceAndEmail ? "AI Voice + Email" : "Multi-channel",
       icon: Workflow,
     };
   }
@@ -2515,16 +2538,8 @@ function getCampaignChannelKey(
     );
 
   const email =
-    Boolean(
-      getSenderEmail(
-        campaign
-      ) ||
-        campaign?.outreachPlan
-          ?.email ||
-        campaign?.emailEnabled ||
-        campaign?.channels?.includes?.(
-          "email"
-        )
+    isEmailEnabled(
+      campaign
     );
 
   const whatsapp =
@@ -2783,6 +2798,11 @@ function getCampaignSubtitle(
     campaign?.externalImport ===
       true
   ) {
+    if (isAiVoiceEnabled(campaign) && isEmailEnabled(campaign)) {
+      return "Imported leads · AI Voice + AI-managed email";
+    }
+    if (isAiVoiceEnabled(campaign)) return "Imported leads · AI Calling";
+    if (isEmailEnabled(campaign)) return "Imported leads · Email Campaign";
     return "Imported lead workflow";
   }
 
@@ -3092,6 +3112,12 @@ function isPipelineReady(
 function isAiVoiceEnabled(
   campaign
 ) {
+  const primaryChannel = normalizeStatus(
+    campaign?.primaryChannel ||
+      campaign?.outreachPlan?.primaryChannel
+  );
+  const campaignType = normalizeStatus(campaign?.campaignType);
+
   return Boolean(
     campaign
       ?.outreachPlan
@@ -3102,9 +3128,36 @@ function isAiVoiceEnabled(
         ?.voiceEnabled ||
       campaign
         ?.voiceCampaignEnabled ||
+      primaryChannel === "voice" ||
+      campaignType === "ai_calling" ||
+      campaignType === "voice" ||
       campaign?.channels?.includes?.(
         "ai_voice"
       )
+  );
+}
+
+function isEmailEnabled(
+  campaign
+) {
+  const primaryChannel = normalizeStatus(
+    campaign?.primaryChannel ||
+      campaign?.outreachPlan?.primaryChannel
+  );
+  const campaignType = normalizeStatus(campaign?.campaignType);
+  const digitalChannel = normalizeStatus(campaign?.outreachPlan?.digitalChannel);
+
+  return Boolean(
+    getSenderEmail(campaign) ||
+      campaign?.outreachPlan?.email ||
+      campaign?.outreachPlan?.emailEnabled ||
+      campaign?.outreachPlan?.aiManagedEmailFollowUp ||
+      campaign?.aiManagedEmailFollowUp ||
+      campaign?.emailEnabled ||
+      primaryChannel === "email" ||
+      campaignType === "email" ||
+      digitalChannel === "email" ||
+      campaign?.channels?.includes?.("email")
   );
 }
 

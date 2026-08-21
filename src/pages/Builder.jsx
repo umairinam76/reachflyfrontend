@@ -97,6 +97,7 @@ const API_BASE_URL = /\/api$/i.test(
 
 const BUILDER_STORAGE_KEY = "reachfly.builder.state.v2";
 const LEGACY_BUILDER_STORAGE_KEY = "reachfly.builder.state.v1";
+const CAMPAIGN_SELECTION_STORAGE_KEY = "reachfly:selected-campaign-leads";
 
 function readPersistedBuilderState() {
   try {
@@ -2446,6 +2447,40 @@ function clearLeadResponse() {
     );
   }
 
+  function openCampaignBuilder(selectedLeads = []) {
+    const leads = mergeLeadCollections([], selectedLeads).filter(Boolean);
+
+    if (!leads.length) {
+      window.reachflyToast?.warning?.(
+        "Select leads first",
+        "Choose at least one lead before creating a campaign."
+      );
+      return;
+    }
+
+    try {
+      window.sessionStorage.setItem(
+        CAMPAIGN_SELECTION_STORAGE_KEY,
+        JSON.stringify({
+          leads,
+          savedAt: Date.now(),
+          source: showingAllLeads ? "all-leads" : "lead-results",
+        })
+      );
+    } catch {
+      // Route state remains available even when browser storage is disabled.
+    }
+
+    navigate("/app/campaigns/new", {
+      state: {
+        selectedLeads: leads,
+        source: showingAllLeads ? "all-leads" : "lead-results",
+        niche: form.niche || "",
+        location: form.location || "",
+      },
+    });
+  }
+
   const WorkspaceIcon = workspace.icon;
 
 if (!canManage) {
@@ -2526,6 +2561,7 @@ if (showingAllLeads) {
           onOpenVoice={() => navigate("/app/voice-agent")}
           onOpenBilling={() => navigate("/app/billing")}
           onDownload={() => downloadLeads(archivedLeadResult?.leads || [])}
+          onCreateCampaign={openCampaignBuilder}
           archiveMode
           archiveLoading={archiveLoading}
         />
@@ -2616,6 +2652,7 @@ if (showingResults) {
               leadResult?.leads || []
             )
           }
+          onCreateCampaign={openCampaignBuilder}
         />
 
         <CallLeadDrawer
@@ -2745,8 +2782,8 @@ if (showingResults) {
 
     <Step
       eyebrow="Click 3 of 4"
-      title="How should this campaign run?"
-      text="Set lead volume, digital follow-up, and whether the ReachFly AI Voice Agent should call generated leads."
+      title="How many fresh leads do you want?"
+      text="Choose the result size and discovery depth. Outreach strategy is configured later, after you select leads."
     >
       <div className="launch-settings">
         <label>
@@ -2755,11 +2792,11 @@ if (showingResults) {
             value={form.limit}
             onChange={(event) => set("limit", Number(event.target.value))}
           >
-            <option value="50">50 leads</option>
-            <option value="100">100 leads</option>
-            <option value="250">250 leads</option>
-            <option value="500">500 leads</option>
-            <option value="1000">1,000 leads</option>
+            <option value="50">50 fresh leads</option>
+            <option value="100">100 fresh leads</option>
+            <option value="250">250 fresh leads</option>
+            <option value="500">500 fresh leads</option>
+            <option value="1000">1,000 fresh leads</option>
           </select>
         </label>
 
@@ -2774,55 +2811,22 @@ if (showingResults) {
             <option value="expanded">Expanded</option>
           </select>
         </label>
-
-        <label>
-          <span>Digital follow-up</span>
-          <select
-            value={form.goal}
-            onChange={(event) => set("goal", event.target.value)}
-          >
-            <option value="email">Email</option>
-            <option value="whatsapp">WhatsApp</option>
-            <option value="both">Email + WhatsApp</option>
-          </select>
-        </label>
       </div>
 
-      {/* <CampaignVoiceOption
-        enabled={form.voiceEnabled === true}
-        onChange={(enabled) => set("voiceEnabled", enabled)}
-        ready={voiceReady}
-        number={voiceNumber}
-        aiCallBalance={aiCallBalance}
-        creditsKnown={aiCallCreditsKnown}
-        onSetup={() => navigate("/app/voice-agent")}
-        onBilling={() => navigate("/app/billing")}
-      /> */}
-{/* 
-      {["email", "both"].includes(form.goal) ? (
-        <EmailAccountSelector
-          accounts={emailAccounts}
-          value={form.emailAccountId}
-          onChange={(value) => set("emailAccountId", value)}
-          onSetup={() => navigate("/app/email")}
-        />
-      ) : null} */}
-
-      <Field
-        label="What would you like to offer these leads?"
-        value={form.offer}
-        onChange={(value) => set("offer", value)}
-        placeholder="e.g. A conversion-focused website redesign"
-      />
+      <div className="safe-note-v54">
+        ReachFly treats each search as a fresh discovery run. Previously discovered
+        workspace leads are excluded by the backend; if the source is exhausted,
+        ReachFly returns the genuinely new leads available instead of repeating old ones.
+      </div>
     </Step>,
 
     <Step
       eyebrow="Click 4 of 4"
-      title="Ready to build your market?"
-      text="Review lead discovery and outreach readiness. Generated leads can then be assigned to an active workspace team member or launched through AI Voice from the results screen."
+      title="Ready to discover fresh leads?"
+      text="Review the search. ReachFly saves unique results to All Leads, where you can select leads for AI audits or create an Email / AI Calling campaign."
     >
       <div className="sentence-card">
-        <span className="sentence-card-eyebrow">Campaign summary</span>
+        <span className="sentence-card-eyebrow">Lead discovery summary</span>
 
         <p>
           <b>{workspace.title}</b>{" "}
@@ -2835,11 +2839,6 @@ if (showingResults) {
           <b>{form.location || "selected market"}</b>.
         </p>
 
-        {form.offer ? (
-          <small>
-            Offer: <b>{form.offer}</b>
-          </small>
-        ) : null}
       </div>
 
       {duplicateMatches.length > 0 ? (
@@ -2858,22 +2857,7 @@ if (showingResults) {
           ["Radius", `${form.radiusKm} km`],
           ["Lead goal", `${form.limit} leads`],
           ["Search depth", form.qualityLevel],
-          ["Digital follow-up", formatChannel(form.goal)],
-          [
-            "AI Voice",
-            form.voiceEnabled
-              ? voiceReady
-                ? "Enabled · ready to launch"
-                : "Enabled · setup required"
-              : "Not enabled",
-          ],
-          [
-            "Sender email",
-            getSelectedEmailLabel(emailAccounts, form.emailAccountId) ||
-              (["email", "both"].includes(form.goal)
-                ? "No sender selected"
-                : "Not required"),
-          ],
+          ["Next step", "Select leads → Run AI Audits or Create Campaign"],
         ]}
       />
     </Step>,
@@ -2884,11 +2868,11 @@ if (showingResults) {
       <style>{BUILDER_V7_CSS}</style>
       <div className="page-top">
         <div>
-          <span className="eyebrow">Campaign builder</span>
-          <h1>Four clicks from market to outreach.</h1>
+          <span className="eyebrow">Lead discovery</span>
+          <h1>Four clicks from market to fresh leads.</h1>
           <p className="builder-subtitle">
-            Your signup details are already saved, so this builder only asks for
-            campaign-specific targeting and outreach details.
+            Find new businesses first. Campaign channel, email setup and AI calling
+            are configured only after you select the leads you want to work.
           </p>
         </div>
 
@@ -3267,11 +3251,11 @@ function Duplicate({ matches, onOpen }) {
   return (
     <div className="duplicate-warning">
       <div>
-        <b>Leads already exist for this niche and area.</b>
+        <b>This market already has campaign history.</b>
         <p>
           Found {matches.length} existing campaign
-          {matches.length === 1 ? "" : "s"}. Open it or continue to refresh the
-          market.
+          {matches.length === 1 ? "" : "s"}. You can still search again: the backend
+          excludes previously discovered lead identities and continues for unseen businesses.
         </p>
         <small>Latest: {matches[0]?.name}</small>
       </div>
@@ -5726,6 +5710,17 @@ const BUILDER_V7_CSS = `
   }
 }
 
+
+/* Selected-lead workflow: All Leads -> Audits / Campaign */
+.rf7-selection-bar{position:sticky;top:8px;z-index:8;display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 0 12px;padding:11px 12px;border:1px solid #e2e3eb;border-radius:12px;background:rgba(255,255,255,.96);box-shadow:0 7px 24px rgba(29,31,72,.06);backdrop-filter:blur(12px)}
+.rf7-selection-bar.active{border-color:#cfd0fb;background:linear-gradient(180deg,rgba(249,249,255,.98),rgba(255,255,255,.98));box-shadow:0 10px 28px rgba(82,84,194,.10)}
+.rf7-selection-copy{display:flex;align-items:center;gap:10px;min-width:0}.rf7-selection-icon{width:34px;height:34px;display:grid;place-items:center;flex:0 0 34px;color:#6264d9;background:#eeeeff;border-radius:10px}.rf7-selection-copy>div{display:grid;gap:2px;min-width:0}.rf7-selection-copy strong{color:#222430;font-size:11px;line-height:15px}.rf7-selection-copy small{color:#7a7c8d;font-size:9px;line-height:13px}
+.rf7-selection-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.rf7-selection-btn,.rf7-selection-clear{appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:34px;padding:7px 11px;border-radius:9px;font-size:10px;font-weight:750;cursor:pointer}.rf7-selection-btn.primary{color:#fff;background:#5f61e9;border:1px solid #5f61e9;box-shadow:0 5px 12px rgba(95,97,233,.18)}.rf7-selection-btn.secondary{color:#4f5165;background:#fff;border:1px solid #d9dae6}.rf7-selection-btn:disabled{opacity:.48;cursor:not-allowed}.rf7-selection-clear{color:#77798b;background:transparent;border:0}.rf7-selection-clear:hover{color:#444657;background:#f4f4f7}
+.rf7-selection-message{margin:-3px 0 12px;padding:9px 11px;border-radius:9px;font-size:10px;line-height:15px}.rf7-selection-message.success{color:#247557;background:#eef9f4;border:1px solid #cdebdc}.rf7-selection-message.error{color:#9a302d;background:#fff5f4;border:1px solid #ffd4d1}
+.rf7-lead-footer-actions{display:flex;align-items:center;justify-content:flex-end;gap:14px;flex-wrap:wrap}.rf7-lead-pagination{display:flex;align-items:center;gap:7px}.rf7-lead-pagination button{appearance:none;min-height:28px;padding:5px 8px;color:#55576a;background:#fff;border:1px solid #dedfe7;border-radius:7px;font-size:9px;font-weight:700;cursor:pointer}.rf7-lead-pagination button:disabled{opacity:.42;cursor:not-allowed}.rf7-lead-pagination span{color:#77798b;font-size:9px;white-space:nowrap}
+.rf7-leads-page.archive-mode .rf7-next-actions{display:none!important}
+@media(max-width:760px){.rf7-selection-bar{position:static;align-items:stretch;flex-direction:column}.rf7-selection-actions{display:grid;grid-template-columns:1fr 1fr}.rf7-selection-clear{grid-column:1/-1}.rf7-lead-footer-actions{align-items:flex-start;flex-direction:column}.rf7-lead-pagination{width:100%;justify-content:space-between}}
+
 `;
 
 function LiveLeadResultsPage({
@@ -5737,6 +5732,7 @@ function LiveLeadResultsPage({
   onBack,
   onRetry,
   onDownload,
+  onCreateCampaign,
   onOpenAudit,
   onCall,
   callers,
@@ -5777,7 +5773,12 @@ function LiveLeadResultsPage({
   const [minQuality, setMinQuality] = useState(0);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [drawerLead, setDrawerLead] = useState(null);
+  const [page, setPage] = useState(1);
+  const [selectedAuditLoading, setSelectedAuditLoading] = useState(false);
+  const [selectedAuditMessage, setSelectedAuditMessage] = useState("");
+  const [selectedAuditError, setSelectedAuditError] = useState("");
   const previousStatusRef = useRef("");
+  const pageSize = archiveMode ? 50 : 50;
 
   useEffect(() => {
     setStatusFilter("all");
@@ -5787,6 +5788,9 @@ function LiveLeadResultsPage({
     setMinQuality(0);
     setSelectedIds(new Set());
     setDrawerLead(null);
+    setPage(1);
+    setSelectedAuditMessage("");
+    setSelectedAuditError("");
     queuedAuditWebsitesRef.current =
       new Set();
     previousStatusRef.current = "";
@@ -5997,9 +6001,30 @@ function LiveLeadResultsPage({
     return counts;
   }, [enrichedLeads]);
 
-  const visibleIds = filteredLeads.map(({ id }) => id);
+  const pageCount = Math.max(1, Math.ceil(filteredLeads.length / pageSize));
+  const safePage = Math.min(page, pageCount);
+  const pageStart = (safePage - 1) * pageSize;
+  const pagedLeads = filteredLeads.slice(pageStart, pageStart + pageSize);
+  const visibleIds = pagedLeads.map(({ id }) => id);
   const allVisibleSelected =
     visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
+  const selectedLeadRecords = enrichedLeads
+    .filter(({ id }) => selectedIds.has(id))
+    .map(({ lead }) => lead);
+  const selectedAuditableCount = selectedLeadRecords.filter((lead) => lead?.website).length;
+
+  useEffect(() => {
+    setPage(1);
+  }, [
+    normalizedSearch,
+    statusFilter,
+    onlyEmail,
+    onlyPhone,
+    onlyWebsite,
+    minQuality,
+    result?.clientRunId,
+    result?.startedAt,
+  ]);
 
   function toggleAllVisible() {
     setSelectedIds((current) => {
@@ -6022,6 +6047,64 @@ function LiveLeadResultsPage({
       else next.add(id);
       return next;
     });
+  }
+
+  async function runSelectedAudits() {
+    if (selectedAuditLoading) return;
+
+    const auditableLeads = selectedLeadRecords.filter((lead) => lead?.website);
+
+    if (!selectedLeadRecords.length) {
+      window.reachflyToast?.warning?.(
+        "Select leads first",
+        "Choose one or more leads before running AI audits."
+      );
+      return;
+    }
+
+    if (!auditableLeads.length) {
+      setSelectedAuditError(
+        "The selected leads do not have websites available for an AI website audit."
+      );
+      return;
+    }
+
+    setSelectedAuditLoading(true);
+    setSelectedAuditMessage("");
+    setSelectedAuditError("");
+
+    try {
+      const response = await auditApi("/lead-audits/mini/batch", {
+        method: "POST",
+        body: {
+          leads: auditableLeads,
+          niche: form.niche || "",
+          location: form.location || "",
+          workspaceName: workspace?.title || "",
+        },
+      });
+
+      const queued = Number(
+        response?.queued ??
+          response?.accepted ??
+          response?.count ??
+          auditableLeads.length
+      );
+
+      const message = `${Math.max(queued, auditableLeads.length).toLocaleString()} selected lead${
+        auditableLeads.length === 1 ? "" : "s"
+      } queued for AI audits.`;
+
+      setSelectedAuditMessage(message);
+      window.reachflyToast?.success?.("AI audits started", message);
+    } catch (requestError) {
+      const message =
+        requestError?.message || "The selected AI audits could not be started.";
+      setSelectedAuditError(message);
+      window.reachflyToast?.error?.("AI audit launch failed", message);
+    } finally {
+      setSelectedAuditLoading(false);
+    }
   }
 
   function statusLabel(value) {
@@ -6338,6 +6421,77 @@ function LiveLeadResultsPage({
           </div>
         </div>
 
+        <div className={`rf7-selection-bar ${selectedIds.size ? "active" : ""}`}>
+          <div className="rf7-selection-copy">
+            <span className="rf7-selection-icon">
+              {selectedIds.size ? <Check size={16} /> : <Users size={16} />}
+            </span>
+            <div>
+              <strong>
+                {selectedIds.size
+                  ? `${selectedIds.size.toLocaleString()} lead${selectedIds.size === 1 ? "" : "s"} selected`
+                  : "Select leads to take the next action"}
+              </strong>
+              <small>
+                {selectedIds.size
+                  ? `${selectedAuditableCount.toLocaleString()} selected lead${selectedAuditableCount === 1 ? " has" : "s have"} a website for AI audit.`
+                  : "Choose the exact leads you want to audit or move into a campaign."}
+              </small>
+            </div>
+          </div>
+
+          <div className="rf7-selection-actions">
+            {selectedIds.size ? (
+              <>
+                <button
+                  type="button"
+                  className="rf7-selection-btn secondary"
+                  disabled={selectedAuditLoading || selectedAuditableCount === 0}
+                  onClick={() => void runSelectedAudits()}
+                >
+                  <Sparkles size={16} />
+                  {selectedAuditLoading ? "Starting audits…" : "Run AI Audits"}
+                </button>
+                <button
+                  type="button"
+                  className="rf7-selection-btn primary"
+                  onClick={() => onCreateCampaign?.(selectedLeadRecords)}
+                >
+                  <ArrowRight size={16} />
+                  Create Campaign
+                </button>
+                <button
+                  type="button"
+                  className="rf7-selection-clear"
+                  onClick={() => setSelectedIds(new Set())}
+                >
+                  Clear
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="rf7-selection-btn secondary"
+                disabled={!visibleIds.length}
+                onClick={toggleAllVisible}
+              >
+                Select visible
+              </button>
+            )}
+          </div>
+        </div>
+
+        {selectedAuditError ? (
+          <div className="rf7-selection-message error" role="alert">
+            {selectedAuditError}
+          </div>
+        ) : null}
+        {selectedAuditMessage ? (
+          <div className="rf7-selection-message success" role="status">
+            {selectedAuditMessage}
+          </div>
+        ) : null}
+
         <div className="rf7-leads-table-scroll">
           <table className="rf7-leads-table">
             <thead>
@@ -6361,7 +6515,7 @@ function LiveLeadResultsPage({
 
             <tbody>
               <AnimatePresence initial={false}>
-                {filteredLeads.map(({ lead, index, quality, status, id }) => (
+                {pagedLeads.map(({ lead, index, quality, status, id }) => (
                   <LiveLeadTableRow
                     key={id}
                     lead={lead}
@@ -6372,7 +6526,7 @@ function LiveLeadResultsPage({
                     onSelected={() => toggleLead(id)}
                     onOpen={() => setDrawerLead(lead)}
                     onOpenAudit={onOpenAudit}
-                    onCall={onCall}
+                    onCall={archiveMode ? undefined : onCall}
                   />
                 ))}
               </AnimatePresence>
@@ -6410,165 +6564,37 @@ function LiveLeadResultsPage({
 
         <div className="rf7-leads-table-footer">
           <span>
-            Showing {filteredLeads.length ? 1 : 0}-
-            {filteredLeads.length.toLocaleString()} of {leads.length.toLocaleString()} leads
+            Showing {filteredLeads.length ? pageStart + 1 : 0}-
+            {Math.min(pageStart + pagedLeads.length, filteredLeads.length).toLocaleString()} of {filteredLeads.length.toLocaleString()} matching leads
+            {filteredLeads.length !== leads.length ? ` · ${leads.length.toLocaleString()} total` : ""}
           </span>
 
-          <div className="rf7-lead-foot-meta">
-            <span>{emailCount} emails</span>
-            <span>{phoneCount} phones</span>
-            <span>{websiteCount} websites</span>
+          <div className="rf7-lead-footer-actions">
+            <div className="rf7-lead-foot-meta">
+              <span>{emailCount} emails</span>
+              <span>{phoneCount} phones</span>
+              <span>{websiteCount} websites</span>
+            </div>
+            <div className="rf7-lead-pagination" aria-label="Lead pages">
+              <button
+                type="button"
+                disabled={safePage <= 1}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+              >
+                Previous
+              </button>
+              <span>Page {safePage} of {pageCount}</span>
+              <button
+                type="button"
+                disabled={safePage >= pageCount}
+                onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
+              >
+                Next
+              </button>
+            </div>
           </div>
         </div>
       </motion.section>
-
-      {!isLoading && leads.length > 0 ? (
-        <motion.section
-          className="rf7-next-actions"
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.12 }}
-        >
-          <div className="rf7-next-actions-head">
-            <div>
-              <span className="eyebrow">Next actions</span>
-              <h2>Turn this lead list into pipeline</h2>
-              <p>
-                Assign prospects to your team or launch eligible leads through AI Voice.
-                Both actions stay scoped to this workspace.
-              </p>
-            </div>
-
-            <div className="rf7-next-actions-stats" aria-label="Lead action summary">
-              <span><b>{leads.length.toLocaleString()}</b>Leads</span>
-              <span><b>{phoneCount.toLocaleString()}</b>Callable</span>
-              <span><b>{emailCount.toLocaleString()}</b>Emails</span>
-            </div>
-          </div>
-
-          <div className="rf7-lead-ops-grid">
-            <section className="live-assignment-panel rf7-operational-card">
-            <div className="live-assignment-header">
-              <div>
-                <span className="eyebrow">Assign to a team member</span>
-                <h2>Move leads into the team calling queue.</h2>
-                <p>
-                  Pick an active owner, admin, manager, or caller and the exact number of generated leads to assign.
-                </p>
-              </div>
-              <Users />
-            </div>
-
-            {assignmentError ? (
-              <div className="error-banner rf7-inline-alert error">
-                {assignmentError}
-              </div>
-            ) : null}
-
-            {assignmentMessage ? (
-              <div className="success-banner rf7-inline-alert success">
-                {assignmentMessage}
-              </div>
-            ) : null}
-
-            <div className="live-assignment-form">
-              <label className="field">
-                <span>Assignee</span>
-                <select
-                  value={selectedCallerId}
-                  onChange={(event) => onSelectCaller(event.target.value)}
-                >
-                  <option value="">Select team member</option>
-                  {callers.map((caller) => (
-                    <option key={caller.id} value={caller.id}>
-                      {caller.name || caller.fullName || caller.email || "Team member"}
-                      {caller.email ? ` — ${caller.email}` : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="field">
-                <span>Number of leads</span>
-                <input
-                  type="number"
-                  min="1"
-                  max={leads.length}
-                  value={assignmentLeadCount}
-                  onChange={(event) =>
-                    onAssignmentLeadCountChange(
-                      Math.max(
-                        1,
-                        Math.min(leads.length, Number(event.target.value || 1))
-                      )
-                    )
-                  }
-                />
-                <small>Maximum available: {leads.length}</small>
-              </label>
-            </div>
-
-            {!callers.length ? (
-              <div className="safe-note-v54">
-                No active assignment-capable team members were found.
-              </div>
-            ) : null}
-
-            <div className="live-assignment-summary">
-              <span>
-                <b>
-                  {Math.min(
-                    leads.length,
-                    Number(assignmentLeadCount || 1)
-                  )}
-                </b>{" "}
-                leads will be assigned
-              </span>
-              <span>
-                {assignmentCampaignId
-                  ? "Campaign saved"
-                  : "A campaign will be created automatically"}
-              </span>
-            </div>
-
-            <button
-              type="button"
-              className="btn primary"
-              disabled={
-                assignmentSaving ||
-                !callers.length ||
-                !selectedCallerId ||
-                !assignmentLeadCount
-              }
-              onClick={onAssign}
-            >
-              <Users />
-              {assignmentSaving ? "Assigning…" : "Assign leads"}
-            </button>
-          </section>
-
-            <AiVoiceLaunchPanel
-              enabled={voiceEnabled}
-              ready={voiceReady}
-              number={voiceNumber}
-              phoneLeadCount={phoneCount}
-              value={voiceLaunchCount}
-              max={phoneCount}
-              onChange={onVoiceLaunchCount}
-              confirmed={voiceLaunchConfirmed}
-              onConfirmed={onVoiceLaunchConfirmed}
-              launching={voiceLaunching}
-              message={voiceLaunchMessage}
-              error={voiceLaunchError}
-              aiCallBalance={aiCallBalance}
-              creditsKnown={aiCallCreditsKnown}
-              onLaunch={onLaunchVoice}
-              onSetup={onOpenVoice}
-              onBilling={onOpenBilling}
-            />
-          </div>
-        </motion.section>
-      ) : null}
 
       <AnimatePresence>
         {drawerLead ? (
@@ -6579,11 +6605,15 @@ function LiveLeadResultsPage({
               setDrawerLead(null);
               onOpenAudit?.(drawerLead);
             }}
-            onCall={() => {
-              setDrawerLead(null);
-              onCall?.(drawerLead);
-            }}
-            onEmail={() => openEmail(drawerLead)}
+            onCall={
+              archiveMode
+                ? undefined
+                : () => {
+                    setDrawerLead(null);
+                    onCall?.(drawerLead);
+                  }
+            }
+            onEmail={archiveMode ? undefined : () => openEmail(drawerLead)}
           />
         ) : null}
       </AnimatePresence>
@@ -6742,15 +6772,17 @@ function LiveLeadTableRow({
       </td>
 
       <td className="rf7-row-actions" onClick={(event) => event.stopPropagation()}>
-        <button
-          type="button"
-          disabled={!lead.phone}
-          onClick={() => onCall?.(lead)}
-          title="Call lead"
-          aria-label={`Call ${business}`}
-        >
-          <Phone size={15} />
-        </button>
+        {onCall ? (
+          <button
+            type="button"
+            disabled={!lead.phone}
+            onClick={() => onCall?.(lead)}
+            title="Call lead"
+            aria-label={`Call ${business}`}
+          >
+            <Phone size={15} />
+          </button>
+        ) : null}
         <button
           type="button"
           disabled={!lead.website}
@@ -6861,14 +6893,18 @@ function LeadQuickDrawer({
               <Sparkles size={16} />
               Run Audit
             </button>
-            <button type="button" disabled={!email} onClick={onEmail}>
-              <Mail size={16} />
-              Email
-            </button>
-            <button type="button" disabled={!lead.phone} onClick={onCall}>
-              <Phone size={16} />
-              Call
-            </button>
+            {onEmail ? (
+              <button type="button" disabled={!email} onClick={onEmail}>
+                <Mail size={16} />
+                Email
+              </button>
+            ) : null}
+            {onCall ? (
+              <button type="button" disabled={!lead.phone} onClick={onCall}>
+                <Phone size={16} />
+                Call
+              </button>
+            ) : null}
           </div>
         </div>
 

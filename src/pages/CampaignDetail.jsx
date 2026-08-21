@@ -15,7 +15,6 @@ import {
   Rocket,
   Search,
   Send,
-  Sparkles,
   Star,
   TrendingUp,
   Users,
@@ -152,6 +151,10 @@ export default function CampaignDetail() {
 
   const senderEmail = getSenderEmail(campaign);
   const voiceEnabled = isAiVoiceEnabled(campaign);
+  const emailEnabled = isEmailEnabled(campaign);
+  const aiManagedEmailFollowUp = isAiManagedEmailFollowUp(campaign);
+  const primaryChannel = getPrimaryChannel(campaign);
+  const campaignStrategy = getCampaignStrategy(campaign);
   const backTarget = getBackTarget(campaign);
   const status = getCampaignStatus(campaign, isImported);
   const metrics = useMemo(() => buildCampaignMetrics(campaign, leads), [campaign, leads]);
@@ -257,7 +260,8 @@ export default function CampaignDetail() {
               {(campaign.location || campaign.niche) ? (
                 <span><MapPin size={14} /> {[campaign.location, campaign.niche, campaign.radiusKm && !isImported ? `${campaign.radiusKm} km` : ""].filter(Boolean).join(" · ")}</span>
               ) : null}
-              <span><Mail size={14} /> {senderEmail || "No sender email linked"}</span>
+              <span>{primaryChannel === "email" ? <Mail size={14} /> : <Phone size={14} />} {campaignStrategy.label}</span>
+              {emailEnabled ? <span><Mail size={14} /> {senderEmail || (aiManagedEmailFollowUp ? "AI-managed email follow-up enabled" : "Email enabled")}</span> : null}
               {voiceEnabled ? <span><Phone size={14} /> AI Voice enabled</span> : null}
             </div>
           </div>
@@ -266,7 +270,8 @@ export default function CampaignDetail() {
             <button type="button" className="rfcd-icon-btn" aria-label="Refresh campaign" title="Refresh campaign" disabled={refreshing} onClick={() => void load({ silent: true, successToast: true })}>
               <RefreshCw size={16} className={refreshing ? "spin" : ""} />
             </button>
-            {voiceEnabled ? <Link className="rfcd-btn rfcd-btn-secondary" to="/app/voice-agents"><Phone size={15} /> Voice Agent</Link> : null}
+            {voiceEnabled ? <Link className="rfcd-btn rfcd-btn-secondary" to={`/app/dialer?campaignId=${encodeURIComponent(campaign.id || "")}`}><Phone size={15} /> Open Dialer</Link> : null}
+            {emailEnabled ? <Link className="rfcd-btn rfcd-btn-secondary" to={`/app/email?campaignId=${encodeURIComponent(campaign.id || "")}`}><Mail size={15} /> Email</Link> : null}
             <Link className="rfcd-btn rfcd-btn-primary" to={`/app/campaigns/${campaign.id}/pipeline`}><Workflow size={15} /> Edit Sequence</Link>
           </div>
         </header>
@@ -275,8 +280,24 @@ export default function CampaignDetail() {
         {campaign.error ? <AnimatedMessage tone="error" icon={<X size={16} />} title="Campaign processing failed" message={campaign.error} /> : null}
         {isComplete ? <AnimatedMessage tone="success" icon={<CheckCircle2 size={16} />} title="Campaign outreach completed" message="Review connected calls, follow-ups, meetings, assignments, and lead-level outcomes below." /> : null}
         {isDiscoveryRunning ? <ProgressMessage icon={<Globe2 size={16} />} title="Lead discovery is running live" message="The campaign updates automatically through backend events. You do not need to refresh." percent={Number(progress?.percent || 1)} /> : null}
-        {isSending ? <ProgressMessage icon={<Send size={16} />} title="Campaign outreach is running" message={progress.message || (voiceEnabled ? "AI Voice and configured follow-up activity are being processed." : `Digital outreach is being processed from ${senderEmail || "the configured sender"}.`)} percent={Number(progress?.percent || 1)} /> : null}
-        {isImportedReady ? <AnimatedMessage tone="info" icon={<Globe2 size={16} />} title="Imported lead list is ready" message="Review assignments and outreach readiness below, then open Edit Sequence when you need to adjust the digital workflow." /> : null}
+        {isSending ? <ProgressMessage icon={<Send size={16} />} title="Campaign outreach is running" message={progress.message || (voiceEnabled ? (aiManagedEmailFollowUp ? "AI Voice is running the conversation and ReachFly can trigger email follow-up when the call outcome makes it useful." : "AI Voice is processing this campaign and recording call outcomes against each lead.") : `Email outreach is being processed from ${senderEmail || "the configured sender"}.`)} percent={Number(progress?.percent || 1)} /> : null}
+        {isImportedReady ? <AnimatedMessage tone="info" icon={<Globe2 size={16} />} title="Imported lead list is ready" message="Review the selected audience and campaign strategy below. ReachFly keeps calling, email follow-up, and lead outcomes attached to the same campaign." /> : null}
+
+        <section className="rfcd-ai-callout">
+          <span className="rfcd-ai-callout-icon">{voiceEnabled ? <Phone size={19} /> : <Mail size={19} />}</span>
+          <div>
+            <span className="rfcd-eyebrow">Campaign strategy</span>
+            <strong>{campaignStrategy.title}</strong>
+            <p>{campaignStrategy.description}</p>
+          </div>
+          {voiceEnabled ? (
+            <Link className="rfcd-btn rfcd-btn-secondary" to={`/app/dialer?campaignId=${encodeURIComponent(campaign.id || "")}`}>Open Dialer <ArrowRight size={14} /></Link>
+          ) : emailEnabled ? (
+            <Link className="rfcd-btn rfcd-btn-secondary" to={`/app/email?campaignId=${encodeURIComponent(campaign.id || "")}`}>Open Email <ArrowRight size={14} /></Link>
+          ) : (
+            <Link className="rfcd-btn rfcd-btn-secondary" to="/app/campaigns/new">Choose strategy <ArrowRight size={14} /></Link>
+          )}
+        </section>
 
         <section className="rfcd-kpis" aria-label="Campaign performance">
           <KpiCard label="Audience" value={formatNumber(metrics.audience)} note={isImported ? "Imported contacts" : campaign.niche || "Campaign leads"} />
@@ -334,14 +355,6 @@ export default function CampaignDetail() {
           <OperationalCard icon={<Zap size={17} />} label="Unanswered" value={formatNumber(metrics.unanswered)} note="No answer, busy, voicemail, or unanswered" tone="neutral" />
         </section>
 
-        {voiceEnabled ? (
-          <section className="rfcd-ai-callout">
-            <span className="rfcd-ai-callout-icon"><Sparkles size={19} /></span>
-            <div><span className="rfcd-eyebrow">AI Voice</span><strong>AI Voice is enabled for this campaign</strong><p>Voice Agent call state is authoritative. Use the Voice Agent workspace for live calls, transcripts, recordings, meetings, and call-level diagnostics. This page summarizes outcomes already attached to campaign leads.</p></div>
-            <Link className="rfcd-btn rfcd-btn-secondary" to="/app/voice-agents">Open Voice Agents <ArrowRight size={14} /></Link>
-          </section>
-        ) : null}
-
         {campaign.leadMeta ? (
           <section className="rfcd-meta-grid">
             <CompactMetric label={isImported ? "Imported rows" : "Requested leads"} value={campaign.leadMeta.totalRows ?? campaign.leadMeta.requested ?? leads.length} />
@@ -382,7 +395,7 @@ export default function CampaignDetail() {
                     <thead><tr><th>Business</th><th>Contact</th><th>Outreach</th><th>Rating</th><th>Website</th><th>Outcome / next action</th><th>Assigned to</th><th>Source / Map</th></tr></thead>
                     <tbody>{visibleLeads.map((lead, index) => {
                       const key = getLeadKey(lead, index);
-                      return <LeadRow key={key} lead={lead} campaign={campaign} voiceEnabled={voiceEnabled} senderEmail={senderEmail} expanded={expandedLeadId === key} onToggle={() => setExpandedLeadId((current) => current === key ? "" : key)} />;
+                      return <LeadRow key={key} lead={lead} campaign={campaign} voiceEnabled={voiceEnabled} emailEnabled={emailEnabled} aiManagedEmailFollowUp={aiManagedEmailFollowUp} expanded={expandedLeadId === key} onToggle={() => setExpandedLeadId((current) => current === key ? "" : key)} />;
                     })}</tbody>
                   </table>
                 </div>
@@ -477,7 +490,7 @@ function TimelineEmptyState({ campaign, metrics }) {
   return <div className="rfcd-chart-empty"><span className="rfcd-chart-empty-icon"><TrendingUp size={21} /></span><div><strong>Timeline will appear as timestamped activity arrives</strong><span>ReachFly has campaign totals, but this campaign does not yet expose enough event timestamps to draw a truthful performance curve.</span></div><div className="rfcd-empty-progress"><span><i style={{ width: `${Math.max(percent, percent > 0 ? 3 : 0)}%` }} /></span><strong>{formatPercent(percent)}%</strong></div></div>;
 }
 
-function LeadRow({ lead, campaign, voiceEnabled, senderEmail, expanded, onToggle }) {
+function LeadRow({ lead, campaign, voiceEnabled, emailEnabled, aiManagedEmailFollowUp, expanded, onToggle }) {
   const businessName = getLeadBusinessName(lead);
   const leadLocation = lead.address || lead.location || campaign.location || "";
   const mapsUrl = lead.mapsUrl || `https://www.google.com/search?q=${encodeURIComponent(`${businessName} ${leadLocation || ""}`)}`;
@@ -491,7 +504,7 @@ function LeadRow({ lead, campaign, voiceEnabled, senderEmail, expanded, onToggle
       <tr className={`rfcd-lead-row ${expanded ? "expanded" : ""}`} onClick={onToggle}>
         <td><div className="rfcd-business-cell"><span className="rfcd-business-avatar">{getInitials(businessName)}</span><span><strong>{businessName}</strong><small>{leadLocation || "Location not available"}</small><em>{getLeadMatchScore(lead)}% match</em></span></div></td>
         <td><div className="rfcd-stack">{lead.phone ? <a href={`tel:${lead.phone}`} onClick={(event) => event.stopPropagation()}><Phone size={13} />{lead.phone}</a> : <span className="muted">Phone not listed</span>}{lead.email ? <a href={`mailto:${lead.email}`} onClick={(event) => event.stopPropagation()}><Mail size={13} />{lead.email}</a> : <span className="muted">Email not found</span>}</div></td>
-        <td><div className="rfcd-stack">{voiceEnabled ? <span><Phone size={13} />AI Voice</span> : null}{senderEmail ? <span><Mail size={13} />Email</span> : null}{!voiceEnabled && !senderEmail ? <span className="muted">No channel</span> : null}</div></td>
+        <td><div className="rfcd-stack">{voiceEnabled ? <span><Phone size={13} />AI Voice</span> : null}{emailEnabled ? <span><Mail size={13} />{aiManagedEmailFollowUp ? "AI-managed email" : "Email"}</span> : null}{!voiceEnabled && !emailEnabled ? <span className="muted">No channel</span> : null}</div></td>
         <td>{lead.rating ? <span className="rfcd-rating"><Star size={13} />{Number(lead.rating).toFixed(1)} <small>({lead.reviews || 0})</small></span> : "—"}</td>
         <td>{lead.website ? <a className="rfcd-website-link" href={normalizeWebsiteUrl(lead.website)} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}><Globe2 size={13} />Visit</a> : <span className="rfcd-opportunity">Website opportunity</span>}</td>
         <td><div className="rfcd-stack"><span className={`rfcd-lead-status ${leadStatusTone(outcome)}`}>{leadStatusLabel(outcome)}</span>{nextAction ? <small>Next: {formatDateTime(nextAction)}</small> : null}</div></td>
@@ -732,10 +745,99 @@ function getCampaignStatus(campaign, isImported) {
 }
 
 function getPrimaryChannel(campaign) {
-  if (isAiVoiceEnabled(campaign) && !getSenderEmail(campaign)) return "voice";
-  if (getSenderEmail(campaign) && !isAiVoiceEnabled(campaign)) return "email";
-  if (campaign?.outreachPlan?.email) return "email";
+  const explicit = normalizeStatus(
+    campaign?.primaryChannel ||
+      campaign?.outreachPlan?.primaryChannel
+  );
+
+  if (["voice", "email"].includes(explicit)) return explicit;
+
+  const campaignType = normalizeStatus(campaign?.campaignType);
+  if (["ai_calling", "voice"].includes(campaignType)) return "voice";
+  if (campaignType === "email") return "email";
+
+  if (isAiVoiceEnabled(campaign)) return "voice";
+  if (isEmailEnabled(campaign)) return "email";
   return "voice";
+}
+
+function isEmailEnabled(campaign) {
+  const primary = normalizeStatus(
+    campaign?.primaryChannel ||
+      campaign?.outreachPlan?.primaryChannel
+  );
+  const campaignType = normalizeStatus(campaign?.campaignType);
+  const digitalChannel = normalizeStatus(campaign?.outreachPlan?.digitalChannel);
+
+  return Boolean(
+    getSenderEmail(campaign) ||
+      campaign?.outreachPlan?.email ||
+      campaign?.outreachPlan?.emailEnabled ||
+      campaign?.outreachPlan?.aiManagedEmailFollowUp ||
+      campaign?.aiManagedEmailFollowUp ||
+      campaign?.emailEnabled ||
+      primary === "email" ||
+      campaignType === "email" ||
+      digitalChannel === "email" ||
+      campaign?.channels?.includes?.("email")
+  );
+}
+
+function isAiManagedEmailFollowUp(campaign) {
+  return Boolean(
+    campaign?.aiManagedEmailFollowUp ||
+      campaign?.outreachPlan?.aiManagedEmailFollowUp ||
+      campaign?.outreachPlan?.aiChoosesFollowUpTiming
+  );
+}
+
+function getCampaignStrategy(campaign) {
+  const voice = isAiVoiceEnabled(campaign);
+  const email = isEmailEnabled(campaign);
+  const managedEmail = isAiManagedEmailFollowUp(campaign);
+  const sender = getSenderEmail(campaign);
+
+  if (voice && managedEmail) {
+    return {
+      label: "AI Voice + AI-managed email",
+      title: "AI Calling Campaign with autonomous email follow-up",
+      description: sender
+        ? `The Voice Agent leads the conversation. ReachFly can use ${sender} for personalized follow-up when the call outcome, prospect request, or next action makes email useful.`
+        : "The Voice Agent leads the conversation and ReachFly can decide when an email follow-up is useful. Connect an email sender before automated email delivery is required.",
+    };
+  }
+
+  if (voice && email) {
+    return {
+      label: "AI Voice + Email",
+      title: "AI Calling Campaign with connected email",
+      description: "Calls remain the primary channel while email stays connected to the same lead history, campaign context, and outcomes.",
+    };
+  }
+
+  if (voice) {
+    return {
+      label: "AI Calling Campaign",
+      title: "AI Calling Campaign",
+      description: "The ReachFly Voice Agent handles live conversations, qualification, objections, outcomes, and meeting intent while keeping each result attached to the campaign lead.",
+    };
+  }
+
+  if (email) {
+    return {
+      label: "Email Campaign",
+      title: "AI-personalized Email Campaign",
+      description: sender
+        ? `ReachFly runs personalized email outreach from ${sender} and keeps replies and follow-up activity connected to each lead.`
+        : "ReachFly is configured for email outreach. Connect or select a sender account to deliver campaign messages.",
+    };
+  }
+
+  return {
+    label: "Campaign strategy not configured",
+    title: "Choose how ReachFly should work these leads",
+    description: "Configure Email or AI Calling so outreach, follow-up, and lead outcomes stay connected in this campaign.",
+  };
 }
 
 function getAssignedUserName(lead = {}) {
@@ -748,11 +850,20 @@ function getAssignedLeadCount(campaign) {
 }
 
 function isAiVoiceEnabled(campaign) {
+  const primary = normalizeStatus(
+    campaign?.primaryChannel ||
+      campaign?.outreachPlan?.primaryChannel
+  );
+  const campaignType = normalizeStatus(campaign?.campaignType);
+
   return Boolean(
     campaign?.outreachPlan?.aiVoice ||
     campaign?.aiVoiceEnabled ||
     campaign?.voiceEnabled ||
     campaign?.voiceCampaignEnabled ||
+    primary === "voice" ||
+    campaignType === "ai_calling" ||
+    campaignType === "voice" ||
     campaign?.channels?.includes?.("ai_voice")
   );
 }
