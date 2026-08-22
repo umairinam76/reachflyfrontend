@@ -5,6 +5,7 @@ import loreleiDefinition from "@dicebear/styles/lorelei.json" with { type: "json
 import { api } from "../api";
 import {
   Activity,
+  ArrowRight,
   Bot,
   Building2,
   Calendar,
@@ -41,6 +42,69 @@ const LANGUAGES = [
   ["vi", "Vietnamese"], ["uk", "Ukrainian"],
 ];
 
+const BUSINESS_DAYS = [
+  ["monday", "Mon"],
+  ["tuesday", "Tue"],
+  ["wednesday", "Wed"],
+  ["thursday", "Thu"],
+  ["friday", "Fri"],
+  ["saturday", "Sat"],
+  ["sunday", "Sun"],
+];
+
+const DEFAULT_BUSINESS_HOURS = {
+  monday: { closed: false, open: "09:00", close: "18:00" },
+  tuesday: { closed: false, open: "09:00", close: "18:00" },
+  wednesday: { closed: false, open: "09:00", close: "18:00" },
+  thursday: { closed: false, open: "09:00", close: "18:00" },
+  friday: { closed: false, open: "09:00", close: "18:00" },
+  saturday: { closed: true, open: "", close: "" },
+  sunday: { closed: true, open: "", close: "" },
+};
+
+const PURPOSE_TEMPLATES = {
+  sales: {
+    systemPrompt:
+      "You are the business's AI sales agent. Keep calls concise and natural. Understand the prospect's situation before pitching. Use only verified business information, never invent interest, pricing, availability, results, or guarantees. Respect opt-outs immediately and work toward the configured campaign outcome.",
+    greeting:
+      "Hi {{greeting_name}}, this is {{agent_name}} from {{company_name}}. Quick heads-up — I'm the team's AI phone agent. I'll keep it brief.",
+    inboundGreeting:
+      "Thanks for calling {{company_name}}. I'm {{agent_name}}, the team's AI phone agent. How can I help today?",
+    closingMessage:
+      "Thanks for your time. I'll make sure the agreed next step is recorded for the team. Take care.",
+  },
+  reception: {
+    systemPrompt:
+      "You are the business's AI receptionist. Identify the caller's intent quickly, answer from approved business knowledge, collect only the details needed for the request, and complete the allowed action. Never invent availability, order status, reservation status, policies, or prices. Escalate or take a message when a live answer is not available.",
+    greeting:
+      "Hi {{greeting_name}}, this is {{agent_name}} from {{company_name}}. I'm the team's AI phone agent.",
+    inboundGreeting:
+      "Thanks for calling {{company_name}}. I'm {{agent_name}}, the team's AI receptionist. What can I help you with?",
+    closingMessage:
+      "You're all set. Thanks for calling {{company_name}}.",
+  },
+  appointment: {
+    systemPrompt:
+      "You are the business's AI appointment agent. Qualify only what is necessary, check real availability through approved tools, confirm the exact date, time, timezone, contact details, and purpose before creating a booking. Never claim a meeting is booked until the calendar tool confirms it.",
+    greeting:
+      "Hi {{greeting_name}}, this is {{agent_name}} from {{company_name}}. I'm the team's AI scheduling agent.",
+    inboundGreeting:
+      "Thanks for calling {{company_name}}. I'm {{agent_name}}, the team's AI scheduling agent. Are you looking to book, change, or confirm an appointment?",
+    closingMessage:
+      "Perfect — I have the next step confirmed. You'll receive the booking details from {{company_name}}.",
+  },
+  custom: {
+    systemPrompt:
+      "Follow the business instructions and approved tools for this workflow. Stay within verified business knowledge, do not invent database results or confirmations, and complete only actions the workspace has enabled.",
+    greeting:
+      "Hi {{greeting_name}}, this is {{agent_name}} from {{company_name}}. I'm the team's AI phone agent.",
+    inboundGreeting:
+      "Thanks for calling {{company_name}}. I'm {{agent_name}}, the team's AI phone agent. How can I help?",
+    closingMessage:
+      "Thanks — I've recorded the next step for the team.",
+  },
+};
+
 const EMPTY = {
   name: "",
   purpose: "sales",
@@ -50,6 +114,14 @@ const EMPTY = {
   emailConnectionId: "",
   calendarConnectionId: "",
   agentContext: "",
+  systemPrompt: PURPOSE_TEMPLATES.sales.systemPrompt,
+  businessKnowledge: "",
+  businessTimezone: "America/New_York",
+  businessHours: DEFAULT_BUSINESS_HOURS,
+  greeting: PURPOSE_TEMPLATES.sales.greeting,
+  inboundGreeting: PURPOSE_TEMPLATES.sales.inboundGreeting,
+  closingMessage: PURPOSE_TEMPLATES.sales.closingMessage,
+  afterHoursMessage: "We're currently closed. I can take your details and the team can follow up during business hours.",
   primaryLanguage: "en",
   supportedLanguages: ["en"],
   autoDetectLanguage: true,
@@ -185,6 +257,7 @@ export default function AIWorkforcePage() {
       calendarConnectionId: connections?.recommended?.calendar?.id || "",
       sendEmail: Boolean(connections?.recommended?.email?.id),
       bookMeeting: Boolean(connections?.recommended?.calendar?.id),
+      businessHours: cloneBusinessHours(DEFAULT_BUSINESS_HOURS),
     });
     setShowEditor(true);
     setMessage("");
@@ -202,6 +275,25 @@ export default function AIWorkforcePage() {
       emailConnectionId: agent.emailConnectionId || "",
       calendarConnectionId: agent.calendarConnectionId || "",
       agentContext: agent.agentContext || "",
+      systemPrompt: agent.systemPrompt || PURPOSE_TEMPLATES[agent.purpose || "sales"]?.systemPrompt || "",
+      businessKnowledge: agent.businessKnowledge || "",
+      businessTimezone: agent.businessTimezone || agent.bookingTimezone || "America/New_York",
+      businessHours: normalizeBusinessHoursForForm(agent.businessHours),
+      greeting:
+        agent.greeting ||
+        PURPOSE_TEMPLATES[agent.purpose || "sales"]?.greeting ||
+        PURPOSE_TEMPLATES.custom.greeting,
+      inboundGreeting:
+        agent.inboundGreeting ||
+        PURPOSE_TEMPLATES[agent.purpose || "sales"]?.inboundGreeting ||
+        PURPOSE_TEMPLATES.custom.inboundGreeting,
+      closingMessage:
+        agent.closingMessage ||
+        PURPOSE_TEMPLATES[agent.purpose || "sales"]?.closingMessage ||
+        PURPOSE_TEMPLATES.custom.closingMessage,
+      afterHoursMessage:
+        agent.afterHoursMessage ||
+        "We're currently closed. I can take your details and the team can follow up during business hours.",
       primaryLanguage: agent.primaryLanguage || "en",
       supportedLanguages:
         Array.isArray(agent.supportedLanguages) && agent.supportedLanguages.length
@@ -246,6 +338,14 @@ export default function AIWorkforcePage() {
         emailConnectionId: form.emailConnectionId,
         calendarConnectionId: form.calendarConnectionId,
         agentContext: form.agentContext,
+        systemPrompt: form.systemPrompt,
+        businessKnowledge: form.businessKnowledge,
+        businessTimezone: form.businessTimezone || "America/New_York",
+        businessHours: normalizeBusinessHoursPayload(form.businessHours),
+        greeting: form.greeting,
+        inboundGreeting: form.inboundGreeting,
+        closingMessage: form.closingMessage,
+        afterHoursMessage: form.afterHoursMessage,
         primaryLanguage: form.primaryLanguage || "en",
         supportedLanguages: Array.from(
           new Set([form.primaryLanguage || "en", ...(form.supportedLanguages || [])])
@@ -323,6 +423,53 @@ export default function AIWorkforcePage() {
           <WorkforceMetric icon={<Target size={18} />} label="Queued Leads" value={workforceMetrics.queuedLeads} note="Waiting for calling capacity" tone="neutral" />
         </section>
 
+        <section className="rfa-journey" aria-label="Connected Voice Agent journey">
+          <JourneyNode
+            number="1"
+            icon={<Building2 size={16} />}
+            title="Business number"
+            value={phoneNumbers.length ? `${phoneNumbers.length} active` : "Connect a number"}
+            to="/app/phone-numbers"
+            ready={phoneNumbers.length > 0}
+          />
+          <JourneyArrow />
+          <JourneyNode
+            number="2"
+            icon={<Bot size={16} />}
+            title="AI agent"
+            value={agentViews.length ? `${agentViews.length} configured` : "Create your agent"}
+            onClick={openCreate}
+            ready={agentViews.length > 0}
+          />
+          <JourneyArrow />
+          <JourneyNode
+            number="3"
+            icon={<Phone size={16} />}
+            title="Inbound / outbound"
+            value={agentViews.length ? "Controlled per agent" : "Choose a direction"}
+            to="/app/voice-agent?tab=setup&view=calling"
+            ready={agentViews.some((item) => item.readiness.ready)}
+          />
+          <JourneyArrow />
+          <JourneyNode
+            number="4"
+            icon={<Target size={16} />}
+            title="Campaign & calls"
+            value={workforceMetrics.queuedLeads ? `${workforceMetrics.queuedLeads} queued` : "Assign leads or receive calls"}
+            to="/app/campaigns"
+            ready={workforceMetrics.totalAgents > 0}
+          />
+          <JourneyArrow />
+          <JourneyNode
+            number="5"
+            icon={<Calendar size={16} />}
+            title="Outcomes"
+            value={workforceMetrics.meetings ? `${workforceMetrics.meetings} meetings` : "Calls, bookings & CRM"}
+            to="/app/calls"
+            ready={workforceMetrics.totalCalls > 0 || workforceMetrics.meetings > 0}
+          />
+        </section>
+
         <section className="rfa-toolbar">
           <div>
             <span className="rfa-eyebrow">Workspace agents</span>
@@ -395,9 +542,13 @@ export default function AIWorkforcePage() {
                 ) : null}
 
                 <footer className="rfa-card-actions">
-                  <Link className="secondary" to={`/app/voice-agent?tab=calls&view=call-history&agentId=${encodeURIComponent(agent.id)}`}><Activity size={14} /> View Logs</Link>
+                  <button className="secondary" type="button" onClick={() => editAgent(agent.raw)}><Settings size={14} /> Manage</button>
+                  <Link className="secondary" to={`/app/voice-agent?tab=calls&view=call-history&agentId=${encodeURIComponent(agent.id)}`}><Activity size={14} /> Logs</Link>
                   {agent.readiness.ready ? (
-                    <Link className="primary" to={`/app/voice-agent?tab=leads&view=quick-lead&agentId=${encodeURIComponent(agent.id)}`}><Play size={14} /> Test Agent</Link>
+                    <>
+                      <Link className="primary" to={`/app/voice-agent?tab=leads&view=quick-lead&agentId=${encodeURIComponent(agent.id)}`}><Play size={14} /> Test</Link>
+                      <Link className="primary outline" to={`/app/voice-agent?tab=leads&view=launch-calls&agentId=${encodeURIComponent(agent.id)}`}><Target size={14} /> Campaign</Link>
+                    </>
                   ) : (
                     <Link className="primary outline" to={`/app/voice-agent?tab=setup&view=agent&agentId=${encodeURIComponent(agent.id)}`}><Settings size={14} /> Continue Setup</Link>
                   )}
@@ -427,10 +578,61 @@ export default function AIWorkforcePage() {
         {showEditor ? (
           <div className="rf-v6-modal-backdrop rfa-editor-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setShowEditor(false); }}>
             <form className="rf-v6-agent-editor rfa-editor" onSubmit={save}>
-              <div className="rf-v6-editor-head"><div><span>{editingId ? "Manage Voice Agent" : "Create Voice Agent"}</span><h2>{editingId ? "Update AI Voice Agent" : "Create a focused AI Voice Agent"}</h2></div><button type="button" onClick={() => setShowEditor(false)} disabled={saving}>×</button></div>
+              <div className="rf-v6-editor-head">
+                <div>
+                  <span>{editingId ? "Manage Voice Agent" : "Create Voice Agent"}</span>
+                  <h2>{editingId ? "Control this agent from one place" : "Create a connected AI Voice Agent"}</h2>
+                  <p>Number → agent brain → language → inbound/outbound → campaign and outcomes.</p>
+                </div>
+                <button type="button" onClick={() => setShowEditor(false)} disabled={saving}>×</button>
+              </div>
+
+              <div className="rfa-editor-flow">
+                <EditorFlowItem
+                  icon={<Building2 size={14} />}
+                  label="Number"
+                  value={form.fromNumber || "Choose below"}
+                  ready={Boolean(form.fromNumber)}
+                />
+                <ArrowRight size={14} />
+                <EditorFlowItem
+                  icon={<Bot size={14} />}
+                  label="Agent"
+                  value={form.name || "Name your agent"}
+                  ready={Boolean(form.name.trim())}
+                />
+                <ArrowRight size={14} />
+                <EditorFlowItem
+                  icon={<Phone size={14} />}
+                  label="Direction"
+                  value={callingModeLabel(form.callingMode)}
+                  ready
+                />
+                <ArrowRight size={14} />
+                <EditorFlowItem
+                  icon={<Target size={14} />}
+                  label="Use"
+                  value={form.callingMode === "inbound" ? "Inbound calls" : form.callingMode === "both" ? "Inbound + campaigns" : "Campaigns"}
+                  ready
+                />
+              </div>
 
               <div className="rf-v6-purpose-grid">
-                {PURPOSES.map(([value, title, text]) => <button type="button" className={form.purpose === value ? "active" : ""} key={value} onClick={() => setForm((current) => ({ ...current, purpose: value }))}><b>{title}</b><small>{text}</small></button>)}
+                {PURPOSES.map(([value, title, description]) => (
+                  <button
+                    type="button"
+                    className={form.purpose === value ? "active" : ""}
+                    key={value}
+                    onClick={() =>
+                      setForm((current) =>
+                        applyPurposeTemplate(current, value)
+                      )
+                    }
+                  >
+                    <b>{title}</b>
+                    <small>{description}</small>
+                  </button>
+                ))}
               </div>
 
               <div className="rf-v6-form-grid two">
@@ -453,7 +655,157 @@ export default function AIWorkforcePage() {
                 <div className="rf-v6-language-overrides">{(form.supportedLanguages || []).map((code) => { const name = LANGUAGES.find(([item]) => item === code)?.[1] || code.toUpperCase(); return <div className="rf-v6-language-row" key={code}><strong>{name}</strong><Field label="Voice override (optional)"><select value={form.languageVoices?.[code] || ""} onChange={(event) => setForm((current) => ({ ...current, languageVoices: { ...(current.languageVoices || {}), [code]: event.target.value } }))}><option value="">Use agent voice</option>{voices.map((voice) => <option value={voice.id || voice.voiceId} key={`${code}-${voice.id || voice.voiceId}`}>{voice.name || voice.voiceName || voice.id}</option>)}</select></Field><Field label="Opening line (optional)"><textarea rows="2" value={form.languageGreetings?.[code] || ""} onChange={(event) => setForm((current) => ({ ...current, languageGreetings: { ...(current.languageGreetings || {}), [code]: event.target.value } }))} placeholder={`Optional ${name} opening line`} /></Field></div>; })}</div>
               </section>
 
-              <Field label="Agent context"><textarea rows="7" value={form.agentContext} onChange={(event) => setForm((current) => ({ ...current, agentContext: event.target.value }))} placeholder="Persistent context: offer, positioning, guardrails, qualification criteria, and what this agent should know across campaigns…" /></Field>
+              <section className="rfa-brain-section">
+                <div className="rf-v6-section-head compact">
+                  <div>
+                    <span>Agent brain</span>
+                    <h3>Opening, system prompt, memory and closing</h3>
+                    <p>These controls are saved on the agent and used across calls. Campaign context can still add temporary call-specific instructions without replacing this agent memory.</p>
+                  </div>
+                </div>
+
+                <div className="rf-v6-form-grid two rfa-script-grid">
+                  <Field label="Outbound opening">
+                    <textarea
+                      rows="3"
+                      value={form.greeting}
+                      onChange={(event) =>
+                        setForm((current) => ({ ...current, greeting: event.target.value }))
+                      }
+                      placeholder="What the agent says first on outbound calls."
+                    />
+                  </Field>
+                  <Field label="Inbound opening">
+                    <textarea
+                      rows="3"
+                      value={form.inboundGreeting}
+                      onChange={(event) =>
+                        setForm((current) => ({ ...current, inboundGreeting: event.target.value }))
+                      }
+                      placeholder="What the agent says first when someone calls your number."
+                    />
+                  </Field>
+                  <Field label="Closing script">
+                    <textarea
+                      rows="3"
+                      value={form.closingMessage}
+                      onChange={(event) =>
+                        setForm((current) => ({ ...current, closingMessage: event.target.value }))
+                      }
+                      placeholder="Preferred closing line after the next step is complete."
+                    />
+                  </Field>
+                  <Field label="After-hours message">
+                    <textarea
+                      rows="3"
+                      value={form.afterHoursMessage}
+                      onChange={(event) =>
+                        setForm((current) => ({ ...current, afterHoursMessage: event.target.value }))
+                      }
+                      placeholder="Used when the business is closed and the workflow needs an after-hours response."
+                    />
+                  </Field>
+                </div>
+
+                <Field label="System prompt · permanent agent instructions">
+                  <textarea
+                    rows="7"
+                    value={form.systemPrompt}
+                    onChange={(event) =>
+                      setForm((current) => ({ ...current, systemPrompt: event.target.value }))
+                    }
+                    placeholder="Role, behavior, boundaries, workflow rules, escalation rules, and how this agent should make decisions."
+                  />
+                </Field>
+
+                <div className="rfa-memory-grid">
+                  <Field label="Business knowledge · long-term memory">
+                    <textarea
+                      rows="7"
+                      value={form.businessKnowledge}
+                      onChange={(event) =>
+                        setForm((current) => ({ ...current, businessKnowledge: event.target.value }))
+                      }
+                      placeholder="Products/services, menu, policies, reservation rules, order rules, FAQs, locations, pricing guidance, escalation rules, and the facts this agent should remember on every call."
+                    />
+                  </Field>
+                  <Field label="Campaign / operating context">
+                    <textarea
+                      rows="7"
+                      value={form.agentContext}
+                      onChange={(event) =>
+                        setForm((current) => ({ ...current, agentContext: event.target.value }))
+                      }
+                      placeholder="Positioning, qualification criteria, current offers, audience context, and other reusable operating context."
+                    />
+                  </Field>
+                </div>
+
+                <div className="rfa-hours-head">
+                  <div>
+                    <span>Business hours</span>
+                    <b>Used by inbound handling and business-aware answers</b>
+                  </div>
+                  <Field label="Business timezone">
+                    <input
+                      value={form.businessTimezone}
+                      onChange={(event) =>
+                        setForm((current) => ({ ...current, businessTimezone: event.target.value }))
+                      }
+                      placeholder="America/New_York"
+                    />
+                  </Field>
+                </div>
+
+                <div className="rfa-hours-grid">
+                  {BUSINESS_DAYS.map(([day, short]) => {
+                    const hours = form.businessHours?.[day] || { closed: true, open: "", close: "" };
+                    return (
+                      <div className={`rfa-hours-row ${hours.closed ? "closed" : ""}`} key={day}>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={!hours.closed}
+                            onChange={(event) =>
+                              setForm((current) => ({
+                                ...current,
+                                businessHours: {
+                                  ...(current.businessHours || {}),
+                                  [day]: event.target.checked
+                                    ? {
+                                        closed: false,
+                                        open: current.businessHours?.[day]?.open || "09:00",
+                                        close: current.businessHours?.[day]?.close || "18:00",
+                                      }
+                                    : { closed: true, open: "", close: "" },
+                                },
+                              }))
+                            }
+                          />
+                          <b>{short}</b>
+                        </label>
+                        <input
+                          type="time"
+                          value={hours.open || ""}
+                          disabled={hours.closed}
+                          onChange={(event) =>
+                            updateBusinessHour(setForm, day, "open", event.target.value)
+                          }
+                        />
+                        <span>to</span>
+                        <input
+                          type="time"
+                          value={hours.close || ""}
+                          disabled={hours.closed}
+                          onChange={(event) =>
+                            updateBusinessHour(setForm, day, "close", event.target.value)
+                          }
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
 
               <div className="rf-v6-permission-grid">
                 <Toggle checked={form.sendEmail} onChange={(checked) => setForm((current) => ({ ...current, sendEmail: checked }))} title="Send email" text="Allow approved follow-ups using the assigned mailbox." />
@@ -468,6 +820,41 @@ export default function AIWorkforcePage() {
         ) : null}
       </main>
     </>
+  );
+}
+
+function JourneyNode({ number, icon, title, value, to, onClick, ready = false }) {
+  const content = (
+    <>
+      <span className={`rfa-journey-index ${ready ? "ready" : ""}`}>{ready ? <CheckCircle2 size={13} /> : number}</span>
+      <span className="rfa-journey-icon">{icon}</span>
+      <span className="rfa-journey-copy">
+        <b>{title}</b>
+        <small>{value}</small>
+      </span>
+    </>
+  );
+
+  if (to) {
+    return <Link className="rfa-journey-node" to={to}>{content}</Link>;
+  }
+
+  return <button className="rfa-journey-node" type="button" onClick={onClick}>{content}</button>;
+}
+
+function JourneyArrow() {
+  return <span className="rfa-journey-arrow"><ArrowRight size={14} /></span>;
+}
+
+function EditorFlowItem({ icon, label: title, value, ready = false }) {
+  return (
+    <div className={`rfa-editor-flow-item ${ready ? "ready" : ""}`}>
+      <span>{icon}</span>
+      <div>
+        <small>{title}</small>
+        <b>{value}</b>
+      </div>
+    </div>
   );
 }
 
@@ -719,6 +1106,103 @@ function findVoice(voices, id) {
   return voices.find((voice) => getVoiceId(voice) === target) || null;
 }
 
+function cloneBusinessHours(value) {
+  const source = value && typeof value === "object" ? value : {};
+  return BUSINESS_DAYS.reduce((result, [day]) => {
+    const item = source[day];
+    result[day] =
+      item && typeof item === "object"
+        ? {
+            closed: item.closed === true,
+            open: item.closed === true ? "" : String(item.open || "09:00"),
+            close: item.closed === true ? "" : String(item.close || "18:00"),
+          }
+        : { ...DEFAULT_BUSINESS_HOURS[day] };
+    return result;
+  }, {});
+}
+
+function normalizeBusinessHoursForForm(value) {
+  const source = value && typeof value === "object" ? value : {};
+  const hasAny = BUSINESS_DAYS.some(([day]) => source[day] != null);
+  if (!hasAny) return cloneBusinessHours(DEFAULT_BUSINESS_HOURS);
+
+  return BUSINESS_DAYS.reduce((result, [day]) => {
+    const raw = source[day];
+    if (raw === false) {
+      result[day] = { closed: true, open: "", close: "" };
+    } else if (typeof raw === "string") {
+      const [open = "09:00", close = "18:00"] = raw.split(/\s*[-–—]\s*/);
+      result[day] = { closed: false, open, close };
+    } else if (raw && typeof raw === "object") {
+      const closed = raw.closed === true || raw.enabled === false;
+      result[day] = {
+        closed,
+        open: closed ? "" : String(raw.open || raw.start || "09:00"),
+        close: closed ? "" : String(raw.close || raw.end || "18:00"),
+      };
+    } else {
+      result[day] = { ...DEFAULT_BUSINESS_HOURS[day] };
+    }
+    return result;
+  }, {});
+}
+
+function normalizeBusinessHoursPayload(value) {
+  const normalized = normalizeBusinessHoursForForm(value);
+  return BUSINESS_DAYS.reduce((result, [day]) => {
+    const item = normalized[day];
+    result[day] = item.closed
+      ? { closed: true, open: "", close: "" }
+      : {
+          closed: false,
+          open: String(item.open || "09:00"),
+          close: String(item.close || "18:00"),
+        };
+    return result;
+  }, {});
+}
+
+function updateBusinessHour(setForm, day, key, value) {
+  setForm((current) => ({
+    ...current,
+    businessHours: {
+      ...(current.businessHours || {}),
+      [day]: {
+        ...(current.businessHours?.[day] || { closed: false, open: "09:00", close: "18:00" }),
+        closed: false,
+        [key]: value,
+      },
+    },
+  }));
+}
+
+function applyPurposeTemplate(current, purpose) {
+  const template = PURPOSE_TEMPLATES[purpose] || PURPOSE_TEMPLATES.custom;
+  const previousTemplate = PURPOSE_TEMPLATES[current.purpose] || PURPOSE_TEMPLATES.custom;
+
+  const replaceIfTemplateOrBlank = (field) => {
+    const currentValue = String(current[field] || "").trim();
+    const previousValue = String(previousTemplate[field] || "").trim();
+    return !currentValue || currentValue === previousValue ? template[field] || "" : current[field];
+  };
+
+  return {
+    ...current,
+    purpose,
+    callingMode:
+      purpose === "reception"
+        ? current.callingMode === "outbound" ? "inbound" : current.callingMode
+        : purpose === "sales"
+          ? current.callingMode === "inbound" ? "outbound" : current.callingMode
+          : current.callingMode,
+    systemPrompt: replaceIfTemplateOrBlank("systemPrompt"),
+    greeting: replaceIfTemplateOrBlank("greeting"),
+    inboundGreeting: replaceIfTemplateOrBlank("inboundGreeting"),
+    closingMessage: replaceIfTemplateOrBlank("closingMessage"),
+  };
+}
+
 function Field({ label, children }) { return <label className="rf-v6-field"><span>{label}</span>{children}</label>; }
 function Toggle({ checked, onChange, title, text }) { return <label className="rf-v6-toggle"><input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} /><span><b>{title}</b><small>{text}</small></span></label>; }
 function languageSummary(agent) {
@@ -734,6 +1218,7 @@ function getAgentReadiness(agent) {
   if (!agent?.fromNumber) missing.push("Business Number");
   if (!agent?.voice) missing.push("Voice");
   if (!agent?.primaryLanguage) missing.push("Primary language");
+  if (!agent?.systemPrompt && !agent?.agentContext) missing.push("Agent instructions");
   if (agent?.complianceConfirmed === false) missing.push("Calling policy");
   return { ready: missing.length === 0, missing };
 }
@@ -809,9 +1294,14 @@ function AIWorkforceStyles() {
     .rfa-agent-card.skeleton i{display:block;background:linear-gradient(90deg,#e9ebed 25%,#f8f9fa 45%,#e9ebed 65%);background-size:220% 100%;border-radius:999px;animation:rfaShimmer 1.25s linear infinite}.rfa-sk-head{display:grid;grid-template-columns:54px 1fr;gap:10px;align-items:center;margin-bottom:12px}.rfa-sk-head>i{width:54px;height:54px;border-radius:50%!important}.rfa-sk-head>span{display:grid;gap:6px}.rfa-sk-head>span i:nth-child(1){width:55%;height:14px}.rfa-sk-head>span i:nth-child(2){width:72%;height:9px}.rfa-sk-head>span i:nth-child(3){width:48%;height:8px}.rfa-sk-status{width:72px;height:22px;margin-bottom:12px}.rfa-sk-res{display:grid;gap:6px}.rfa-sk-res i{height:38px;border-radius:8px!important}.rfa-sk-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:16px}.rfa-sk-stats i{height:82px;border-radius:11px!important}.rfa-sk-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:auto}.rfa-sk-actions i{height:37px;border-radius:8px!important}
     .rf-agents-v7 .rf-v6-modal-backdrop{position:fixed;z-index:220;inset:0;display:grid;place-items:center;padding:24px;background:rgba(25,28,29,.42);backdrop-filter:blur(4px)}.rf-agents-v7 .rf-v6-agent-editor{width:min(980px,100%);max-height:calc(100vh - 48px);overflow:auto;padding:20px;background:#fff;border-radius:16px;box-shadow:0 28px 80px rgba(25,28,29,.23)}.rf-agents-v7 .rf-v6-editor-head{display:flex;justify-content:space-between;gap:16px;padding-bottom:14px;margin-bottom:14px;border-bottom:1px solid var(--line)}.rf-agents-v7 .rf-v6-editor-head span,.rf-agents-v7 .rf-v6-section-head span,.rf-agents-v7 .rf-v6-voice-field-label{color:var(--p);font-size:8px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}.rf-agents-v7 .rf-v6-editor-head h2,.rf-agents-v7 .rf-v6-section-head h3{margin:1px 0 0;font:600 18px/24px Geist,Inter,sans-serif}.rf-agents-v7 .rf-v6-editor-head button{width:32px;height:32px;padding:0;color:var(--m);background:var(--soft);border:0;border-radius:8px;cursor:pointer;font-size:18px}.rf-agents-v7 .rf-v6-purpose-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}.rf-agents-v7 .rf-v6-purpose-grid button{min-height:88px;padding:10px;text-align:left;background:#fff;border:1px solid var(--line);border-radius:9px;cursor:pointer}.rf-agents-v7 .rf-v6-purpose-grid button.active{background:#f3f3ff;border-color:rgba(70,72,212,.4);box-shadow:0 0 0 3px rgba(70,72,212,.05)}.rf-agents-v7 .rf-v6-purpose-grid b{display:block;font-size:8px}.rf-agents-v7 .rf-v6-purpose-grid small{display:block;margin-top:3px;color:var(--m);font-size:7px;line-height:11px}.rf-agents-v7 .rf-v6-form-grid{display:grid;gap:10px}.rf-agents-v7 .rf-v6-form-grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}.rf-agents-v7 .rf-v6-field{display:grid;gap:5px;margin-bottom:10px}.rf-agents-v7 .rf-v6-field>span{color:var(--ts);font-size:7px;font-weight:700;text-transform:uppercase}.rf-agents-v7 .rf-v6-field input,.rf-agents-v7 .rf-v6-field select,.rf-agents-v7 .rf-v6-field textarea{width:100%;min-height:39px;padding:8px 10px;color:var(--t);background:#fff;border:1px solid var(--line);border-radius:8px;outline:0;font-size:9px}.rf-agents-v7 .rf-v6-field input:focus,.rf-agents-v7 .rf-v6-field select:focus,.rf-agents-v7 .rf-v6-field textarea:focus{border-color:rgba(70,72,212,.48);box-shadow:0 0 0 3px rgba(70,72,212,.07)}.rf-agents-v7 .rf-v6-language-editor{padding:14px;margin:4px 0 14px;background:#fbfbfc;border:1px solid var(--line);border-radius:11px}.rf-agents-v7 .rf-v6-section-head p{margin:2px 0 10px;color:var(--m);font-size:8px}.rf-agents-v7 .rf-v6-language-chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 10px}.rf-agents-v7 .rf-v6-language-chips label{padding:5px 8px;color:var(--ts);background:var(--soft);border-radius:999px;font-size:7px}.rf-agents-v7 .rf-v6-language-chips label.active{color:var(--p);background:var(--ps);font-weight:700}.rf-agents-v7 .rf-v6-language-chips input{margin-right:4px}.rf-agents-v7 .rf-v6-language-overrides{display:grid;gap:7px}.rf-agents-v7 .rf-v6-language-row{display:grid;grid-template-columns:100px 1fr 1.4fr;gap:8px;align-items:end;padding:9px;background:#fff;border:1px solid var(--line);border-radius:8px}.rf-agents-v7 .rf-v6-language-row>strong{align-self:center;font-size:8px}.rf-agents-v7 .rf-v6-permission-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0 12px}.rf-agents-v7 .rf-v6-toggle{display:flex;gap:8px;padding:10px;background:var(--soft);border-radius:8px}.rf-agents-v7 .rf-v6-toggle b{display:block;font-size:8px}.rf-agents-v7 .rf-v6-toggle small{display:block;margin-top:2px;color:var(--m);font-size:7px;line-height:11px}.rf-agents-v7 .rf-v6-compliance{display:flex;gap:8px;padding:11px;background:var(--warns);border-radius:8px}.rf-agents-v7 .rf-v6-compliance b{display:block;font-size:8px}.rf-agents-v7 .rf-v6-compliance small{display:block;margin-top:2px;color:#705400;font-size:7px;line-height:11px}.rf-agents-v7 .rf-v6-editor-actions{display:flex;justify-content:flex-end;gap:7px;padding-top:12px;border-top:1px solid var(--line)}.rf-agents-v7 .rf-v6-btn{min-height:37px;padding:7px 11px;border:1px solid var(--line);border-radius:8px;cursor:pointer;font-size:8px;font-weight:700}.rf-agents-v7 .rf-v6-btn.primary{color:#fff;background:var(--p);border-color:var(--p)}.rf-agents-v7 .rf-v6-btn.secondary{background:#fff}
     .rf-agents-v7 .rf-v6-voice-picker{display:grid;gap:8px}.rf-agents-v7 .rf-v6-selected-voice{display:flex;align-items:center;gap:10px;padding:9px;background:#fbfbfc;border:1px solid var(--line);border-radius:9px}.rf-agents-v7 .rf-v6-selected-voice-copy{min-width:0;flex:1;display:grid}.rf-agents-v7 .rf-v6-selected-voice-copy span{color:var(--p);font-size:6px;font-weight:800;text-transform:uppercase}.rf-agents-v7 .rf-v6-selected-voice-copy strong{font-size:9px}.rf-agents-v7 .rf-v6-selected-voice-copy small{color:var(--m);font-size:7px}.rf-agents-v7 .rf-v6-selected-voice-actions{display:flex;gap:5px}.rf-agents-v7 .rf-v6-selected-voice-actions button,.rf-agents-v7 .rf-v6-voice-card-play{min-height:29px;padding:5px 7px;color:var(--p);background:var(--ps);border:0;border-radius:7px;cursor:pointer;font-size:7px;font-weight:700}.rf-agents-v7 .rf-v6-voice-browser{overflow:hidden;border:1px solid var(--line);border-radius:9px}.rf-agents-v7 .rf-v6-voice-browser-head{display:flex;gap:8px;padding:8px;background:#fbfbfc;border-bottom:1px solid var(--line)}.rf-agents-v7 .rf-v6-voice-browser-head input{min-width:0;flex:1;height:33px;padding:0 8px;border:1px solid var(--line);border-radius:7px;font-size:8px}.rf-agents-v7 .rf-v6-voice-browser-head span{align-self:center;color:var(--m);font-size:7px}.rf-agents-v7 .rf-v6-voice-grid{max-height:280px;display:grid;grid-template-columns:1fr 1fr;gap:6px;overflow:auto;padding:8px}.rf-agents-v7 .rf-v6-voice-card{position:relative;display:flex;align-items:center;border:1px solid var(--line);border-radius:8px}.rf-agents-v7 .rf-v6-voice-card.selected{background:#f3f3ff;border-color:rgba(70,72,212,.35)}.rf-agents-v7 .rf-v6-voice-select{min-width:0;flex:1;display:flex;align-items:center;gap:7px;padding:7px 34px 7px 7px;background:transparent;border:0;text-align:left}.rf-agents-v7 .rf-v6-voice-card-copy{min-width:0;display:grid}.rf-agents-v7 .rf-v6-voice-card-copy strong{font-size:8px}.rf-agents-v7 .rf-v6-voice-card-copy small{overflow:hidden;color:var(--m);text-overflow:ellipsis;white-space:nowrap;font-size:6px}.rf-agents-v7 .rf-v6-voice-card-play{position:absolute;right:6px;width:25px;height:25px;padding:0;border-radius:50%}.rf-agents-v7 .rf-v6-voice-empty{padding:10px;color:var(--m);background:var(--soft);border-radius:8px;font-size:7px}
-    @media(max-width:1220px){.rf-agents-v7{padding:26px 24px}.rfa-metrics{gap:14px}.rfa-agent-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}}
-    @media(max-width:900px){.rfa-metrics{grid-template-columns:repeat(2,1fr)}.rfa-toolbar{align-items:flex-start;flex-direction:column}.rfa-toolbar-actions{width:100%}.rfa-search{width:auto;flex:1}.rfa-readiness-strip{align-items:flex-start;flex-direction:column}.rfa-readiness-links{width:100%;flex-wrap:wrap}.rf-agents-v7 .rf-v6-purpose-grid{grid-template-columns:1fr 1fr}.rf-agents-v7 .rf-v6-language-row{grid-template-columns:1fr 1fr}.rf-agents-v7 .rf-v6-language-row .rf-v6-field:last-child{grid-column:1/-1}}
-    @media(max-width:700px){.rf-agents-v7{padding:18px 14px 84px}.rfa-hero{align-items:flex-start;flex-direction:column;padding:24px}.rfa-hero h1{font-size:26px;line-height:33px}.rfa-hero p{font-size:11px;line-height:17px}.rfa-create-agent{width:100%}.rfa-metrics{grid-template-columns:1fr;gap:8px}.rfa-metric{min-height:90px;padding:15px}.rfa-agent-grid{grid-template-columns:1fr}.rf-agents-v7 .rf-v6-modal-backdrop{padding:0;place-items:stretch}.rf-agents-v7 .rf-v6-agent-editor{width:100%;height:100%;max-height:none;border-radius:0}.rf-agents-v7 .rf-v6-form-grid.two,.rf-agents-v7 .rf-v6-permission-grid{grid-template-columns:1fr}}
+    .rfa-journey{display:grid;grid-template-columns:minmax(0,1fr) 26px minmax(0,1fr) 26px minmax(0,1fr) 26px minmax(0,1fr) 26px minmax(0,1fr);align-items:center;gap:4px;margin:0 0 26px;padding:10px;background:#fff;border:1px solid #eceef0;border-radius:14px;box-shadow:0 4px 16px rgba(25,28,29,.035)}.rfa-journey-node{min-width:0;min-height:66px;display:grid;grid-template-columns:24px 32px minmax(0,1fr);align-items:center;gap:8px;padding:9px;color:inherit;background:#fbfbfc;border:1px solid transparent;border-radius:10px;text-align:left;text-decoration:none;cursor:pointer;transition:.16s var(--ease)}.rfa-journey-node:hover{background:#f6f6ff;border-color:#dcddff;transform:translateY(-1px)}.rfa-journey-index{width:22px;height:22px;display:grid;place-items:center;color:#737586;background:#eceef0;border-radius:999px;font-size:7px;font-weight:850}.rfa-journey-index.ready{color:#087a51;background:#dcfce7}.rfa-journey-icon{width:30px;height:30px;display:grid;place-items:center;color:var(--p);background:var(--ps);border-radius:8px}.rfa-journey-copy{min-width:0;display:grid;gap:1px}.rfa-journey-copy b,.rfa-journey-copy small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.rfa-journey-copy b{font-size:8px}.rfa-journey-copy small{color:var(--m);font-size:7px}.rfa-journey-arrow{display:grid;place-items:center;color:#b5b7bf}
+    .rfa-card-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important}.rfa-card-actions button{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:36px;padding:7px 8px;border:1px solid var(--line);border-radius:8px;cursor:pointer;font-size:8px;font-weight:700}.rfa-card-actions button.secondary{color:var(--ts);background:#fff}.rfa-card-actions button.secondary:hover{color:var(--p);border-color:#d6d7ff;background:#f8f8ff}
+    .rf-agents-v7 .rf-v6-editor-head p{max-width:680px;margin:4px 0 0;color:var(--m);font-size:8px;line-height:13px}.rfa-editor-flow{display:grid;grid-template-columns:minmax(0,1fr) 18px minmax(0,1fr) 18px minmax(0,1fr) 18px minmax(0,1fr);align-items:center;gap:5px;margin:0 0 14px;padding:10px;background:#f8f8fc;border:1px solid #e7e8ef;border-radius:11px}.rfa-editor-flow>svg{color:#b5b7c4}.rfa-editor-flow-item{min-width:0;display:flex;align-items:center;gap:7px;padding:8px;background:#fff;border:1px solid #e8e9ee;border-radius:8px}.rfa-editor-flow-item>span{width:28px;height:28px;display:grid;place-items:center;flex:0 0 28px;color:#7b7d88;background:#f0f1f3;border-radius:7px}.rfa-editor-flow-item.ready>span{color:var(--p);background:var(--ps)}.rfa-editor-flow-item>div{min-width:0;display:grid}.rfa-editor-flow-item small{color:var(--m);font-size:6px;text-transform:uppercase;letter-spacing:.06em}.rfa-editor-flow-item b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:7.5px}
+    .rfa-brain-section{padding:14px;margin:4px 0 14px;background:linear-gradient(180deg,#fbfbff,#fff);border:1px solid #dedff8;border-radius:12px}.rfa-script-grid{margin-top:9px}.rfa-memory-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.rfa-hours-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding-top:11px;margin-top:2px;border-top:1px solid #ececf4}.rfa-hours-head>div:first-child{display:grid;gap:2px}.rfa-hours-head>div:first-child span{color:var(--p);font-size:7px;font-weight:800;text-transform:uppercase;letter-spacing:.07em}.rfa-hours-head>div:first-child b{font-size:9px}.rfa-hours-head .rf-v6-field{min-width:250px;margin:0}.rfa-hours-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:9px}.rfa-hours-row{display:grid;grid-template-columns:58px 1fr 20px 1fr;align-items:center;gap:5px;padding:7px;background:#fff;border:1px solid var(--line);border-radius:8px}.rfa-hours-row>label{display:flex;align-items:center;gap:5px;font-size:7px}.rfa-hours-row>label input{margin:0}.rfa-hours-row>input{min-width:0;height:31px;padding:0 6px;background:#fff;border:1px solid var(--line);border-radius:6px;font-size:7px}.rfa-hours-row>span{text-align:center;color:var(--m);font-size:6px}.rfa-hours-row.closed{background:#f6f7f8}.rfa-hours-row.closed>input{opacity:.45}
+
+    @media(max-width:1220px){.rf-agents-v7{padding:26px 24px}.rfa-metrics{gap:14px}.rfa-agent-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.rfa-journey{grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}.rfa-journey-arrow{display:none}.rfa-journey-node{grid-template-columns:22px 1fr}.rfa-journey-icon{display:none}}
+    @media(max-width:900px){.rfa-metrics{grid-template-columns:repeat(2,1fr)}.rfa-journey{grid-template-columns:1fr 1fr}.rfa-journey-node:last-of-type{grid-column:1/-1}.rfa-editor-flow{grid-template-columns:1fr 1fr}.rfa-editor-flow>svg{display:none}.rfa-memory-grid,.rfa-hours-grid{grid-template-columns:1fr}.rfa-hours-head{align-items:stretch;flex-direction:column}.rfa-hours-head .rf-v6-field{min-width:0}.rfa-toolbar{align-items:flex-start;flex-direction:column}.rfa-toolbar-actions{width:100%}.rfa-search{width:auto;flex:1}.rfa-readiness-strip{align-items:flex-start;flex-direction:column}.rfa-readiness-links{width:100%;flex-wrap:wrap}.rf-agents-v7 .rf-v6-purpose-grid{grid-template-columns:1fr 1fr}.rf-agents-v7 .rf-v6-language-row{grid-template-columns:1fr 1fr}.rf-agents-v7 .rf-v6-language-row .rf-v6-field:last-child{grid-column:1/-1}}
+    @media(max-width:700px){.rf-agents-v7{padding:18px 14px 84px}.rfa-journey{grid-template-columns:1fr}.rfa-journey-node:last-of-type{grid-column:auto}.rfa-editor-flow{grid-template-columns:1fr}.rfa-hero{align-items:flex-start;flex-direction:column;padding:24px}.rfa-hero h1{font-size:26px;line-height:33px}.rfa-hero p{font-size:11px;line-height:17px}.rfa-create-agent{width:100%}.rfa-metrics{grid-template-columns:1fr;gap:8px}.rfa-metric{min-height:90px;padding:15px}.rfa-agent-grid{grid-template-columns:1fr}.rf-agents-v7 .rf-v6-modal-backdrop{padding:0;place-items:stretch}.rf-agents-v7 .rf-v6-agent-editor{width:100%;height:100%;max-height:none;border-radius:0}.rf-agents-v7 .rf-v6-form-grid.two,.rf-agents-v7 .rf-v6-permission-grid{grid-template-columns:1fr}}
     @media(max-width:520px){.rf-agents-v7{padding:16px 11px 84px}.rfa-toolbar-actions{display:grid;grid-template-columns:1fr 38px}.rfa-search{grid-column:1/-1;width:100%}.rfa-filter select{width:100%}.rfa-card-actions{grid-template-columns:1fr}.rfa-agent-card{padding:18px}.rf-agents-v7 .rf-v6-purpose-grid{grid-template-columns:1fr}.rf-agents-v7 .rf-v6-voice-grid{grid-template-columns:1fr}.rf-agents-v7 .rf-v6-language-row{grid-template-columns:1fr}.rf-agents-v7 .rf-v6-language-row .rf-v6-field:last-child{grid-column:auto}}
     @media(prefers-reduced-motion:reduce){.rf-agents-v7,.rfa-metric,.rfa-agent-card,.rfa-voice-art>i,.rfa-agent-card.skeleton i,.rf-agents-v7 .spin{animation:none!important}.rf-agents-v7 *{transition-duration:.01ms!important}}
   `}</style>;
