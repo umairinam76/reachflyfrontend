@@ -584,6 +584,22 @@ function AppRoutes() {
               }
             />
 
+            {/*
+             * Legacy AI Workforce URL.
+             * Keep old links/bookmarks working, but always resolve to the
+             * canonical Agents workspace instead of falling into the nested
+             * wildcard redirect.
+             */}
+            <Route
+              path="ai-workforce/*"
+              element={
+                <Navigate
+                  to="/app/agents"
+                  replace
+                />
+              }
+            />
+
             <Route
               path="agents"
               element={<VoiceAgentsRoute />}
@@ -855,7 +871,7 @@ function AppRoutes() {
               path="*"
               element={
                 <Navigate
-                  to={defaultDashboardPath}
+                  to={`/app/${defaultDashboardPath}`}
                   replace
                 />
               }
