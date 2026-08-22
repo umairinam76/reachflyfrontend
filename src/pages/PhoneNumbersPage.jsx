@@ -44,6 +44,8 @@ export default function PhoneNumbersPage() {
   const { user, initializing } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const mountedRef = useRef(true);
+  const checkoutPopupRef = useRef(null);
+  const checkoutWatchTokenRef = useRef(0);
 
   const [commerce, setCommerce] = useState(null);
   const [dashboard, setDashboard] = useState(null);
@@ -141,7 +143,67 @@ export default function PhoneNumbersPage() {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      checkoutWatchTokenRef.current += 1;
+      try {
+        if (checkoutPopupRef.current && !checkoutPopupRef.current.closed) {
+          checkoutPopupRef.current.close();
+        }
+      } catch {}
     };
+  }, []);
+
+  useEffect(() => {
+    const isCheckoutWindow = searchParams.get("checkoutWindow") === "1";
+    const payment = normalizeStatus(searchParams.get("numberPayment"));
+    if (!isCheckoutWindow || !payment || typeof window === "undefined" || !window.opener) {
+      return undefined;
+    }
+
+    const payload = {
+      type: "reachfly:number-checkout-return",
+      payment,
+      orderId: searchParams.get("order") || "",
+    };
+
+    try {
+      window.opener.postMessage(payload, window.location.origin);
+    } catch {}
+
+    const timer = window.setTimeout(() => {
+      try {
+        window.close();
+      } catch {}
+    }, 120);
+
+    return () => window.clearTimeout(timer);
+  }, [searchParams]);
+
+  useEffect(() => {
+    function handleCheckoutMessage(event) {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type !== "reachfly:number-checkout-return") return;
+
+      const payment = normalizeStatus(event.data?.payment);
+      if (payment === "cancelled") {
+        checkoutWatchTokenRef.current += 1;
+        closeCheckoutPopup(checkoutPopupRef);
+        setPaymentPolling(false);
+        setBuyingNumber("");
+        setPaymentIssue(null);
+        setMessage("");
+        setError("Business-number purchase was cancelled. No number was provisioned.");
+        notify("warning", "Number purchase cancelled", "No business number was provisioned.");
+        return;
+      }
+
+      if (payment === "success") {
+        setError("");
+        setMessage("Payment returned successfully. ReachFly is confirming the order and activating your business number.");
+      }
+    }
+
+    window.addEventListener("message", handleCheckoutMessage);
+    return () => window.removeEventListener("message", handleCheckoutMessage);
   }, []);
 
   useEffect(() => {
@@ -160,6 +222,9 @@ export default function PhoneNumbersPage() {
 
   useEffect(() => {
     if (initializing || !hasAccess) return undefined;
+    if (searchParams.get("checkoutWindow") === "1" && typeof window !== "undefined" && window.opener) {
+      return undefined;
+    }
 
     const payment = searchParams.get("numberPayment");
     const orderId = searchParams.get("order");
@@ -450,6 +515,116 @@ export default function PhoneNumbersPage() {
     }
   }
 
+  async function watchCheckoutOrder({ orderId, phoneNumber, popup }) {
+    if (!orderId) return;
+
+    const watchToken = checkoutWatchTokenRef.current + 1;
+    checkoutWatchTokenRef.current = watchToken;
+    let closedChecks = 0;
+
+    setPaymentPolling(true);
+    setPaymentIssue(null);
+    setError("");
+    setMessage("Secure checkout is open. ReachFly will update this page automatically when the payment processor responds.");
+
+    for (let attempt = 0; attempt < 180; attempt += 1) {
+      if (!mountedRef.current || checkoutWatchTokenRef.current !== watchToken) return;
+
+      try {
+        const response = await apiRequest(
+          `/voice-commerce/orders/${encodeURIComponent(orderId)}`,
+          { timeoutMs: 20_000 }
+        );
+        const order = response?.order || response;
+        const status = normalizeStatus(order?.status);
+
+        if (status === "active") {
+          checkoutWatchTokenRef.current += 1;
+          closeCheckoutPopup(checkoutPopupRef, popup);
+          setBuyingNumber("");
+          setPaymentPolling(false);
+          setPaymentIssue(null);
+          setError("");
+          const text = `${formatPhone(order?.phoneNumber || phoneNumber)} is active and linked to this workspace.`;
+          setMessage(text);
+          await loadData({ silent: true });
+          notify("success", "Business number activated", text);
+          return;
+        }
+
+        if (status === "payment_failed") {
+          checkoutWatchTokenRef.current += 1;
+          closeCheckoutPopup(checkoutPopupRef, popup);
+          setBuyingNumber("");
+          setPaymentPolling(false);
+          setMessage("");
+          setError("");
+          const issue = buildPaymentIssue(order);
+          setPaymentIssue(issue);
+          await loadData({ silent: true });
+          notify("warning", issue.title, issue.message);
+          return;
+        }
+
+        if (["provision_failed", "failure", "refund_review_required", "refunded"].includes(status)) {
+          checkoutWatchTokenRef.current += 1;
+          closeCheckoutPopup(checkoutPopupRef, popup);
+          setBuyingNumber("");
+          setPaymentPolling(false);
+          setPaymentIssue(null);
+          setMessage("");
+          const text = safeMessage(
+            order?.error ||
+              "Payment completed, but the business number could not be activated automatically. Retry provisioning or contact support."
+          );
+          setError(text);
+          await loadData({ silent: true });
+          notify("error", "Number activation needs attention", text);
+          return;
+        }
+      } catch (requestError) {
+        if (attempt >= 179) {
+          const text = safeMessage(
+            requestError?.message ||
+              "ReachFly could not confirm the payment status. Refresh this page before trying the purchase again."
+          );
+          setError(text);
+        }
+      }
+
+      let popupClosed = false;
+      try {
+        popupClosed = Boolean(popup?.closed);
+      } catch {}
+
+      if (popupClosed) {
+        closedChecks += 1;
+        if (closedChecks >= 8) {
+          checkoutWatchTokenRef.current += 1;
+          setBuyingNumber("");
+          setPaymentPolling(false);
+          await loadData({ silent: true });
+          setMessage(
+            "Checkout was closed before ReachFly received a successful payment. No number has been activated. You can retry when ready."
+          );
+          return;
+        }
+      } else {
+        closedChecks = 0;
+      }
+
+      await new Promise((resolve) => window.setTimeout(resolve, 2000));
+    }
+
+    if (checkoutWatchTokenRef.current === watchToken) {
+      checkoutWatchTokenRef.current += 1;
+      setBuyingNumber("");
+      setPaymentPolling(false);
+      setMessage("");
+      setError("Payment status is still pending. Refresh the page before starting another checkout.");
+    }
+  }
+
   async function buyNumber(item) {
     if (!quote?.quoteId || !item?.phoneNumber || buyingNumber) return;
 
@@ -468,6 +643,9 @@ export default function PhoneNumbersPage() {
     setError("");
     setMessage("");
 
+    const popup = openCheckoutPopup();
+    if (popup) checkoutPopupRef.current = popup;
+
     try {
       const response = await apiRequest("/voice-commerce/numbers/checkout", {
         method: "POST",
@@ -475,7 +653,7 @@ export default function PhoneNumbersPage() {
           quoteId: quote.quoteId,
           phoneNumber: item.phoneNumber,
           callingMode,
-          returnPath: buildCheckoutReturnPath({ searchForm, callingMode }),
+          returnPath: buildCheckoutReturnPath({ searchForm, callingMode, checkoutWindow: Boolean(popup) }),
         },
         timeoutMs: 30_000,
       });
@@ -484,13 +662,36 @@ export default function PhoneNumbersPage() {
         throw new Error("Secure business-number checkout could not be opened.");
       }
 
-      window.location.assign(response.checkoutUrl);
+      const orderId = response?.order?.id || response?.orderId || "";
+
+      if (!popup) {
+        window.location.assign(response.checkoutUrl);
+        return;
+      }
+
+      try {
+        popup.location.replace(response.checkoutUrl);
+        popup.focus();
+      } catch {
+        closeCheckoutPopup(checkoutPopupRef, popup);
+        window.location.assign(response.checkoutUrl);
+        return;
+      }
+
+      if (orderId) {
+        void watchCheckoutOrder({ orderId, phoneNumber: item.phoneNumber, popup });
+      } else {
+        setPaymentPolling(false);
+        setMessage("Secure checkout is open. Complete payment in the checkout window, then return here and refresh the number status.");
+      }
     } catch (requestError) {
+      closeCheckoutPopup(checkoutPopupRef, popup);
       const text = safeMessage(
         requestError?.message || "Business-number checkout could not be started."
       );
       setError(text);
       setBuyingNumber("");
+      setPaymentPolling(false);
       notify("error", "Checkout unavailable", text);
     }
   }
@@ -1954,10 +2155,48 @@ function avatarTone(value) {
   return tones[sum % tones.length];
 }
 
-function buildCheckoutReturnPath({ searchForm = {}, callingMode = "both" } = {}) {
+function openCheckoutPopup() {
+  if (typeof window === "undefined") return null;
+
+  const width = 520;
+  const height = 760;
+  const left = Math.max(0, Math.round(window.screenX + (window.outerWidth - width) / 2));
+  const top = Math.max(0, Math.round(window.screenY + (window.outerHeight - height) / 2));
+  const features = [
+    "popup=yes",
+    `width=${width}`,
+    `height=${height}`,
+    `left=${left}`,
+    `top=${top}`,
+    "resizable=yes",
+    "scrollbars=yes",
+  ].join(",");
+
+  const popup = window.open("", "reachfly-secure-number-checkout", features);
+  if (!popup) return null;
+
+  try {
+    popup.document.open();
+    popup.document.write(`<!doctype html><html><head><title>ReachFly secure checkout</title><meta name="viewport" content="width=device-width,initial-scale=1" /></head><body style="margin:0;background:#f7f7fa;color:#191c1d;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"><main style="min-height:100vh;display:grid;place-items:center;padding:24px"><section style="width:min(420px,100%);padding:24px;background:#fff;border:1px solid #e3e5e7;border-radius:16px;box-shadow:0 12px 36px rgba(25,28,29,.08);text-align:center"><div style="width:46px;height:46px;margin:0 auto 14px;display:grid;place-items:center;background:#e8e9ff;color:#4648d4;border-radius:12px;font-weight:800">RF</div><h1 style="margin:0;font-size:18px">Opening secure checkout…</h1><p style="margin:8px 0 0;color:#676777;font-size:13px;line-height:19px">ReachFly is preparing the payment processor. Keep this window open.</p></section></main></body></html>`);
+    popup.document.close();
+  } catch {}
+
+  return popup;
+}
+
+function closeCheckoutPopup(ref, popup = null) {
+  const target = popup || ref?.current || null;
+  try {
+    if (target && !target.closed) target.close();
+  } catch {}
+  if (ref) ref.current = null;
+}
+
+function buildCheckoutReturnPath({ searchForm = {}, callingMode = "both", checkoutWindow = false } = {}) {
   const params = new URLSearchParams();
   params.set("view", "buy");
   params.set("callingMode", normalizeMode(callingMode));
+  if (checkoutWindow) params.set("checkoutWindow", "1");
 
   const country = String(searchForm.countryCode || "").trim().toUpperCase();
   const area = String(searchForm.areaCode || "").replace(/\D/g, "").slice(0, 8);
