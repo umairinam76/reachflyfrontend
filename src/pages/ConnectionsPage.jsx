@@ -9,6 +9,9 @@ import {
 import QRCode from "qrcode";
 
 import {
+  ArrowRight,
+  Bot,
+  Brain,
   Calendar,
   CheckCircle2,
   ChevronRight,
@@ -16,11 +19,13 @@ import {
   Globe2,
   Mail,
   MessageCircle,
+  Phone,
   RefreshCw,
   Search,
   Settings,
   Shield,
   Sparkles,
+  Workflow,
   X,
 } from "../components/icons";
 
@@ -447,6 +452,16 @@ export default function ConnectionsPage() {
   const assignmentCounts = useMemo(
     () => buildAssignmentCounts(agents),
     [agents]
+  );
+
+  const agentCapabilityRows = useMemo(
+    () => agents.map((agent) => buildAgentCapabilityRow(agent, connections)),
+    [agents, connections]
+  );
+
+  const readyActionAgents = useMemo(
+    () => agentCapabilityRows.filter((row) => row.actionReady).length,
+    [agentCapabilityRows]
   );
 
   const integrationCards = useMemo(
@@ -1006,10 +1021,10 @@ export default function ConnectionsPage() {
         <header className="rfi-page-header">
           <div>
             <span className="rfi-eyebrow">Workspace</span>
-            <h1>Integration Marketplace</h1>
+            <h1>Agent capabilities & integrations</h1>
             <p>
-              Connect the accounts ReachFly can use for email, calendar booking,
-              messaging, and AI-assisted workflows.
+              Connect business systems once, then see exactly which AI agent can use
+              each capability for calls, follow-up, booking, and customer workflows.
             </p>
           </div>
 
@@ -1071,12 +1086,14 @@ export default function ConnectionsPage() {
             icon={<Globe2 size={16} />}
           />
           <SummaryMetric
-            label="Voice Agents"
+            label="AI Agents"
             value={metrics.agents}
-            note="Can use assigned connections"
+            note={`${readyActionAgents} ready for connected actions`}
             icon={<Sparkles size={16} />}
           />
         </section>
+
+        <AgentCapabilityJourney rows={agentCapabilityRows} />
 
         <section className="rfi-toolbar">
           <div className="rfi-filters">
@@ -1245,6 +1262,138 @@ export default function ConnectionsPage() {
         </section>
       </main>
     </>
+  );
+}
+
+function AgentCapabilityJourney({ rows }) {
+  if (!rows.length) {
+    return (
+      <section className="rfi-agent-journey empty">
+        <div className="rfi-agent-journey-head">
+          <div>
+            <span className="rfi-eyebrow">Connected journey</span>
+            <h2>Give an AI agent the tools it needs</h2>
+            <p>
+              Create an agent first, then connect its number, email, and booking calendar here.
+            </p>
+          </div>
+          <Link className="rfi-btn primary" to="/app/ai-workforce">
+            Create AI agent
+            <ArrowRight size={13} />
+          </Link>
+        </div>
+
+        <div className="rfi-journey-track muted">
+          <JourneyNode icon={<Bot size={16} />} label="AI Agent" value="Create agent" ready={false} />
+          <JourneyArrow />
+          <JourneyNode icon={<Brain size={16} />} label="Business Brain" value="Agent context" ready={false} />
+          <JourneyArrow />
+          <JourneyNode icon={<Phone size={16} />} label="Business Number" value="Inbound / outbound" ready={false} />
+          <JourneyArrow />
+          <JourneyNode icon={<Workflow size={16} />} label="Actions" value="Email + booking" ready={false} />
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="rfi-agent-journey">
+      <div className="rfi-agent-journey-head">
+        <div>
+          <span className="rfi-eyebrow">Connected journey</span>
+          <h2>What each AI agent can actually do</h2>
+          <p>
+            This is the live relationship between agent, business number, email, calendar,
+            and the actions available during a customer conversation.
+          </p>
+        </div>
+        <Link className="rfi-btn secondary" to="/app/ai-workforce">
+          Manage agents
+          <ChevronRight size={12} />
+        </Link>
+      </div>
+
+      <div className="rfi-agent-capability-list">
+        {rows.map((row) => (
+          <article className="rfi-agent-capability-row" key={row.id}>
+            <header>
+              <div className="rfi-agent-avatar">
+                <Bot size={16} />
+              </div>
+              <div className="rfi-agent-copy">
+                <strong>{row.name}</strong>
+                <span>{row.modeLabel}</span>
+              </div>
+              <span className={`rfi-agent-ready ${row.actionReady ? "ready" : "partial"}`}>
+                {row.actionReady ? "Action ready" : `${row.missing.length} setup item${row.missing.length === 1 ? "" : "s"}`}
+              </span>
+            </header>
+
+            <div className="rfi-journey-track compact">
+              <JourneyNode
+                icon={<Brain size={15} />}
+                label="Business Brain"
+                value={row.businessBrainReady ? "Context ready" : "Add business context"}
+                ready={row.businessBrainReady}
+              />
+              <JourneyArrow />
+              <JourneyNode
+                icon={<Phone size={15} />}
+                label="Business Number"
+                value={row.fromNumber || "Not assigned"}
+                ready={Boolean(row.fromNumber)}
+                mono={Boolean(row.fromNumber)}
+              />
+              <JourneyArrow />
+              <JourneyNode
+                icon={<Mail size={15} />}
+                label="Email follow-up"
+                value={row.emailLabel}
+                ready={row.emailReady}
+              />
+              <JourneyArrow />
+              <JourneyNode
+                icon={<Calendar size={15} />}
+                label="Booking"
+                value={row.calendarLabel}
+                ready={row.calendarReady}
+              />
+            </div>
+
+            <footer>
+              <span>
+                <Workflow size={12} />
+                {row.actionSummary}
+              </span>
+              <Link to={`/app/ai-workforce?agent=${encodeURIComponent(row.id)}`}>
+                Configure agent
+                <ChevronRight size={11} />
+              </Link>
+            </footer>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function JourneyNode({ icon, label, value, ready, mono = false }) {
+  return (
+    <div className={`rfi-journey-node ${ready ? "ready" : "missing"}`}>
+      <span>{ready ? <CheckCircle2 size={13} /> : icon}</span>
+      <div>
+        <small>{label}</small>
+        <strong className={mono ? "mono" : ""}>{value}</strong>
+      </div>
+    </div>
+  );
+}
+
+function JourneyArrow() {
+  return (
+    <span className="rfi-journey-arrow" aria-hidden="true">
+      <ArrowRight size={14} />
+    </span>
   );
 }
 
@@ -2361,6 +2510,73 @@ function normalizeAgents(value) {
   return [];
 }
 
+function buildAgentCapabilityRow(agent, connections) {
+  const id = firstString(agent.id, agent.agentId, agent.elevenLabsAgentId, agent.name) || "agent";
+  const name = firstString(agent.name, agent.displayName, agent.reachFlyName) || "ReachFly AI Agent";
+  const mode = normalizeStatus(agent.callingMode || agent.mode || "outbound");
+  const modeLabel = mode === "both"
+    ? "Inbound + outbound"
+    : mode === "inbound"
+      ? "Inbound"
+      : "Outbound";
+
+  const emailId = firstString(agent.emailConnectionId, agent.emailConnection?.id);
+  const calendarId = firstString(agent.calendarConnectionId, agent.calendarConnection?.id);
+  const emailConnection = connections.find((item) => String(item.id) === String(emailId));
+  const calendarConnection = connections.find((item) => String(item.id) === String(calendarId));
+
+  const emailReady = Boolean(emailId && emailConnection && isHealthyConnection(emailConnection));
+  const calendarReady = Boolean(calendarId && calendarConnection && isHealthyConnection(calendarConnection));
+  const fromNumber = firstString(agent.fromNumber, agent.phoneNumber, agent.number);
+  const businessBrainReady = Boolean(
+    firstString(
+      agent.businessKnowledge,
+      agent.businessMemory,
+      agent.systemPrompt,
+      agent.context,
+      agent.companyDescription,
+      agent.businessProfile?.summary
+    )
+  );
+
+  const sendEmail = agent.sendEmail === true || agent.permissions?.sendEmail === true || Boolean(emailId);
+  const bookMeeting = agent.bookMeeting === true || agent.permissions?.bookMeeting === true || Boolean(calendarId);
+  const missing = [];
+  if (!businessBrainReady) missing.push("Business Brain");
+  if (!fromNumber) missing.push("business number");
+  if (sendEmail && !emailReady) missing.push("email");
+  if (bookMeeting && !calendarReady) missing.push("calendar");
+
+  const actions = [];
+  if (sendEmail && emailReady) actions.push("send follow-up email");
+  if (bookMeeting && calendarReady) actions.push("book meetings");
+  if (mode === "inbound" || mode === "both") actions.push("handle inbound calls");
+  if (mode === "outbound" || mode === "both" || !mode) actions.push("run outbound calls");
+
+  return {
+    id,
+    name,
+    modeLabel,
+    fromNumber,
+    businessBrainReady,
+    emailReady,
+    calendarReady,
+    emailLabel: emailReady
+      ? firstString(emailConnection.accountEmail, emailConnection.label, "Connected")
+      : sendEmail
+        ? "Connection required"
+        : "Not enabled",
+    calendarLabel: calendarReady
+      ? firstString(calendarConnection.accountEmail, calendarConnection.label, "Connected")
+      : bookMeeting
+        ? "Connection required"
+        : "Not enabled",
+    actionReady: businessBrainReady && Boolean(fromNumber) && (!sendEmail || emailReady) && (!bookMeeting || calendarReady),
+    missing,
+    actionSummary: actions.length ? `Can ${actions.join(", ")}` : "Call handling is ready once capabilities are assigned",
+  };
+}
+
 function buildAssignmentCounts(agents) {
   const email = new Map();
   const calendar = new Map();
@@ -3098,6 +3314,224 @@ function ConnectionsStyles() {
       .rfi-summary-card > small{
         color:var(--rfi-muted);
         font-size:7px;
+      }
+
+      .rfi-agent-journey{
+        margin-bottom:14px;
+        padding:18px;
+        background:linear-gradient(135deg,#f8f8ff 0%,#ffffff 58%);
+        border:1px solid #dedff8;
+        border-radius:14px;
+        box-shadow:0 5px 18px rgba(70,72,212,.045);
+      }
+
+      .rfi-agent-journey.empty{
+        background:linear-gradient(135deg,#fbfbfd,#fff);
+        border-color:var(--rfi-line);
+      }
+
+      .rfi-agent-journey-head{
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:16px;
+        margin-bottom:14px;
+      }
+
+      .rfi-agent-journey-head h2{
+        margin:0;
+        color:var(--rfi-text);
+        font:600 18px/24px Geist,Inter,sans-serif;
+        letter-spacing:-.015em;
+      }
+
+      .rfi-agent-journey-head p{
+        max-width:760px;
+        margin:4px 0 0;
+        color:var(--rfi-muted);
+        font-size:9px;
+        line-height:15px;
+      }
+
+      .rfi-agent-capability-list{
+        display:grid;
+        gap:9px;
+      }
+
+      .rfi-agent-capability-row{
+        padding:12px;
+        background:#fff;
+        border:1px solid var(--rfi-line);
+        border-radius:11px;
+      }
+
+      .rfi-agent-capability-row > header{
+        display:grid;
+        grid-template-columns:32px minmax(0,1fr) auto;
+        align-items:center;
+        gap:9px;
+        margin-bottom:10px;
+      }
+
+      .rfi-agent-avatar{
+        width:32px;
+        height:32px;
+        display:grid;
+        place-items:center;
+        color:var(--rfi-primary);
+        background:var(--rfi-primary-soft);
+        border-radius:9px;
+      }
+
+      .rfi-agent-copy{
+        min-width:0;
+        display:grid;
+        gap:1px;
+      }
+
+      .rfi-agent-copy strong{
+        overflow:hidden;
+        color:var(--rfi-text);
+        font-size:10px;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+      }
+
+      .rfi-agent-copy span{
+        color:var(--rfi-muted);
+        font-size:7px;
+      }
+
+      .rfi-agent-ready{
+        padding:5px 7px;
+        border-radius:999px;
+        font-size:7px;
+        font-weight:800;
+        white-space:nowrap;
+      }
+
+      .rfi-agent-ready.ready{
+        color:var(--rfi-success);
+        background:var(--rfi-success-soft);
+      }
+
+      .rfi-agent-ready.partial{
+        color:var(--rfi-warning);
+        background:#fff0e8;
+      }
+
+      .rfi-journey-track{
+        display:grid;
+        grid-template-columns:minmax(0,1fr) 22px minmax(0,1fr) 22px minmax(0,1fr) 22px minmax(0,1fr);
+        align-items:stretch;
+        gap:5px;
+      }
+
+      .rfi-journey-track.muted{
+        opacity:.78;
+      }
+
+      .rfi-journey-node{
+        min-width:0;
+        display:grid;
+        grid-template-columns:28px minmax(0,1fr);
+        align-items:center;
+        gap:7px;
+        min-height:58px;
+        padding:8px;
+        border:1px solid var(--rfi-line);
+        border-radius:9px;
+        background:#fafafa;
+      }
+
+      .rfi-journey-node.ready{
+        border-color:#ccebdc;
+        background:#f5fcf8;
+      }
+
+      .rfi-journey-node.missing{
+        border-style:dashed;
+      }
+
+      .rfi-journey-node > span{
+        width:27px;
+        height:27px;
+        display:grid;
+        place-items:center;
+        color:var(--rfi-muted);
+        background:#fff;
+        border:1px solid #e7e8eb;
+        border-radius:8px;
+      }
+
+      .rfi-journey-node.ready > span{
+        color:var(--rfi-success);
+        background:var(--rfi-success-soft);
+        border-color:#ccebdc;
+      }
+
+      .rfi-journey-node > div{
+        min-width:0;
+        display:grid;
+        gap:2px;
+      }
+
+      .rfi-journey-node small{
+        color:var(--rfi-muted);
+        font-size:6px;
+        font-weight:750;
+        letter-spacing:.035em;
+        text-transform:uppercase;
+      }
+
+      .rfi-journey-node strong{
+        overflow:hidden;
+        color:var(--rfi-text2);
+        font-size:8px;
+        font-weight:700;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+      }
+
+      .rfi-journey-node strong.mono{
+        font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+        font-size:7px;
+      }
+
+      .rfi-journey-arrow{
+        display:grid;
+        place-items:center;
+        color:#b5b6c6;
+      }
+
+      .rfi-agent-capability-row > footer{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:10px;
+        margin-top:9px;
+        padding-top:9px;
+        border-top:1px solid #eef0f2;
+      }
+
+      .rfi-agent-capability-row > footer > span,
+      .rfi-agent-capability-row > footer > a{
+        display:inline-flex;
+        align-items:center;
+        gap:5px;
+        font-size:7px;
+        line-height:12px;
+      }
+
+      .rfi-agent-capability-row > footer > span{
+        color:var(--rfi-muted);
+      }
+
+      .rfi-agent-capability-row > footer > a{
+        color:var(--rfi-primary);
+        font-weight:750;
+        text-decoration:none;
+        white-space:nowrap;
       }
 
       .rfi-toolbar{
@@ -4281,6 +4715,13 @@ function ConnectionsStyles() {
         .rfi-card-actions{
           width:100%;
         }
+      }
+
+      @media(max-width:680px){
+        .rfi-agent-journey-head,.rfi-agent-capability-row > footer{align-items:stretch;flex-direction:column}
+        .rfi-journey-track{grid-template-columns:1fr}.rfi-journey-arrow{display:none}
+        .rfi-agent-capability-row > header{grid-template-columns:32px minmax(0,1fr)}
+        .rfi-agent-ready{grid-column:1/-1;justify-self:start}
       }
 
       @media(prefers-reduced-motion:reduce){

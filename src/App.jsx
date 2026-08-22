@@ -49,9 +49,6 @@ const CampaignList = lazy(() => import("./pages/CampaignList"));
 const CampaignCreate = lazy(() => import("./pages/CampaignCreate"));
 const CampaignDetail = lazy(() => import("./pages/CampaignDetail"));
 const PipelineBuilder = lazy(() => import("./pages/PipelineBuilder"));
-const EmailSetup = lazy(() => import("./pages/EmailSetup"));
-const WhatsAppSetup = lazy(() => import("./pages/WhatsAppSetup"));
-const ReachFlyAI = lazy(() => import("./pages/ReachFlyAI"));
 const WebsiteAudits = lazy(() => import("./pages/WebsiteAudits"));
 const Analytics = lazy(() => import("./pages/Analytics"));
 const Contacts = lazy(() => import("./pages/Contacts"));
@@ -77,6 +74,8 @@ const VoiceStartPage = lazy(() => import("./pages/VoiceStartPage"));
 const AIWorkforcePage = lazy(() => import("./pages/AIWorkforcePage"));
 const VoiceCommerceStorePage = lazy(() => import("./pages/VoiceCommerceStorePage"));
 const ConnectionsPage = lazy(() => import("./pages/ConnectionsPage"));
+const PhoneNumbersPage = lazy(() => import("./pages/PhoneNumbersPage"));
+const NicheOperations = lazy(() => import("./pages/NicheOperations"));
 
 import "./styles.css";
 
@@ -310,10 +309,7 @@ function AppRoutes() {
               path="phone-numbers"
               element={
                 <VoiceAgentRoute>
-                  <Navigate
-                    to="/app/voice-agent?tab=setup&view=my-numbers"
-                    replace
-                  />
+                  <PhoneNumbersPage />
                 </VoiceAgentRoute>
               }
             />
@@ -331,6 +327,42 @@ function AppRoutes() {
             />
 
             <Route
+              path="inbound"
+              element={
+                <VoiceAgentRoute>
+                  <Navigate
+                    to="/app/voice-agent?tab=calls&view=active-calls&direction=inbound"
+                    replace
+                  />
+                </VoiceAgentRoute>
+              }
+            />
+
+            <Route
+              path="outbound"
+              element={
+                <VoiceAgentRoute>
+                  <Navigate
+                    to="/app/voice-agent?tab=calls&view=active-calls&direction=outbound"
+                    replace
+                  />
+                </VoiceAgentRoute>
+              }
+            />
+
+            <Route
+              path="call-history"
+              element={
+                <VoiceAgentRoute>
+                  <Navigate
+                    to="/app/voice-agent?tab=calls&view=call-history"
+                    replace
+                  />
+                </VoiceAgentRoute>
+              }
+            />
+
+            <Route
               path="dialer"
               element={<DialerRoute />}
             />
@@ -338,9 +370,9 @@ function AppRoutes() {
             <Route
               path="integrations"
               element={
-                <WorkspaceManagementRoute>
+                <VoiceAgentRoute>
                   <ConnectionsPage />
-                </WorkspaceManagementRoute>
+                </VoiceAgentRoute>
               }
             />
 
@@ -537,10 +569,9 @@ function AppRoutes() {
             <Route
               path="operations"
               element={
-                <Navigate
-                  to="/app/role-operations"
-                  replace
-                />
+                <VoiceAgentRoute>
+                  <NicheOperations />
+                </VoiceAgentRoute>
               }
             />
 
@@ -555,11 +586,7 @@ function AppRoutes() {
 
             <Route
               path="agents"
-              element={
-                <WorkspaceManagementRoute>
-                  <AIWorkforcePage />
-                </WorkspaceManagementRoute>
-              }
+              element={<VoiceAgentsRoute />}
             />
 
             <Route
@@ -574,9 +601,9 @@ function AppRoutes() {
             <Route
               path="connections"
               element={
-                <WorkspaceManagementRoute>
-                  <ConnectionsPage />
-                </WorkspaceManagementRoute>
+                <VoiceAgentRoute>
+                  <PreserveSearchRedirect to="/app/integrations" />
+                </VoiceAgentRoute>
               }
             />
 
@@ -684,30 +711,27 @@ function AppRoutes() {
             <Route
               path="email"
               element={
-                <WorkspaceManagementRoute>
-                  <EmailSetup />
-                </WorkspaceManagementRoute>
+                <VoiceAgentRoute>
+                  <PreserveSearchRedirect to="/app/integrations" />
+                </VoiceAgentRoute>
               }
             />
 
             <Route
               path="email-setup"
               element={
-                <WorkspaceManagementRoute>
-                  <Navigate
-                    to="/app/email"
-                    replace
-                  />
-                </WorkspaceManagementRoute>
+                <VoiceAgentRoute>
+                  <PreserveSearchRedirect to="/app/integrations" />
+                </VoiceAgentRoute>
               }
             />
 
             <Route
               path="whatsapp"
               element={
-                <WorkspaceManagementRoute>
-                  <WhatsAppSetup />
-                </WorkspaceManagementRoute>
+                <VoiceAgentRoute>
+                  <PreserveSearchRedirect to="/app/integrations" />
+                </VoiceAgentRoute>
               }
             />
 
@@ -717,9 +741,9 @@ function AppRoutes() {
             <Route
               path="ai"
               element={
-                <WorkspaceManagementRoute>
-                  <ReachFlyAI />
-                </WorkspaceManagementRoute>
+                <ManagerOnlyRoute>
+                  <PreserveSearchRedirect to="/app/audits" />
+                </ManagerOnlyRoute>
               }
             />
 

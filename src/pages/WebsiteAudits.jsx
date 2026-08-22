@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowRight,
+  Bot,
   Brain,
   Check,
   CheckCircle2,
@@ -12,6 +13,8 @@ import {
   FileText,
   Globe2,
   Loader2,
+  Megaphone,
+  PhoneCall,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -71,6 +74,7 @@ export default function WebsiteAudits() {
   const [reports, setReports] = useState([]);
   const [profile, setProfile] = useState(DEFAULT_PROFILE);
   const [workspaceSettings, setWorkspaceSettings] = useState({});
+  const [voiceDashboard, setVoiceDashboard] = useState(null);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [activeLeadId, setActiveLeadId] = useState("");
   const [leadSearch, setLeadSearch] = useState("");
@@ -90,10 +94,11 @@ export default function WebsiteAudits() {
     if (!silent) setLoading(true);
 
     try {
-      const [leadPayload, reportPayload, settingsPayload] = await Promise.all([
+      const [leadPayload, reportPayload, settingsPayload, voicePayload] = await Promise.all([
         request("/api/leads/scraped?limit=5000"),
         request("/api/lead-audits"),
         api.appSettings().catch(() => ({})),
+        api.voiceAgentDashboard().catch(() => null),
       ]);
 
       const nextLeads = normalizeLeads(leadPayload);
@@ -103,6 +108,7 @@ export default function WebsiteAudits() {
       setLeads(nextLeads);
       setReports(nextReports);
       setWorkspaceSettings(nextSettings);
+      setVoiceDashboard(voicePayload || null);
       setProfile(buildInitialProfile(nextSettings?.auditProfile, user));
 
       restoreSelection({
@@ -275,6 +281,30 @@ export default function WebsiteAudits() {
     };
   }, [enrichedLeads]);
 
+  const voiceAgents = useMemo(() => normalizeVoiceAgents(voiceDashboard), [voiceDashboard]);
+
+  const outboundAgents = useMemo(
+    () =>
+      voiceAgents.filter((agent) => {
+        const mode = normalizeStatus(agent?.callingMode || agent?.mode || "outbound");
+        return mode === "outbound" || mode === "both";
+      }),
+    [voiceAgents]
+  );
+
+  const linkedAgent = outboundAgents.find((agent) => agent?.fromNumber) || outboundAgents[0] || null;
+
+  const journeyState = useMemo(
+    () => ({
+      selected: selectedAuditable.length,
+      completed: stats.completed,
+      pending: stats.pending,
+      agent: linkedAgent,
+      agentCount: outboundAgents.length,
+    }),
+    [selectedAuditable.length, stats.completed, stats.pending, linkedAgent, outboundAgents.length]
+  );
+
   const liveMiniAudits = useMemo(() => {
     const pending = enrichedLeads
       .filter((item) => item.mini && ["queued", "generating"].includes(normalizeStatus(item.mini.status)))
@@ -413,7 +443,7 @@ export default function WebsiteAudits() {
       setNotice({
         type: "warning",
         title: "Select leads first",
-        message: "Choose one or more leads from the list before running Claude audits.",
+        message: "Choose one or more leads from the list before running ReachFly AI audits.",
       });
       return;
     }
@@ -456,7 +486,7 @@ export default function WebsiteAudits() {
 
       setNotice({
         type: "success",
-        title: "Claude audits started",
+        title: "ReachFly AI audits started",
         message: `${accepted.toLocaleString()} lead${
           accepted === 1 ? "" : "s"
         } queued. Audit fit and pitch context will update here automatically.`,
@@ -467,7 +497,7 @@ export default function WebsiteAudits() {
         title: "Audit launch failed",
         message:
           requestError?.message ||
-          "ReachFly could not start the selected Claude audits.",
+          "ReachFly could not start the selected AI audits.",
       });
     } finally {
       setRunning(false);
@@ -533,13 +563,13 @@ export default function WebsiteAudits() {
           <div>
             <span className="rf-audit-kicker">
               <Brain size={14} />
-              Claude lead intelligence
+              ReachFly AI lead intelligence
             </span>
             <h1>Audit leads for fit, relevance and a better sales conversation.</h1>
             <p>
               ReachFly compares each prospect against your business niche, ideal
               customer and offer, then turns verified public evidence into private
-              pitch context for AI Voice and your sales team.
+              context that follows the lead into your AI agent and outbound campaign.
             </p>
           </div>
 
@@ -593,9 +623,11 @@ export default function WebsiteAudits() {
           </div>
         ) : null}
 
+        <AuditJourney state={journeyState} />
+
         <section className="rf-audit-stat-grid">
           <AuditStat label="Saved leads" value={stats.total} detail="Workspace lead archive" />
-          <AuditStat label="Audit ready" value={stats.completed} detail="Claude reports completed" />
+          <AuditStat label="Audit ready" value={stats.completed} detail="AI reports completed" />
           <AuditStat label="High fit" value={stats.highFit} detail="Commercial alignment ≥ 70" />
           <AuditStat
             label="Average fit"
@@ -620,7 +652,7 @@ export default function WebsiteAudits() {
             <span>
               <b>Your audit definition</b>
               <small>
-                These fields tell Claude what your business sells and what “fit” means for this workspace.
+                These fields tell ReachFly AI what your business sells and what “fit” means for this workspace.
               </small>
             </span>
             <ChevronDown size={18} className={profileOpen ? "rotated" : ""} />
@@ -665,7 +697,7 @@ export default function WebsiteAudits() {
                   label="Mini audit direction"
                   value={profile.miniAuditDirection}
                   onChange={(value) => updateProfile("miniAuditDirection", value)}
-                  placeholder="Tell Claude what to prioritize in the one-page pre-call mini audit."
+                  placeholder="Tell ReachFly AI what to prioritize in the one-page pre-call mini audit."
                   textarea
                   full
                 />
@@ -677,7 +709,7 @@ export default function WebsiteAudits() {
                   full
                 />
                 <AuditField
-                  label="Private instructions for Claude"
+                  label="Private AI audit instructions"
                   value={profile.customInstructions}
                   onChange={(value) => updateProfile("customInstructions", value)}
                   placeholder="Prioritize missed-call handling and online booking friction. Avoid generic SEO pitches."
@@ -689,7 +721,7 @@ export default function WebsiteAudits() {
               <div className="rf-audit-criteria">
                 <div>
                   <b>Predefined audit fields</b>
-                  <small>Select what Claude should evaluate for every lead.</small>
+                  <small>Select what ReachFly AI should evaluate for every lead.</small>
                 </div>
 
                 <div className="rf-audit-criteria-grid">
@@ -716,7 +748,7 @@ export default function WebsiteAudits() {
                   <span>
                     Mini Audits use the same evidence-first mindset as the Website Audit:
                     verified public findings first, then <b>commercial alignment</b> against your niche,
-                    pain points and offer. Claude must not invent prospect interest.
+                    pain points and offer. ReachFly AI must not invent prospect interest.
                   </span>
                 </div>
 
@@ -875,7 +907,7 @@ export default function WebsiteAudits() {
                   <Brain size={28} />
                   <h2>Select a lead to review its pitch audit.</h2>
                   <p>
-                    ReachFly keeps the audit attached to the prospect so AI Voice can
+                    ReachFly keeps the audit attached to the prospect so your AI agent can
                     use the same verified context during outbound conversations.
                   </p>
                 </div>
@@ -885,6 +917,107 @@ export default function WebsiteAudits() {
         )}
       </main>
     </>
+  );
+}
+
+function AuditJourney({ state }) {
+  const selected = Number(state?.selected || 0);
+  const completed = Number(state?.completed || 0);
+  const pending = Number(state?.pending || 0);
+  const agent = state?.agent || null;
+  const agentCount = Number(state?.agentCount || 0);
+  const agentName = String(agent?.name || agent?.agentName || "").trim();
+  const agentNumber = String(agent?.fromNumber || agent?.phoneNumber || "").trim();
+
+  const steps = [
+    {
+      icon: Users,
+      title: "Choose leads",
+      detail: selected ? `${selected} ready to audit` : "Select leads from your workspace",
+      ready: selected > 0,
+    },
+    {
+      icon: Sparkles,
+      title: "ReachFly AI audit",
+      detail: pending ? `${pending} processing live` : completed ? `${completed} reports ready` : "Verified evidence + fit",
+      ready: completed > 0 || pending > 0,
+    },
+    {
+      icon: Brain,
+      title: "Private lead context",
+      detail: "Opener, needs, evidence and pitch angles",
+      ready: completed > 0,
+    },
+    {
+      icon: Bot,
+      title: "AI agent",
+      detail: agent
+        ? `${agentName || "Outbound agent"}${agentNumber ? ` · ${agentNumber}` : ""}`
+        : agentCount
+          ? `${agentCount} outbound agent${agentCount === 1 ? "" : "s"} available`
+          : "Create an outbound-capable agent",
+      ready: Boolean(agent),
+      href: "/app/agents",
+    },
+    {
+      icon: Megaphone,
+      title: "Campaign",
+      detail: agent ? "Use the same agent + audit context" : "Connect an agent first",
+      ready: Boolean(agent && completed > 0),
+      href: agent ? "/app/campaigns/new" : "/app/agents",
+    },
+  ];
+
+  return (
+    <section className="rf-audit-journey">
+      <div className="rf-audit-journey-head">
+        <div>
+          <span><Zap size={13} /> Connected journey</span>
+          <b>One lead context, carried from audit into the call.</b>
+          <small>No separate AI-provider connection is required on this screen.</small>
+        </div>
+        <Link className="rf-audit-journey-link" to={agent ? "/app/campaigns/new" : "/app/agents"}>
+          {agent ? "Build campaign" : "Connect AI agent"}
+          <ArrowRight size={13} />
+        </Link>
+      </div>
+
+      <div className="rf-audit-journey-track">
+        {steps.map((step, index) => {
+          const Icon = step.icon;
+          const content = (
+            <>
+              <span className={`rf-audit-journey-icon ${step.ready ? "ready" : ""}`}>
+                {step.ready ? <Check size={14} /> : <Icon size={14} />}
+              </span>
+              <span className="rf-audit-journey-copy">
+                <b>{step.title}</b>
+                <small>{step.detail}</small>
+              </span>
+              {index < steps.length - 1 ? <ArrowRight className="rf-audit-journey-arrow" size={14} /> : null}
+            </>
+          );
+
+          return step.href ? (
+            <Link key={step.title} to={step.href} className={`rf-audit-journey-step ${step.ready ? "ready" : ""}`}>
+              {content}
+            </Link>
+          ) : (
+            <div key={step.title} className={`rf-audit-journey-step ${step.ready ? "ready" : ""}`}>
+              {content}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="rf-audit-journey-foot">
+        <ShieldCheck size={14} />
+        <span>Audit evidence stays private to your workspace and is passed to the agent only as call context.</span>
+        <span className="rf-audit-journey-foot-sep" />
+        <PhoneCall size={14} />
+        <span>{agent ? "Outbound agent connection detected." : "Create or configure an outbound agent to finish the handoff."}</span>
+      </div>
+    </section>
   );
 }
 
@@ -930,7 +1063,7 @@ function LiveMiniAuditStream({ items, onOpen, running }) {
                   <b>{leadName(item.lead)}</b>
                   <small>
                     {status === "generating"
-                      ? "Claude is auditing public evidence…"
+                      ? "ReachFly AI is auditing public evidence…"
                       : status === "queued"
                         ? "Waiting for audit worker…"
                         : Number.isFinite(score)
@@ -1067,7 +1200,7 @@ function LeadAuditDetail({
           <div>
             <b>A public website is required for this audit path.</b>
             <p>
-              This lead can remain in ReachFly, but Claude needs a public site before
+              This lead can remain in ReachFly, but the AI audit needs a public site before
               this evidence-grounded pitch audit can run.
             </p>
           </div>
@@ -1082,14 +1215,14 @@ function LeadAuditDetail({
           </p>
           <button type="button" className="rf-audit-btn primary" onClick={onRun}>
             <Sparkles size={15} />
-            Run Claude audit
+            Run AI audit
           </button>
         </div>
       ) : ["queued", "generating"].includes(reportStatus) ? (
         <div className="rf-audit-processing">
           <Loader2 size={25} className="spin" />
           <div>
-            <b>{reportStatus === "queued" ? "Audit queued" : "Claude is building the audit"}</b>
+            <b>{reportStatus === "queued" ? "Audit queued" : "ReachFly AI is building the audit"}</b>
             <p>
               ReachFly is checking public evidence and converting the verified findings
               into internal pitch context.
@@ -1232,12 +1365,13 @@ function LeadAuditDetail({
           <section className="rf-audit-agent-context">
             <Brain size={18} />
             <div>
-              <b>Automatically available to the AI sales agent</b>
+              <b>Automatically available to the linked AI agent</b>
               <p>
                 ReachFly matches the completed audit to this lead by workspace and
-                website. The Voice Agent receives the opener, alignment, strongest
-                findings and pitch angles as private context. It is instructed not to
-                expose the audit mechanics or pretend the prospect already showed interest.
+                website. The linked AI agent receives the opener, alignment, strongest
+                findings and pitch angles as private context when the lead is called.
+                It is instructed not to expose audit mechanics or pretend the prospect
+                already showed interest.
               </p>
             </div>
           </section>
@@ -1362,6 +1496,18 @@ function sanitizeProfile(value = {}) {
     customInstructions: String(value.customInstructions || "").trim().slice(0, 1600),
     criteria,
   };
+}
+
+function normalizeVoiceAgents(payload) {
+  const source = Array.isArray(payload?.agents)
+    ? payload.agents
+    : payload?.agent
+      ? [payload.agent]
+      : Array.isArray(payload)
+        ? payload
+        : [];
+
+  return source.filter(Boolean);
 }
 
 function normalizeLeads(payload) {
@@ -1541,6 +1687,9 @@ const AUDIT_WORKSPACE_CSS = `
 .rf-audit-notice.success{background:#f5fcf8;border-color:#d9efe1}.rf-audit-notice.success>span{background:#e8f8ef;color:#238b59}
 .rf-audit-notice.warning{background:#fffbf3;border-color:#f2e0b9}.rf-audit-notice.warning>span{background:#fff2d5;color:#a16a08}
 .rf-audit-notice.error{background:#fff7f7;border-color:#f1d7d7}.rf-audit-notice.error>span{background:#fdeaea;color:#b74848}
+.rf-audit-journey{margin:0 0 12px;border:1px solid #dfdff8;border-radius:14px;background:linear-gradient(135deg,#fafaff 0%,#fff 62%,#f6fbff 100%);overflow:hidden;box-shadow:0 8px 24px rgba(63,65,156,.04)}
+.rf-audit-journey-head{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 14px;border-bottom:1px solid #ececf6}.rf-audit-journey-head>div>span{display:inline-flex;align-items:center;gap:5px;color:#5557db;font-size:8px;font-weight:850;letter-spacing:.06em;text-transform:uppercase}.rf-audit-journey-head b,.rf-audit-journey-head small{display:block}.rf-audit-journey-head b{margin-top:3px;color:#2f313a;font-size:11px}.rf-audit-journey-head small{margin-top:2px;color:#858894;font-size:8px}.rf-audit-journey-link{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:0 10px;border:1px solid #d9dafb;border-radius:8px;background:#fff;color:#5557db;text-decoration:none;font-size:8px;font-weight:800;white-space:nowrap}.rf-audit-journey-link:hover{border-color:#bfc1ff;transform:translateY(-1px)}
+.rf-audit-journey-track{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:10px;background:rgba(255,255,255,.62)}.rf-audit-journey-step{position:relative;display:grid;grid-template-columns:30px minmax(0,1fr);align-items:center;gap:8px;min-height:54px;padding:7px 22px 7px 7px;border-radius:9px;color:#555862;text-decoration:none;transition:.16s ease}.rf-audit-journey-step:hover{background:#fff}.rf-audit-journey-step.ready{background:rgba(245,252,248,.75)}.rf-audit-journey-icon{width:28px;height:28px;display:grid;place-items:center;border-radius:8px;border:1px solid #e1e2e8;background:#fff;color:#8a8d98}.rf-audit-journey-icon.ready{border-color:#cdebd9;background:#eaf8f0;color:#24865a}.rf-audit-journey-copy{min-width:0}.rf-audit-journey-copy b,.rf-audit-journey-copy small{display:block;overflow:hidden;text-overflow:ellipsis}.rf-audit-journey-copy b{font-size:8px;color:#3b3e47;white-space:nowrap}.rf-audit-journey-copy small{margin-top:2px;color:#90939e;font-size:7px;line-height:1.35}.rf-audit-journey-arrow{position:absolute;right:3px;color:#c8cad2}.rf-audit-journey-foot{display:flex;align-items:center;gap:6px;padding:8px 12px;border-top:1px solid #efeff5;background:#fcfcfe;color:#7d808c;font-size:7px;line-height:1.4}.rf-audit-journey-foot svg{flex:0 0 auto;color:#5557db}.rf-audit-journey-foot-sep{width:1px;height:12px;margin:0 4px;background:#dddfe6}
 .rf-audit-stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px}
 .rf-audit-stat{
   min-height:88px;padding:14px 15px;border:1px solid #e8e9ed;border-radius:12px;background:#fff;box-shadow:0 7px 20px rgba(29,31,41,.035)
@@ -1627,11 +1776,13 @@ const AUDIT_WORKSPACE_CSS = `
 .rf-audit-skeleton aside,.rf-audit-skeleton section{min-height:620px;background:linear-gradient(90deg,#f4f4f6,#fff,#f4f4f6);background-size:220%;animation:rfAuditShimmer 1.2s infinite}@keyframes rfAuditShimmer{to{background-position:-220% 0}}
 .rf-audit-muted{padding:12px;color:#9698a2;font-size:8px}
 @media(max-width:1050px){
+  .rf-audit-journey-track{grid-template-columns:repeat(3,minmax(0,1fr))}.rf-audit-journey-arrow{display:none}
   .rf-audit-live-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
   .rf-audit-profile-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
   .rf-audit-criteria-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media(max-width:820px){
+  .rf-audit-journey-head{align-items:flex-start;flex-direction:column}.rf-audit-journey-track{grid-template-columns:repeat(2,minmax(0,1fr))}.rf-audit-journey-link{width:100%;justify-content:center}
   .rf-audit-intel__hero{align-items:stretch;flex-direction:column}
   .rf-audit-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .rf-audit-workspace{grid-template-columns:1fr}
@@ -1640,6 +1791,7 @@ const AUDIT_WORKSPACE_CSS = `
   .rf-audit-profile-footer{align-items:stretch;flex-direction:column}
 }
 @media(max-width:620px){
+  .rf-audit-journey-track{grid-template-columns:1fr}.rf-audit-journey-foot{align-items:flex-start;flex-wrap:wrap}.rf-audit-journey-foot-sep{display:none}
   .rf-audit-intel__hero h1{font-size:25px}
   .rf-audit-live-strip{grid-template-columns:1fr}
   .rf-audit-live-stream-head{align-items:flex-start;flex-direction:column}

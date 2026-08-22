@@ -24,6 +24,7 @@ import {
   BarChart3,
   Bell,
   Bot,
+  Brain,
   Building2,
   Calendar,
   CheckCircle2,
@@ -540,9 +541,7 @@ export default function AppShell() {
         items: [
           {
             label: isCaller ? "My Leads" : "Find Leads",
-            to: isCaller
-              ? "/app/my-leads"
-              : "/app/leads?view=discover",
+            to: isCaller ? "/app/my-leads" : "/app/leads?view=discover",
             icon: Target,
             ...(isCaller
               ? { matchPrefixes: ["/app/my-leads"] }
@@ -562,18 +561,10 @@ export default function AppShell() {
             visible: !isCaller && canManageCampaigns,
           },
           {
-            label: "External Leads",
-            to: "/app/leads?view=external",
-            icon: Building2,
-            matchQuery: { view: "external" },
-            queryPathPrefix: "/app/leads",
-            visible: !isCaller && canManageCampaigns,
-          },
-          {
             label: "AI Audits",
-            to: "/app/ai",
+            to: "/app/audits",
             icon: Sparkles,
-            matchPrefix: "/app/ai",
+            matchPrefixes: ["/app/audits", "/app/website-audits", "/app/ai-audits"],
             visible: canManageWorkspace,
             creditGated: true,
           },
@@ -601,15 +592,11 @@ export default function AppShell() {
             label: "Live Calls",
             to: "/app/voice-agent?tab=calls&view=active-calls&direction=outbound",
             icon: Phone,
-            matchQuery: { tab: "calls", view: "active-calls", direction: "outbound" },
-            queryPathPrefix: "/app/voice-agent",
-            visible: canUseVoiceAgent,
-          },
-          {
-            label: "Meetings",
-            to: "/app/voice-agent?tab=meetings&view=upcoming&direction=outbound",
-            icon: Calendar,
-            matchQuery: { tab: "meetings", direction: "outbound" },
+            matchQuery: {
+              tab: "calls",
+              view: "active-calls",
+              direction: "outbound",
+            },
             queryPathPrefix: "/app/voice-agent",
             visible: canUseVoiceAgent,
           },
@@ -619,18 +606,21 @@ export default function AppShell() {
         label: "Inbound",
         items: [
           {
-            label: "Inbound Agent",
-            to: "/app/voice-agent?tab=setup&view=calling&direction=inbound",
-            icon: Bot,
-            matchQuery: { tab: "setup", direction: "inbound" },
-            queryPathPrefix: "/app/voice-agent",
+            label: "Inbound Overview",
+            to: "/app/voice-start",
+            icon: Building2,
+            matchPrefix: "/app/voice-start",
             visible: canUseVoiceAgent,
           },
           {
             label: "Live Calls",
             to: "/app/voice-agent?tab=calls&view=active-calls&direction=inbound",
             icon: Phone,
-            matchQuery: { tab: "calls", view: "active-calls", direction: "inbound" },
+            matchQuery: {
+              tab: "calls",
+              view: "active-calls",
+              direction: "inbound",
+            },
             queryPathPrefix: "/app/voice-agent",
             visible: canUseVoiceAgent,
           },
@@ -638,29 +628,18 @@ export default function AppShell() {
             label: "Call History",
             to: "/app/voice-agent?tab=calls&view=call-history&direction=inbound",
             icon: Clock3,
-            matchQuery: { tab: "calls", view: "call-history", direction: "inbound" },
+            matchQuery: {
+              tab: "calls",
+              view: "call-history",
+              direction: "inbound",
+            },
             queryPathPrefix: "/app/voice-agent",
-            visible: canUseVoiceAgent,
-          },
-          {
-            label: "Meetings",
-            to: "/app/voice-agent?tab=meetings&view=upcoming&direction=inbound",
-            icon: Calendar,
-            matchQuery: { tab: "meetings", direction: "inbound" },
-            queryPathPrefix: "/app/voice-agent",
-            visible: canUseVoiceAgent,
-          },
-          {
-            label: operationsLabel,
-            to: "/app/operations?direction=inbound",
-            icon: Workflow,
-            matchPrefix: "/app/operations",
             visible: canUseVoiceAgent,
           },
         ],
       },
       {
-        label: "Communication",
+        label: "Conversations",
         items: [
           {
             label: "Inbox",
@@ -671,40 +650,49 @@ export default function AppShell() {
             matchPrefix: "/app/inbox",
             visible: canViewInbox,
           },
+        ],
+      },
+      {
+        label: "AI Workforce",
+        items: [
           {
-            label: "Email",
-            to: "/app/email",
-            icon: Mail,
-            matchPrefix: "/app/email",
-            visible: canManageWorkspace,
+            label: "Agents",
+            to: "/app/agents",
+            icon: Bot,
+            matchPrefixes: ["/app/agents", "/app/voice-agents"],
+            visible: canUseVoiceAgent,
           },
           {
-            label: "WhatsApp",
-            to: "/app/whatsapp",
-            icon: MessageCircle,
-            matchPrefix: "/app/whatsapp",
-            visible: canManageWorkspace,
+            label: "Setup & Readiness",
+            to: "/app/voice-start",
+            icon: CheckCircle2,
+            matchPrefix: "/app/voice-start",
+            visible: canUseVoiceAgent,
+          },
+          {
+            label: "Business Numbers",
+            to: "/app/phone-numbers",
+            icon: Phone,
+            matchPrefixes: ["/app/phone-numbers"],
+            visible: canUseVoiceAgent,
           },
         ],
       },
       {
-        label: "Voice Setup",
+        label: "Operations",
         items: [
           {
-            label: "Voice Agents",
-            to: "/app/voice-agents",
-            icon: Bot,
-            matchPrefixes: ["/app/voice-agents", "/app/agents"],
+            label: operationsLabel,
+            to: "/app/operations",
+            icon: Workflow,
+            matchPrefix: "/app/operations",
             visible: canUseVoiceAgent,
           },
           {
-            label: "Phone Numbers",
-            to: "/app/voice-agent?tab=setup&view=my-numbers",
-            icon: Building2,
-            matchQuery: {
-              tab: ["setup", null],
-              view: ["my-numbers", "buy-numbers", "connect-number"],
-            },
+            label: "Meetings",
+            to: "/app/voice-agent?tab=meetings&view=upcoming",
+            icon: Calendar,
+            matchQuery: { tab: "meetings" },
             queryPathPrefix: "/app/voice-agent",
             visible: canUseVoiceAgent,
           },
@@ -743,18 +731,24 @@ export default function AppShell() {
             visible: true,
           },
           {
+            label: "Integrations",
+            to: "/app/integrations",
+            icon: Zap,
+            matchPrefixes: [
+              "/app/integrations",
+              "/app/connections",
+              "/app/email",
+              "/app/email-setup",
+              "/app/whatsapp",
+            ],
+            visible: canManageWorkspace,
+          },
+          {
             label: "Billing",
             to: "/app/billing",
             icon: BarChart3,
             matchPrefix: "/app/billing",
             visible: canManageCompanySettings || isIndividualAccount,
-          },
-          {
-            label: "Integrations",
-            to: "/app/connections",
-            icon: Zap,
-            matchPrefix: "/app/connections",
-            visible: canManageWorkspace,
           },
           {
             label: "Settings",
@@ -839,50 +833,48 @@ export default function AppShell() {
     () =>
       [
         {
+          label: "Create AI Agent",
+          description: "Create an inbound, outbound, or dual-mode AI agent",
+          icon: Bot,
+          to: "/app/agents",
+          visible: canUseVoiceAgent,
+        },
+        {
+          label: "Connect Business Number",
+          description: "Assign a business line to the right AI agent",
+          icon: Phone,
+          to: "/app/phone-numbers",
+          visible: canUseVoiceAgent,
+        },
+        {
           label: "Find Leads",
-          description: "Discover prospects and build a list",
+          description: "Discover prospects and build an outbound audience",
           icon: Target,
-          to: isCaller
-            ? "/app/my-leads"
-            : "/app/leads?view=discover",
+          to: isCaller ? "/app/my-leads" : "/app/leads?view=discover",
           visible: isCaller || canManageCampaigns,
           creditGated: !isCaller,
         },
         {
+          label: "Run AI Audit",
+          description: "Turn verified lead evidence into private agent context",
+          icon: Sparkles,
+          to: "/app/audits",
+          visible: canManageWorkspace,
+          creditGated: true,
+        },
+        {
           label: "Create Campaign",
-          description: "Choose email, AI calling, or AI-managed multichannel outreach",
+          description: "Choose the outbound agent and number before launch",
           icon: Rocket,
           to: "/app/campaigns/new",
           visible: canManageCampaigns,
-          creditGated: false,
         },
         {
-          label: "Create Voice Agent",
-          description: "Configure an AI calling agent",
-          icon: Bot,
-          to: "/app/voice-agent?tab=setup&view=calling",
-          visible: canUseVoiceAgent,
-        },
-        {
-          label: "Buy Phone Number",
-          description: "Search and purchase a business line",
-          icon: Phone,
-          to: "/app/voice-agent?tab=setup&view=buy-numbers",
-          visible: canUseVoiceAgent,
-        },
-        {
-          label: "Send Email",
-          description: "Open your connected email workspace",
-          icon: Mail,
-          to: "/app/email",
+          label: "Open Integrations",
+          description: "Connect calendar, email, WhatsApp, and business tools",
+          icon: Zap,
+          to: "/app/integrations",
           visible: canManageWorkspace,
-        },
-        {
-          label: "Schedule Meeting",
-          description: "Open meeting operations",
-          icon: Calendar,
-          to: "/app/voice-agent?tab=meetings&view=upcoming",
-          visible: canUseVoiceAgent,
         },
       ].filter((item) => item.visible !== false),
     [
@@ -1167,6 +1159,31 @@ export default function AppShell() {
 
             <ChevronDown size={15} aria-hidden="true" />
           </Link>
+
+          {canUseVoiceAgent ? (
+            <Link
+              className="rf7-connected-journey-v10"
+              to="/app/voice-start"
+              onClick={() => setSidebarOpen(false)}
+              title="Open AI calling setup and readiness"
+            >
+              <span className="rf7-connected-journey-head-v10">
+                <Sparkles size={13} />
+                Connected AI journey
+                <ChevronRight size={13} />
+              </span>
+              <span className="rf7-connected-journey-flow-v10" aria-hidden="true">
+                <i><Bot size={12} /></i>
+                <b />
+                <i><Brain size={12} /></i>
+                <b />
+                <i><Phone size={12} /></i>
+                <b />
+                <i><Rocket size={12} /></i>
+              </span>
+              <small>Agent → Brain → Number → Calls</small>
+            </Link>
+          ) : null}
 
           <nav className="rf7-nav-scroll">
             {navGroups.map((group) => (
@@ -1709,6 +1726,14 @@ function ShellMotionStyles() {
   return (
     <style>{`
       .rf7-sidebar-close-v7{display:none}
+      .rf7-connected-journey-v10{display:grid;gap:7px;margin:8px 10px 7px;padding:10px 10px 9px;color:#ececff;background:linear-gradient(145deg,rgba(93,89,231,.22),rgba(114,76,213,.12));border:1px solid rgba(161,157,255,.18);border-radius:11px;text-decoration:none;transition:transform 160ms var(--rf7-ease),border-color 160ms var(--rf7-ease),background 160ms var(--rf7-ease)}
+      .rf7-connected-journey-v10:hover{transform:translateY(-1px);border-color:rgba(181,178,255,.34);background:linear-gradient(145deg,rgba(93,89,231,.29),rgba(114,76,213,.16))}
+      .rf7-connected-journey-head-v10{display:grid;grid-template-columns:16px minmax(0,1fr) 14px;align-items:center;gap:5px;font-size:9px;font-weight:800;letter-spacing:.02em}
+      .rf7-connected-journey-head-v10>svg:first-child{color:#b8b5ff}.rf7-connected-journey-head-v10>svg:last-child{justify-self:end;color:rgba(236,236,255,.62)}
+      .rf7-connected-journey-flow-v10{display:grid;grid-template-columns:22px minmax(5px,1fr) 22px minmax(5px,1fr) 22px minmax(5px,1fr) 22px;align-items:center}
+      .rf7-connected-journey-flow-v10 i{width:22px;height:22px;display:grid;place-items:center;color:#d8d6ff;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.09);border-radius:7px;font-style:normal}
+      .rf7-connected-journey-flow-v10 b{height:1px;background:linear-gradient(90deg,rgba(180,176,255,.22),rgba(180,176,255,.62),rgba(180,176,255,.22))}
+      .rf7-connected-journey-v10 small{color:rgba(236,236,255,.55);font-size:7px;letter-spacing:.01em}
       .rf7-profile-link-v7{text-decoration:none}
       .rf7-profile-settings-v7,.rf7-profile-logout-v7{width:30px;height:30px;flex:0 0 30px;color:rgba(240,241,242,.52)}
       .rf7-profile-settings-v7:hover{color:#fff}
@@ -1943,14 +1968,14 @@ function buildBreadcrumbs(pathname, search) {
 
     if (["my-numbers", "buy-numbers", "connect-number"].includes(view)) {
       return [
-        { label: "Voice Setup", to: "/app/voice-agents" },
-        { label: "Phone Numbers" },
+        { label: "AI Workforce", to: "/app/agents" },
+        { label: "Business Numbers" },
       ];
     }
 
     return [
-      { label: "Voice Setup", to: "/app/voice-agents" },
-      { label: "Voice Agent" },
+      { label: "AI Workforce", to: "/app/agents" },
+      { label: "Agent" },
     ];
   }
 
@@ -2002,18 +2027,23 @@ function buildBreadcrumbs(pathname, search) {
     ["/app/builder", ["Outbound", "Leads"]],
     ["/app/my-leads", ["Outbound", "My Leads"]],
     ["/app/campaigns", ["Outbound", "Campaigns"]],
-    ["/app/ai", ["Outbound", "AI Audits"]],
-    ["/app/inbox", ["Communication", "Inbox"]],
-    ["/app/email", ["Communication", "Email"]],
-    ["/app/whatsapp", ["Communication", "WhatsApp"]],
+    ["/app/audits", ["Outbound", "AI Audits"]],
+    ["/app/website-audits", ["Outbound", "AI Audits"]],
+    ["/app/ai-audits", ["Outbound", "AI Audits"]],
+    ["/app/inbox", ["Conversations", "Inbox"]],
+    ["/app/email", ["Workspace", "Integrations"]],
+    ["/app/whatsapp", ["Workspace", "Integrations"]],
     ["/app/dialer", ["Outbound", "Dialer"]],
     ["/app/call-workspace", ["Outbound", "Dialer"]],
-    ["/app/voice-agents", ["Voice Setup", "Voice Agents"]],
-    ["/app/agents", ["Voice Setup", "Voice Agents"]],
+    ["/app/voice-start", ["AI Workforce", "Setup & Readiness"]],
+    ["/app/voice-agents", ["AI Workforce", "Agents"]],
+    ["/app/agents", ["AI Workforce", "Agents"]],
+    ["/app/phone-numbers", ["AI Workforce", "Business Numbers"]],
     ["/app/contacts", ["CRM", "Contacts"]],
     ["/app/pipeline", ["CRM", "Pipeline"]],
     ["/app/role-operations", ["Workspace", "Team"]],
     ["/app/billing", ["Workspace", "Billing"]],
+    ["/app/integrations", ["Workspace", "Integrations"]],
     ["/app/connections", ["Workspace", "Integrations"]],
     ["/app/settings", ["Workspace", "Settings"]],
     ["/app/analytics", ["More", "Analytics"]],
@@ -2040,8 +2070,8 @@ function resolveBreadcrumbRoot(label) {
     Home: "/app/dashboard",
     Outbound: "/app/leads?view=discover",
     Inbound: "/app/voice-agent?tab=calls&view=active-calls&direction=inbound",
-    Communication: "/app/inbox",
-    "Voice Setup": "/app/voice-agents",
+    Conversations: "/app/inbox",
+    "AI Workforce": "/app/agents",
     CRM: "/app/contacts",
     Workspace: "/app/role-operations?tab=team",
     Account: "/app/profile-settings",
