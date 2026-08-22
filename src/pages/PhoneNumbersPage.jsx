@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
-  ExternalLink,
   Globe2,
   MapPin,
   Phone,
@@ -298,14 +297,62 @@ export default function PhoneNumbersPage() {
     [commerce?.orders]
   );
 
+  const agents = useMemo(() => {
+    const items = normalizeCollection(dashboard?.agents);
+    if (items.length) return items;
+    return dashboard?.agent ? [dashboard.agent] : [];
+  }, [dashboard]);
+
   const activeAgent = useMemo(() => {
-    const agents = normalizeCollection(dashboard?.agents);
+    const activeNumberKey = phoneKey(activeNumber?.phoneNumber);
+    const linkedToPrimary = activeNumberKey
+      ? agents.find(
+          (agent) =>
+            agent?.enabled !== false &&
+            phoneKey(agent?.fromNumber) === activeNumberKey
+        )
+      : null;
+
     return (
+      linkedToPrimary ||
+      agents.find((agent) => agent?.enabled !== false) ||
       dashboard?.agent ||
-      (agents.length === 1 ? agents[0] : agents.find((agent) => agent?.enabled)) ||
+      agents[0] ||
       null
     );
-  }, [dashboard]);
+  }, [activeNumber?.phoneNumber, agents, dashboard?.agent]);
+
+  const agentsByNumber = useMemo(() => {
+    const map = new Map();
+
+    for (const agent of agents) {
+      const key = phoneKey(agent?.fromNumber);
+      if (!key) continue;
+      const current = map.get(key) || [];
+      current.push(agent);
+      map.set(key, current);
+    }
+
+    return map;
+  }, [agents]);
+
+  const linkedAgentCount = useMemo(
+    () =>
+      new Set(
+        agents
+          .map((agent) => phoneKey(agent?.fromNumber))
+          .filter(Boolean)
+      ).size,
+    [agents]
+  );
+
+  const selectedNumberAgents = useMemo(
+    () =>
+      selectedNumber?.phoneNumber
+        ? agentsByNumber.get(phoneKey(selectedNumber.phoneNumber)) || []
+        : [],
+    [agentsByNumber, selectedNumber]
+  );
 
   function setViewAndUrl(nextView) {
     const normalized = nextView === "existing" ? "existing" : "buy";
@@ -389,7 +436,7 @@ export default function PhoneNumbersPage() {
           quoteId: quote.quoteId,
           phoneNumber: item.phoneNumber,
           callingMode,
-          returnPath: "/app/voice-agent?tab=setup&view=buy-numbers",
+          returnPath: "/app/phone-numbers?view=buy",
         },
         timeoutMs: 30_000,
       });
@@ -693,22 +740,45 @@ export default function PhoneNumbersPage() {
         <section className="metrics">
           <Metric icon={<Phone size={16} />} label="Business Numbers" value={metrics.total} note="Owned or connected" />
           <Metric icon={<CheckCircle2 size={16} />} label="Active" value={metrics.active} note="Ready for calling" tone="success" />
-          <Metric icon={<Globe2 size={16} />} label="Inbound Ready" value={metrics.inbound} note="Inbound or two-way" tone="violet" />
           <Metric
-            icon={<Sparkles size={16} />}
-            label="Primary Number"
-            value={activeNumber?.phoneNumber ? "Ready" : "—"}
-            note={activeNumber?.phoneNumber ? formatPhone(activeNumber.phoneNumber) : "No active number"}
+            icon={<Bot size={16} />}
+            label="Agent Linked"
+            value={linkedAgentCount}
+            note={agents.length ? `${agents.length} Voice Agent${agents.length === 1 ? "" : "s"} configured` : "Create a Voice Agent"}
+            tone="violet"
+          />
+          <Metric
+            icon={<Globe2 size={16} />}
+            label="Inbound Ready"
+            value={metrics.inbound}
+            note="Inbound or two-way numbers"
             tone="neutral"
           />
         </section>
 
-        <section className="step-strip">
-          <Link to="/app/voice-agents"><b>1</b><span><small>Voice Agent</small><strong>Choose agent</strong></span></Link>
-          <i />
-          <div className="current"><b>2</b><span><small>Business Number</small><strong>Configure number</strong></span></div>
-          <i />
-          <Link to="/app/voice-agents"><b>3</b><span><small>Voice Profile</small><strong>Configure behavior</strong></span></Link>
+        <section className="step-strip connected-journey" aria-label="Connected AI Voice journey">
+          <div className={`journey-step current ${metrics.active ? "ready" : ""}`}>
+            <b>1</b>
+            <span><small>Business Number</small><strong>{metrics.active ? `${metrics.active} active` : "Connect number"}</strong></span>
+          </div>
+          <i className={metrics.active ? "ready" : ""} />
+          <Link className={`journey-step ${agents.length ? "ready" : ""}`} to="/app/voice-agents">
+            <b>2</b>
+            <span><small>AI Agent</small><strong>{agents.length ? `${agents.length} configured` : "Create agent"}</strong></span>
+          </Link>
+          <i className={agents.length ? "ready" : ""} />
+          <Link className={`journey-step ${agents.some((agent) => ["inbound", "outbound", "both"].includes(normalizeMode(agent?.callingMode))) ? "ready" : ""}`} to="/app/voice-agents">
+            <b>3</b>
+            <span><small>Direction</small><strong>{agents.length ? summarizeAgentDirections(agents) : "Choose inbound / outbound"}</strong></span>
+          </Link>
+          <i className={agents.some((agent) => ["outbound", "both"].includes(normalizeMode(agent?.callingMode))) ? "ready" : ""} />
+          <Link
+            className={`journey-step ${agents.some((agent) => ["inbound", "outbound", "both"].includes(normalizeMode(agent?.callingMode))) ? "ready" : ""}`}
+            to={agents.some((agent) => ["outbound", "both"].includes(normalizeMode(agent?.callingMode))) ? "/app/campaigns" : "/app/calls"}
+          >
+            <b>4</b>
+            <span><small>Use It</small><strong>{agents.some((agent) => ["outbound", "both"].includes(normalizeMode(agent?.callingMode))) ? "Campaigns + calls" : "Inbound calls"}</strong></span>
+          </Link>
         </section>
 
         <section className="mode-grid">
@@ -781,32 +851,61 @@ export default function PhoneNumbersPage() {
               </div>
             </div>
 
-            <div className="context-copy">
+            <div className="context-copy connected-copy">
               <ContextLine
                 icon={<Shield size={14} />}
-                title="ReachFly-managed setup"
-                text="Choose the number and calling direction while ReachFly manages the underlying calling infrastructure."
+                title="1. Number becomes the call identity"
+                text={activeNumber?.phoneNumber ? `${formatPhone(activeNumber.phoneNumber)} is available to assign to a Voice Agent.` : "Activate a number first. ReachFly keeps carrier setup behind the scenes."}
               />
               <ContextLine
-                icon={<Sparkles size={14} />}
-                title="Voice Agent ready"
-                text="Once a number is active, configure the AI Voice Agent that should use it."
+                icon={<Bot size={14} />}
+                title="2. Agent owns the behavior"
+                text={activeAgent ? `${activeAgent.name || "Voice Agent"} controls language, opening, closing, business memory, and ${formatCallingMode(activeAgent.callingMode || activeAgent.mode).toLowerCase()}.` : "Create an agent and choose which active number it should use."}
               />
             </div>
 
-            {activeAgent ? (
-              <div className="agent-card">
-                <span className={avatarTone(activeAgent.name)}>
-                  {initials(activeAgent.name || "AI")}
-                </span>
-                <div>
-                  <small>Voice Agent</small>
-                  <strong>{activeAgent.name || "AI Voice Agent"}</strong>
-                  <em>{formatCallingMode(activeAgent.callingMode || activeAgent.mode)}</em>
-                </div>
-                <Link to="/app/voice-agents"><ChevronRight size={14} /></Link>
+            <div className="connection-mini-flow">
+              <div className={metrics.active ? "ready" : ""}>
+                <Phone size={13} />
+                <span><small>Number</small><strong>{activeNumber?.phoneNumber ? formatPhone(activeNumber.phoneNumber) : "Missing"}</strong></span>
               </div>
-            ) : null}
+              <ChevronRight size={13} />
+              <div className={activeAgent ? "ready" : ""}>
+                <Bot size={13} />
+                <span><small>Agent</small><strong>{activeAgent?.name || "Not linked"}</strong></span>
+              </div>
+              <ChevronRight size={13} />
+              <div className={activeAgent ? "ready" : ""}>
+                <Globe2 size={13} />
+                <span><small>Direction</small><strong>{activeAgent ? formatCallingMode(activeAgent.callingMode || activeAgent.mode) : "Choose mode"}</strong></span>
+              </div>
+            </div>
+
+            <div className="agent-card">
+              {activeAgent ? (
+                <>
+                  <span className={avatarTone(activeAgent.name)}>
+                    {initials(activeAgent.name || "AI")}
+                  </span>
+                  <div>
+                    <small>Primary Voice Agent</small>
+                    <strong>{activeAgent.name || "AI Voice Agent"}</strong>
+                    <em>{activeAgent.fromNumber ? `Linked to ${formatPhone(activeAgent.fromNumber)}` : "Needs a Business Number"}</em>
+                  </div>
+                  <Link to="/app/voice-agents"><ChevronRight size={14} /></Link>
+                </>
+              ) : (
+                <>
+                  <span className="neutral"><Bot size={14} /></span>
+                  <div>
+                    <small>Next step</small>
+                    <strong>Create your Voice Agent</strong>
+                    <em>Assign a number, language, prompt and call direction.</em>
+                  </div>
+                  <Link to="/app/voice-agents"><ChevronRight size={14} /></Link>
+                </>
+              )}
+            </div>
           </aside>
         </section>
 
@@ -860,6 +959,7 @@ export default function PhoneNumbersPage() {
                 <ConnectedNumber
                   key={number.id || number.phoneNumber || index}
                   number={number}
+                  linkedAgents={agentsByNumber.get(phoneKey(number.phoneNumber)) || []}
                   primary={
                     activeNumber &&
                     phoneKey(activeNumber.phoneNumber) === phoneKey(number.phoneNumber)
@@ -892,6 +992,7 @@ export default function PhoneNumbersPage() {
         {selectedNumber ? (
           <NumberDrawer
             number={selectedNumber}
+            linkedAgents={selectedNumberAgents}
             primary={
               activeNumber &&
               phoneKey(activeNumber.phoneNumber) === phoneKey(selectedNumber.phoneNumber)
@@ -1218,8 +1319,16 @@ function ExistingPanel({
   );
 }
 
-function NumberDrawer({ number, primary, onClose }) {
+function NumberDrawer({ number, linkedAgents = [], primary, onClose }) {
   const status = normalizeStatus(number.status);
+  const enabledAgents = linkedAgents.filter((agent) => agent?.enabled !== false);
+  const primaryLinkedAgent = enabledAgents[0] || linkedAgents[0] || null;
+  const supportsInbound = linkedAgents.some((agent) =>
+    ["inbound", "both"].includes(normalizeMode(agent?.callingMode))
+  );
+  const supportsOutbound = linkedAgents.some((agent) =>
+    ["outbound", "both"].includes(normalizeMode(agent?.callingMode))
+  );
 
   return (
     <div className="drawer-backdrop" onMouseDown={(event) => {
@@ -1242,33 +1351,123 @@ function NumberDrawer({ number, primary, onClose }) {
           <div>
             <small>Calling status</small>
             <strong>{primary ? "Primary business number" : titleCase(status || "saved")}</strong>
-            <p>{formatCallingMode(number.callingMode)}</p>
+            <p>{linkedAgents.length ? `${linkedAgents.length} Voice Agent${linkedAgents.length === 1 ? "" : "s"} linked` : "No Voice Agent linked yet"}</p>
           </div>
           <StatusBadge status={status} primary={primary} />
         </div>
+
+        <section className="drawer-journey-section">
+          <h3>Connected Journey</h3>
+          <div className="drawer-journey">
+            <div className="ready">
+              <span><Phone size={12} /></span>
+              <div><small>1 · Number</small><strong>{formatPhone(number.phoneNumber)}</strong></div>
+            </div>
+            <i className={linkedAgents.length ? "ready" : ""} />
+            <div className={linkedAgents.length ? "ready" : ""}>
+              <span><Bot size={12} /></span>
+              <div>
+                <small>2 · Agent</small>
+                <strong>{primaryLinkedAgent?.name || "Assign agent"}</strong>
+              </div>
+            </div>
+            <i className={linkedAgents.length ? "ready" : ""} />
+            <div className={linkedAgents.length ? "ready" : ""}>
+              <span><Globe2 size={12} /></span>
+              <div>
+                <small>3 · Direction</small>
+                <strong>
+                  {supportsInbound && supportsOutbound
+                    ? "Inbound + outbound"
+                    : supportsInbound
+                      ? "Inbound"
+                      : supportsOutbound
+                        ? "Outbound"
+                        : "Choose mode"}
+                </strong>
+              </div>
+            </div>
+            <i className={supportsOutbound || supportsInbound ? "ready" : ""} />
+            <div className={supportsOutbound || supportsInbound ? "ready" : ""}>
+              <span><Sparkles size={12} /></span>
+              <div>
+                <small>4 · Use it</small>
+                <strong>{supportsOutbound ? "Campaigns + calls" : supportsInbound ? "Inbound calls" : "Finish setup"}</strong>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <section>
           <h3>Number Details</h3>
           <dl>
             <Detail label="Number" value={formatPhone(number.phoneNumber)} />
             <Detail label="Status" value={titleCase(status || "saved")} />
-            <Detail label="Calling" value={formatCallingMode(number.callingMode)} />
+            <Detail label="Provisioned for" value={formatCallingMode(number.callingMode)} />
+            <Detail label="Linked agents" value={linkedAgents.length ? String(linkedAgents.length) : "None"} />
             <Detail label="Source" value={sourceLabel(number)} />
             <Detail label="Added" value={formatDate(number.createdAt)} />
           </dl>
         </section>
 
         <section>
-          <h3>AI Voice</h3>
+          <h3>Voice Agents using this number</h3>
+          {linkedAgents.length ? (
+            <div className="linked-agent-list">
+              {linkedAgents.map((agent, index) => (
+                <Link
+                  key={agent.id || agent.elevenLabsAgentId || `${agent.name || "agent"}-${index}`}
+                  to="/app/voice-agents"
+                >
+                  <span className={avatarTone(agent.name)}>
+                    {initials(agent.name || "AI")}
+                  </span>
+                  <div>
+                    <strong>{agent.name || "Voice Agent"}</strong>
+                    <small>{formatCallingMode(agent.callingMode || agent.mode)} · {agent.enabled === false ? "Paused" : "Active"}</small>
+                  </div>
+                  <ChevronRight size={12} />
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="drawer-empty-link">
+              <Bot size={16} />
+              <div>
+                <strong>This number is not linked to an agent yet.</strong>
+                <small>Assign it while creating or editing a Voice Agent. That agent then controls language, scripts, business context and call direction.</small>
+              </div>
+            </div>
+          )}
+        </section>
+
+        <section>
+          <h3>Next Actions</h3>
           <div className="drawer-links">
             <Link to="/app/voice-agents">
               <Bot size={13} />
-              <span><strong>Voice Agents</strong><small>Configure the agent using this workspace number.</small></span>
+              <span>
+                <strong>{linkedAgents.length ? "Manage linked Voice Agent" : "Assign to a Voice Agent"}</strong>
+                <small>Set language, opening, closing, system prompt, business memory and call direction.</small>
+              </span>
               <ChevronRight size={12} />
             </Link>
+            {supportsOutbound ? (
+              <Link to="/app/campaigns/new">
+                <Sparkles size={13} />
+                <span><strong>Create AI Calling Campaign</strong><small>Use the linked outbound agent with campaign leads.</small></span>
+                <ChevronRight size={12} />
+              </Link>
+            ) : (
+              <Link to="/app/voice-agents">
+                <Globe2 size={13} />
+                <span><strong>{supportsInbound ? "Inbound is ready" : "Choose inbound or outbound"}</strong><small>{supportsInbound ? "Incoming calls on this number can use the linked agent." : "The agent's calling mode decides how this number is used."}</small></span>
+                <ChevronRight size={12} />
+              </Link>
+            )}
             <Link to="/app/calls">
               <Phone size={13} />
-              <span><strong>Call Logs</strong><small>Review AI Voice calls and intelligence.</small></span>
+              <span><strong>Call Logs</strong><small>Review AI Voice calls and outcomes.</small></span>
               <ChevronRight size={12} />
             </Link>
           </div>
@@ -1276,8 +1475,8 @@ function NumberDrawer({ number, primary, onClose }) {
 
         <footer>
           <Link className="btn primary" to="/app/voice-agents">
-            Configure Voice Agent
-            <ExternalLink size={13} />
+            {linkedAgents.length ? "Manage Voice Agent" : "Assign Voice Agent"}
+            <ChevronRight size={13} />
           </Link>
         </footer>
       </aside>
@@ -1377,19 +1576,44 @@ function StatusBadge({ status, primary = false }) {
   );
 }
 
-function ConnectedNumber({ number, primary, selected, index, onClick }) {
+function ConnectedNumber({ number, linkedAgents = [], primary, selected, index, onClick }) {
+  const supportsInbound = linkedAgents.some((agent) =>
+    ["inbound", "both"].includes(normalizeMode(agent?.callingMode))
+  );
+  const supportsOutbound = linkedAgents.some((agent) =>
+    ["outbound", "both"].includes(normalizeMode(agent?.callingMode))
+  );
+
   return (
     <button
       type="button"
-      className={`number-card ${primary ? "primary" : ""} ${selected ? "selected" : ""}`}
+      className={`number-card ${primary ? "primary" : ""} ${selected ? "selected" : ""} ${linkedAgents.length ? "linked" : "unlinked"}`}
       style={{ "--i": index }}
       onClick={onClick}
     >
       <span className="number-icon"><Phone size={15} /></span>
-      <div>
+      <div className="number-card-copy">
         <strong>{formatPhone(number.phoneNumber)}</strong>
         <small>{sourceLabel(number)}</small>
-        <p>{formatCallingMode(number.callingMode)}</p>
+        <div className="number-link-state">
+          <span className={linkedAgents.length ? "ready" : "missing"}>
+            <Bot size={10} />
+            {linkedAgents.length
+              ? `${linkedAgents.length} agent${linkedAgents.length === 1 ? "" : "s"}`
+              : "Assign agent"}
+          </span>
+          {linkedAgents.length ? (
+            <span className="direction">
+              {supportsInbound && supportsOutbound
+                ? "In + out"
+                : supportsInbound
+                  ? "Inbound"
+                  : supportsOutbound
+                    ? "Outbound"
+                    : formatCallingMode(number.callingMode)}
+            </span>
+          ) : null}
+        </div>
       </div>
       <StatusBadge status={number.status} primary={primary} />
       <ChevronRight size={13} />
@@ -1485,6 +1709,22 @@ function normalizeMode(value) {
   if (mode === "inbound") return "inbound";
   if (mode === "both" || mode === "inbound_outbound") return "both";
   return "outbound";
+}
+
+function summarizeAgentDirections(agents = []) {
+  const modes = new Set(
+    agents
+      .map((agent) => normalizeMode(agent?.callingMode || agent?.mode))
+      .filter(Boolean)
+  );
+
+  const inbound = modes.has("inbound") || modes.has("both");
+  const outbound = modes.has("outbound") || modes.has("both");
+
+  if (inbound && outbound) return "Inbound + outbound";
+  if (inbound) return "Inbound";
+  if (outbound) return "Outbound";
+  return "Choose direction";
 }
 
 function formatCallingMode(value) {
@@ -1646,7 +1886,7 @@ function Styles() {
 
       .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}.metric{min-height:74px;display:flex;align-items:center;gap:10px;padding:13px 14px;background:#fff;border:1px solid var(--line);border-radius:11px}.metric>span{width:34px;height:34px;display:grid;place-items:center;flex:0 0 34px;color:var(--primary);background:var(--psoft);border-radius:9px}.metric.success>span{color:var(--success);background:var(--ssoft)}.metric.violet>span{color:var(--violet);background:var(--vsoft)}.metric.neutral>span{color:#5f6672;background:#edf0f4}.metric>div{min-width:0;display:grid;grid-template-columns:auto 1fr;align-items:baseline;gap:0 6px}.metric small{grid-column:1/-1;color:var(--muted);font-size:7px;font-weight:750;letter-spacing:.07em;text-transform:uppercase}.metric strong{font:600 18px/23px Geist,Inter,sans-serif}.metric em{overflow:hidden;color:var(--muted);text-overflow:ellipsis;white-space:nowrap;font-size:7px;font-style:normal}
 
-      .step-strip{min-height:58px;display:flex;align-items:center;gap:10px;padding:9px 13px;margin-bottom:12px;background:#fff;border:1px solid var(--line);border-radius:10px}.step-strip>a,.step-strip>div{min-width:0;display:flex;align-items:center;gap:7px;flex:1;text-decoration:none}.step-strip b{width:27px;height:27px;display:grid;place-items:center;flex:0 0 27px;color:var(--text2);background:#eceeef;border-radius:50%;font-size:7px}.step-strip .current b{color:#fff;background:var(--primary);box-shadow:0 0 0 4px rgba(70,72,212,.08)}.step-strip span{min-width:0;display:grid}.step-strip small{color:var(--muted);font-size:6px}.step-strip strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px}.step-strip>i{width:36px;height:2px;background:#dde0e2;border-radius:999px}
+      .step-strip{min-height:58px;display:flex;align-items:center;gap:10px;padding:9px 13px;margin-bottom:12px;background:#fff;border:1px solid var(--line);border-radius:10px}.step-strip>a,.step-strip>div{min-width:0;display:flex;align-items:center;gap:7px;flex:1;text-decoration:none}.step-strip b{width:27px;height:27px;display:grid;place-items:center;flex:0 0 27px;color:var(--text2);background:#eceeef;border-radius:50%;font-size:7px}.step-strip .current b{color:#fff;background:var(--primary);box-shadow:0 0 0 4px rgba(70,72,212,.08)}.step-strip .journey-step.ready:not(.current) b{color:var(--success);background:var(--ssoft)}.step-strip .journey-step.ready strong{color:var(--text)}.step-strip span{min-width:0;display:grid}.step-strip small{color:var(--muted);font-size:6px}.step-strip strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px}.step-strip>i{width:36px;height:2px;background:#dde0e2;border-radius:999px;transition:.2s var(--ease)}.step-strip>i.ready{background:linear-gradient(90deg,var(--primary),#7c61df)}.connected-journey{box-shadow:0 8px 24px rgba(25,28,29,.035)}
 
       .mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}.mode-card{min-height:142px;display:grid;grid-template-columns:46px minmax(0,1fr) 25px;align-items:start;gap:12px;padding:24px 20px;color:inherit;background:#eef0f2;border:1px solid transparent;border-radius:13px;text-align:left;cursor:pointer;transition:.15s var(--ease)}.mode-card:hover{transform:translateY(-1px)}.mode-card.active{background:#f0f0fb;border-color:rgba(70,72,212,.14);box-shadow:inset 4px 0 0 var(--primary)}.mode-card>span{width:46px;height:46px;display:grid;place-items:center;color:#697080;background:#dde3ef;border-radius:50%}.mode-card.active>span{color:#fff;background:#5b5ddd}.mode-card strong{display:block;margin:3px 0 5px;font:600 15px/20px Geist,Inter,sans-serif}.mode-card p{margin:0;color:var(--text2);font-size:9px;line-height:15px}.mode-card>i{width:23px;height:23px;display:grid;place-items:center;color:#777d89;background:#fff;border-radius:50%;font-style:normal}.mode-card.active>i{color:#fff;background:var(--primary)}
 
@@ -1662,19 +1902,19 @@ function Styles() {
 
       .verification{padding:14px;margin-top:14px;border:1px solid var(--line);border-radius:10px}.verification>header{display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:8px;margin-bottom:8px}.verification>header>span{width:34px;height:34px;display:grid;place-items:center;color:var(--primary);background:var(--psoft);border-radius:9px}.verification>header>div{display:grid}.verification>header small{color:var(--muted);font-size:6px;text-transform:uppercase}.verification>header strong{font:600 11px/15px Geist,Inter,sans-serif}.verification>p{margin:0 0 11px;color:var(--text2);font-size:8px;line-height:13px}.status{min-height:23px;display:inline-flex;align-items:center;gap:4px;width:max-content;padding:4px 7px;border-radius:999px;font-size:6px;font-weight:750}.status.active{color:var(--success);background:var(--ssoft)}.status.pending{color:var(--warning);background:var(--wsoft)}.status.failed{color:var(--danger);background:var(--dsoft)}.status.neutral{color:#5c626c;background:#e9eaec}.verify-actions{display:grid;grid-template-columns:1fr auto;align-items:end;gap:8px;padding:10px;background:#f7f7fa;border-radius:8px}.verify-check{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px;background:#f7f7fa;border-radius:8px}.verify-check strong{display:block;font-size:8px}.verify-check span{display:block;margin-top:2px;color:var(--muted);font-size:7px}.routing,.carrier-action{padding:10px;margin-top:9px;background:#f1f1fb;border-radius:8px}.routing strong{font-size:8px}.routing p{margin:2px 0 8px;color:var(--text2);font-size:7px;line-height:11px}.routing details{padding:8px;margin-bottom:8px;background:#fff;border-radius:7px}.routing summary{color:var(--primary);cursor:pointer;font-size:7px;font-weight:700}.routing code{display:block;overflow:auto;padding:7px;margin-top:7px;background:#f4f5f6;border-radius:6px;font-size:7px;white-space:nowrap}.routing details small{display:block;margin-top:4px;color:var(--muted);font-size:6px}.carrier-action{display:flex;align-items:flex-start;gap:6px;color:var(--text2);font-size:7px}.carrier-action svg{color:var(--success)}
 
-      .context-card{overflow:hidden}.map-visual{position:relative;min-height:275px;display:grid;place-items:center;overflow:hidden;padding:28px;background:linear-gradient(145deg,rgba(70,72,212,.07),rgba(107,56,212,.03)),repeating-linear-gradient(0deg,transparent 0 38px,rgba(70,72,212,.045) 39px 40px),repeating-linear-gradient(90deg,transparent 0 38px,rgba(70,72,212,.045) 39px 40px),#edf0f4;border-bottom:1px solid var(--line)}.map-visual>div{position:relative;z-index:2;width:100%;max-width:230px;padding:16px;background:rgba(255,255,255,.92);border-radius:11px;box-shadow:0 10px 30px rgba(25,28,29,.08)}.map-visual>div>svg{color:var(--primary)}.map-visual strong{display:block;margin-top:6px;font-size:10px}.map-visual p{margin:3px 0 0;color:var(--text2);font-size:7px;line-height:12px}.pin{position:absolute;z-index:1;width:30px;height:30px;display:grid;place-items:center;color:#fff;background:var(--primary);border:4px solid rgba(255,255,255,.9);border-radius:50%}.pin.p1{left:17%;top:20%}.pin.p2{right:13%;top:28%;transform:scale(.82)}.pin.p3{left:23%;bottom:14%;transform:scale(.75)}.context-copy{padding:10px 13px;border-bottom:1px solid var(--line)}.context-line{display:flex;gap:8px;padding:8px}.context-line+.context-line{border-top:1px solid #f0f1f2}.context-line>span{width:29px;height:29px;display:grid;place-items:center;flex:0 0 29px;color:var(--primary);background:var(--psoft);border-radius:7px}.context-line strong{display:block;font-size:8px}.context-line p{margin:2px 0 0;color:var(--muted);font-size:7px;line-height:11px}.agent-card{display:grid;grid-template-columns:36px 1fr 26px;align-items:center;gap:8px;padding:13px}.agent-card>span{width:36px;height:36px;display:grid;place-items:center;color:#fff;border-radius:50%;font-size:8px;font-weight:800}.agent-card>span.primary{background:#5b5ddd}.agent-card>span.violet{background:#7546d9}.agent-card>span.blue{background:#3772b9}.agent-card>span.green{background:#23845f}.agent-card>span.amber{background:#a06e25}.agent-card>div{min-width:0;display:grid}.agent-card small{color:var(--muted);font-size:6px}.agent-card strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px}.agent-card em{color:var(--text2);font-size:7px;font-style:normal}.agent-card>a{width:26px;height:26px;display:grid;place-items:center;color:var(--muted)!important;background:var(--soft);border-radius:7px}
+      .context-card{overflow:hidden}.map-visual{position:relative;min-height:275px;display:grid;place-items:center;overflow:hidden;padding:28px;background:linear-gradient(145deg,rgba(70,72,212,.07),rgba(107,56,212,.03)),repeating-linear-gradient(0deg,transparent 0 38px,rgba(70,72,212,.045) 39px 40px),repeating-linear-gradient(90deg,transparent 0 38px,rgba(70,72,212,.045) 39px 40px),#edf0f4;border-bottom:1px solid var(--line)}.map-visual>div{position:relative;z-index:2;width:100%;max-width:230px;padding:16px;background:rgba(255,255,255,.92);border-radius:11px;box-shadow:0 10px 30px rgba(25,28,29,.08)}.map-visual>div>svg{color:var(--primary)}.map-visual strong{display:block;margin-top:6px;font-size:10px}.map-visual p{margin:3px 0 0;color:var(--text2);font-size:7px;line-height:12px}.pin{position:absolute;z-index:1;width:30px;height:30px;display:grid;place-items:center;color:#fff;background:var(--primary);border:4px solid rgba(255,255,255,.9);border-radius:50%}.pin.p1{left:17%;top:20%}.pin.p2{right:13%;top:28%;transform:scale(.82)}.pin.p3{left:23%;bottom:14%;transform:scale(.75)}.context-copy{padding:10px 13px;border-bottom:1px solid var(--line)}.context-line{display:flex;gap:8px;padding:8px}.context-line+.context-line{border-top:1px solid #f0f1f2}.context-line>span{width:29px;height:29px;display:grid;place-items:center;flex:0 0 29px;color:var(--primary);background:var(--psoft);border-radius:7px}.context-line strong{display:block;font-size:8px}.context-line p{margin:2px 0 0;color:var(--muted);font-size:7px;line-height:11px}.agent-card{display:grid;grid-template-columns:36px 1fr 26px;align-items:center;gap:8px;padding:13px}.agent-card>span{width:36px;height:36px;display:grid;place-items:center;color:#fff;border-radius:50%;font-size:8px;font-weight:800}.agent-card>span.primary{background:#5b5ddd}.agent-card>span.violet{background:#7546d9}.agent-card>span.blue{background:#3772b9}.agent-card>span.green{background:#23845f}.agent-card>span.amber{background:#a06e25}.agent-card>span.neutral{color:var(--primary);background:var(--psoft)}.agent-card>div{min-width:0;display:grid}.agent-card small{color:var(--muted);font-size:6px}.agent-card strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px}.agent-card em{color:var(--text2);font-size:7px;font-style:normal}.agent-card>a{width:26px;height:26px;display:grid;place-items:center;color:var(--muted)!important;background:var(--soft);border-radius:7px}.connected-copy{border-bottom:0}.connection-mini-flow{display:grid;grid-template-columns:minmax(0,1fr) 14px minmax(0,1fr) 14px minmax(0,1fr);align-items:center;gap:4px;padding:10px 12px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:#fbfbfc}.connection-mini-flow>svg{color:#b0b4bc}.connection-mini-flow>div{min-width:0;display:flex;align-items:center;gap:6px;padding:7px;color:#7e838c;background:#f0f1f2;border:1px solid transparent;border-radius:8px}.connection-mini-flow>div.ready{color:var(--primary);background:var(--psoft);border-color:rgba(70,72,212,.08)}.connection-mini-flow span{min-width:0;display:grid}.connection-mini-flow small{color:var(--muted);font-size:5px;text-transform:uppercase;letter-spacing:.05em}.connection-mini-flow strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);font-size:6px}
 
       .full-card{overflow:hidden;margin-top:12px}.section-head{min-height:70px;padding:15px 17px;background:#fbfbfc;border-bottom:1px solid var(--line)}.section-head h2{font-size:13px;line-height:18px}.section-head p{font-size:7px;line-height:12px}.section-head>span{color:var(--muted);font-size:7px}.orders{padding:8px}.orders article{display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:8px;padding:9px;border-radius:8px}.orders article+article{border-top:1px solid #f0f1f2}.orders article>span{width:34px;height:34px;display:grid;place-items:center;color:var(--warning);background:var(--wsoft);border-radius:8px}.orders strong{display:block;font-size:9px}.orders small{color:var(--warning);font-size:6px}.orders p{margin:2px 0 0;color:var(--muted);font-size:7px}
 
-      .number-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;padding:12px}.number-card{min-width:0;min-height:82px;display:grid;grid-template-columns:38px minmax(0,1fr) auto 18px;align-items:center;gap:9px;padding:11px;color:inherit;background:#f2f3f4;border:1px solid transparent;border-radius:9px;text-align:left;cursor:pointer;animation:fadeUp .2s var(--ease) both;animation-delay:calc(var(--i) * 25ms)}.number-card:hover{transform:translateY(-1px)}.number-card.primary{background:#f0f0fb}.number-card.selected{border-color:rgba(70,72,212,.32);box-shadow:0 0 0 3px rgba(70,72,212,.05)}.number-icon{width:38px;height:38px;display:grid;place-items:center;color:#606672;background:#e4e6e8;border-radius:50%}.number-card.primary .number-icon{color:#fff;background:#8457df}.number-card>div{min-width:0;display:grid}.number-card>div>strong{font:600 11px/15px Geist,Inter,sans-serif}.number-card>div>small{color:var(--text2);font-size:6px}.number-card>div>p{margin:1px 0 0;color:var(--muted);font-size:7px}.number-card>svg{color:var(--muted)}.empty{min-height:230px;display:grid;place-items:center;align-content:center;gap:5px;padding:25px;text-align:center}.empty>span{width:46px;height:46px;display:grid;place-items:center;color:var(--primary);background:var(--psoft);border-radius:13px}.empty h3{margin:0;font:600 11px/16px Geist,Inter,sans-serif}.empty p{max-width:430px;margin:0 0 5px;color:var(--muted);font-size:7px}
+      .number-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;padding:12px}.number-card{min-width:0;min-height:88px;display:grid;grid-template-columns:38px minmax(0,1fr) auto 18px;align-items:center;gap:9px;padding:11px;color:inherit;background:#f2f3f4;border:1px solid transparent;border-radius:9px;text-align:left;cursor:pointer;animation:fadeUp .2s var(--ease) both;animation-delay:calc(var(--i) * 25ms)}.number-card:hover{transform:translateY(-1px)}.number-card.primary{background:#f0f0fb}.number-card.linked{border-color:rgba(70,72,212,.08)}.number-card.unlinked{background:#f7f7f8}.number-card.selected{border-color:rgba(70,72,212,.32);box-shadow:0 0 0 3px rgba(70,72,212,.05)}.number-icon{width:38px;height:38px;display:grid;place-items:center;color:#606672;background:#e4e6e8;border-radius:50%}.number-card.primary .number-icon{color:#fff;background:#8457df}.number-card>div{min-width:0;display:grid}.number-card>div>strong{font:600 11px/15px Geist,Inter,sans-serif}.number-card>div>small{color:var(--text2);font-size:6px}.number-card>div>p{margin:1px 0 0;color:var(--muted);font-size:7px}.number-card>svg{color:var(--muted)}.number-link-state{display:flex!important;align-items:center;gap:5px;margin-top:5px}.number-link-state>span{display:inline-flex;align-items:center;gap:3px;padding:3px 5px;border-radius:999px;font-size:6px;font-weight:700}.number-link-state .ready{color:var(--success);background:var(--ssoft)}.number-link-state .missing{color:var(--warning);background:var(--wsoft)}.number-link-state .direction{color:var(--text2);background:#e7e9eb}.empty{min-height:230px;display:grid;place-items:center;align-content:center;gap:5px;padding:25px;text-align:center}.empty>span{width:46px;height:46px;display:grid;place-items:center;color:var(--primary);background:var(--psoft);border-radius:13px}.empty h3{margin:0;font:600 11px/16px Geist,Inter,sans-serif}.empty p{max-width:430px;margin:0 0 5px;color:var(--muted);font-size:7px}
 
-      .drawer-backdrop{position:fixed;z-index:190;inset:0;display:flex;justify-content:flex-end;background:rgba(20,22,28,.28);backdrop-filter:blur(2px);animation:fadeUp .16s var(--ease)}.drawer{width:min(420px,100vw);height:100%;overflow:auto;background:#fff;border-left:1px solid var(--line);box-shadow:-20px 0 50px rgba(25,28,29,.14);animation:slideIn .19s var(--ease)}.drawer>header{display:flex;justify-content:space-between;gap:12px;padding:20px;background:#fbfbfc;border-bottom:1px solid var(--line)}.drawer h2{margin:0;font:600 19px/25px Geist,Inter,sans-serif}.drawer header p{margin:2px 0 0;color:var(--text2);font-size:8px}.drawer header button{width:33px;height:33px;display:grid;place-items:center;padding:0;background:#fff;border:1px solid var(--line);border-radius:8px;cursor:pointer}.drawer-status{display:grid;grid-template-columns:42px 1fr auto;align-items:center;gap:9px;padding:15px 18px;border-bottom:1px solid var(--line)}.drawer-status>span:first-child{width:42px;height:42px;display:grid;place-items:center;color:#fff;background:var(--primary);border-radius:12px}.drawer-status>div{display:grid}.drawer-status small{color:var(--muted);font-size:6px}.drawer-status strong{font-size:9px}.drawer-status p{margin:1px 0 0;color:var(--text2);font-size:7px}.drawer>section{padding:17px 18px;border-bottom:1px solid var(--line)}.drawer>section h3{margin:0 0 10px;color:var(--text2);font-size:8px;letter-spacing:.08em;text-transform:uppercase}.drawer dl{display:grid;gap:7px;margin:0}.drawer dl>div{display:grid;grid-template-columns:85px 1fr;gap:8px}.drawer dt{color:var(--muted);font-size:7px}.drawer dd{margin:0;overflow:hidden;text-align:right;text-overflow:ellipsis;white-space:nowrap;font-size:7px;font-weight:600}.drawer-links{display:grid;gap:6px}.drawer-links a{min-height:54px;display:grid;grid-template-columns:28px 1fr 18px;align-items:center;gap:7px;padding:8px;background:var(--soft);border-radius:8px;text-decoration:none}.drawer-links>a>svg:first-child{color:var(--primary)}.drawer-links a>span{display:grid}.drawer-links strong{font-size:7px}.drawer-links small{color:var(--muted);font-size:6px;line-height:10px}.drawer>footer{padding:14px 18px 22px}.drawer>footer .btn{width:100%}
+      .drawer-backdrop{position:fixed;z-index:190;inset:0;display:flex;justify-content:flex-end;background:rgba(20,22,28,.28);backdrop-filter:blur(2px);animation:fadeUp .16s var(--ease)}.drawer{width:min(460px,100vw);height:100%;overflow:auto;background:#fff;border-left:1px solid var(--line);box-shadow:-20px 0 50px rgba(25,28,29,.14);animation:slideIn .19s var(--ease)}.drawer>header{display:flex;justify-content:space-between;gap:12px;padding:20px;background:#fbfbfc;border-bottom:1px solid var(--line)}.drawer h2{margin:0;font:600 19px/25px Geist,Inter,sans-serif}.drawer header p{margin:2px 0 0;color:var(--text2);font-size:8px}.drawer header button{width:33px;height:33px;display:grid;place-items:center;padding:0;background:#fff;border:1px solid var(--line);border-radius:8px;cursor:pointer}.drawer-status{display:grid;grid-template-columns:42px 1fr auto;align-items:center;gap:9px;padding:15px 18px;border-bottom:1px solid var(--line)}.drawer-status>span:first-child{width:42px;height:42px;display:grid;place-items:center;color:#fff;background:var(--primary);border-radius:12px}.drawer-status>div{display:grid}.drawer-status small{color:var(--muted);font-size:6px}.drawer-status strong{font-size:9px}.drawer-status p{margin:1px 0 0;color:var(--text2);font-size:7px}.drawer>section{padding:17px 18px;border-bottom:1px solid var(--line)}.drawer>section h3{margin:0 0 10px;color:var(--text2);font-size:8px;letter-spacing:.08em;text-transform:uppercase}.drawer dl{display:grid;gap:7px;margin:0}.drawer dl>div{display:grid;grid-template-columns:100px 1fr;gap:8px}.drawer dt{color:var(--muted);font-size:7px}.drawer dd{margin:0;overflow:hidden;text-align:right;text-overflow:ellipsis;white-space:nowrap;font-size:7px;font-weight:600}.drawer-journey{display:grid;grid-template-columns:minmax(0,1fr) 12px minmax(0,1fr) 12px minmax(0,1fr) 12px minmax(0,1fr);gap:4px;align-items:center}.drawer-journey>div{min-width:0;display:flex;align-items:center;gap:6px;padding:8px;color:#7f838c;background:#f2f3f4;border-radius:8px}.drawer-journey>div.ready{color:var(--primary);background:var(--psoft)}.drawer-journey>div>span{width:25px;height:25px;display:grid;place-items:center;flex:0 0 25px;background:#fff;border-radius:7px}.drawer-journey>div>div{min-width:0;display:grid}.drawer-journey small{color:var(--muted);font-size:5px;text-transform:uppercase}.drawer-journey strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);font-size:6px}.drawer-journey>i{height:2px;background:#dfe1e3;border-radius:999px}.drawer-journey>i.ready{background:var(--primary)}.drawer-links{display:grid;gap:6px}.drawer-links a{min-height:54px;display:grid;grid-template-columns:28px 1fr 18px;align-items:center;gap:7px;padding:8px;background:var(--soft);border-radius:8px;text-decoration:none}.drawer-links>a>svg:first-child{color:var(--primary)}.drawer-links a>span{display:grid}.drawer-links strong{font-size:7px}.drawer-links small{color:var(--muted);font-size:6px;line-height:10px}.linked-agent-list{display:grid;gap:6px}.linked-agent-list a{display:grid;grid-template-columns:32px minmax(0,1fr) 18px;align-items:center;gap:8px;padding:8px;background:#f6f6fb;border:1px solid rgba(70,72,212,.06);border-radius:8px;text-decoration:none}.linked-agent-list a>span{width:32px;height:32px;display:grid;place-items:center;color:#fff;background:var(--primary);border-radius:50%;font-size:7px;font-weight:800}.linked-agent-list a>span.violet{background:#7546d9}.linked-agent-list a>span.blue{background:#3772b9}.linked-agent-list a>span.green{background:#23845f}.linked-agent-list a>span.amber{background:#a06e25}.linked-agent-list a>div{min-width:0;display:grid}.linked-agent-list strong{font-size:7px}.linked-agent-list small{color:var(--muted);font-size:6px}.linked-agent-list a>svg{color:var(--muted)}.drawer-empty-link{display:flex;align-items:flex-start;gap:8px;padding:10px;color:var(--primary);background:var(--psoft);border-radius:8px}.drawer-empty-link>div{display:grid}.drawer-empty-link strong{color:var(--text);font-size:7px}.drawer-empty-link small{margin-top:2px;color:var(--muted);font-size:6px;line-height:10px}.drawer>footer{padding:14px 18px 22px}.drawer>footer .btn{width:100%}
 
       .number-grid.skeleton article,.metric.loading i,.mode-grid.loading i,.loading-panel>i{background:linear-gradient(90deg,#e8eaec 25%,#f8f9fa 45%,#e8eaec 65%);background-size:220% 100%;animation:shimmer 1.25s linear infinite}.number-grid.skeleton article{min-height:82px;display:flex;align-items:center;gap:10px;padding:11px;border-radius:9px}.number-grid.skeleton article>i{width:38px;height:38px;background:#fff;border-radius:50%}.number-grid.skeleton article>span{flex:1;display:grid;gap:6px}.number-grid.skeleton article>span i{height:8px;background:#fff;border-radius:99px}.metric.loading>i{width:34px;height:34px;flex:0 0 34px;border-radius:9px}.metric.loading>span{flex:1;display:grid;gap:6px;background:transparent}.metric.loading>span i{height:8px;border-radius:99px}.metric.loading>span i:last-child{height:19px;width:70%}.mode-grid.loading i{min-height:142px;border-radius:13px}.loading-panel{min-height:420px;display:grid;align-content:start;gap:10px}.loading-panel>i{display:block;height:70px;border-radius:9px}.loading-panel>i:nth-child(2){height:220px}
 
       @media(max-width:1180px){.rfpn{padding:22px}.config-layout{grid-template-columns:minmax(0,1fr) 270px}.search-grid{grid-template-columns:80px 1fr 1.1fr}.search-button{grid-column:1/-1;width:100%}.result{grid-template-columns:38px 1fr 110px auto}}
       @media(max-width:940px){.rfpn-header{align-items:flex-start;flex-direction:column}.actions{width:100%;justify-content:flex-end}.metrics{grid-template-columns:1fr 1fr}.step-strip{display:none}.config-layout{grid-template-columns:1fr}.context-card{display:grid;grid-template-columns:1fr 1fr}.map-visual{min-height:230px;border-right:1px solid var(--line);border-bottom:0}.context-copy{border-bottom:0}.agent-card{grid-column:1/-1;border-top:1px solid var(--line)}.number-grid{grid-template-columns:1fr}}
-      @media(max-width:720px){.rfpn{padding:18px 13px 84px}.mode-grid{grid-template-columns:1fr}.mode-card{min-height:118px;padding:18px 16px}.mode-picker{align-items:flex-start;flex-direction:column}.mode-picker>div{width:100%;display:grid;grid-template-columns:repeat(3,1fr)}.search-grid,.existing-form{grid-template-columns:1fr 1fr}.search-grid .field:nth-child(3),.search-button,.existing-form>.btn{grid-column:1/-1}.result{grid-template-columns:38px 1fr auto}.result .price{grid-column:2;justify-items:start}.result>.btn{grid-column:3;grid-row:1/3}.context-card{grid-template-columns:1fr}.map-visual{border-right:0;border-bottom:1px solid var(--line)}.verify-actions{grid-template-columns:1fr}.verify-check{align-items:stretch;flex-direction:column}}
+      @media(max-width:720px){.rfpn{padding:18px 13px 84px}.connection-mini-flow{grid-template-columns:1fr}.connection-mini-flow>svg{transform:rotate(90deg);justify-self:center}.drawer-journey{grid-template-columns:1fr}.drawer-journey>i{width:2px;height:12px;justify-self:center}.mode-grid{grid-template-columns:1fr}.mode-card{min-height:118px;padding:18px 16px}.mode-picker{align-items:flex-start;flex-direction:column}.mode-picker>div{width:100%;display:grid;grid-template-columns:repeat(3,1fr)}.search-grid,.existing-form{grid-template-columns:1fr 1fr}.search-grid .field:nth-child(3),.search-button,.existing-form>.btn{grid-column:1/-1}.result{grid-template-columns:38px 1fr auto}.result .price{grid-column:2;justify-items:start}.result>.btn{grid-column:3;grid-row:1/3}.context-card{grid-template-columns:1fr}.map-visual{border-right:0;border-bottom:1px solid var(--line)}.verify-actions{grid-template-columns:1fr}.verify-check{align-items:stretch;flex-direction:column}}
       @media(max-width:540px){.rfpn{padding:16px 11px 84px}.rfpn-header h1{font-size:25px;line-height:32px}.rfpn-header p{font-size:11px}.actions{display:grid;grid-template-columns:1fr 1fr}.metrics{grid-template-columns:1fr;gap:7px}.metric{min-height:62px;padding:10px 12px}.config-card{padding:14px}.panel-head{flex-direction:column}.mode-picker>div{grid-template-columns:1fr}.search-grid,.existing-form{grid-template-columns:1fr}.search-grid .field:nth-child(3),.search-button,.existing-form>.btn{grid-column:auto}.result{grid-template-columns:36px 1fr}.result>.btn{grid-column:1/-1;grid-row:auto;width:100%}.result .price{grid-column:2}.number-card{grid-template-columns:38px 1fr auto}.number-card>svg{display:none}}
       @media(prefers-reduced-motion:reduce){.rfpn,.result,.number-card,.drawer,.drawer-backdrop,.notice,.live-dot,.number-grid.skeleton article,.metric.loading i,.mode-grid.loading i,.loading-panel>i,.rfpn .spin{animation:none!important}.rfpn *{transition-duration:.01ms!important}}
     `}</style>

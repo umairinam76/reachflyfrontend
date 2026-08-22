@@ -47,6 +47,7 @@ export default function CampaignCreate() {
   const [voiceDashboard, setVoiceDashboard] = useState(null);
   const [loadingVoiceReadiness, setLoadingVoiceReadiness] = useState(true);
   const [voiceReadinessError, setVoiceReadinessError] = useState("");
+  const [selectedAgentId, setSelectedAgentId] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -83,9 +84,21 @@ export default function CampaignCreate() {
     [selectedLeads]
   );
 
-  const voiceReadiness = useMemo(
-    () => resolveVoiceReadiness(voiceDashboard),
+  const voiceAgents = useMemo(
+    () => normalizeVoiceAgents(voiceDashboard),
     [voiceDashboard]
+  );
+
+  const selectedVoiceAgent = useMemo(
+    () =>
+      voiceAgents.find((item) => String(item?.id || "") === String(selectedAgentId || "")) ||
+      null,
+    [selectedAgentId, voiceAgents]
+  );
+
+  const voiceReadiness = useMemo(
+    () => resolveVoiceReadiness(voiceDashboard, selectedVoiceAgent),
+    [selectedVoiceAgent, voiceDashboard]
   );
 
   const voiceCampaignReady = voiceReadiness.ready;
@@ -164,6 +177,33 @@ export default function CampaignCreate() {
   }, []);
 
   useEffect(() => {
+    if (!voiceAgents.length) {
+      if (selectedAgentId) setSelectedAgentId("");
+      return;
+    }
+
+    if (selectedAgentId && voiceAgents.some((item) => String(item?.id || "") === selectedAgentId)) {
+      return;
+    }
+
+    const requestedAgentId = String(
+      location.state?.agentId ||
+        location.state?.voiceAgentId ||
+        new URLSearchParams(location.search || "").get("agent") ||
+        ""
+    ).trim();
+
+    const requested = voiceAgents.find((item) => String(item?.id || "") === requestedAgentId);
+    const preferred =
+      requested ||
+      voiceAgents.find((item) => getVoiceAgentReadiness(item, voiceDashboard).ready) ||
+      voiceAgents.find((item) => isOutboundAgent(item)) ||
+      voiceAgents[0];
+
+    if (preferred?.id) setSelectedAgentId(String(preferred.id));
+  }, [location.search, location.state, selectedAgentId, voiceAgents, voiceDashboard]);
+
+  useEffect(() => {
     if (emailAccountId || !emailConnections.length) return;
     const preferred =
       emailConnections.find((item) => item?.active === true) ||
@@ -233,10 +273,15 @@ export default function CampaignCreate() {
       return;
     }
 
+    if (mode === MODES.VOICE && !selectedVoiceAgent) {
+      setError("Choose the outbound AI agent that should run this campaign.");
+      return;
+    }
+
     if (mode === MODES.VOICE && !voiceCampaignReady) {
       setError(
         voiceReadiness.message ||
-          "Set up a ReachFly business number and activate an outbound Voice Agent before creating an AI Calling campaign."
+          "Set up a ReachFly business number and activate an outbound AI agent before creating an AI Calling campaign."
       );
       return;
     }
@@ -273,6 +318,13 @@ export default function CampaignCreate() {
         primaryChannel: mode === MODES.EMAIL ? "email" : "voice",
         voiceEnabled: mode === MODES.VOICE,
         aiVoiceEnabled: mode === MODES.VOICE,
+        voiceAgentId: mode === MODES.VOICE ? String(selectedVoiceAgent?.id || "") : "",
+        aiAgentId: mode === MODES.VOICE ? String(selectedVoiceAgent?.id || "") : "",
+        agentId: mode === MODES.VOICE ? String(selectedVoiceAgent?.id || "") : "",
+        voiceAgentName: mode === MODES.VOICE ? String(selectedVoiceAgent?.name || "") : "",
+        fromNumber: mode === MODES.VOICE ? String(selectedVoiceAgent?.fromNumber || "") : "",
+        businessNumber: mode === MODES.VOICE ? String(selectedVoiceAgent?.fromNumber || "") : "",
+        callingMode: mode === MODES.VOICE ? String(selectedVoiceAgent?.callingMode || "outbound") : "",
         aiManagedEmailFollowUp: mode === MODES.VOICE && aiManagedEmail,
         goal:
           mode === MODES.EMAIL
@@ -290,6 +342,10 @@ export default function CampaignCreate() {
           strategy: mode === MODES.EMAIL ? "email" : "ai_voice",
           primaryChannel: mode === MODES.EMAIL ? "email" : "voice",
           aiVoice: mode === MODES.VOICE,
+          voiceAgentId: mode === MODES.VOICE ? String(selectedVoiceAgent?.id || "") : "",
+          voiceAgentName: mode === MODES.VOICE ? String(selectedVoiceAgent?.name || "") : "",
+          fromNumber: mode === MODES.VOICE ? String(selectedVoiceAgent?.fromNumber || "") : "",
+          callingMode: mode === MODES.VOICE ? String(selectedVoiceAgent?.callingMode || "outbound") : "",
           emailEnabled: mode === MODES.EMAIL || aiManagedEmail,
           aiManagedEmailFollowUp: mode === MODES.VOICE && aiManagedEmail,
           aiChoosesFollowUpTiming: mode === MODES.VOICE && aiManagedEmail,
@@ -332,7 +388,7 @@ export default function CampaignCreate() {
         "Campaign created",
         mode === MODES.EMAIL
           ? "Your email campaign is ready."
-          : "Your AI Calling campaign is ready for the Voice Agent."
+          : `${selectedVoiceAgent?.name || "Your AI agent"} is connected to this campaign and ready to call.`
       );
 
       navigate(`/app/campaigns/${campaignId}`, {
@@ -340,6 +396,8 @@ export default function CampaignCreate() {
         state: {
           createdCampaign: true,
           campaignMode: mode,
+          voiceAgentId: mode === MODES.VOICE ? String(selectedVoiceAgent?.id || "") : "",
+          fromNumber: mode === MODES.VOICE ? String(selectedVoiceAgent?.fromNumber || "") : "",
         },
       });
     } catch (requestError) {
@@ -417,6 +475,10 @@ export default function CampaignCreate() {
             ready={voiceCampaignReady}
             readiness={voiceReadiness}
             error={voiceReadinessError}
+            agents={voiceAgents}
+            selectedAgentId={selectedAgentId}
+            onSelectAgent={setSelectedAgentId}
+            dashboard={voiceDashboard}
           />
         ) : null}
 
@@ -529,7 +591,7 @@ export default function CampaignCreate() {
                   <h2>
                     {mode === MODES.EMAIL
                       ? "Configure the email campaign"
-                      : "Control how AI follows up after calls"}
+                      : "Choose the agent that will own this campaign"}
                   </h2>
                 </div>
               </div>
@@ -566,19 +628,28 @@ export default function CampaignCreate() {
               </div>
             ) : (
               <div className="rfcc-channel-panel">
-                <div className="rfcc-ai-route">
-                  <span className="rfcc-ai-route-node primary"><Phone size={18} /></span>
-                  <div>
-                    <strong>AI Voice Agent calls first</strong>
-                    <span>Call context, audit intelligence, and campaign goal stay attached to the lead.</span>
+                <VoiceJourney
+                  agent={selectedVoiceAgent}
+                  leadCount={selectedLeads.length}
+                  phoneReadyCount={phoneReadyCount}
+                  aiManagedEmail={aiManagedEmail}
+                />
+
+                {selectedVoiceAgent ? (
+                  <div className="rfcc-selected-agent">
+                    <span className="rfcc-selected-agent-mark"><Bot size={18} /></span>
+                    <div>
+                      <small>Campaign owner</small>
+                      <strong>{selectedVoiceAgent.name || "ReachFly AI Agent"}</strong>
+                      <span>
+                        {callingModeLabel(selectedVoiceAgent.callingMode)} · {formatCampaignPhone(selectedVoiceAgent.fromNumber) || "No number"} · {languageLabel(selectedVoiceAgent)}
+                      </span>
+                    </div>
+                    <Link to={`/app/agents?agent=${encodeURIComponent(String(selectedVoiceAgent.id || ""))}`}>
+                      Manage agent <ArrowRight size={12} />
+                    </Link>
                   </div>
-                  <ArrowRight size={17} />
-                  <span className="rfcc-ai-route-node"><Sparkles size={18} /></span>
-                  <div>
-                    <strong>AI decides the next best action</strong>
-                    <span>Qualified, callback, send-info, not-interested, meeting, and follow-up outcomes remain connected.</span>
-                  </div>
-                </div>
+                ) : null}
 
                 <label className="rfcc-toggle-card">
                   <input
@@ -675,9 +746,11 @@ export default function CampaignCreate() {
                   {mode === MODES.EMAIL ? "Email Campaign" : "AI Calling Campaign"}
                 </strong>
                 <span>
-                  {selectedLeads.length
-                    ? `${selectedLeads.length} selected lead${selectedLeads.length === 1 ? "" : "s"}`
-                    : "New lead discovery campaign"}
+                  {mode === MODES.VOICE && selectedVoiceAgent
+                    ? `${selectedVoiceAgent.name || "AI agent"} · ${formatCampaignPhone(selectedVoiceAgent.fromNumber) || "number required"}`
+                    : selectedLeads.length
+                      ? `${selectedLeads.length} selected lead${selectedLeads.length === 1 ? "" : "s"}`
+                      : "New lead discovery campaign"}
                 </span>
               </div>
             </div>
@@ -709,120 +782,214 @@ export default function CampaignCreate() {
   );
 }
 
-function VoiceSetupGate({ loading, ready, readiness, error }) {
+function VoiceSetupGate({
+  loading,
+  ready,
+  readiness,
+  error,
+  agents,
+  selectedAgentId,
+  onSelectAgent,
+  dashboard,
+}) {
   if (loading) {
     return (
       <section className="rfcc-voice-gate checking">
         <span className="rfcc-voice-gate-icon"><span className="rfcc-spinner dark" /></span>
         <div>
-          <strong>Checking AI calling setup…</strong>
-          <p>ReachFly is confirming the business number, agent and outbound calling mode.</p>
+          <strong>Checking the connected calling journey…</strong>
+          <p>ReachFly is loading your AI agents, assigned business numbers, and outbound readiness.</p>
         </div>
       </section>
     );
   }
 
-  if (ready) {
+  if (!agents.length) {
     return (
-      <section className="rfcc-voice-gate ready">
-        <span className="rfcc-voice-gate-icon"><CheckCircle2 size={18} /></span>
+      <section className="rfcc-voice-gate blocked">
+        <span className="rfcc-voice-gate-icon"><Bot size={18} /></span>
         <div>
-          <strong>AI calling is ready</strong>
-          <p>
-            {readiness.numberLabel
-              ? `${readiness.numberLabel} is connected and the ReachFly Voice Agent is ready for outbound campaigns.`
-              : "Your ReachFly business number and Voice Agent are ready for outbound campaigns."}
-          </p>
+          <strong>Create an AI agent before launching a calling campaign</strong>
+          <p>{error || "Campaigns are linked to a specific ReachFly AI agent so the language, opening, context, memory, number, and call outcomes stay consistent."}</p>
+          <div className="rfcc-voice-checks">
+            <span className="missing">1 AI agent</span>
+            <span className="missing">2 Business number</span>
+            <span className="missing">3 Outbound enabled</span>
+          </div>
         </div>
-        <Link className="rfcc-btn rfcc-btn-secondary" to="/app/agents?mode=outbound">
-          Review Voice Setup
+        <Link className="rfcc-btn rfcc-btn-primary" to="/app/agents?onboarding=1&mode=outbound&returnTo=%2Fapp%2Fcampaigns%2Fnew">
+          Create AI Agent <ArrowRight size={14} />
         </Link>
       </section>
     );
   }
 
   return (
-    <section className="rfcc-voice-gate blocked">
-      <span className="rfcc-voice-gate-icon"><Phone size={18} /></span>
-      <div>
-        <strong>Set up calling before creating this campaign</strong>
-        <p>
-          {error ||
-            readiness.message ||
-            "AI Calling campaigns require a ReachFly business number and an activated outbound Voice Agent. This prevents campaigns from being created before they can actually call."}
-        </p>
-        <div className="rfcc-voice-checks">
-          <span className={readiness.numberReady ? "ok" : "missing"}>
-            {readiness.numberReady ? "✓" : "1"} Business number
-          </span>
-          <span className={readiness.agentReady ? "ok" : "missing"}>
-            {readiness.agentReady ? "✓" : "2"} Voice Agent
-          </span>
-          <span className={readiness.outboundReady ? "ok" : "missing"}>
-            {readiness.outboundReady ? "✓" : "3"} Outbound enabled
-          </span>
+    <section className={`rfcc-agent-gate ${ready ? "ready" : "blocked"}`}>
+      <div className="rfcc-agent-gate-head">
+        <span className="rfcc-voice-gate-icon">{ready ? <CheckCircle2 size={18} /> : <Bot size={18} />}</span>
+        <div>
+          <strong>{ready ? "Campaign calling path is connected" : "Choose a campaign-ready outbound agent"}</strong>
+          <p>
+            {ready
+              ? `${readiness.agentName || "This AI agent"} will call from ${readiness.numberLabel || "its assigned business number"}. Its saved language, opening, system instructions, memory and closing behavior remain attached.`
+              : error || readiness.message || "Select an enabled outbound agent with an assigned ReachFly business number."}
+          </p>
         </div>
+        <Link className="rfcc-btn rfcc-btn-secondary" to="/app/agents?mode=outbound">Manage agents</Link>
       </div>
-      <Link
-        className="rfcc-btn rfcc-btn-primary"
-        to="/app/agents?onboarding=1&mode=outbound&view=my-numbers&returnTo=%2Fapp%2Fcampaigns%2Fnew"
-      >
-        Complete Voice Setup <ArrowRight size={14} />
-      </Link>
+
+      <div className="rfcc-agent-picker" role="radiogroup" aria-label="Campaign AI agent">
+        {agents.map((agent) => {
+          const state = getVoiceAgentReadiness(agent, dashboard);
+          const selected = String(agent?.id || "") === String(selectedAgentId || "");
+          return (
+            <button
+              key={agent?.id || agent?.name}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              className={`rfcc-agent-choice ${selected ? "selected" : ""} ${state.ready ? "ready" : "needs-setup"}`}
+              onClick={() => onSelectAgent(String(agent?.id || ""))}
+            >
+              <span className="rfcc-agent-choice-icon"><Bot size={16} /></span>
+              <span className="rfcc-agent-choice-copy">
+                <strong>{agent?.name || "ReachFly AI Agent"}</strong>
+                <small>{callingModeLabel(agent?.callingMode)} · {languageLabel(agent)}</small>
+                <em>{formatCampaignPhone(agent?.fromNumber) || "Business number not assigned"}</em>
+              </span>
+              <span className={`rfcc-agent-choice-state ${state.ready ? "ok" : "warn"}`}>
+                {state.ready ? <CheckCircle2 size={13} /> : <span>!</span>}
+                {state.ready ? "Ready" : state.shortLabel}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {!ready ? (
+        <div className="rfcc-agent-fix-row">
+          <span>{readiness.message || "This agent needs setup before it can own an outbound campaign."}</span>
+          <Link to={`/app/agents?mode=outbound${selectedAgentId ? `&agent=${encodeURIComponent(selectedAgentId)}` : ""}`}>
+            Fix selected agent <ArrowRight size={12} />
+          </Link>
+        </div>
+      ) : null}
     </section>
   );
 }
 
-function resolveVoiceReadiness(dashboard) {
+function VoiceJourney({ agent, leadCount, phoneReadyCount, aiManagedEmail }) {
+  const steps = [
+    { icon: <Users size={15} />, label: "Audience", value: leadCount ? `${leadCount} leads` : "Discovery", ready: true },
+    { icon: <Bot size={15} />, label: "AI agent", value: agent?.name || "Choose agent", ready: Boolean(agent) },
+    { icon: <Phone size={15} />, label: "Business number", value: agent?.fromNumber ? formatCampaignPhone(agent.fromNumber) : "Assign number", ready: Boolean(agent?.fromNumber) },
+    { icon: <Zap size={15} />, label: "Outbound calls", value: phoneReadyCount ? `${phoneReadyCount} callable` : leadCount ? "No callable leads" : "Ready for discovery", ready: Boolean(agent && isOutboundAgent(agent)) },
+    { icon: <Sparkles size={15} />, label: "Next action", value: aiManagedEmail ? "AI call + follow-up" : "Call outcome", ready: Boolean(agent) },
+  ];
+
+  return (
+    <div className="rfcc-journey-map" aria-label="Connected campaign journey">
+      {steps.map((step, index) => (
+        <div className="rfcc-journey-fragment" key={step.label}>
+          <div className={`rfcc-journey-node ${step.ready ? "ready" : "pending"}`}>
+            <span>{step.icon}</span>
+            <div><small>{step.label}</small><strong>{step.value}</strong></div>
+          </div>
+          {index < steps.length - 1 ? <i className={step.ready ? "ready" : ""}><ArrowRight size={12} /></i> : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function normalizeVoiceAgents(dashboard) {
+  const source = Array.isArray(dashboard?.agents)
+    ? dashboard.agents
+    : dashboard?.agent
+      ? [dashboard.agent]
+      : [];
+
+  return source.filter(Boolean).map((agent, index) => ({
+    ...agent,
+    id: String(agent?.id || agent?.agentId || agent?.aiAgentId || agent?.elevenLabsAgentId || `agent-${index}`),
+    name: String(agent?.name || agent?.agentName || "ReachFly AI Agent").trim(),
+  }));
+}
+
+function getVoiceAgentReadiness(agent, dashboard) {
   const diagnostics = dashboard?.diagnostics || {};
-  const agent = dashboard?.agent || dashboard?.agents?.[0] || null;
-  const selectedNumber =
-    diagnostics.selectedFromNumber ||
-    agent?.fromNumber ||
-    "";
-
-  const phoneNumberId =
-    diagnostics.elevenLabsPhoneNumberId ||
-    agent?.elevenLabsPhoneNumberId ||
-    "";
-
+  const fromNumber = String(agent?.fromNumber || "").trim();
   const numberReady = Boolean(
-    selectedNumber &&
-      (phoneNumberId || diagnostics.purchasedNumberRequired === false)
+    fromNumber &&
+      (agent?.elevenLabsPhoneNumberId || diagnostics.purchasedNumberRequired === false || diagnostics.numberPurchased || diagnostics.selectedFromNumber === fromNumber)
   );
-
-  const agentReady = Boolean(
-    agent &&
-      agent.enabled !== false &&
-      (agent.elevenLabsAgentId || diagnostics.elevenLabsAgentId) &&
-      diagnostics.configured === true
-  );
-
-  const outboundReady =
-    diagnostics.outboundEnabled !== false &&
-    ["outbound", "both"].includes(
-      String(agent?.callingMode || diagnostics.callingMode || "outbound")
-        .trim()
-        .toLowerCase()
-    );
+  const agentReady = Boolean(agent && agent.enabled !== false && (agent.elevenLabsAgentId || diagnostics.configured === true));
+  const outboundReady = isOutboundAgent(agent) && diagnostics.outboundEnabled !== false;
+  const runtimeReady = diagnostics.configured !== false;
 
   let message = "";
-  if (!numberReady) {
-    message = "Connect or purchase a ReachFly business number before creating an AI Calling campaign.";
+  let shortLabel = "Setup";
+  if (!fromNumber || !numberReady) {
+    message = `Assign a ReachFly business number to ${agent?.name || "this AI agent"} before using it in a campaign.`;
+    shortLabel = "No number";
   } else if (!agentReady) {
-    message = "Finish and activate your ReachFly Voice Agent before creating an AI Calling campaign.";
+    message = `Activate ${agent?.name || "this AI agent"} before using it in a campaign.`;
+    shortLabel = "Inactive";
   } else if (!outboundReady) {
-    message = "Enable Outbound or Inbound + Outbound mode on the Voice Agent before creating this campaign.";
+    message = `Set ${agent?.name || "this AI agent"} to Outbound or Inbound + Outbound mode.`;
+    shortLabel = "Inbound only";
+  } else if (!runtimeReady) {
+    message = "Finish the ReachFly voice runtime setup before launching outbound campaigns.";
+    shortLabel = "Runtime";
   }
 
   return {
-    ready: numberReady && agentReady && outboundReady,
+    ready: numberReady && agentReady && outboundReady && runtimeReady,
     numberReady,
     agentReady,
     outboundReady,
-    numberLabel: selectedNumber ? formatCampaignPhone(selectedNumber) : "",
+    runtimeReady,
+    fromNumber,
+    numberLabel: formatCampaignPhone(fromNumber),
+    agentName: agent?.name || "ReachFly AI Agent",
+    shortLabel,
     message,
   };
+}
+
+function resolveVoiceReadiness(dashboard, selectedAgent) {
+  if (!selectedAgent) {
+    return {
+      ready: false,
+      numberReady: false,
+      agentReady: false,
+      outboundReady: false,
+      numberLabel: "",
+      agentName: "",
+      message: normalizeVoiceAgents(dashboard).length
+        ? "Choose the AI agent that should own this campaign."
+        : "Create an outbound AI agent and connect a business number first.",
+    };
+  }
+  return getVoiceAgentReadiness(selectedAgent, dashboard);
+}
+
+function isOutboundAgent(agent) {
+  return ["outbound", "both"].includes(String(agent?.callingMode || "outbound").trim().toLowerCase());
+}
+
+function callingModeLabel(value) {
+  const mode = String(value || "outbound").trim().toLowerCase();
+  if (mode === "both") return "Inbound + outbound";
+  if (mode === "inbound") return "Inbound only";
+  return "Outbound";
+}
+
+function languageLabel(agent) {
+  const primary = String(agent?.primaryLanguage || agent?.language || "en").trim().toLowerCase();
+  const names = { en: "English", es: "Spanish", fr: "French", de: "German", pt: "Portuguese", it: "Italian", nl: "Dutch", ar: "Arabic", hi: "Hindi", ur: "Urdu", zh: "Chinese", ja: "Japanese", ko: "Korean", ru: "Russian", tr: "Turkish" };
+  return names[primary] || primary.toUpperCase();
 }
 
 function formatCampaignPhone(value) {
@@ -1170,9 +1337,10 @@ function CampaignCreateStyles() {
       .rfcc-readiness-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:13px}.rfcc-readiness{display:flex;align-items:center;gap:9px;padding:11px;border:1px solid #e5e5ed;border-radius:11px}.rfcc-readiness.active{border-color:#d0d1f8;background:#fafaff}.rfcc-readiness>span{width:31px;height:31px;display:grid;place-items:center;color:#72748d;background:#f2f2f6;border-radius:9px}.rfcc-readiness.active>span{color:#5b5dd0;background:#ececff}.rfcc-readiness>div{display:grid}.rfcc-readiness strong{font-size:14px}.rfcc-readiness small{color:var(--rfcc-muted);font-size:9px}.rfcc-lead-preview{border:1px solid #e7e7ee;border-radius:11px;overflow:hidden}.rfcc-lead-row{display:flex;align-items:center;gap:10px;padding:10px 11px;border-bottom:1px solid #eeeeF3}.rfcc-lead-row:last-child{border-bottom:0}.rfcc-avatar{width:30px;height:30px;display:grid;place-items:center;flex:0 0 30px;color:#5254bc;background:#efefff;border-radius:9px;font-size:9px;font-weight:800}.rfcc-lead-main{display:grid;gap:1px;min-width:0;flex:1}.rfcc-lead-main strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px}.rfcc-lead-main span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--rfcc-muted);font-size:9px}.rfcc-lead-channels{display:flex;gap:5px}.rfcc-lead-channels>span{width:25px;height:25px;display:grid;place-items:center;border-radius:7px}.rfcc-lead-channels .ready{color:#2a8c68;background:#ebf8f2}.rfcc-lead-channels .missing{color:#acaebb;background:#f3f3f5}.rfcc-text-link{display:inline-flex;align-items:center;gap:5px;margin-top:11px;color:var(--rfcc-primary);text-decoration:none;font-size:10px;font-weight:750}.rfcc-empty-audience{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:13px;padding:15px;border:1px dashed #d7d7e1;border-radius:12px;background:#fbfbfd}.rfcc-empty-audience>span{width:39px;height:39px;display:grid;place-items:center;color:#6668d8;background:#eeeeff;border-radius:11px}.rfcc-empty-audience strong{font-size:11px}.rfcc-empty-audience p{margin:3px 0 0;color:var(--rfcc-muted);font-size:9px;line-height:1.5}
       .rfcc-submit-bar{position:sticky;bottom:14px;z-index:4;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:12px 13px;border:1px solid #ddddE8;border-radius:14px;background:rgba(255,255,255,.96);box-shadow:0 14px 35px rgba(24,25,60,.13);backdrop-filter:blur(14px)}.rfcc-submit-summary{display:flex;align-items:center;gap:9px}.rfcc-submit-icon{width:36px;height:36px;display:grid;place-items:center;color:#fff;border-radius:10px}.rfcc-submit-icon.email{background:#5f61e9}.rfcc-submit-icon.voice{background:linear-gradient(145deg,#5f61e9,#8749d5)}.rfcc-submit-summary>div{display:grid}.rfcc-submit-summary strong{font-size:11px}.rfcc-submit-summary span{color:var(--rfcc-muted);font-size:9px}.rfcc-submit-actions{display:flex;align-items:center;gap:8px}.rfcc-btn{appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:35px;padding:8px 12px;border-radius:9px;text-decoration:none;font-size:10px;font-weight:750;cursor:pointer;transition:transform .14s ease,box-shadow .14s ease,border-color .14s ease}.rfcc-btn:disabled{opacity:.6;cursor:wait}.rfcc-btn-primary{color:#fff;background:#5f61e9;border:1px solid #5f61e9;box-shadow:0 5px 12px rgba(95,97,233,.18)}.rfcc-btn-primary:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 8px 18px rgba(95,97,233,.24)}.rfcc-btn-secondary{color:#4d4f60;background:#fff;border:1px solid #dadbe4}.rfcc-btn-secondary:hover{border-color:#bfc0dd}.rfcc-spinner{width:12px;height:12px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:rfccSpin .7s linear infinite}@keyframes rfccSpin{to{transform:rotate(360deg)}}
       .rfcc-voice-gate{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;margin:0 0 13px;padding:12px 13px;border:1px solid #e3e4ec;border-radius:13px;background:#fff}.rfcc-voice-gate-icon{width:34px;height:34px;display:grid;place-items:center;border-radius:10px}.rfcc-voice-gate strong{display:block;font-size:11px}.rfcc-voice-gate p{margin:3px 0 0;color:var(--rfcc-muted);font-size:9px;line-height:1.5}.rfcc-voice-gate.ready{border-color:#cdebdc;background:#f7fcf9}.rfcc-voice-gate.ready .rfcc-voice-gate-icon{background:#e8f7ef;color:#23875a}.rfcc-voice-gate.blocked{border-color:#f0d8c4;background:#fffaf6}.rfcc-voice-gate.blocked .rfcc-voice-gate-icon{background:#fff0e4;color:#b66424}.rfcc-voice-gate.checking .rfcc-voice-gate-icon{background:#f0f0ff}.rfcc-voice-checks{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}.rfcc-voice-checks span{padding:4px 7px;border-radius:999px;font-size:8px;font-weight:750}.rfcc-voice-checks .ok{background:#eaf8f1;color:#247a55}.rfcc-voice-checks .missing{background:#fff0e4;color:#a85d24}.rfcc-spinner.dark{border-color:rgba(95,97,233,.22);border-top-color:#5f61e9}
-      .rfcc-restricted{max-width:520px;margin:70px auto;padding:32px;text-align:center;border:1px solid #e4e4ec;border-radius:17px;background:#fff}.rfcc-restricted-icon{width:48px;height:48px;display:grid;place-items:center;margin:0 auto 13px;color:#fff;background:#6264e8;border-radius:14px}.rfcc-restricted h1{margin:5px 0 8px}.rfcc-restricted p{margin:0 0 18px;color:var(--rfcc-muted);font-size:12px;line-height:1.6}
-      @media(max-width:860px){.rfcc-page{padding:18px 16px 42px}.rfcc-hero{display:grid}.rfcc-audience-pill{width:max-content}.rfcc-voice-gate{grid-template-columns:auto 1fr}.rfcc-voice-gate>.rfcc-btn{grid-column:1/-1}.rfcc-mode-grid{grid-template-columns:1fr}.rfcc-fields-two{grid-template-columns:1fr}.rfcc-ai-route{grid-template-columns:auto 1fr}.rfcc-ai-route>svg{display:none}.rfcc-readiness-grid{grid-template-columns:1fr 1fr 1fr}.rfcc-submit-bar{position:static;align-items:stretch;flex-direction:column}.rfcc-submit-actions{display:grid;grid-template-columns:1fr 1fr}.rfcc-empty-audience{grid-template-columns:auto 1fr}.rfcc-empty-audience .rfcc-btn{grid-column:1/-1}.rfcc-hero h1{font-size:27px}}
-      @media(max-width:560px){.rfcc-page{padding-left:12px;padding-right:12px}.rfcc-mode-card,.rfcc-card{padding:15px}.rfcc-mode-badges{align-items:flex-end;flex-direction:column}.rfcc-readiness-grid{grid-template-columns:1fr}.rfcc-submit-actions{grid-template-columns:1fr}.rfcc-hero h1{font-size:24px}.rfcc-ai-route{grid-template-columns:auto 1fr}.rfcc-ai-route-node:nth-of-type(2){margin-top:5px}.rfcc-lead-row{align-items:flex-start}.rfcc-lead-channels{padding-top:2px}}
+      .rfcc-agent-gate{margin:0 0 14px;border:1px solid #e3e4ec;border-radius:14px;background:#fff;overflow:hidden}.rfcc-agent-gate.ready{border-color:#cfe9dc}.rfcc-agent-gate-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding:13px 14px;background:#fbfbfd;border-bottom:1px solid #ececf1}.rfcc-agent-gate.ready .rfcc-agent-gate-head{background:#f7fcf9}.rfcc-agent-gate-head strong{display:block;font-size:11px}.rfcc-agent-gate-head p{margin:3px 0 0;color:var(--rfcc-muted);font-size:9px;line-height:1.5}.rfcc-agent-gate.ready .rfcc-voice-gate-icon{background:#e8f7ef;color:#23875a}.rfcc-agent-gate.blocked .rfcc-voice-gate-icon{background:#fff0e4;color:#b66424}.rfcc-agent-picker{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:11px}.rfcc-agent-choice{appearance:none;display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:9px;padding:10px;border:1px solid #e5e5ed;border-radius:11px;background:#fff;text-align:left;color:inherit;cursor:pointer;transition:.15s ease}.rfcc-agent-choice:hover{transform:translateY(-1px);border-color:#cfd0ed}.rfcc-agent-choice.selected{border-color:#8f91e9;box-shadow:0 0 0 3px rgba(95,97,233,.08);background:#fbfbff}.rfcc-agent-choice-icon{width:34px;height:34px;display:grid;place-items:center;color:#5f61d7;background:#eeeeff;border-radius:9px}.rfcc-agent-choice-copy{min-width:0;display:grid;gap:1px}.rfcc-agent-choice-copy strong,.rfcc-agent-choice-copy small,.rfcc-agent-choice-copy em{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.rfcc-agent-choice-copy strong{font-size:10px}.rfcc-agent-choice-copy small{color:var(--rfcc-muted);font-size:8px}.rfcc-agent-choice-copy em{color:#585a6c;font-size:8px;font-style:normal}.rfcc-agent-choice-state{display:inline-flex;align-items:center;gap:4px;padding:4px 6px;border-radius:999px;font-size:7px;font-weight:800;white-space:nowrap}.rfcc-agent-choice-state.ok{color:#247a55;background:#eaf8f1}.rfcc-agent-choice-state.warn{color:#a85d24;background:#fff0e4}.rfcc-agent-fix-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 12px;color:#7a5a39;background:#fffaf6;border-top:1px solid #f2dfce;font-size:8px}.rfcc-agent-fix-row a{display:inline-flex;align-items:center;gap:4px;color:#a85d24;text-decoration:none;font-weight:800}.rfcc-journey-map{display:flex;align-items:stretch;gap:0;padding:10px;border:1px solid #e5e5f2;border-radius:13px;background:#fafaff;overflow:auto}.rfcc-journey-fragment{display:flex;align-items:center;min-width:0;flex:1}.rfcc-journey-node{min-width:120px;flex:1;display:flex;align-items:center;gap:7px;padding:8px;border:1px solid transparent;border-radius:9px}.rfcc-journey-node.ready{background:#fff;border-color:#e7e7f1}.rfcc-journey-node.pending{background:#f3f3f6;color:#8d8f9c}.rfcc-journey-node>span{width:27px;height:27px;display:grid;place-items:center;flex:0 0 27px;color:#5f61d7;background:#eeeeff;border-radius:8px}.rfcc-journey-node.pending>span{color:#9799a5;background:#e8e8ec}.rfcc-journey-node>div{min-width:0;display:grid}.rfcc-journey-node small{color:var(--rfcc-muted);font-size:6px;text-transform:uppercase;letter-spacing:.05em}.rfcc-journey-node strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px}.rfcc-journey-fragment>i{width:24px;display:grid;place-items:center;flex:0 0 24px;color:#b0b1bd;font-style:normal}.rfcc-journey-fragment>i.ready{color:#5f61d7}.rfcc-selected-agent{display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;gap:10px;padding:11px;border:1px solid #dddff5;border-radius:12px;background:#f8f8ff}.rfcc-selected-agent-mark{width:40px;height:40px;display:grid;place-items:center;color:#fff;background:linear-gradient(145deg,#5f61e9,#8749d5);border-radius:11px}.rfcc-selected-agent>div{min-width:0;display:grid}.rfcc-selected-agent small{color:var(--rfcc-muted);font-size:7px;text-transform:uppercase;letter-spacing:.05em}.rfcc-selected-agent strong{font-size:11px}.rfcc-selected-agent>div>span{color:#727489;font-size:8px}.rfcc-selected-agent>a{display:inline-flex;align-items:center;gap:4px;color:#5f61d7;text-decoration:none;font-size:8px;font-weight:800}
+            .rfcc-restricted{max-width:520px;margin:70px auto;padding:32px;text-align:center;border:1px solid #e4e4ec;border-radius:17px;background:#fff}.rfcc-restricted-icon{width:48px;height:48px;display:grid;place-items:center;margin:0 auto 13px;color:#fff;background:#6264e8;border-radius:14px}.rfcc-restricted h1{margin:5px 0 8px}.rfcc-restricted p{margin:0 0 18px;color:var(--rfcc-muted);font-size:12px;line-height:1.6}
+      @media(max-width:860px){.rfcc-agent-picker{grid-template-columns:1fr}.rfcc-agent-gate-head{grid-template-columns:auto 1fr}.rfcc-agent-gate-head>.rfcc-btn{grid-column:1/-1}.rfcc-journey-map{display:grid;gap:5px}.rfcc-journey-fragment{display:grid;grid-template-columns:1fr}.rfcc-journey-fragment>i{display:none}.rfcc-journey-node{min-width:0}.rfcc-page{padding:18px 16px 42px}.rfcc-hero{display:grid}.rfcc-audience-pill{width:max-content}.rfcc-voice-gate{grid-template-columns:auto 1fr}.rfcc-voice-gate>.rfcc-btn{grid-column:1/-1}.rfcc-mode-grid{grid-template-columns:1fr}.rfcc-fields-two{grid-template-columns:1fr}.rfcc-ai-route{grid-template-columns:auto 1fr}.rfcc-ai-route>svg{display:none}.rfcc-readiness-grid{grid-template-columns:1fr 1fr 1fr}.rfcc-submit-bar{position:static;align-items:stretch;flex-direction:column}.rfcc-submit-actions{display:grid;grid-template-columns:1fr 1fr}.rfcc-empty-audience{grid-template-columns:auto 1fr}.rfcc-empty-audience .rfcc-btn{grid-column:1/-1}.rfcc-hero h1{font-size:27px}}
+      @media(max-width:560px){.rfcc-selected-agent{grid-template-columns:38px 1fr}.rfcc-selected-agent>a{grid-column:1/-1}.rfcc-agent-choice{grid-template-columns:32px 1fr}.rfcc-agent-choice-state{grid-column:2;justify-self:start}.rfcc-agent-fix-row{align-items:flex-start;flex-direction:column}.rfcc-page{padding-left:12px;padding-right:12px}.rfcc-mode-card,.rfcc-card{padding:15px}.rfcc-mode-badges{align-items:flex-end;flex-direction:column}.rfcc-readiness-grid{grid-template-columns:1fr}.rfcc-submit-actions{grid-template-columns:1fr}.rfcc-hero h1{font-size:24px}.rfcc-ai-route{grid-template-columns:auto 1fr}.rfcc-ai-route-node:nth-of-type(2){margin-top:5px}.rfcc-lead-row{align-items:flex-start}.rfcc-lead-channels{padding-top:2px}}
     `}</style>
   );
 }
