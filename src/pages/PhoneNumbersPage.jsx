@@ -52,6 +52,7 @@ export default function PhoneNumbersPage() {
   const [paymentPolling, setPaymentPolling] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [paymentIssue, setPaymentIssue] = useState(null);
 
   const [view, setView] = useState(
     searchParams.get("view") === "existing" ? "existing" : "buy"
@@ -168,10 +169,31 @@ export default function PhoneNumbersPage() {
       const next = new URLSearchParams(searchParams);
       next.delete("numberPayment");
       next.delete("order");
+      next.delete("paymentReason");
+      next.delete("reason");
+      next.delete("message");
+      next.delete("error");
       setSearchParams(next, { replace: true });
     };
 
+    if (["failed", "declined", "payment_failed", "error"].includes(normalizeStatus(payment))) {
+      const rawReason =
+        searchParams.get("paymentReason") ||
+        searchParams.get("reason") ||
+        searchParams.get("message") ||
+        searchParams.get("error") ||
+        "";
+      const issue = buildPaymentIssue({ error: rawReason, status: "payment_failed" });
+      setMessage("");
+      setError("");
+      setPaymentIssue(issue);
+      notify("warning", issue.title, issue.message);
+      clearReturn();
+      return undefined;
+    }
+
     if (payment === "cancelled") {
+      setPaymentIssue(null);
       setMessage("");
       setError("Business-number purchase was cancelled. No number was provisioned.");
       notify("warning", "Number purchase cancelled", "No business number was provisioned.");
@@ -183,6 +205,7 @@ export default function PhoneNumbersPage() {
 
     const run = async () => {
       setPaymentPolling(true);
+      setPaymentIssue(null);
       setError("");
       setMessage(
         "Payment returned successfully. ReachFly is verifying the order and activating your business number."
@@ -204,6 +227,7 @@ export default function PhoneNumbersPage() {
             const text = `${formatPhone(order?.phoneNumber)} is active and linked to this workspace.`;
             setMessage(text);
             setError("");
+            setPaymentIssue(null);
             notify("success", "Business number activated", text);
             clearReturn();
             setPaymentPolling(false);
@@ -211,10 +235,23 @@ export default function PhoneNumbersPage() {
           }
 
           if (FINAL_ORDER_STATES.has(status)) {
+            if (status === "payment_failed") {
+              const issue = buildPaymentIssue(order);
+              setMessage("");
+              setError("");
+              setPaymentIssue(issue);
+              await loadData({ silent: true });
+              notify("warning", issue.title, issue.message);
+              clearReturn();
+              setPaymentPolling(false);
+              return;
+            }
+
             const text = safeMessage(
               order?.error ||
                 "Payment was received, but the business number could not be activated automatically. Retry provisioning or contact support."
             );
+            setPaymentIssue(null);
             setMessage("");
             setError(text);
             await loadData({ silent: true });
@@ -290,7 +327,7 @@ export default function PhoneNumbersPage() {
   const failedOrders = useMemo(
     () =>
       normalizeCollection(commerce?.orders).filter((order) =>
-        ["provision_failed", "failure", "pending_activation", "paid"].includes(
+        ["payment_failed", "provision_failed", "failure", "pending_activation", "paid", "refund_review_required"].includes(
           normalizeStatus(order?.status)
         )
       ),
@@ -374,6 +411,7 @@ export default function PhoneNumbersPage() {
 
     setSearching(true);
     setQuote(null);
+    setPaymentIssue(null);
     setError("");
     setMessage("");
 
@@ -426,6 +464,7 @@ export default function PhoneNumbersPage() {
     }
 
     setBuyingNumber(item.phoneNumber);
+    setPaymentIssue(null);
     setError("");
     setMessage("");
 
@@ -436,7 +475,7 @@ export default function PhoneNumbersPage() {
           quoteId: quote.quoteId,
           phoneNumber: item.phoneNumber,
           callingMode,
-          returnPath: "/app/phone-numbers?view=buy",
+          returnPath: buildCheckoutReturnPath({ searchForm, callingMode }),
         },
         timeoutMs: 30_000,
       });
@@ -477,6 +516,7 @@ export default function PhoneNumbersPage() {
     setConnectingExisting(true);
     setExistingPending(null);
     setVerificationCode("");
+    setPaymentIssue(null);
     setError("");
     setMessage("");
 
@@ -639,6 +679,7 @@ export default function PhoneNumbersPage() {
     if (!orderId || retryingOrderId) return;
 
     setRetryingOrderId(orderId);
+    setPaymentIssue(null);
     setError("");
     setMessage("");
 
@@ -701,7 +742,7 @@ export default function PhoneNumbersPage() {
           </div>
 
           <div className="actions">
-            <Link className="btn secondary" to="/app/voice-agents">
+            <Link className="btn secondary" to="/app/agents">
               <Bot size={15} />
               Voice Agents
             </Link>
@@ -720,6 +761,23 @@ export default function PhoneNumbersPage() {
             </button>
           </div>
         </header>
+
+        {paymentIssue ? (
+          <PaymentIssueNotice
+            issue={paymentIssue}
+            onRetry={() => {
+              setPaymentIssue(null);
+              setError("");
+              setMessage("");
+              window.requestAnimationFrame(() => {
+                document.getElementById("rfpn-buy-number")?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "start",
+                });
+              });
+            }}
+          />
+        ) : null}
 
         {error ? (
           <Notice type="error" title="Business number setup needs attention">
@@ -762,12 +820,12 @@ export default function PhoneNumbersPage() {
             <span><small>Business Number</small><strong>{metrics.active ? `${metrics.active} active` : "Connect number"}</strong></span>
           </div>
           <i className={metrics.active ? "ready" : ""} />
-          <Link className={`journey-step ${agents.length ? "ready" : ""}`} to="/app/voice-agents">
+          <Link className={`journey-step ${agents.length ? "ready" : ""}`} to="/app/agents">
             <b>2</b>
             <span><small>AI Agent</small><strong>{agents.length ? `${agents.length} configured` : "Create agent"}</strong></span>
           </Link>
           <i className={agents.length ? "ready" : ""} />
-          <Link className={`journey-step ${agents.some((agent) => ["inbound", "outbound", "both"].includes(normalizeMode(agent?.callingMode))) ? "ready" : ""}`} to="/app/voice-agents">
+          <Link className={`journey-step ${agents.some((agent) => ["inbound", "outbound", "both"].includes(normalizeMode(agent?.callingMode))) ? "ready" : ""}`} to="/app/agents">
             <b>3</b>
             <span><small>Direction</small><strong>{agents.length ? summarizeAgentDirections(agents) : "Choose inbound / outbound"}</strong></span>
           </Link>
@@ -799,7 +857,7 @@ export default function PhoneNumbersPage() {
         </section>
 
         <section className="config-layout">
-          <main className="config-card">
+          <main className="config-card" id="rfpn-buy-number">
             {view === "buy" ? (
               <BuyPanel
                 commerce={commerce}
@@ -892,7 +950,7 @@ export default function PhoneNumbersPage() {
                     <strong>{activeAgent.name || "AI Voice Agent"}</strong>
                     <em>{activeAgent.fromNumber ? `Linked to ${formatPhone(activeAgent.fromNumber)}` : "Needs a Business Number"}</em>
                   </div>
-                  <Link to="/app/voice-agents"><ChevronRight size={14} /></Link>
+                  <Link to="/app/agents"><ChevronRight size={14} /></Link>
                 </>
               ) : (
                 <>
@@ -902,7 +960,7 @@ export default function PhoneNumbersPage() {
                     <strong>Create your Voice Agent</strong>
                     <em>Assign a number, language, prompt and call direction.</em>
                   </div>
-                  <Link to="/app/voice-agents"><ChevronRight size={14} /></Link>
+                  <Link to="/app/agents"><ChevronRight size={14} /></Link>
                 </>
               )}
             </div>
@@ -926,16 +984,39 @@ export default function PhoneNumbersPage() {
                       <strong>{formatPhone(order.phoneNumber)}</strong>
                       <small>{titleCase(normalizeStatus(order.status))}</small>
                       {order.error ? <p>{safeMessage(order.error)}</p> : null}
+                      {normalizeStatus(order.status) === "payment_failed" && order?.paymentFailure?.code ? (
+                        <p className="payment-code">Processor code: {order.paymentFailure.code}</p>
+                      ) : null}
                     </div>
-                    <button
-                      type="button"
-                      className="btn secondary compact"
-                      disabled={Boolean(retryingOrderId)}
-                      onClick={() => void retryProvision(order)}
-                    >
-                      <RefreshCw size={12} className={retryingOrderId === id ? "spin" : ""} />
-                      Retry
-                    </button>
+                    {normalizeStatus(order.status) === "payment_failed" ? (
+                      <button
+                        type="button"
+                        className="btn secondary compact"
+                        onClick={() => {
+                          const issue = buildPaymentIssue(order);
+                          setPaymentIssue(issue);
+                          window.requestAnimationFrame(() => {
+                            document.getElementById("rfpn-buy-number")?.scrollIntoView({
+                              behavior: "smooth",
+                              block: "start",
+                            });
+                          });
+                        }}
+                      >
+                        <RefreshCw size={12} />
+                        Try payment again
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn secondary compact"
+                        disabled={Boolean(retryingOrderId)}
+                        onClick={() => void retryProvision(order)}
+                      >
+                        <RefreshCw size={12} className={retryingOrderId === id ? "spin" : ""} />
+                        Retry provisioning
+                      </button>
+                    )}
                   </article>
                 );
               })}
@@ -1417,7 +1498,7 @@ function NumberDrawer({ number, linkedAgents = [], primary, onClose }) {
               {linkedAgents.map((agent, index) => (
                 <Link
                   key={agent.id || agent.elevenLabsAgentId || `${agent.name || "agent"}-${index}`}
-                  to="/app/voice-agents"
+                  to="/app/agents"
                 >
                   <span className={avatarTone(agent.name)}>
                     {initials(agent.name || "AI")}
@@ -1444,7 +1525,7 @@ function NumberDrawer({ number, linkedAgents = [], primary, onClose }) {
         <section>
           <h3>Next Actions</h3>
           <div className="drawer-links">
-            <Link to="/app/voice-agents">
+            <Link to="/app/agents">
               <Bot size={13} />
               <span>
                 <strong>{linkedAgents.length ? "Manage linked Voice Agent" : "Assign to a Voice Agent"}</strong>
@@ -1459,7 +1540,7 @@ function NumberDrawer({ number, linkedAgents = [], primary, onClose }) {
                 <ChevronRight size={12} />
               </Link>
             ) : (
-              <Link to="/app/voice-agents">
+              <Link to="/app/agents">
                 <Globe2 size={13} />
                 <span><strong>{supportsInbound ? "Inbound is ready" : "Choose inbound or outbound"}</strong><small>{supportsInbound ? "Incoming calls on this number can use the linked agent." : "The agent's calling mode decides how this number is used."}</small></span>
                 <ChevronRight size={12} />
@@ -1474,7 +1555,7 @@ function NumberDrawer({ number, linkedAgents = [], primary, onClose }) {
         </section>
 
         <footer>
-          <Link className="btn primary" to="/app/voice-agents">
+          <Link className="btn primary" to="/app/agents">
             {linkedAgents.length ? "Manage Voice Agent" : "Assign Voice Agent"}
             <ChevronRight size={13} />
           </Link>
@@ -1637,6 +1718,28 @@ function Placeholder({ icon, title, text }) {
       <strong>{title}</strong>
       <p>{text}</p>
     </div>
+  );
+}
+
+function PaymentIssueNotice({ issue, onRetry }) {
+  return (
+    <section className="payment-issue" role="alert">
+      <span className="payment-issue-icon"><Shield size={16} /></span>
+      <div className="payment-issue-copy">
+        <small>Payment not completed</small>
+        <strong>{issue?.title || "Card authorization was declined"}</strong>
+        <p>{issue?.message}</p>
+        <div className="payment-issue-facts">
+          <span><Check size={10} /> ReachFly did not proceed to number provisioning</span>
+          <span><Check size={10} /> You can retry checkout with a different card or payment method</span>
+          {issue?.code ? <span><Shield size={10} /> Processor code {issue.code}</span> : null}
+        </div>
+        <button type="button" className="btn primary compact" onClick={onRetry}>
+          <RefreshCw size={12} />
+          Try another payment method
+        </button>
+      </div>
+    </section>
   );
 }
 
@@ -1851,12 +1954,85 @@ function avatarTone(value) {
   return tones[sum % tones.length];
 }
 
+function buildCheckoutReturnPath({ searchForm = {}, callingMode = "both" } = {}) {
+  const params = new URLSearchParams();
+  params.set("view", "buy");
+  params.set("callingMode", normalizeMode(callingMode));
+
+  const country = String(searchForm.countryCode || "").trim().toUpperCase();
+  const area = String(searchForm.areaCode || "").replace(/\D/g, "").slice(0, 8);
+  const city = String(searchForm.locality || "").trim();
+
+  if (country) params.set("country", country);
+  if (area) params.set("area", area);
+  if (city) params.set("city", city);
+
+  return `/app/phone-numbers?${params.toString()}`;
+}
+
+function buildPaymentIssue(order = {}) {
+  const failure = order?.paymentFailure || {};
+  const raw = String(
+    failure?.message ||
+      order?.error ||
+      order?.message ||
+      ""
+  ).trim();
+  const code = String(failure?.code || order?.paymentFailureCode || "").trim();
+  const haystack = `${code} ${raw}`.toLowerCase();
+
+  if (code === "203" || haystack.includes("general decline") || haystack.includes("authorization")) {
+    return {
+      kind: "declined",
+      code: code || "203",
+      title: "Your bank declined the card authorization",
+      message:
+        "The payment did not complete, so ReachFly did not continue to phone-number provisioning. Try another card or payment method. If you want to use the same card, ask the issuing bank to approve online/card-not-present payments and then retry.",
+    };
+  }
+
+  if (code === "208" || haystack.includes("inactive card") || haystack.includes("card-not-present")) {
+    return {
+      kind: "declined",
+      code: code || "208",
+      title: "This card is not enabled for this online payment",
+      message:
+        "Use another card or enable online/card-not-present payments with the issuing bank. ReachFly will only provision the number after payment succeeds.",
+    };
+  }
+
+  if (code === "476" || haystack.includes("authentication failed") || haystack.includes("payer authentication")) {
+    return {
+      kind: "authentication",
+      code: code || "476",
+      title: "Cardholder authentication was not completed",
+      message:
+        "Retry checkout and complete the bank verification step, or use another payment method. ReachFly has not continued to number provisioning.",
+    };
+  }
+
+  return {
+    kind: "declined",
+    code,
+    title: "The payment processor declined this payment",
+    message:
+      safeMessage(raw) ||
+      "The payment did not complete. Try checkout again with another card or payment method. ReachFly will provision the number only after a successful payment.",
+  };
+}
+
 function safeMessage(value) {
-  return String(value || "")
+  const text = String(value || "")
     .replace(/ElevenLabs/gi, "voice runtime")
     .replace(/ElevenAgent/gi, "voice agent")
     .replace(/Telnyx/gi, "calling provider")
     .replace(/\bSIP\b/gi, "carrier routing");
+
+  if (/general decline/i.test(text) || /action ['"]?authorization/i.test(text)) {
+    return "Your bank declined this card authorization. Try another card or payment method, or contact the issuing bank before retrying.";
+  }
+
+  return text;
 }
 
 function notify(type, title, message) {
@@ -1883,6 +2059,7 @@ function Styles() {
       .rfpn-header{display:flex;align-items:flex-end;justify-content:space-between;gap:22px;margin-bottom:18px}.eyebrow{display:block;margin-bottom:4px;color:var(--primary);font-size:9px;font-weight:750;line-height:13px;letter-spacing:.09em;text-transform:uppercase}.rfpn-header h1{margin:0;font:600 32px/40px Geist,Inter,sans-serif;letter-spacing:-.02em}.rfpn-header p{max-width:690px;margin:3px 0 0;color:var(--text2);font-size:13px;line-height:19px}.actions{display:flex;gap:8px}.btn{min-height:39px;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:7px 12px;border:1px solid transparent;border-radius:8px;text-decoration:none;white-space:nowrap;cursor:pointer;font:600 10px/15px Inter,sans-serif;transition:.14s var(--ease)}.btn:hover:not(:disabled){transform:translateY(-1px)}.btn:disabled{opacity:.45;cursor:not-allowed}.btn.primary{color:#fff!important;background:var(--primary);border-color:var(--primary);box-shadow:0 5px 14px rgba(70,72,212,.17)}.btn.primary:hover:not(:disabled){background:var(--primary2)}.btn.secondary{background:#fff;border-color:var(--line)}.btn.secondary:hover:not(:disabled){color:var(--primary)!important;background:var(--psoft)}.btn.compact{min-height:31px;padding:5px 8px;font-size:7px}
 
       .notice{display:flex;align-items:flex-start;gap:9px;padding:10px 12px;margin-bottom:10px;border:1px solid;border-radius:9px;animation:fadeUp .18s var(--ease)}.notice>span{width:26px;height:26px;display:grid;place-items:center;flex:0 0 26px;background:#fff;border-radius:7px}.notice>div{display:grid;gap:1px}.notice strong{font-size:9px}.notice small{font-size:8px}.notice.error{color:#7d1717;background:var(--dsoft);border-color:#ffd0cc}.notice.success{color:#075b3d;background:var(--ssoft);border-color:#b8efd6}
+      .payment-issue{display:grid;grid-template-columns:38px minmax(0,1fr);gap:11px;padding:13px 14px;margin-bottom:12px;color:#674b00;background:linear-gradient(135deg,#fff9e8,#fffdf6);border:1px solid #f0dda0;border-radius:11px;box-shadow:0 6px 20px rgba(112,81,0,.05);animation:fadeUp .18s var(--ease)}.payment-issue-icon{width:38px;height:38px;display:grid;place-items:center;color:#8a6100;background:#fff1c6;border-radius:10px}.payment-issue-copy{min-width:0}.payment-issue-copy>small{display:block;margin-bottom:1px;color:#8a6100;font-size:6px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}.payment-issue-copy>strong{display:block;color:#4f3b08;font:600 12px/17px Geist,Inter,sans-serif}.payment-issue-copy>p{max-width:760px;margin:3px 0 8px;color:#725d22;font-size:8px;line-height:13px}.payment-issue-facts{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:9px}.payment-issue-facts span{display:inline-flex;align-items:center;gap:4px;padding:5px 7px;color:#6e5718;background:rgba(255,255,255,.78);border:1px solid #eedda7;border-radius:999px;font-size:6px;font-weight:650}.payment-code{margin-top:3px!important;color:var(--muted)!important;font-size:6px!important}
 
       .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}.metric{min-height:74px;display:flex;align-items:center;gap:10px;padding:13px 14px;background:#fff;border:1px solid var(--line);border-radius:11px}.metric>span{width:34px;height:34px;display:grid;place-items:center;flex:0 0 34px;color:var(--primary);background:var(--psoft);border-radius:9px}.metric.success>span{color:var(--success);background:var(--ssoft)}.metric.violet>span{color:var(--violet);background:var(--vsoft)}.metric.neutral>span{color:#5f6672;background:#edf0f4}.metric>div{min-width:0;display:grid;grid-template-columns:auto 1fr;align-items:baseline;gap:0 6px}.metric small{grid-column:1/-1;color:var(--muted);font-size:7px;font-weight:750;letter-spacing:.07em;text-transform:uppercase}.metric strong{font:600 18px/23px Geist,Inter,sans-serif}.metric em{overflow:hidden;color:var(--muted);text-overflow:ellipsis;white-space:nowrap;font-size:7px;font-style:normal}
 
