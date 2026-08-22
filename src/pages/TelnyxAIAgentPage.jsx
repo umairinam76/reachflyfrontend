@@ -51,7 +51,7 @@ import "../styles.css";
 const REACHFLY_VOICE_ART_STYLE = new Style(loreleiDefinition);
 
 const FAST_HUMAN_GREETING =
-  "Hey {{greeting_name}}, James from {{company_name}}. Quick disclosure — I’m an AI sales agent with the team, and this call may be recorded. I’ll keep it brief. I was curious... is your website consistently turning visitors into real sales conversations, or do too many people land there and leave without ever becoming a lead?";
+  "Hey {{greeting_name}}, {{agent_name}} from {{company_name}}. Quick disclosure — I’m an AI sales agent with the team, and this call may be recorded. I’ll keep it brief. I was curious... is your website consistently turning visitors into real sales conversations, or do too many people land there and leave without ever becoming a lead?";
 
 const FAST_HUMAN_PERSONA =
   "Warm, sharp, concise, and conversational. Keep most turns short, use contractions and plain words, and match the prospect’s pace. React naturally without repetitive acknowledgement phrases. Avoid canned AI or call-center filler such as got it, gotcha, absolutely, certainly, perfect, awesome, I understand, or that makes sense. Allow brief silence instead of filling every gap. Never use fake laughter, fake breathing, written stage directions, or claim to be human.";
@@ -65,7 +65,7 @@ const LANGUAGE_OPTIONS = [
 ];
 
 const DEFAULT_FORM = {
-  name: "James",
+  name: "Ava",
   description:
     "ReachFly outbound qualification and meeting-booking agent.",
   companyName: "",
@@ -330,6 +330,10 @@ export default function TelnyxAIAgentPage() {
           normalizeAgentForm({
             ...current,
             ...(selectedResponseAgent || {}),
+            name:
+              selectedResponseAgent?.name ||
+              response.diagnostics?.defaultAgentName ||
+              current.name,
             companyName:
               selectedResponseAgent?.companyName ||
               response.workspace?.name ||
@@ -2765,20 +2769,20 @@ function VoiceAgentGuidedWizard({
     <section className="rf-voice-wizard">
       <div className="rf-voice-wizard-top">
         <div>
-          <span className="rf-voice-wizard-kicker">Voice Agent setup</span>
+          <span className="rf-voice-wizard-kicker">ReachFly Voice setup</span>
           <h2>
             {step === 0
-              ? "Choose how your agent sounds"
+              ? "Choose the agent your customers will hear"
               : step === 1
-                ? "Add your business context"
-                : "Review and activate"}
+                ? "Teach ReachFly what the agent should know"
+                : "Review once, then go live"}
           </h2>
           <p>
             {step === 0
-              ? "ReachFly already knows your workspace. Only choose the customer-facing name and voice."
+              ? "Pick a friendly ReachFly agent name and voice. Technical voice infrastructure is already managed for you."
               : step === 1
-                ? "Website and meeting details are optional. Add them only if you want the agent to use them."
-                : "Approve the calling policy and ReachFly will create and link the managed runtime."}
+                ? "Add your website, offer and booking goal. ReachFly turns them into call context automatically."
+                : "Confirm the workflow and calling policy. ReachFly links the number, agent and call tools behind the scenes."}
           </p>
         </div>
         <span className="rf-voice-wizard-step-count">{step + 3} / 5</span>
@@ -2806,8 +2810,8 @@ function VoiceAgentGuidedWizard({
           <div className="rf-voice-wizard-note">
             <b>Provider setup is automatic</b>
             <span>
-              Customers never choose ElevenLabs agent IDs, SIP trunks, provider
-              profiles, or phone-number IDs. ReachFly manages those per workspace.
+              Customers only choose the ReachFly agent name, voice and business workflow.
+              Provider IDs, routing profiles and phone-number mappings stay managed behind the scenes.
             </span>
           </div>
 
@@ -2816,7 +2820,7 @@ function VoiceAgentGuidedWizard({
               label="Agent name"
               value={form.name}
               onChange={(value) => onChange("name", value)}
-              placeholder="James"
+              placeholder="Ava"
             />
 
             <label className="rf-agent-field">
@@ -3282,12 +3286,12 @@ function AgentSetup({
     null;
 
   const steps = [
-    { key: "mode", label: "Calling", short: "Inbound / outbound" },
-    { key: "number", label: "Number", short: "Manage numbers" },
-    { key: "identity", label: "Agent", short: "Name & voice" },
-    { key: "business", label: "Business", short: "Website context" },
-    { key: "workflow", label: "Workflow", short: "Actions & handoff" },
-    { key: "review", label: "Activate", short: "Review & save" },
+    { key: "mode", label: "Direction", short: "Inbound / outbound" },
+    { key: "number", label: "Business number", short: "Your caller ID" },
+    { key: "identity", label: "Voice identity", short: "Name & voice" },
+    { key: "business", label: "Knowledge", short: "Website & offer" },
+    { key: "workflow", label: "Actions", short: "Booking & handoff" },
+    { key: "review", label: "Go live", short: "Review & activate" },
   ];
 
   useEffect(() => {
@@ -3731,12 +3735,12 @@ function AgentSetup({
               : "Voice setup"}
           </span>
           <h2>
-            Set up inbound and outbound calling in one guided flow.
+            Go from business number to live AI calls in six small steps.
           </h2>
           <p>
-            ReachFly manages the calling infrastructure. Your workspace
-            chooses the calling mode, business number, voice and business
-            workflow without exposing technical routing details.
+            Choose the call direction, connect your number, pick a ReachFly voice,
+            add business knowledge, choose the actions the agent can take, then go live.
+            ReachFly manages the technical calling infrastructure automatically.
           </p>
         </div>
 
@@ -3876,10 +3880,9 @@ function AgentSetup({
             <div className="rf-voice-wizard-note">
               <b>ReachFly manages the carrier layer</b>
               <span>
-                Customers do not need their own Telnyx or
-                ElevenLabs account. ReachFly can purchase and map
-                numbers to each workspace while using the managed
-                carrier/SIP infrastructure.
+                Customers do not need separate carrier or voice-model accounts.
+                ReachFly purchases, maps and operates the managed calling infrastructure
+                for each workspace.
               </span>
             </div>
           </div>
@@ -4397,14 +4400,34 @@ function AgentSetup({
         {step === 2 ? (
           <div className="rf-voice-setup-pane">
             <div className="rf-voice-identity-stack">
-              <Field
-                label="Agent name"
-                value={form.name}
-                onChange={(value) =>
-                  onChange("name", value)
-                }
-                placeholder="James"
-              />
+              <div className="rf-agent-field">
+                <span>ReachFly agent name</span>
+                <input
+                  value={form.name || ""}
+                  onChange={(event) => onChange("name", event.target.value)}
+                  placeholder={diagnostics?.defaultAgentName || "Ava"}
+                />
+                <div className="rf-reachfly-agent-name-presets">
+                  {(Array.isArray(diagnostics?.agentNameOptions)
+                    ? diagnostics.agentNameOptions
+                    : ["Ava", "Maya", "Noah", "Leo", "Zara", "Sofia"]
+                  )
+                    .slice(0, 6)
+                    .map((name) => (
+                      <button
+                        key={name}
+                        type="button"
+                        className={String(form.name || "").trim() === name ? "active" : ""}
+                        onClick={() => onChange("name", name)}
+                      >
+                        {name}
+                      </button>
+                    ))}
+                </div>
+                <small>
+                  These are ReachFly-facing identities. Voice-provider IDs stay hidden.
+                </small>
+              </div>
 
               <div className="rf-agent-field rf-voice-picker-field">
                 <span>Voice</span>
@@ -8567,6 +8590,16 @@ function CallsPanel({
             />
           </div>
 
+          {live ? (
+            <LiveConversationStage
+              call={monitorCall}
+              listening={listening}
+              audioStatus={audioStatus}
+              liveAudioAvailable={liveAudioAvailable}
+              transcriptCount={transcript.length}
+            />
+          ) : null}
+
           <div className="rf-agent-live-monitor-actions">
             {live ? (
               <button
@@ -9189,6 +9222,95 @@ function CallsPanel({
           </table>
         </div>
       </article>
+    </section>
+  );
+}
+
+function LiveConversationStage({
+  call,
+  listening,
+  audioStatus,
+  liveAudioAvailable,
+  transcriptCount,
+}) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const startedAt = Date.parse(
+    call?.answeredAt ||
+      call?.startedAt ||
+      call?.createdAt ||
+      ""
+  );
+
+  const seconds =
+    Number.isFinite(startedAt)
+      ? Math.max(0, Math.floor((now - startedAt) / 1000))
+      : Number(call?.durationSeconds || 0);
+
+  const minutes = String(Math.floor(seconds / 60)).padStart(2, "0");
+  const remaining = String(seconds % 60).padStart(2, "0");
+  const agentName =
+    call?.agentName ||
+    call?.voiceAgentName ||
+    "ReachFly AI";
+  const leadName =
+    call?.leadName ||
+    call?.contactName ||
+    "Lead";
+
+  return (
+    <section className={`rf-live-call-stage ${listening ? "listening" : ""}`}>
+      <div className="rf-live-call-stage-top">
+        <span className="rf-live-call-now"><i /> LIVE NOW</span>
+        <span className="rf-live-call-timer">{minutes}:{remaining}</span>
+        <span className="rf-live-call-direction">
+          {normalizeVoiceDirection(call?.direction) === "inbound" ? "Inbound" : "Outbound"}
+        </span>
+      </div>
+
+      <div className="rf-live-call-people">
+        <div className="rf-live-call-person agent">
+          <span>{String(agentName).slice(0, 1).toUpperCase()}</span>
+          <div>
+            <small>ReachFly agent</small>
+            <b>{agentName}</b>
+          </div>
+        </div>
+
+        <div className="rf-live-call-wave" aria-hidden="true">
+          {Array.from({ length: 18 }).map((_, index) => (
+            <i key={index} style={{ "--rf-wave-i": index }} />
+          ))}
+        </div>
+
+        <div className="rf-live-call-person lead">
+          <span>{String(leadName).slice(0, 1).toUpperCase()}</span>
+          <div>
+            <small>Lead</small>
+            <b>{leadName}</b>
+          </div>
+        </div>
+      </div>
+
+      <div className="rf-live-call-observability">
+        <span className={liveAudioAvailable ? "good" : ""}>
+          <b>{listening ? "Listening" : liveAudioAvailable ? "Listen ready" : "Audio unavailable"}</b>
+          <small>{listening ? "Both call tracks are playing in this browser." : "Listen-only supervisor audio"}</small>
+        </span>
+        <span className={transcriptCount ? "good" : ""}>
+          <b>{transcriptCount ? `${transcriptCount} transcript events` : "Transcript waiting"}</b>
+          <small>Conversation text updates when the active runtime supports it.</small>
+        </span>
+        <span className={["streaming", "connected", "active"].includes(normalizeStatus(audioStatus)) ? "good" : ""}>
+          <b>{formatLabel(normalizeStatus(audioStatus || "waiting"))}</b>
+          <small>Live media status</small>
+        </span>
+      </div>
     </section>
   );
 }
@@ -12323,6 +12445,199 @@ function VoiceWorkspaceV7Styles() {
         .rf-ai-dialer-console-v8{
           padding-inline:13px;
         }
+      }
+
+      .rf-reachfly-agent-name-presets{
+        display:flex;
+        flex-wrap:wrap;
+        gap:5px;
+        margin-top:6px;
+      }
+
+      .rf-reachfly-agent-name-presets button{
+        min-height:26px;
+        padding:4px 8px;
+        border:1px solid var(--rfv7-outline);
+        border-radius:999px;
+        color:var(--rfv7-text-soft);
+        background:#fff;
+        font-size:7.5px;
+        font-weight:700;
+      }
+
+      .rf-reachfly-agent-name-presets button:hover,
+      .rf-reachfly-agent-name-presets button.active{
+        color:var(--rfv7-primary);
+        background:var(--rfv7-primary-soft);
+        border-color:rgba(70,72,212,.28);
+      }
+
+      /* Launch-day compact workspace + live-call observability */
+      .rf-agent-page.rf-agent-v7{
+        padding:18px 22px 32px;
+      }
+
+      .rf-agent-header-v7{
+        margin-bottom:14px;
+      }
+
+      .rf-agent-avatar-v7{
+        width:54px;
+        height:54px;
+        flex-basis:54px;
+        font-size:20px;
+      }
+
+      .rf-agent-title-line-v7 h1{
+        font-size:27px;
+        line-height:34px;
+      }
+
+      .rf-agent-v7 .rf-voice-setup-hero{
+        padding:15px 17px;
+      }
+
+      .rf-agent-v7 .rf-voice-setup-progress{
+        padding:10px 12px;
+      }
+
+      .rf-agent-v7 .rf-voice-setup-stage{
+        padding:15px 17px 18px;
+      }
+
+      .rf-agent-v7 .rf-voice-setup-stage-head{
+        padding-bottom:11px;
+        margin-bottom:12px;
+      }
+
+      .rf-agent-v7 .rf-agent-card,
+      .rf-agent-v7 .rf-agent-form-card,
+      .rf-agent-v7 .rf-agent-live-monitor,
+      .rf-agent-v7 .rf-agent-meeting-card,
+      .rf-agent-v7 .rf-agent-queue-card,
+      .rf-agent-v7 .rf-agent-google-leads-card,
+      .rf-agent-v7 .rf-agent-custom-lead-card{
+        border-radius:12px;
+      }
+
+      .rf-live-call-stage{
+        position:relative;
+        overflow:hidden;
+        display:grid;
+        gap:12px;
+        margin:10px 0 12px;
+        padding:13px;
+        color:#eef7f5;
+        background:
+          radial-gradient(circle at 12% 0,rgba(92,96,255,.28),transparent 34%),
+          radial-gradient(circle at 90% 20%,rgba(36,209,145,.18),transparent 32%),
+          linear-gradient(145deg,#151922,#202532);
+        border:1px solid rgba(255,255,255,.08);
+        border-radius:14px;
+        box-shadow:0 16px 38px rgba(17,21,30,.18);
+      }
+
+      .rf-live-call-stage::after{
+        content:"";
+        position:absolute;
+        inset:0;
+        pointer-events:none;
+        background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);
+        background-size:24px 24px;
+        opacity:.55;
+      }
+
+      .rf-live-call-stage>*{position:relative;z-index:1}
+
+      .rf-live-call-stage-top{
+        display:flex;
+        align-items:center;
+        gap:8px;
+      }
+
+      .rf-live-call-now,
+      .rf-live-call-direction,
+      .rf-live-call-timer{
+        display:inline-flex;
+        align-items:center;
+        gap:5px;
+        min-height:24px;
+        padding:4px 8px;
+        border-radius:999px;
+        font-size:8px;
+        font-weight:800;
+        letter-spacing:.04em;
+      }
+
+      .rf-live-call-now{color:#ffdada;background:rgba(255,78,78,.12)}
+      .rf-live-call-now i{
+        width:7px;height:7px;border-radius:50%;background:#ff5d5d;
+        box-shadow:0 0 0 0 rgba(255,93,93,.45);
+        animation:rfLiveCallPulse 1.4s infinite;
+      }
+      .rf-live-call-timer{margin-left:auto;color:#f3f5f7;background:rgba(255,255,255,.08);font-variant-numeric:tabular-nums}
+      .rf-live-call-direction{color:#cfd0ff;background:rgba(98,101,238,.17)}
+      @keyframes rfLiveCallPulse{70%{box-shadow:0 0 0 8px rgba(255,93,93,0)}100%{box-shadow:0 0 0 0 rgba(255,93,93,0)}}
+
+      .rf-live-call-people{
+        display:grid;
+        grid-template-columns:minmax(120px,.8fr) minmax(180px,1.4fr) minmax(120px,.8fr);
+        gap:12px;
+        align-items:center;
+      }
+
+      .rf-live-call-person{
+        display:flex;
+        align-items:center;
+        gap:9px;
+        min-width:0;
+        padding:9px;
+        background:rgba(255,255,255,.055);
+        border:1px solid rgba(255,255,255,.07);
+        border-radius:11px;
+      }
+
+      .rf-live-call-person>span{
+        width:34px;height:34px;display:grid;place-items:center;flex:0 0 34px;border-radius:10px;
+        color:#fff;background:linear-gradient(145deg,#6265ee,#7a4cdf);font-weight:800;
+      }
+
+      .rf-live-call-person.lead>span{background:linear-gradient(145deg,#14895d,#21b87b)}
+      .rf-live-call-person small,.rf-live-call-person b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .rf-live-call-person small{color:#9ea5b4;font-size:7px}.rf-live-call-person b{margin-top:2px;color:#fff;font-size:9px}
+
+      .rf-live-call-wave{
+        height:46px;display:flex;align-items:center;justify-content:center;gap:4px;
+      }
+
+      .rf-live-call-wave i{
+        width:3px;height:14px;border-radius:99px;background:linear-gradient(180deg,#a8aaff,#42dfad);
+        transform-origin:center;
+        animation:rfLiveWave 850ms ease-in-out infinite alternate;
+        animation-delay:calc(var(--rf-wave-i) * -47ms);
+        opacity:.9;
+      }
+
+      .rf-live-call-stage:not(.listening) .rf-live-call-wave i{opacity:.5;animation-duration:1.25s}
+      @keyframes rfLiveWave{from{transform:scaleY(.35)}to{transform:scaleY(2.3)}}
+
+      .rf-live-call-observability{
+        display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;
+      }
+
+      .rf-live-call-observability>span{
+        display:grid;gap:2px;padding:8px 9px;border:1px solid rgba(255,255,255,.07);border-radius:9px;background:rgba(255,255,255,.045)
+      }
+
+      .rf-live-call-observability>span.good{border-color:rgba(63,218,157,.22);background:rgba(42,192,133,.08)}
+      .rf-live-call-observability b{color:#edf0f4;font-size:8px}
+      .rf-live-call-observability small{color:#8f98a8;font-size:7px;line-height:1.35}
+
+      @media(max-width:760px){
+        .rf-agent-page.rf-agent-v7{padding:14px 12px 28px}
+        .rf-live-call-people{grid-template-columns:1fr}
+        .rf-live-call-wave{order:3;height:34px}
+        .rf-live-call-observability{grid-template-columns:1fr}
       }
 
       @media(max-width:520px){

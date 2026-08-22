@@ -34,6 +34,9 @@ const DEFAULT_PROFILE = Object.freeze({
   offer: "",
   targetMarket: "",
   pitchGoal: "Start a relevant sales conversation and qualify genuine need.",
+  painPoints: "",
+  miniAuditDirection:
+    "Prioritize verified customer-acquisition, conversion, booking, trust, local visibility and follow-up gaps that connect naturally to our offer. Keep the mini audit caller-ready and evidence-grounded.",
   customInstructions: "",
   criteria: {
     nicheFit: true,
@@ -270,6 +273,31 @@ export default function WebsiteAudits() {
         ? Math.round(scored.reduce((sum, value) => sum + value, 0) / scored.length)
         : null,
     };
+  }, [enrichedLeads]);
+
+  const liveMiniAudits = useMemo(() => {
+    const pending = enrichedLeads
+      .filter((item) => item.mini && ["queued", "generating"].includes(normalizeStatus(item.mini.status)))
+      .sort(
+        (a, b) =>
+          Date.parse(b.mini?.updatedAt || b.mini?.createdAt || 0) -
+          Date.parse(a.mini?.updatedAt || a.mini?.createdAt || 0)
+      );
+
+    const recentCompleted = enrichedLeads
+      .filter((item) => item.mini && normalizeStatus(item.mini.status) === "complete")
+      .sort(
+        (a, b) =>
+          Date.parse(b.mini?.completedAt || b.mini?.updatedAt || 0) -
+          Date.parse(a.mini?.completedAt || a.mini?.updatedAt || 0)
+      );
+
+    return [...pending, ...recentCompleted]
+      .filter(
+        (item, index, list) =>
+          list.findIndex((candidate) => candidate.id === item.id) === index
+      )
+      .slice(0, 8);
   }, [enrichedLeads]);
 
   function persistSelection(nextSet) {
@@ -576,6 +604,12 @@ export default function WebsiteAudits() {
           />
         </section>
 
+        <LiveMiniAuditStream
+          items={liveMiniAudits}
+          onOpen={openLead}
+          running={running}
+        />
+
         <section className="rf-audit-profile-card">
           <button
             type="button"
@@ -618,6 +652,22 @@ export default function WebsiteAudits() {
                   value={profile.targetMarket}
                   onChange={(value) => updateProfile("targetMarket", value)}
                   placeholder="United States, Miami, UK dental clinics..."
+                />
+                <AuditField
+                  label="Pain points your offer solves"
+                  value={profile.painPoints}
+                  onChange={(value) => updateProfile("painPoints", value)}
+                  placeholder="Missed calls, slow lead follow-up, weak booking flow, poor conversion..."
+                  textarea
+                  full
+                />
+                <AuditField
+                  label="Mini audit direction"
+                  value={profile.miniAuditDirection}
+                  onChange={(value) => updateProfile("miniAuditDirection", value)}
+                  placeholder="Tell Claude what to prioritize in the one-page pre-call mini audit."
+                  textarea
+                  full
                 />
                 <AuditField
                   label="Pitch goal"
@@ -664,8 +714,9 @@ export default function WebsiteAudits() {
                 <div>
                   <ShieldCheck size={16} />
                   <span>
-                    ReachFly scores <b>commercial alignment</b>, not hidden buyer intent.
-                    Claude must not claim that a prospect is interested unless the CRM contains evidence.
+                    Mini Audits use the same evidence-first mindset as the Website Audit:
+                    verified public findings first, then <b>commercial alignment</b> against your niche,
+                    pain points and offer. Claude must not invent prospect interest.
                   </span>
                 </div>
 
@@ -834,6 +885,73 @@ export default function WebsiteAudits() {
         )}
       </main>
     </>
+  );
+}
+
+function LiveMiniAuditStream({ items, onOpen, running }) {
+  const activeCount = items.filter((item) =>
+    ["queued", "generating"].includes(normalizeStatus(item.mini?.status))
+  ).length;
+
+  return (
+    <section className="rf-audit-live-stream">
+      <div className="rf-audit-live-stream-head">
+        <div>
+          <span className={`rf-audit-live-signal ${activeCount ? "active" : ""}`}>
+            <i />
+            {activeCount ? `${activeCount} live` : "Live mini audits"}
+          </span>
+          <div>
+            <b>Real-time Mini Audit stream</b>
+            <small>
+              Queued, generating and newly completed lead audits update automatically.
+            </small>
+          </div>
+        </div>
+        {running ? <span className="rf-audit-live-working"><Loader2 size={13} className="spin" /> Starting batch</span> : null}
+      </div>
+
+      <div className="rf-audit-live-strip">
+        {items.length ? (
+          items.map((item) => {
+            const status = normalizeStatus(item.mini?.status);
+            const score = getFitScore(item.mini);
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className={`rf-audit-live-item ${status}`}
+                onClick={() => onOpen?.(item)}
+              >
+                <span className="rf-audit-live-avatar">
+                  {leadName(item.lead).slice(0, 1).toUpperCase()}
+                </span>
+                <span className="rf-audit-live-copy">
+                  <b>{leadName(item.lead)}</b>
+                  <small>
+                    {status === "generating"
+                      ? "Claude is auditing public evidence…"
+                      : status === "queued"
+                        ? "Waiting for audit worker…"
+                        : Number.isFinite(score)
+                          ? `Ready · ${score}/100 fit`
+                          : "Mini Audit ready"}
+                  </small>
+                </span>
+                <span className={`rf-audit-live-state ${status}`}>
+                  {status === "generating" ? <Loader2 size={12} className="spin" /> : status === "queued" ? <Clock3 size={12} /> : <CheckCircle2 size={12} />}
+                </span>
+              </button>
+            );
+          })
+        ) : (
+          <div className="rf-audit-live-empty">
+            <Sparkles size={15} />
+            <span>Select leads and run Mini Audits. Their status will appear here without leaving the page.</span>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -1210,6 +1328,13 @@ function buildInitialProfile(saved, user) {
       String(source.offer || user?.offer || user?.companyOffer || "").trim(),
     targetMarket:
       String(source.targetMarket || user?.targetMarket || "").trim(),
+    painPoints:
+      String(source.painPoints || user?.painPoints || "").trim(),
+    miniAuditDirection:
+      String(
+        source.miniAuditDirection ||
+          DEFAULT_PROFILE.miniAuditDirection
+      ).trim(),
     criteria: {
       ...DEFAULT_PROFILE.criteria,
       ...(source.criteria || {}),
@@ -1228,6 +1353,11 @@ function sanitizeProfile(value = {}) {
     idealCustomer: String(value.idealCustomer || "").trim().slice(0, 600),
     offer: String(value.offer || "").trim().slice(0, 800),
     targetMarket: String(value.targetMarket || "").trim().slice(0, 240),
+    painPoints: String(value.painPoints || "").trim().slice(0, 1200),
+    miniAuditDirection:
+      String(value.miniAuditDirection || DEFAULT_PROFILE.miniAuditDirection)
+        .trim()
+        .slice(0, 1600),
     pitchGoal: String(value.pitchGoal || "").trim().slice(0, 600),
     customInstructions: String(value.customInstructions || "").trim().slice(0, 1600),
     criteria,
@@ -1417,6 +1547,13 @@ const AUDIT_WORKSPACE_CSS = `
 }
 .rf-audit-stat span,.rf-audit-stat small{display:block;color:#8a8c97;font-size:9px}
 .rf-audit-stat b{display:block;margin:7px 0 4px;color:#23252d;font-size:22px;line-height:1;font-weight:790;letter-spacing:-.04em}
+.rf-audit-live-stream{margin-bottom:10px;border:1px solid #e4e5ed;border-radius:12px;background:#fff;overflow:hidden}
+.rf-audit-live-stream-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 11px;border-bottom:1px solid #eff0f3;background:#fcfcfe}
+.rf-audit-live-stream-head>div:first-child{display:flex;align-items:center;gap:9px}.rf-audit-live-stream-head b,.rf-audit-live-stream-head small{display:block}.rf-audit-live-stream-head b{font-size:9px}.rf-audit-live-stream-head small{margin-top:1px;color:#8c8f99;font-size:8px}
+.rf-audit-live-signal{display:inline-flex;align-items:center;gap:5px;padding:5px 7px;border-radius:999px;background:#f1f2f5;color:#777a84;font-size:7px;font-weight:800;text-transform:uppercase;letter-spacing:.06em}.rf-audit-live-signal i{width:6px;height:6px;border-radius:50%;background:#aeb0b8}.rf-audit-live-signal.active{background:#fff0f0;color:#b44343}.rf-audit-live-signal.active i{background:#ef4e4e;box-shadow:0 0 0 0 rgba(239,78,78,.35);animation:rfAuditPulse 1.4s infinite}
+@keyframes rfAuditPulse{70%{box-shadow:0 0 0 7px rgba(239,78,78,0)}100%{box-shadow:0 0 0 0 rgba(239,78,78,0)}}
+.rf-audit-live-working{display:inline-flex;align-items:center;gap:5px;color:#5557db;font-size:8px;font-weight:750}
+.rf-audit-live-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:#eff0f3}.rf-audit-live-item{display:grid;grid-template-columns:27px minmax(0,1fr) 20px;align-items:center;gap:7px;min-height:54px;padding:7px 9px;border:0;background:#fff;text-align:left;color:#525560}.rf-audit-live-item:hover{background:#fafaff}.rf-audit-live-avatar{width:26px;height:26px;display:grid;place-items:center;border-radius:8px;background:#efefff;color:#5557db;font-size:8px;font-weight:800}.rf-audit-live-copy{min-width:0}.rf-audit-live-copy b,.rf-audit-live-copy small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.rf-audit-live-copy b{font-size:8px}.rf-audit-live-copy small{margin-top:2px;color:#92949d;font-size:7px}.rf-audit-live-state{width:20px;height:20px;display:grid;place-items:center;border-radius:6px;background:#f1f2f4;color:#888b95}.rf-audit-live-state.complete{background:#eaf8f0;color:#24865a}.rf-audit-live-state.generating,.rf-audit-live-state.queued{background:#fff3de;color:#9b650a}.rf-audit-live-empty{grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:7px;min-height:50px;padding:8px 12px;background:#fff;color:#8b8d97;font-size:8px}
 .rf-audit-profile-card{margin-bottom:12px;border:1px solid #e4e5ed;border-radius:13px;background:#fff;overflow:hidden}
 .rf-audit-profile-head{
   width:100%;display:grid;grid-template-columns:36px minmax(0,1fr) 22px;align-items:center;gap:10px;
@@ -1490,6 +1627,7 @@ const AUDIT_WORKSPACE_CSS = `
 .rf-audit-skeleton aside,.rf-audit-skeleton section{min-height:620px;background:linear-gradient(90deg,#f4f4f6,#fff,#f4f4f6);background-size:220%;animation:rfAuditShimmer 1.2s infinite}@keyframes rfAuditShimmer{to{background-position:-220% 0}}
 .rf-audit-muted{padding:12px;color:#9698a2;font-size:8px}
 @media(max-width:1050px){
+  .rf-audit-live-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
   .rf-audit-profile-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
   .rf-audit-criteria-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
@@ -1503,6 +1641,8 @@ const AUDIT_WORKSPACE_CSS = `
 }
 @media(max-width:620px){
   .rf-audit-intel__hero h1{font-size:25px}
+  .rf-audit-live-strip{grid-template-columns:1fr}
+  .rf-audit-live-stream-head{align-items:flex-start;flex-direction:column}
   .rf-audit-profile-fields,.rf-audit-criteria-grid,.rf-audit-two-col,.rf-audit-fit-grid{grid-template-columns:1fr}
   .rf-audit-field.full{grid-column:auto}
 }
