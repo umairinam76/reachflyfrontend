@@ -64,11 +64,44 @@ const LANGUAGE_OPTIONS = [
   ["vi", "Vietnamese"], ["uk", "Ukrainian"],
 ];
 
+const BUSINESS_DAYS = [
+  ["monday", "Mon"],
+  ["tuesday", "Tue"],
+  ["wednesday", "Wed"],
+  ["thursday", "Thu"],
+  ["friday", "Fri"],
+  ["saturday", "Sat"],
+  ["sunday", "Sun"],
+];
+
+const DEFAULT_BUSINESS_HOURS = {
+  monday: { closed: false, open: "09:00", close: "18:00" },
+  tuesday: { closed: false, open: "09:00", close: "18:00" },
+  wednesday: { closed: false, open: "09:00", close: "18:00" },
+  thursday: { closed: false, open: "09:00", close: "18:00" },
+  friday: { closed: false, open: "09:00", close: "18:00" },
+  saturday: { closed: true, open: "", close: "" },
+  sunday: { closed: true, open: "", close: "" },
+};
+
+const DEFAULT_SYSTEM_PROMPT =
+  "You are the business's ReachFly AI phone agent. Keep conversations natural, concise and useful. Use only approved business knowledge and live tool results. Never invent availability, reservations, orders, prices, policies, customer history or confirmations. Complete only actions enabled for this workspace, confirm important details before writing them, respect opt-outs immediately, and escalate or take a message when a verified answer is unavailable.";
+
 const DEFAULT_FORM = {
   name: "Ava",
   description:
     "ReachFly outbound qualification and meeting-booking agent.",
   companyName: "",
+  purpose: "sales",
+  agentContext: "",
+  systemPrompt: DEFAULT_SYSTEM_PROMPT,
+  businessKnowledge: "",
+  businessTimezone: "America/New_York",
+  businessHours: DEFAULT_BUSINESS_HOURS,
+  closingMessage:
+    "Thanks for your time. I'll make sure the agreed next step is recorded for the team. Take care.",
+  afterHoursMessage:
+    "We're currently closed. I can take your details and the team can follow up during business hours.",
   elevenLabsAgentId: "",
   voice: "fNZkPhLHNXqE8oMjamg6",
   model: "elevenlabs-managed-llm",
@@ -3287,12 +3320,32 @@ function AgentSetup({
 
   const steps = [
     { key: "mode", label: "Direction", short: "Inbound / outbound" },
-    { key: "number", label: "Business number", short: "Your caller ID" },
-    { key: "identity", label: "Voice identity", short: "Name & voice" },
-    { key: "business", label: "Knowledge", short: "Website & offer" },
-    { key: "workflow", label: "Actions", short: "Booking & handoff" },
+    { key: "number", label: "Business number", short: "Connected identity" },
+    { key: "identity", label: "Agent & language", short: "Voice & default language" },
+    { key: "business", label: "Business Brain", short: "Prompt, memory & hours" },
+    { key: "workflow", label: "Conversation", short: "Scripts & live actions" },
     { key: "review", label: "Go live", short: "Review & activate" },
   ];
+
+  const systemPromptReady = Boolean(String(form.systemPrompt || "").trim());
+  const businessBrainReady = Boolean(
+    systemPromptReady &&
+      (String(form.businessKnowledge || "").trim() ||
+        form.websiteIntelligence?.analyzedAt ||
+        String(form.offer || "").trim() ||
+        String(form.idealCustomer || "").trim())
+  );
+  const openingReady = Boolean(
+    (!outboundEnabled || String(form.greeting || "").trim()) &&
+      (!inboundEnabled || String(form.inboundGreeting || "").trim())
+  );
+  const liveReady = Boolean(
+    numberReady &&
+      String(form.name || "").trim() &&
+      String(form.voice || "").trim() &&
+      businessBrainReady &&
+      openingReady
+  );
 
   useEffect(() => {
     const requested =
@@ -3735,12 +3788,12 @@ function AgentSetup({
               : "Voice setup"}
           </span>
           <h2>
-            Go from business number to live AI calls in six small steps.
+            Build one connected AI phone journey — then use it everywhere.
           </h2>
           <p>
-            Choose the call direction, connect your number, pick a ReachFly voice,
-            add business knowledge, choose the actions the agent can take, then go live.
-            ReachFly manages the technical calling infrastructure automatically.
+            Configure the agent once, connect its business memory and number, then use the
+            same identity for inbound calls, outbound calling and campaigns. Every step below
+            shows what is linked so the setup never feels like separate disconnected forms.
           </p>
         </div>
 
@@ -3766,6 +3819,33 @@ function AgentSetup({
                 ? `${signupFreeCredits} included with signup`
                 : "available connected calls"}
           </small>
+        </div>
+      </div>
+
+      <div className="rf-agent-connection-map" aria-label="Connected AI agent journey">
+        <div className={String(form.name || "").trim() && String(form.voice || "").trim() ? "ready" : "pending"}>
+          <span><Bot size={15} /></span>
+          <div><small>AI Agent</small><b>{form.name || "Create identity"}</b></div>
+        </div>
+        <i>→</i>
+        <div className={businessBrainReady ? "ready" : "pending"}>
+          <span><Sparkles size={15} /></span>
+          <div><small>Business Brain</small><b>{businessBrainReady ? "Context connected" : "Add context"}</b></div>
+        </div>
+        <i>→</i>
+        <div className={numberReady ? "ready" : "pending"}>
+          <span><Phone size={15} /></span>
+          <div><small>Number</small><b>{selectedNumber ? formatPhone(selectedNumber) : "Connect number"}</b></div>
+        </div>
+        <i>→</i>
+        <div className={normalizedMode ? "ready" : "pending"}>
+          <span><Activity size={15} /></span>
+          <div><small>Direction</small><b>{normalizedMode === "both" ? "Inbound + outbound" : formatLabel(normalizedMode)}</b></div>
+        </div>
+        <i>→</i>
+        <div className={liveReady ? "ready" : "pending"}>
+          <span><Zap size={15} /></span>
+          <div><small>Use everywhere</small><b>{liveReady ? "Calls & campaigns ready" : "Finish setup"}</b></div>
         </div>
       </div>
 
@@ -3802,9 +3882,9 @@ function AgentSetup({
                   : step === 2
                     ? "Who should callers and prospects hear?"
                     : step === 3
-                      ? "What should the agent know about your business?"
+                      ? "Connect the agent to your Business Brain."
                       : step === 4
-                        ? "What should happen during and after a call?"
+                        ? "Control how the agent opens, handles and closes calls."
                         : "Review and activate your phone agent."}
             </h3>
             <p>
@@ -3815,9 +3895,9 @@ function AgentSetup({
                   : step === 2
                     ? "Choose the customer-facing name and voice. Technical calling configuration stays managed automatically."
                     : step === 3
-                      ? "Website intelligence is optional. When added, ReachFly prepares the context before calls."
+                      ? "Set the system prompt, approved business knowledge, website intelligence and real weekly hours the agent can rely on."
                       : step === 4
-                        ? "Configure only the workflow details that change how calls are handled; safe technical defaults stay automatic."
+                        ? "Edit inbound/outbound openings and the closing script, then choose the real actions the agent is allowed to complete."
                         : "Confirm the number, workflow, calling policy and available call balance."}
             </p>
           </div>
@@ -4597,36 +4677,31 @@ function AgentSetup({
 
         {step === 3 ? (
           <div className="rf-voice-setup-pane">
-            <div className="rf-voice-wizard-note">
-              <b>Optional business intelligence</b>
-              <span>
-                Add a public website when you want the
-                agent grounded in your services, ideal
-                customers, proof points and common
-                objections.
-              </span>
+            <div className="rf-business-brain-banner">
+              <span><Sparkles size={18} /></span>
+              <div>
+                <b>Business Brain</b>
+                <p>
+                  This is the approved context the agent carries into every call. Website
+                  intelligence can prefill knowledge, while your system prompt, operational
+                  memory and business hours remain editable in real time.
+                </p>
+              </div>
+              <strong>{businessBrainReady ? "Connected" : "Needs context"}</strong>
             </div>
 
             <div className="rf-voice-essential-grid two">
               <Field
                 label="Company website (optional)"
                 value={form.websiteUrl}
-                onChange={(value) =>
-                  onChange("websiteUrl", value)
-                }
+                onChange={(value) => onChange("websiteUrl", value)}
                 placeholder="https://yourcompany.com"
               />
-
               <Field
-                label="Meeting owner email (optional)"
-                value={form.calendarOwnerEmail}
-                onChange={(value) =>
-                  onChange(
-                    "calendarOwnerEmail",
-                    value
-                  )
-                }
-                placeholder="sales@yourcompany.com"
+                label="Business timezone"
+                value={form.businessTimezone || form.bookingTimezone}
+                onChange={(value) => onChange("businessTimezone", value)}
+                placeholder="America/New_York"
               />
             </div>
 
@@ -4639,28 +4714,170 @@ function AgentSetup({
                   onClick={onAnalyzeWebsite}
                 >
                   {analyzingWebsite
-                    ? "Analyzing website…"
-                    : form.websiteIntelligence
-                          ?.analyzedAt
-                      ? "Re-analyze website"
-                      : "Analyze website"}
+                    ? "Building Business Brain…"
+                    : form.websiteIntelligence?.analyzedAt
+                      ? "Refresh website knowledge"
+                      : "Build from website"}
                 </button>
+                <small>ReachFly extracts public business context for review; you stay in control of what the agent uses.</small>
               </div>
             ) : null}
 
             {form.websiteIntelligence?.analyzedAt ? (
               <WebsiteIntelligencePreview
-                intelligence={
-                  form.websiteIntelligence
-                }
+                intelligence={form.websiteIntelligence}
                 websiteUrl={form.websiteUrl}
               />
             ) : null}
+
+            <div className="rf-business-brain-grid">
+              <label className="rf-agent-field rf-business-brain-field">
+                <span>System prompt / agent context</span>
+                <textarea
+                  rows={7}
+                  value={form.systemPrompt || ""}
+                  onChange={(event) => onChange("systemPrompt", event.target.value)}
+                  placeholder={DEFAULT_SYSTEM_PROMPT}
+                />
+                <small>Recommended instructions are prefilled. Add business-specific rules here; ReachFly safety, privacy and workspace isolation still apply.</small>
+              </label>
+
+              <label className="rf-agent-field rf-business-brain-field">
+                <span>Business knowledge & operating memory</span>
+                <textarea
+                  rows={7}
+                  value={form.businessKnowledge || ""}
+                  onChange={(event) => onChange("businessKnowledge", event.target.value)}
+                  placeholder="Services or menu, pricing rules, reservation policy, order process, locations, FAQs, escalation rules, fulfillment details…"
+                />
+                <small>The agent combines this approved knowledge with workspace-scoped live records and enabled tools. It must verify live reservation/order status instead of inventing it.</small>
+              </label>
+            </div>
+
+            <section className="rf-business-hours-card">
+              <div className="rf-agent-card-heading compact">
+                <div>
+                  <span>Business hours</span>
+                  <h3>Tell the agent when the business is actually open</h3>
+                </div>
+                <b className="rf-agent-count">{form.businessTimezone || form.bookingTimezone || "Timezone"}</b>
+              </div>
+              <div className="rf-business-hours-grid">
+                {BUSINESS_DAYS.map(([day, label]) => {
+                  const hours = normalizeBusinessHoursForForm(form.businessHours)[day];
+                  return (
+                    <div className={`rf-business-hour-row ${hours.closed ? "closed" : ""}`} key={day}>
+                      <strong>{label}</strong>
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={!hours.closed}
+                          onChange={(event) =>
+                            onChange("businessHours", {
+                              ...normalizeBusinessHoursForForm(form.businessHours),
+                              [day]: event.target.checked
+                                ? { closed: false, open: hours.open || "09:00", close: hours.close || "18:00" }
+                                : { closed: true, open: "", close: "" },
+                            })
+                          }
+                        />
+                        <span>{hours.closed ? "Closed" : "Open"}</span>
+                      </label>
+                      <input
+                        type="time"
+                        disabled={hours.closed}
+                        value={hours.open || "09:00"}
+                        onChange={(event) =>
+                          onChange("businessHours", {
+                            ...normalizeBusinessHoursForForm(form.businessHours),
+                            [day]: { ...hours, closed: false, open: event.target.value },
+                          })
+                        }
+                      />
+                      <span>to</span>
+                      <input
+                        type="time"
+                        disabled={hours.closed}
+                        value={hours.close || "18:00"}
+                        onChange={(event) =>
+                          onChange("businessHours", {
+                            ...normalizeBusinessHoursForForm(form.businessHours),
+                            [day]: { ...hours, closed: false, close: event.target.value },
+                          })
+                        }
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
           </div>
         ) : null}
 
         {step === 4 ? (
           <div className="rf-voice-setup-pane">
+            <section className="rf-conversation-control-card">
+              <div className="rf-agent-card-heading compact">
+                <div>
+                  <span>Conversation control</span>
+                  <h3>Opening, closing and after-hours scripts</h3>
+                </div>
+                <b className="rf-agent-count">Live editable</b>
+              </div>
+
+              <div className="rf-conversation-script-grid">
+                {outboundEnabled ? (
+                  <label className="rf-agent-field">
+                    <span>Outbound opening script</span>
+                    <textarea
+                      rows={4}
+                      value={form.greeting || ""}
+                      onChange={(event) => onChange("greeting", event.target.value)}
+                      placeholder="How the agent should open outbound calls…"
+                    />
+                    <small>Used when this agent starts an outbound call unless a selected language has its own opening line.</small>
+                  </label>
+                ) : null}
+
+                {inboundEnabled ? (
+                  <label className="rf-agent-field">
+                    <span>Inbound opening script</span>
+                    <textarea
+                      rows={4}
+                      value={form.inboundGreeting || ""}
+                      onChange={(event) => onChange("inboundGreeting", event.target.value)}
+                      placeholder="How the agent should answer incoming calls…"
+                    />
+                    <small>This is what callers hear when they reach the connected business number.</small>
+                  </label>
+                ) : null}
+
+                <label className="rf-agent-field">
+                  <span>Closing script</span>
+                  <textarea
+                    rows={4}
+                    value={form.closingMessage || ""}
+                    onChange={(event) => onChange("closingMessage", event.target.value)}
+                    placeholder="How the agent should end a completed conversation…"
+                  />
+                  <small>The agent uses this after the agreed action or next step has been confirmed.</small>
+                </label>
+
+                {inboundEnabled ? (
+                  <label className="rf-agent-field">
+                    <span>After-hours message</span>
+                    <textarea
+                      rows={4}
+                      value={form.afterHoursMessage || ""}
+                      onChange={(event) => onChange("afterHoursMessage", event.target.value)}
+                      placeholder="What the agent should say when the business is closed…"
+                    />
+                    <small>Business Brain hours decide when this message or the configured after-hours action applies.</small>
+                  </label>
+                ) : null}
+              </div>
+            </section>
+
             {inboundEnabled ? (
               <section className="rf-voice-workflow-block">
                 <div className="rf-voice-workflow-title">
@@ -5066,17 +5283,29 @@ function AgentSetup({
               </article>
 
               <article>
-                <span>Business</span>
+                <span>Business Brain</span>
                 <strong>
-                  {form.companyName ||
-                    "Workspace company"}
+                  {businessBrainReady ? "Connected" : "Needs context"}
                 </strong>
                 <small>
-                  {form.websiteIntelligence
-                    ?.analyzedAt
-                    ? "Website intelligence ready"
-                    : "Default context"}
+                  {form.websiteIntelligence?.analyzedAt
+                    ? "Website + approved workspace memory"
+                    : String(form.businessKnowledge || "").trim()
+                      ? "Approved workspace memory"
+                      : "Recommended system prompt only"}
                 </small>
+              </article>
+
+              <article>
+                <span>Default language</span>
+                <strong>{languageLabel(form.primaryLanguage)}</strong>
+                <small>{normalizeLanguageList(form.supportedLanguages, form.primaryLanguage).length} supported language{normalizeLanguageList(form.supportedLanguages, form.primaryLanguage).length === 1 ? "" : "s"}</small>
+              </article>
+
+              <article>
+                <span>Conversation scripts</span>
+                <strong>{openingReady && String(form.closingMessage || "").trim() ? "Ready" : "Needs review"}</strong>
+                <small>Opening + closing behavior saved with this agent</small>
               </article>
             </div>
 
@@ -12667,8 +12896,135 @@ function VoiceWorkspaceV7Styles() {
         }
       }
 
+      .rf-agent-v7 .rf-agent-connection-map{
+        display:grid;
+        grid-template-columns:minmax(0,1fr) 18px minmax(0,1fr) 18px minmax(0,1fr) 18px minmax(0,1fr) 18px minmax(0,1fr);
+        align-items:center;
+        gap:7px;
+        margin:14px 0 12px;
+        padding:12px;
+        border:1px solid var(--rfv7-outline);
+        border-radius:16px;
+        background:linear-gradient(135deg,#fff,#f8f8ff);
+        box-shadow:0 10px 30px rgba(33,35,54,.045);
+      }
+
+      .rf-agent-v7 .rf-agent-connection-map>div{
+        min-width:0;
+        display:grid;
+        grid-template-columns:32px minmax(0,1fr);
+        align-items:center;
+        gap:8px;
+        padding:9px;
+        border:1px solid var(--rfv7-outline);
+        border-radius:12px;
+        background:#fff;
+        transition:transform 180ms var(--rfv7-ease),border-color 180ms var(--rfv7-ease),box-shadow 180ms var(--rfv7-ease);
+      }
+
+      .rf-agent-v7 .rf-agent-connection-map>div.ready{border-color:#cbe8da;box-shadow:0 8px 18px rgba(8,122,81,.05)}
+      .rf-agent-v7 .rf-agent-connection-map>div:hover{transform:translateY(-1px)}
+      .rf-agent-v7 .rf-agent-connection-map>div>span{width:32px;height:32px;display:grid;place-items:center;border-radius:9px;background:var(--rfv7-soft);color:var(--rfv7-muted)}
+      .rf-agent-v7 .rf-agent-connection-map>div.ready>span{background:var(--rfv7-success-soft);color:var(--rfv7-success)}
+      .rf-agent-v7 .rf-agent-connection-map small,.rf-agent-v7 .rf-agent-connection-map b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .rf-agent-v7 .rf-agent-connection-map small{font-size:8px;color:var(--rfv7-muted)}
+      .rf-agent-v7 .rf-agent-connection-map b{margin-top:2px;font-size:9px;color:var(--rfv7-text)}
+      .rf-agent-v7 .rf-agent-connection-map>i{font-style:normal;text-align:center;color:#a9a9bb;font-size:13px}
+
+      .rf-agent-v7 .rf-business-brain-banner{
+        display:grid;
+        grid-template-columns:38px minmax(0,1fr) auto;
+        align-items:center;
+        gap:10px;
+        margin-bottom:13px;
+        padding:12px;
+        border:1px solid #dddfff;
+        border-radius:13px;
+        background:linear-gradient(135deg,#f5f5ff,#fff);
+      }
+      .rf-agent-v7 .rf-business-brain-banner>span{width:36px;height:36px;display:grid;place-items:center;border-radius:10px;background:var(--rfv7-primary-soft);color:var(--rfv7-primary)}
+      .rf-agent-v7 .rf-business-brain-banner b,.rf-agent-v7 .rf-business-brain-banner p{display:block;margin:0}
+      .rf-agent-v7 .rf-business-brain-banner b{font-size:11px}
+      .rf-agent-v7 .rf-business-brain-banner p{margin-top:3px;color:var(--rfv7-muted);font-size:9px;line-height:1.5}
+      .rf-agent-v7 .rf-business-brain-banner>strong{padding:6px 8px;border-radius:999px;background:var(--rfv7-success-soft);color:var(--rfv7-success);font-size:8px}
+
+      .rf-agent-v7 .rf-business-brain-grid,.rf-agent-v7 .rf-conversation-script-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+      .rf-agent-v7 .rf-business-brain-field textarea{min-height:150px}
+      .rf-agent-v7 .rf-business-hours-card,.rf-agent-v7 .rf-conversation-control-card{margin-top:12px;padding:13px;border:1px solid var(--rfv7-outline);border-radius:13px;background:#fff}
+      .rf-agent-v7 .rf-business-hours-grid{display:grid;gap:6px;margin-top:10px}
+      .rf-agent-v7 .rf-business-hour-row{display:grid;grid-template-columns:42px 78px minmax(92px,130px) 18px minmax(92px,130px);align-items:center;gap:8px;padding:7px 8px;border:1px solid #ececf1;border-radius:9px;background:#fafafb}
+      .rf-agent-v7 .rf-business-hour-row>strong{font-size:9px}
+      .rf-agent-v7 .rf-business-hour-row>label{display:flex;align-items:center;gap:5px;font-size:8px;color:var(--rfv7-text-soft)}
+      .rf-agent-v7 .rf-business-hour-row input[type="time"]{min-width:0;width:100%;height:30px;border:1px solid #dedfe5;border-radius:7px;background:#fff;padding:0 7px;font-size:9px;color:var(--rfv7-text)}
+      .rf-agent-v7 .rf-business-hour-row.closed{opacity:.68}
+      .rf-agent-v7 .rf-business-hour-row.closed input[type="time"]{background:#f1f2f4}
+      .rf-agent-v7 .rf-conversation-control-card{margin-top:0;margin-bottom:12px;background:linear-gradient(180deg,#fff,#fcfcff)}
+
+      @media(max-width:1040px){
+        .rf-agent-v7 .rf-agent-connection-map{grid-template-columns:1fr 18px 1fr 18px 1fr}
+        .rf-agent-v7 .rf-agent-connection-map>i:nth-of-type(3),
+        .rf-agent-v7 .rf-agent-connection-map>i:nth-of-type(4){display:none}
+        .rf-agent-v7 .rf-agent-connection-map>div:nth-of-type(4),
+        .rf-agent-v7 .rf-agent-connection-map>div:nth-of-type(5){grid-column:span 2}
+      }
+
+      @media(max-width:720px){
+        .rf-agent-v7 .rf-agent-connection-map{display:flex;overflow:auto;align-items:stretch}
+        .rf-agent-v7 .rf-agent-connection-map>div{min-width:180px}
+        .rf-agent-v7 .rf-business-brain-grid,.rf-agent-v7 .rf-conversation-script-grid{grid-template-columns:1fr}
+        .rf-agent-v7 .rf-business-hour-row{grid-template-columns:38px 70px 1fr 14px 1fr}
+      }
+
     `}</style>
   );
+}
+
+function cloneBusinessHours(value) {
+  const source = value && typeof value === "object" ? value : {};
+  return BUSINESS_DAYS.reduce((result, [day]) => {
+    const item = source[day];
+    result[day] =
+      item && typeof item === "object"
+        ? {
+            closed: item.closed === true || item.enabled === false,
+            open:
+              item.closed === true || item.enabled === false
+                ? ""
+                : String(item.open || item.start || "09:00"),
+            close:
+              item.closed === true || item.enabled === false
+                ? ""
+                : String(item.close || item.end || "18:00"),
+          }
+        : { ...DEFAULT_BUSINESS_HOURS[day] };
+    return result;
+  }, {});
+}
+
+function normalizeBusinessHoursForForm(value) {
+  const source = value && typeof value === "object" ? value : {};
+  const hasAny = BUSINESS_DAYS.some(([day]) => source[day] != null);
+  if (!hasAny) return cloneBusinessHours(DEFAULT_BUSINESS_HOURS);
+
+  return BUSINESS_DAYS.reduce((result, [day]) => {
+    const raw = source[day];
+    if (raw === false) {
+      result[day] = { closed: true, open: "", close: "" };
+    } else if (typeof raw === "string") {
+      const [open = "09:00", close = "18:00"] = raw.split(/\s*[-–—]\s*/);
+      result[day] = { closed: false, open, close };
+    } else if (raw && typeof raw === "object") {
+      const closed = raw.closed === true || raw.enabled === false;
+      result[day] = {
+        closed,
+        open: closed ? "" : String(raw.open || raw.start || "09:00"),
+        close: closed ? "" : String(raw.close || raw.end || "18:00"),
+      };
+    } else {
+      result[day] = { ...DEFAULT_BUSINESS_HOURS[day] };
+    }
+    return result;
+  }, {});
 }
 
 function normalizeAgentForm(value = {}) {
@@ -12682,6 +13038,36 @@ function normalizeAgentForm(value = {}) {
   return {
     ...DEFAULT_FORM,
     ...value,
+    agentContext: String(value.agentContext || ""),
+    systemPrompt: String(
+      value.systemPrompt ||
+        value.systemInstructions ||
+        value.customSystemPrompt ||
+        DEFAULT_SYSTEM_PROMPT
+    ),
+    businessKnowledge: String(
+      value.businessKnowledge ||
+        value.businessContext ||
+        value.businessMemory ||
+        ""
+    ),
+    businessTimezone: String(
+      value.businessTimezone ||
+        value.bookingTimezone ||
+        DEFAULT_FORM.businessTimezone
+    ),
+    businessHours: normalizeBusinessHoursForForm(value.businessHours),
+    closingMessage: String(
+      value.closingMessage ||
+        value.closingScript ||
+        value.outboundClosing ||
+        DEFAULT_FORM.closingMessage
+    ),
+    afterHoursMessage: String(
+      value.afterHoursMessage ||
+        value.inboundAfterHoursMessage ||
+        DEFAULT_FORM.afterHoursMessage
+    ),
     primaryLanguage,
     supportedLanguages,
     autoDetectLanguage: value.autoDetectLanguage !== false,
