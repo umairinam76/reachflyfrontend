@@ -1173,7 +1173,7 @@ export default function PhoneNumbersPage() {
             <SectionHead
               eyebrow="Provisioning"
               title="Orders needing attention"
-              text="These paid or pending number orders have not reached an active state yet."
+              text="These payment or provisioning attempts need action before a business number can become active."
             />
             <div className="orders">
               {failedOrders.map((order, index) => {
@@ -2220,13 +2220,23 @@ function buildPaymentIssue(order = {}) {
   const code = String(failure?.code || order?.paymentFailureCode || "").trim();
   const haystack = `${code} ${raw}`.toLowerCase();
 
-  if (code === "203" || haystack.includes("general decline") || haystack.includes("authorization")) {
+  if (code === "203") {
     return {
       kind: "declined",
-      code: code || "203",
-      title: "Your bank declined the card authorization",
+      code,
+      title: "Your card issuer declined the authorization",
       message:
-        "The payment did not complete, so ReachFly did not continue to phone-number provisioning. Try another card or payment method. If you want to use the same card, ask the issuing bank to approve online/card-not-present payments and then retry.",
+        "The payment did not complete, so ReachFly did not continue to phone-number provisioning. Try another card or payment method. If you want to use the same card, ask the issuing bank to approve the online/card-not-present payment and then retry.",
+    };
+  }
+
+  if (code === "403" || haystack.includes("general decline")) {
+    return {
+      kind: "processor",
+      code,
+      title: "The payment processor rejected the authorization",
+      message:
+        "The payment did not complete and ReachFly did not provision the number. Try another card or payment method. If different cards receive the same result, review the Safepay merchant/payment configuration or contact Safepay support with this processor code instead of treating it as a confirmed bank decline.",
     };
   }
 
@@ -2268,7 +2278,7 @@ function safeMessage(value) {
     .replace(/\bSIP\b/gi, "carrier routing");
 
   if (/general decline/i.test(text) || /action ['"]?authorization/i.test(text)) {
-    return "Your bank declined this card authorization. Try another card or payment method, or contact the issuing bank before retrying.";
+    return "The payment processor rejected the authorization. Try another card or payment method. If the same result occurs with multiple cards, review the Safepay merchant configuration or contact Safepay support with the processor code.";
   }
 
   return text;
